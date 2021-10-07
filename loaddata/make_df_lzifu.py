@@ -1,12 +1,9 @@
 import os, sys
 import numpy as np
+from itertools import product
 from astropy.io import fits
 import pandas as pd
 from scipy import constants
-from itertools import product
-
-from grid_utils import bpt_fn, ratio_fn, law2021_fn
-from df_dqcut import df_dqcut
 
 import matplotlib.pyplot as plt
 plt.ion()

@@ -1,19 +1,34 @@
+import os
+import numpy as np
+from astropy.io import fits
+from astropy.wcs import WCS
+
+from plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn, plot_scale_bar, plot_compass
+
+import matplotlib.pyplot as plt
+plt.ion()
+
+sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
+
 ###############################################################################
-def plot_2d_maps(gal, col_z,
-                 show_title=True, axis_labels=True,
-                 vmin=None, vmax=None,
-                 ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical",
-                 figsize=(9, 7)):
+def plot2dmap(df_gal, col_z, bin_type,
+              show_title=True, axis_labels=True,
+              vmin=None, vmax=None,
+              ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical",
+              figsize=(5, 5)):
     """
     Show a 2D map of the galaxy, where sectors/bins/spaxels are coloured by
     the desired quantities.
     """
-    assert col_z in df.columns, f"{col_z} is not a valid column!"
-    assert gal in df["catid"].values, f"Galaxy with ID {gal} not found!"
-    df_gal = df[df["catid"] == gal]
-    assert cax_orientation == "horizontal" or cax_orientation == "vertical", "cax_orientation must be either 'horizontal' or 'vertical'!"
+    assert col_z in df_gal.columns,\
+        f"{col_z} is not a valid column!"
+    assert cax_orientation == "horizontal" or cax_orientation == "vertical",\
+        "cax_orientation must be either 'horizontal' or 'vertical'!"
+    assert len(df_gal.catid.unique()) == 1,\
+        "df_gal contains must only contain one galaxy!"
 
     # Load the non-binned data cube to get a continuum image
+    gal = df_gal.catid.unique()[0]
     hdulist = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
     data_cube = hdulist[0].data
     header = hdulist[0].header
@@ -32,15 +47,15 @@ def plot_2d_maps(gal, col_z,
 
     # Reconstruct 2D arrays from the rows in the data frame.
     col_z_map = np.full((50, 50), np.nan)
-    if self.bin_type == "adaptive":
-        hdulist = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{self.bin_type}_blue.fits.gz"))
+    if bin_type == "adaptive":
+        hdulist = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
         bin_map = hdulist[2].data.astype("float")
         bin_map[bin_map==0] = np.nan
         for ii in df_gal["bin_number"]:
             bin_mask = bin_map == ii
             col_z_map[bin_mask] = df_gal.loc[df_gal["bin_number"] == ii, col_z]
 
-    elif self.bin_type == "default":
+    elif bin_type == "default":
         df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] * 2, df_gal["y (projected, arcsec)"] * 2))
         for rr in range(df_gal.shape[0]):
             xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
@@ -61,7 +76,9 @@ def plot_2d_maps(gal, col_z,
         vmin = vmin_fn(col_z)
     if vmax is None:
         vmax = vmax_fn(col_z)
-    m = ax.imshow(col_z_map, cmap=cmap_fn(col_z), vmin=vmin, vmax=vmax)
+    cmap = cmap_fn(col_z)
+    cmap.set_bad("#b3b3b3")
+    m = ax.imshow(col_z_map, cmap=cmap, vmin=vmin, vmax=vmax)
 
     # Contours
     ax.contour(im_B, linewidths=0.5, colors="white", levels=np.logspace(0, 2.5, 15))
@@ -71,7 +88,7 @@ def plot_2d_maps(gal, col_z,
     plot_compass(ax=ax, color="black")
 
     if show_title:
-        ax.set_title(f"Galaxy ID {gal}")
+        ax.set_title(f"GAMA{gal}")
 
     # If the user wants to plot a colorbar but the colorbar axis is not specified,
     # then create a new one.

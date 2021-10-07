@@ -1,17 +1,11 @@
-import os
-from itertools import product
+import os, sys
 import numpy as np
+from itertools import product
 from astropy.io import fits
-from astroquery.sdss import SDSS
-from astropy import coordinates as coords
 import pandas as pd
+from scipy import constants
 from tqdm import tqdm
 import multiprocessing
-from scipy import constants
-import sys
-
-# import matplotlib
-# matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -37,7 +31,7 @@ plotit = False
 
 ###############################################################################
 # Filenames
-df_fname_binned = f"sami_{bin_type}_{ncomponents}-comp.hd5"
+df_fname = f"sami_{bin_type}_{ncomponents}-comp.hd5"
 df_metadata_fname = "sami_dr3_metadata.hd5"
 
 ###############################################################################
@@ -358,8 +352,8 @@ def process_gals(args):
 # Run in parallel
 ###############################################################################
 print("Beginning pool...")
-args_list = [[ii, g] for ii, g in enumerate(gal_ids_dq_cut[:20])]
-pool = multiprocessing.Pool(10)
+args_list = [[ii, g] for ii, g in enumerate(gal_ids_dq_cut)]
+pool = multiprocessing.Pool(20)
 res_list = np.array((pool.map(process_gals, args_list)))
 pool.close()
 pool.join()
@@ -371,8 +365,6 @@ rows_list_all = [r[0] for r in res_list]
 colnames = res_list[0][1]
 safe_cols = [c for c in df_metadata.columns if c != "Morphology"]
 df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)), columns=safe_cols + colnames)
-
-Tracer()()
 
 ###############################################################################
 # Add the morphology column back in
@@ -506,14 +498,12 @@ for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII50
 df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {ii})"] for ii in range(3 if ncomponents == "recom" else 1)], axis=0)
 df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {ii})"]**2 for ii in range(3 if ncomponents == "recom" else 1)], axis=0))
 
-Tracer()()
-
 ###############################################################################
 # Save to .hd5 & .csv
 ###############################################################################
 print("Saving to file...")
-df_spaxels.to_csv(os.path.join(sami_data_path, df_fname_binned.split("hd5")[0] + "csv"))
+df_spaxels.to_csv(os.path.join(sami_data_path, df_fname.split("hd5")[0] + "csv"))
 try:
-    df_spaxels.to_hdf(os.path.join(sami_data_path, df_fname_binned), key=f"{bin_type}, {ncomponents}-comp")
+    df_spaxels.to_hdf(os.path.join(sami_data_path, df_fname), key=f"{bin_type}, {ncomponents}-comp")
 except:
     print("Unable to save to HDF file... sigh...")

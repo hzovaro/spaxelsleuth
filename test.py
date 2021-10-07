@@ -4,6 +4,8 @@ import numpy as np
 
 from loaddata.sami import load_sami_galaxies
 from plotting.sdssimg import plot_sdss_image
+from plotting.plotgalaxies import plot2dscatter, plot2dhist, plot2dcontours, plot2dhistcontours
+from plotting.plot2dmap import plot2dmap
 
 import matplotlib.pyplot as plt
 plt.close("all")
@@ -27,29 +29,49 @@ df_gal = df[df.catid == gal]
 ##############################################################################
 # Test: SDSS image
 ##############################################################################
-
 plot_sdss_image(df_gal)
 
 ##############################################################################
 # Test: 2D scatter
 ##############################################################################
+fig, ax = plt.subplots(nrows=1, ncols=1)
+bbox = ax.get_position()
+cax = fig.add_axes([bbox.x0 + bbox.width, bbox.y0, 0.05, bbox.height])
+plot2dscatter(df, col_x="log N2 (total)", col_y="log O3 (total)",
+              col_z="log sigma_gas (component 0)", ax=ax, cax=cax)
+
+# Test without providing axes
+fig, ax = plt.subplots(nrows=1, ncols=1)
+plot2dscatter(df_gal, col_x="log N2 (total)", col_y="log O3 (total)",
+              col_z="log sigma_gas (component 0)", ax=ax)
 
 ##############################################################################
-# Test: 2D histogram
+# Test: 2D histogram & 2D contours
 ##############################################################################
+fig, ax = plt.subplots(nrows=1, ncols=1)
+plot2dhist(df, col_x="log N2 (total)", col_y="log O3 (total)",
+           col_z="BPT (numeric) (total)", ax=ax, nbins=30)
+
+plot2dcontours(df, col_x="log N2 (total)", col_y="log O3 (total)",
+              ax=ax, nbins=30)
 
 ##############################################################################
 # Test: 2D contours
 ##############################################################################
+fig, ax = plt.subplots(nrows=1, ncols=1)
+plot2dhist(df, col_x="log N2 (total)", col_y="log O3 (total)",
+           col_z="log sigma_gas (component 0)", ax=ax, nbins=30)
 
 ##############################################################################
 # Test: 2D histogram + contours
 ##############################################################################
+plot2dhistcontours(df, col_x="log sigma_gas (component 0)", col_y="log HALPHA EW (component 0)",
+                   col_z="count", log_z=True)
 
 ##############################################################################
 # Test: 2D map plots
 ##############################################################################
-
+plot2dmap(df_gal, bin_type=bin_type, col_z="HALPHA (total)")
 
 
 

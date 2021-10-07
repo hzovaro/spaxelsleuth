@@ -1,31 +1,26 @@
 import pandas as pd
+import numpy as np
 
-from grid_utils import plot_2dhist, plot_contours
-from plottools import cmap_fn, vmin_fn, vmax_fn, label_fn
-from plottools import bpt_ticks, bpt_labels, law2021_ticks, law2021_labels, morph_ticks, morph_labels
+from plotting.plottools import cmap_fn, vmin_fn, vmax_fn, label_fn, histhelper
+from plotting.plottools import bpt_ticks, bpt_labels, law2021_ticks, law2021_labels, morph_ticks, morph_labels
 
 import matplotlib.pyplot as plt
 plt.ion()
 
 ###############################################################################
-def plot2dhist(df, col_x, col_y, col_z, log_z=False,
-               ax,
+def plot2dhist(df, col_x, col_y, col_z, ax, log_z=False,
                vmin=None, vmax=None,
                xmin=None, xmax=None,
                ymin=None, ymax=None,
-               nbins=100, alpha=1.0, cmap_hist=None):
+               nbins=100, alpha=1.0, cmap=None):
 
     if col_x.find("component") != -1:
         print(f"WARNING: in plot_2dhist: only plotting {col_x}!")
     if col_y.find("component") != -1:
         print(f"WARNING: in plot_2dhist: only plotting {col_y}!")
-    """
-    Plot a 2D histogram representing the FULL sample (modulo S/N cuts).
-    For columns in which there are multiple kinematic components, include 
-    ALL of them (e.g., HALPHA EW).
-    """
+
     # Figure out how many components were fitted.
-    ncomponents == "recom" if if any([c.endswith("(component 2)") for c in df.columns]) else "1"
+    ncomponents = "recom" if any([c.endswith("(component 2)") for c in df.columns]) else "1"
 
     # If either column are present as multiple components, then make a new 
     # data frame containing all of them.
@@ -65,8 +60,8 @@ def plot2dhist(df, col_x, col_y, col_z, log_z=False,
         df = pd.DataFrame({col_x: data_x, col_y: data_y, col_z: data_z})
 
     # Plot
-    if cmap_hist is None:
-        cmap_hist = cmap_fn(col_z)
+    if cmap is None:
+        cmap = cmap_fn(col_z)
     if vmin is None:
         vmin = vmin_fn(col_z)
     if vmax is None:
@@ -84,22 +79,22 @@ def plot2dhist(df, col_x, col_y, col_z, log_z=False,
     if col_z == "BPT (numeric)":
         df_classified = df[df["BPT (numeric)"] > -1]
         df_unclassified = df[df["BPT (numeric)"] == -1]
-        plot_2dhist(df=df_unclassified, col_x=col_x, col_y=col_y, col_z=col_z,
-                    log_z=log_z, nbins=nbins, ax=ax, cmap=cmap_hist,
+        histhelper(df=df_unclassified, col_x=col_x, col_y=col_y, col_z=col_z,
+                    log_z=log_z, nbins=nbins, ax=ax, cmap=cmap,
                     xmin=xmin, xmax=xmax,
                     ymin=ymin, ymax=ymax,
                     vmin=vmin, vmax=vmax,
                     alpha=alpha)
-        m = plot_2dhist(df=df_classified, col_x=col_x, col_y=col_y, col_z=col_z,
-                    log_z=log_z, nbins=nbins, ax=ax, cmap=cmap_hist,
+        m = histhelper(df=df_classified, col_x=col_x, col_y=col_y, col_z=col_z,
+                    log_z=log_z, nbins=nbins, ax=ax, cmap=cmap,
                     xmin=xmin, xmax=xmax,
                     ymin=ymin, ymax=ymax,
                     vmin=vmin, vmax=vmax,
                     alpha=alpha)
 
     else:
-        m = plot_2dhist(df=df, col_x=col_x, col_y=col_y, col_z=col_z, 
-            log_z=log_z, nbins=nbins, ax=ax, cmap=cmap_hist,
+        m = histhelper(df=df, col_x=col_x, col_y=col_y, col_z=col_z, 
+            log_z=log_z, nbins=nbins, ax=ax, cmap=cmap,
             xmin=xmin, xmax=xmax,
             ymin=ymin, ymax=ymax,
             vmin=vmin, vmax=vmax, 
@@ -109,11 +104,11 @@ def plot2dhist(df, col_x, col_y, col_z, log_z=False,
 
 
 ###############################################################################
-def plot2dcontours(col_x, col_y, ax,
-                                nbins=100, alpha=1.0, levels=None,
-                                xmin=None, xmax=None,
-                                ymin=None, ymax=None,
-                                contour_linewidth=0.5, colors="k"):
+def plot2dcontours(df, col_x, col_y, ax,
+                   nbins=100, alpha=1.0, levels=None,
+                   xmin=None, xmax=None,
+                   ymin=None, ymax=None,
+                   linewidths=0.5, colors="k"):
     if col_x.find("component") != -1:
         print(f"WARNING: in plot_2dcontours: only plotting {col_x}!")
     if col_y.find("component") != -1:
@@ -124,7 +119,7 @@ def plot2dcontours(col_x, col_y, ax,
     ALL of them (e.g., HALPHA EW).
     """
     # Figure out how many components were fitted.
-    ncomponents == "recom" if any([c.endswith("(component 2)") for c in df.columns]) else "1"
+    ncomponents = "recom" if any([c.endswith("(component 2)") for c in df.columns]) else "1"
 
     # If either column are present as multiple components, then make a new 
     # data frame containing all of them.
@@ -155,23 +150,50 @@ def plot2dcontours(col_x, col_y, ax,
         ymax = vmax_fn(col_y)
     if levels is None:
         levels = np.logspace(1, 3, 10)
-    plot_contours(df=df, col_x=col_x, col_y=col_y, levels=levels, 
-                  log=False, colors=colors, ax=ax,
-                  xmin=xmin, xmax=xmax,
-                  ymin=ymin, ymax=ymax,
-                  linewidth=contour_linewidth, alpha=alpha, nbins=nbins)
 
-    return
+    # Determine bin edges for the x & y-axis line ratio 
+    # Messy hack to include that final bin...
+    ybins = np.linspace(ymin, ymax, nbins)
+    dy = np.diff(ybins)[0]
+    ybins = list(ybins)
+    ybins.append(ybins[-1] + dy)
+    ybins = np.array(ybins)
+    ycut = pd.cut(df[col_y], ybins)
+
+    xbins = np.linspace(xmin, xmax, nbins)
+    dx = np.diff(xbins)[0]
+    xbins = list(xbins)
+    xbins.append(xbins[-1] + dx)
+    xbins = np.array(xbins)
+    xcut = pd.cut(df[col_x], xbins)
+
+    # Combine the x- and y-cuts
+    cuts = pd.DataFrame({"xbin": xcut, "ybin": ycut})    # Combine the x- and y-cuts
+    cuts = pd.DataFrame({"xbin": xcut, "ybin": ycut})
+
+    # Calculate the desired quantities for the data binned by x and y    
+    gb_binned = df.join(cuts).groupby(list(cuts))
+    df_binned = gb_binned.agg({df.columns[0]: lambda g: g.count()})
+
+    # Pull out arrays to plot
+    count_map = df_binned[df.columns[0]].values.reshape((nbins, nbins))
+
+    # Plot.
+    m = ax.contour(xbins[:-1] + dx / 2, ybins[:-1] + dy / 2, count_map.T,
+                   levels=levels, colors=colors, alpha=alpha, 
+                   linewidths=linewidths)
+
+    return m
 
 
 ###############################################################################
-def plot2dhistcontours(col_x, col_y, col_z=None, log_z=False,
+def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
                        vmin=None, vmax=None,
                        xmin=None, xmax=None, ymin=None, ymax=None,
                        nbins=100, ax=None, axis_labels=True, plot_colorbar=True,
                        cax=None, cax_orientation="vertical", alpha=1.0,
-                       hist=True, contours=True, contour_levels=None, contour_linewidth=0.5, 
-                       colors="k", cmap_hist=None,
+                       hist=True, contours=True, levels=None, linewidths=0.5, 
+                       colors="k", cmap=None,
                        figsize=(9, 7)):
     """
     Plot a 2D histogram of the SAMI galaxies.
@@ -202,11 +224,11 @@ def plot2dhistcontours(col_x, col_y, col_z=None, log_z=False,
 
     # Plot the full sample
     if hist:
-        m = plot2dhist(col_x, col_y, col_z=col_z, log_z=log_z, nbins=nbins, ax=ax, alpha=alpha, cmap_hist=cmap_hist,
+        m = plot2dhist(df=df, col_x=col_x, col_y=col_y, col_z=col_z, log_z=log_z, nbins=nbins, ax=ax, alpha=alpha, cmap=cmap,
                        vmin=vmin, vmax=vmax, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
     if contours:
-        plot2dcontours(col_x, col_y, ax=ax, alpha=alpha, nbins=nbins, contour_linewidth=contour_linewidth, colors=colors,
-                       levels=contour_levels, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+        plot2dcontours(df=df, col_x=col_x, col_y=col_y, ax=ax, alpha=alpha, nbins=nbins, linewidths=linewidths, colors=colors,
+                       levels=levels, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
 
     # Decorations        
     if plot_colorbar and hist:
@@ -295,8 +317,8 @@ def plot2dhistcontours(col_x, col_y, col_z=None, log_z=False,
 ###############################################################################
 def plot2dscatter(df, col_x, col_y, col_z,
                   vmin=None, vmax=None, xmin=None, xmax=None, ymin=None, ymax=None,
-                  axis_labels=True, plot_full_sample=True,
-                  ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical", alpha=1.0,
+                  ax=None, axis_labels=True,
+                  plot_colorbar=True, cax=None, cax_orientation="vertical", alpha=1.0,
                   errorbars=True, edgecolors="k", marker="o", markersize=20, figsize=(9, 7)):
     """
     Plot a 2D histogram of spaxels from a SAMI galaxy (as specified by gal) 

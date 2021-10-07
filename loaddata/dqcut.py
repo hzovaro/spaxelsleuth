@@ -172,6 +172,9 @@ def dqcut(df, ncomponents,
     # Drop rows that have been NaNed out
     df = df.dropna(subset=["catid"])
 
+    # Cast catid column to int
+    df["catid"] = df["catid"].astype(int)
+
     return df
 
 ######################################################################

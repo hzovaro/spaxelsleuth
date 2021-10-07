@@ -1,7 +1,14 @@
 import numpy as np
 import copy
-from matplotlib.colors import ListedColormap, to_rgba
+import pandas as pd
 
+from matplotlib.colors import ListedColormap, to_rgba, LogNorm
+import matplotlib.patheffects as PathEffects
+import matplotlib.pyplot as plt
+
+###############################################################################
+# Custom colour maps for discrete quantities
+###############################################################################
 # Custom colour map for BPT categories
 bpt_labels = ["Not classified", "SF", "Composite", "LINER", "Seyfert", "Ambiguous"]
 bpt_ticks = np.arange(len(bpt_labels)) - 1
@@ -48,6 +55,9 @@ ncomponents_cmap.set_bad(color="white", alpha=0.0)
 sfr_cmap = copy.copy(plt.cm.get_cmap("magma"))
 sfr_cmap.set_under("lightgray")
 
+###############################################################################
+# Colourmaps, min/max values and labels for each quantity
+###############################################################################
 cmap_dict = {
     "count": copy.copy(plt.cm.get_cmap("cubehelix")),
     "log N2": copy.copy(plt.cm.get_cmap("viridis")),
@@ -113,7 +123,9 @@ cmap_dict = {
 }
 
 for key in cmap_dict.keys():
-    cmap_dict[key].set_bad("#b3b3b3")
+    # cmap_dict[key].set_bad("#b3b3b3")
+    cmap_dict[key].set_bad("white")
+
 
 vmin_dict = {
     "count": None,
@@ -307,6 +319,9 @@ label_dict = {
      "v_grad" : r"$v_{\rm grad}$",
 }
 
+###############################################################################
+# Helper functions to return colourmaps, min/max values and labels
+###############################################################################
 def cmap_fn(col):
     if " (component" in col:
         col = col.split(" (component")[0]
@@ -318,6 +333,7 @@ def cmap_fn(col):
         print("WARNING: in cmap_fn(): undefined column")
         return copy.copy(plt.cm.get_cmap("jet"))
 
+###############################################################################
 def vmin_fn(col):
     if " (component" in col:
         col = col.split(" (component")[0]
@@ -329,6 +345,7 @@ def vmin_fn(col):
         print("WARNING: in vmin_fn(): undefined column")
         return None
 
+###############################################################################
 def vmax_fn(col):
     if " (component" in col:
         col = col.split(" (component")[0]
@@ -340,6 +357,7 @@ def vmax_fn(col):
         print("WARNING: in vmax_fn(): undefined column")
         return None
 
+###############################################################################
 def label_fn(col):
     if " (component" in col:
         col = col.split(" (component")[0]
@@ -350,4 +368,286 @@ def label_fn(col):
     else:
         print("WARNING: in label_fn(): undefined column")
         return col
+
+###############################################################################
+# Helper function for plotting 2D histograms
+###############################################################################
+def histhelper(df, col_x, col_y, col_z, nbins, ax, cmap,
+                xmin, xmax, ymin, ymax, vmin, vmax,
+                log_z=False, alpha=1.0):
+
+    # Determine bin edges for the x & y-axis line ratio 
+    # Messy hack to include that final bin...
+    ybins = np.linspace(ymin, ymax, nbins)
+    dy = np.diff(ybins)[0]
+    ybins = list(ybins)
+    ybins.append(ybins[-1] + dy)
+    ybins = np.array(ybins)
+    ycut = pd.cut(df[col_y], ybins)
+
+    xbins = np.linspace(xmin, xmax, nbins)
+    dx = np.diff(xbins)[0]
+    xbins = list(xbins)
+    xbins.append(xbins[-1] + dx)
+    xbins = np.array(xbins)
+    xcut = pd.cut(df[col_x], xbins)
+
+    # Combine the x- and y-cuts
+    cuts = pd.DataFrame({"xbin": xcut, "ybin": ycut})
+
+    # Calculate the desired quantities for the data binned by x and y    
+    gb_binned = df.join(cuts).groupby(list(cuts))
+    if col_z == "count":
+        df_binned = gb_binned.agg({df.columns[0]: lambda g: g.count()})
+        df_binned = df_binned.rename(columns={df.columns[0]: "count"})
+    else:
+        df_binned = gb_binned.agg({col_z: np.nanmedian})
+
+    # Pull out arrays to plot
+    count_map = df_binned[col_z].values.reshape((nbins, nbins))
+
+    # Plot.
+    if log_z:
+        m = ax.pcolormesh(xbins[:-1], ybins[:-1], count_map.T, cmap=cmap,
+            edgecolors="none", vmin=vmin, vmax=vmax,
+            norm=LogNorm(vmin=vmin, vmax=vmax))
+    else:
+        m = ax.pcolormesh(xbins[:-1], ybins[:-1], count_map.T, cmap=cmap,
+            edgecolors="none", vmin=vmin, vmax=vmax)
+    m.set_rasterized(True)
+
+    # Dodgy...
+    if alpha < 1:
+        overlay = np.full_like(count_map.T, 1.0)
+        mo = ax.pcolormesh(xbins[:-1], ybins[:-1], overlay, alpha=1 - alpha, cmap="gray", vmin=0, vmax=1)
+        mo.set_rasterized(True)
+
+    return m
+
+###############################################################################
+# Plot empty BPT diagrams
+###############################################################################
+def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False):
+    """
+    Plot Baldwin, Philips & Terlevich (1986) optical line ratio diagrams.
+    To add a colorbar:
+        cbar_ax = fig.get_axes[-1]
+        cb = fig.colorbar(s, cax=cbar_ax)
+        cb.ax.set_ylabel(zorder_label)
+    ----------------------------------------------------------------------------
+    Returns:
+        FIG: 
+            The figure instance.
+    """
+    # Make axes
+    fig = plt.figure(figsize=(15, 5 * nrows))
+    left = 0.1
+    bottom = 0.1
+    if colorbar:
+        cbar_width = 0.025
+    else:
+        cbar_width = 0
+    width = (1 - 2*left - cbar_width) / 3.
+    height = 0.8 / nrows
+
+    axs = []
+    caxs = []
+    for ii in range(nrows):
+        bottom = 0.1 + (nrows - ii - 1) * height
+        ax_N2 = fig.add_axes([left,bottom,width,height])
+        ax_S2 = fig.add_axes([left+width,bottom,width,height])
+        ax_O1 = fig.add_axes([left+2*width,bottom,width,height])
+        if colorbar:
+            cax = fig.add_axes([left+3*width,bottom,cbar_width,height])
+
+        # Plot the reference lines from literature
+        x_vals = np.linspace(-2.5, 2.5, 100)
+        ax_N2.plot(x_vals, Kewley2001("log N2", x_vals), "gray", linestyle="--")
+        ax_S2.plot(x_vals, Kewley2001("log S2", x_vals), "gray", linestyle="--")
+        ax_O1.plot(x_vals, Kewley2001("log O1", x_vals), "gray", linestyle="--")
+        ax_S2.plot(x_vals, Kewley2006("log S2", x_vals), "gray", linestyle="-.")
+        ax_O1.plot(x_vals, Kewley2006("log O1", x_vals), "gray", linestyle="-.")
+        ax_N2.plot(x_vals, Kauffman2003("log N2", x_vals), "gray", linestyle=":")
+
+        if include_Law2021:
+            y_vals = np.copy(x_vals)
+            ax_N2.plot(x_vals, Law2021_1sigma("log N2", x_vals), "gray", linestyle="-")
+            ax_S2.plot(x_vals, Law2021_1sigma("log S2", x_vals), "gray", linestyle="-")
+            ax_O1.plot(x_vals, Law2021_1sigma("log O1", x_vals), "gray", linestyle="-")
+            ax_N2.plot(Law2021_3sigma("log N2", y_vals), y_vals, "gray", linestyle="-")
+            ax_S2.plot(Law2021_3sigma("log S2", y_vals), y_vals, "gray", linestyle="-")
+            ax_O1.plot(Law2021_3sigma("log O1", y_vals), y_vals, "gray", linestyle="-")
+
+        # Axis limits
+        ymin = -1.5
+        ymax = 1.2
+        ax_N2.set_ylim([ymin, ymax])
+        ax_S2.set_ylim([ymin, ymax])
+        ax_O1.set_ylim([ymin, ymax])
+        ax_N2.set_xlim([-1.3,0.5])
+        ax_S2.set_xlim([-1.3,0.5])
+        ax_O1.set_xlim([-2.2,0.2])
+
+        # Add axis labels
+        ax_N2.set_ylabel(r"$\log_{10}$[O III]$\lambda5007$/H$\beta$")
+        if ii == nrows - 1:
+            ax_N2.set_xlabel(r"$\log_{10}$[N II]$\lambda6583$/H$\alpha$")
+            ax_S2.set_xlabel(r"$\log_{10}$[S II]$\lambda\lambda6716,6731$/H$\alpha$")
+            ax_O1.set_xlabel(r"$\log_{10}$[O I]$\lambda6300$/H$\alpha$")
+
+        ax_S2.set_yticklabels([])
+        ax_O1.set_yticklabels([])
+
+        # Add axes to lists
+        axs.append(ax_N2)
+        axs.append(ax_S2)
+        axs.append(ax_O1)
+        caxs.append(cax)
+
+    fig.show()
+
+    if colorbar:
+        if nrows == 1:
+            return fig, axs, cax
+        else:
+            return fig, axs, caxs
+    else:
+        return fig, axs
+
+###############################################################################
+# Compass & scale bar functions for 2D map plots
+###############################################################################
+def plot_compass(PA_deg=0, flipped=True,
+                 color="white",
+                 bordercolor=None,
+                 fontsize=10,
+                 ax=None,
+                 zorder=999999):
+    # Display North and East-pointing arrows on a plot.
+    PA_rad = np.deg2rad(PA_deg) 
+    if not ax:
+        ax = plt.gca()
+    w_x = np.diff(ax.get_xlim())[0]
+    w_y = np.diff(ax.get_ylim())[0]
+    w = min(w_x, w_y)
+    l = 0.05 * w
+    if flipped:
+        origin_x = ax.get_xlim()[0] + 0.9 * w - l * np.sin(PA_rad)
+    else:
+        origin_x = ax.get_xlim()[0] + 0.1 * w - l * np.sin(PA_rad)
+    origin_y = ax.get_ylim()[0] + 0.1 * w
+    if np.abs(PA_deg) > 90:
+        origin_y += l * np.sin(PA_rad - np.pi / 2)
+    text_offset = 0.05 * w
+    head_width = 0.015 * w
+    head_length = 0.015 * w
+    overhang = 0.1
+
+    if not flipped:
+        # N arrow
+        ax.arrow(origin_x, origin_y,
+                 - l * np.sin(PA_rad),
+                 l * np.cos(PA_rad),
+                 head_width=head_width, head_length=head_length, overhang=overhang,
+                 fc=color, ec=color, zorder=zorder)
+        # E arrow
+        ax.arrow(origin_x, origin_y,
+                 l * np.cos(PA_rad),
+                 l * np.sin(PA_rad),
+                 head_width=head_width, head_length=head_length, overhang=overhang,
+                 fc=color, ec=color, zorder=zorder)
+        ax.text(x=origin_x - 1.1 * (l + text_offset) * np.sin(PA_rad),
+                y=origin_y + 1.1 * (l + text_offset) * np.cos(PA_rad),
+                s="N", color=color, zorder=zorder, verticalalignment="center", horizontalalignment="center")
+        ax.text(x=origin_x + 1.1 * (l + text_offset) * np.cos(PA_rad),
+                y=origin_y + 1.1 * (l + text_offset) * np.sin(PA_rad),
+                s="E", color=color, zorder=zorder, verticalalignment="center", horizontalalignment="center")
+
+    else:
+        # N arrow
+        ax.arrow(origin_x, origin_y,
+                 l * np.sin(PA_rad),
+                 l * np.cos(PA_rad),
+                 head_width=head_width, head_length=head_length, overhang=overhang,
+                 fc=color, ec=color, zorder=zorder)
+        # E arrow
+        ax.arrow(origin_x, origin_y,
+                 - l * np.cos(PA_rad),
+                 l * np.sin(PA_rad),
+                 head_width=head_width, head_length=head_length, overhang=overhang,
+                 fc=color, ec=color, zorder=zorder)
+        t = ax.text(x=origin_x + 1.1 * (l + text_offset) * np.sin(PA_rad),
+                    y=origin_y + 1.1 * (l + text_offset) * np.cos(PA_rad),
+                    s="N", color=color, zorder=zorder, verticalalignment="center", horizontalalignment="center",
+                    fontsize=fontsize)
+        if bordercolor is not None:
+            t.set_path_effects([PathEffects.withStroke(
+                linewidth=1.5, foreground=bordercolor)])
+        t = ax.text(x=origin_x - 1.1 * (l + text_offset) * np.cos(PA_rad),
+                    y=origin_y + 1.1 * (l + text_offset) * np.sin(PA_rad),
+                    s="E", color=color, zorder=zorder, verticalalignment="center", horizontalalignment="center",
+                    fontsize=fontsize)
+        if bordercolor is not None:
+            t.set_path_effects([PathEffects.withStroke(
+                linewidth=1.5, foreground=bordercolor)])
+
+        return
+
+###############################################################################
+def plot_scale_bar(as_per_px, kpc_per_as,
+                   l=0.5,
+                   ax=None,
+                   loffset=0.20,
+                   boffset=0.075,
+                   units="arcsec",
+                   color="white",
+                   fontsize=12,
+                   bordercolor=None,
+                   zorder=999999):
+    """
+    Plots a nice little bar in the lower-right-hand corner of a plot indicating
+    the scale of the image in kiloparsecs.
+    """
+    if not ax:
+        ax = plt.gca()
+
+    w_x = np.diff(ax.get_xlim())[0]
+    w_y = np.diff(ax.get_ylim())[0]
+    w = min(w_x, w_y)
+    line_centre_x = ax.get_xlim()[0] + loffset * w_x
+    line_centre_y = ax.get_ylim()[0] + boffset * w_x
+    text_offset = 0.035 * w
+
+    # want to round l_kpc to the nearest half
+    if units == "arcsec":
+        l_arcsec = l
+    elif units == "arcmin":
+        l_arcmin = l
+        l_arcsec = 60 * l_arcmin
+    endpoints_x = np.array([-0.5, 0.5]) * l_arcsec / as_per_px + line_centre_x
+    endpoints_y = np.array([0, 0]) + line_centre_y
+
+    # How long is our bar?
+    l_kpc = l_arcsec * kpc_per_as
+
+    ax.plot(endpoints_x, endpoints_y, color, linewidth=5, zorder=zorder)
+    if units == "arcsec":
+        dist_str = f"{l_arcsec:.2f} = {l_kpc:.2f} kpc"
+    elif units == "arcmin":
+        dist_str = f"{l_arcmin:.2f} = {l_kpc:.2f} kpc"
+        
+    t = ax.text(
+        x=line_centre_x,
+        y=line_centre_y + text_offset,
+        s=dist_str,
+        size=fontsize,
+        horizontalalignment="center",
+        color=color,
+        zorder=zorder)
+    if bordercolor is not None:
+        t.set_path_effects([PathEffects.withStroke(
+            linewidth=1.5, foreground=bordercolor)])
+
+    return
+
 

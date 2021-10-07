@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 
-from . import dqcut
+from . import dqcut, linefns
 from grid_utils import ratio_fn, bpt_fn, law2021_fn
 
 from IPython.core.debugger import Tracer
@@ -37,8 +37,6 @@ def load_sami_galaxies(ncomponents, bin_type,
     #######################################################################    
     df = pd.read_hdf(os.path.join(sami_data_path, df_fname))
 
-    Tracer()()
-
     ######################################################################
     # DQ and S/N CUTS
     ######################################################################
@@ -57,9 +55,9 @@ def load_sami_galaxies(ncomponents, bin_type,
     ######################################################################
     # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
     ######################################################################
-    df = ratio_fn(df, s=f" (total)")
-    df = bpt_fn(df, s=f" (total)")
-    df = law2021_fn(df, s=f" (total)")
+    df = linefns.ratio_fn(df, s=f" (total)")
+    df = linefns.bpt_fn(df, s=f" (total)")
+    df = linefns.law2021_fn(df, s=f" (total)")
 
     ######################################################################
     # CORRECT HALPHA FLUX AND EW FOR EXTINCTION

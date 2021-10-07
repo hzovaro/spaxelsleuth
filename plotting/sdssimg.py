@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.patches import Circle
 
+from IPython.core.debugger import Tracer
+
 SDSS_IM_PATH = "/priv/meggs3/u5708159/SAMI/sami_dr3/sdss/"
 
 ###############################################################################
@@ -50,6 +52,7 @@ def plot_sdss_image(df_gal, show_title=True, axis_labels=True,
     # Load image
     if not os.path.exists(os.path.join(SDSS_IM_PATH, f"{gal}_{width_px}x{height_px}.jpg")):
         # Download the image
+        print(f"WARNING: file {os.path.join(SDSS_IM_PATH, f'{gal}_{width_px}x{height_px}.jpg')} not found. Retrieving image from SDSS...")
         get_sdss_image(gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
                        as_per_px=as_per_px, width_px=250, height_px=250)
     im = mpimg.imread(os.path.join(SDSS_IM_PATH, f"{gal}_{width_px}x{height_px}.jpg"))
