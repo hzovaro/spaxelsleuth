@@ -2,6 +2,8 @@ import numpy as np
 import copy
 import pandas as pd
 
+from spaxelsleuth.loaddata.linefns import Kewley2001, Kewley2006, Kauffman2003, Law2021_1sigma, Law2021_3sigma
+
 from matplotlib.colors import ListedColormap, to_rgba, LogNorm
 import matplotlib.patheffects as PathEffects
 import matplotlib.pyplot as plt
@@ -43,13 +45,17 @@ law2021_cmap.set_bad(color="white", alpha=0)
 # Custom colour map for number of components
 ncomponents_labels = ["0", "1", "2", "3"]
 ncomponents_ticks = [0, 1, 2, 3]
-c1 = to_rgba("grey")
-c2 = to_rgba("dodgerblue")
-c3 = to_rgba("forestgreen")
-c4 = to_rgba("purple")
+c1 = to_rgba("#4A4A4A")
+c2 = to_rgba("#6EC0FF")
+c3 = to_rgba("#8AE400")
+c4 = to_rgba("#A722FF")
 ncomponents_colours = np.vstack((c1, c2, c3, c4))
 ncomponents_cmap = ListedColormap(ncomponents_colours)
 ncomponents_cmap.set_bad(color="white", alpha=0.0)
+
+# Custom colour list for different components
+component_colours = ["#781EE5", "#FF53B4", "#FFC107"]
+component_labels = ["Component 0", "Component 1", "Component 2"]
 
 # SFR
 sfr_cmap = copy.copy(plt.cm.get_cmap("magma"))

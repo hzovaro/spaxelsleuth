@@ -1,8 +1,7 @@
 import os
 import pandas as pd
 
-from dqcut import dqcut, compute_extra_columns
-from grid_utils import ratio_fn, bpt_fn, law2021_fn
+from spaxelsleuth.loaddata import dqcut, linefns
 
 """
 In this file:
@@ -39,7 +38,7 @@ def load_lzifu_galaxy(gal, ncomponents, bin_type,
     ######################################################################
     # DQ and S/N CUTS
     ######################################################################
-    df = dqcut(df=df, ncomponents=3,
+    df = dqcut.dqcut(df=df, ncomponents=3,
                   eline_SNR_min=eline_SNR_min, SNR_linelist=SNR_linelist,
                   sigma_gas_SNR_cut=True, sigma_gas_SNR_min=sigma_gas_SNR_min, 
                   sigma_inst_kms=29.6,
@@ -49,18 +48,18 @@ def load_lzifu_galaxy(gal, ncomponents, bin_type,
     ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
     ######################################################################
-    df = compute_extra_columns(df, ncomponents=3)
+    df = dqcut.compute_extra_columns(df, ncomponents=3)
 
     ######################################################################
     # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
     ######################################################################
-    df = ratio_fn(df, s=f" (total)")
-    df = bpt_fn(df, s=f" (total)")
-    df = law2021_fn(df, s=f" (total)")
+    df = linefns.ratio_fn(df, s=f" (total)")
+    df = linefns.bpt_fn(df, s=f" (total)")
+    df = linefns.law2021_fn(df, s=f" (total)")
     for ii in range(3):
-        df = ratio_fn(df, s=f" (component {ii})")
-        df = bpt_fn(df, s=f" (component {ii})")
-        df = law2021_fn(df, s=f" (component {ii})")
+        df = linefns.ratio_fn(df, s=f" (component {ii})")
+        df = linefns.bpt_fn(df, s=f" (component {ii})")
+        df = linefns.law2021_fn(df, s=f" (component {ii})")
 
     ######################################################################
     # CORRECT HALPHA FLUX AND EW FOR EXTINCTION
@@ -147,6 +146,25 @@ if __name__ == "__main__":
 
     # CHECK: "Number of components" is 0, 1, 2 or 3
     assert np.all(df["Number of components"].unique() == [0, 1, 2, 3])
+
+    # CHECK: all emission line fluxes in spaxels with 0 components are NaN
+    for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
+        assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{eline} (total)"]))
+        assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{eline} error (total)"]))
+
+    # CHECK: all HALPHA-derived columns in spaxels with 0 components are NaN
+    for col in ["HALPHA EW", "log HALPHA EW"]:
+        assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} (total)"]))
+        assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} error (total)"]))
+        for ii in range(3):
+            assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} error (component {ii})"]))
+
+    # CHECK: all kinematic quantities in spaxels with 0 components are NaN
+    for col in ["sigma_gas", "v_gas"]:
+        for ii in range(3):
+            assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} error (component {ii})"]))
 
     # CHECK: all emission line fluxes with S/N < SNR_min are NaN
     for eline in ["HALPHA", "HBETA", "OIII5007", "OI6300", "NII6583", "SII6716", "SII6731"]:

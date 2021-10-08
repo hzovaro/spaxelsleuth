@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 
-from plotting.plottools import cmap_fn, vmin_fn, vmax_fn, label_fn, histhelper
-from plotting.plottools import bpt_ticks, bpt_labels, law2021_ticks, law2021_labels, morph_ticks, morph_labels
+from spaxelsleuth.plotting.plottools import cmap_fn, vmin_fn, vmax_fn, label_fn, histhelper
+from spaxelsleuth.plotting.plottools import bpt_ticks, bpt_labels, law2021_ticks, law2021_labels, morph_ticks, morph_labels, ncomponents_ticks, ncomponents_labels
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -13,11 +13,6 @@ def plot2dhist(df, col_x, col_y, col_z, ax, log_z=False,
                xmin=None, xmax=None,
                ymin=None, ymax=None,
                nbins=100, alpha=1.0, cmap=None):
-
-    if col_x.find("component") != -1:
-        print(f"WARNING: in plot_2dhist: only plotting {col_x}!")
-    if col_y.find("component") != -1:
-        print(f"WARNING: in plot_2dhist: only plotting {col_y}!")
 
     # Figure out how many components were fitted.
     ncomponents = "recom" if any([c.endswith("(component 2)") for c in df.columns]) else "1"
@@ -109,12 +104,8 @@ def plot2dcontours(df, col_x, col_y, ax,
                    xmin=None, xmax=None,
                    ymin=None, ymax=None,
                    linewidths=0.5, colors="k"):
-    if col_x.find("component") != -1:
-        print(f"WARNING: in plot_2dcontours: only plotting {col_x}!")
-    if col_y.find("component") != -1:
-        print(f"WARNING: in plot_2dcontours: only plotting {col_y}!")
+
     """
-    Plot a gray 2D histogram representing the FULL sample (modulo S/N cuts).
     For columns in which there are multiple kinematic components, include 
     ALL of them (e.g., HALPHA EW).
     """
@@ -283,34 +274,34 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
     # Add the EW classification lines of Lacerda+2017.
     if col_y.startswith("log HALPHA EW"):
         # Classification lines of Lacerda+2017
-        ax.axhline(np.log10(3), linestyle="--", linewidth=0.5, color="k")
-        ax.axhline(np.log10(14), linestyle="--", linewidth=0.5, color="k")
+        ax.axhline(np.log10(3), linestyle="--", linewidth=1, color="k")
+        ax.axhline(np.log10(14), linestyle="--", linewidth=1, color="k")
         # Classification lines of Cid Fernandes+2011
-        ax.axhline(np.log10(0.5), linestyle=":", linewidth=0.5, color="k")  # "Passive" galaxies
+        ax.axhline(np.log10(0.5), linestyle=":", linewidth=1, color="k")  # "Passive" galaxies
         if col_x.startswith("log N2"):
-            ax.plot([-0.4, vmax_fn(col_x)], [np.log10(6), np.log10(6)], linestyle="-", linewidth=0.5, color="k") # Optimal K06 dividing line between LINERs and Seyferts
-            ax.axvline(-0.4, linestyle="-", linewidth=0.5, color="k") # Optimal K06 dividing line between SF and other mechanisms
+            ax.plot([-0.4, vmax_fn(col_x)], [np.log10(6), np.log10(6)], linestyle="-", linewidth=1, color="k") # Optimal K06 dividing line between LINERs and Seyferts
+            ax.axvline(-0.4, linestyle="-", linewidth=1, color="k") # Optimal K06 dividing line between SF and other mechanisms
         else:
-            ax.axhline(np.log10(6), linestyle="-", linewidth=0.5, color="k")  # Seyfert vs. LINER
+            ax.axhline(np.log10(6), linestyle="-", linewidth=1, color="k")  # Seyfert vs. LINER
 
     elif col_x.startswith("log HALPHA EW"):
         # Classification lines of Lacerda+2017
-        ax.axvline(np.log10(3), linestyle="--", linewidth=0.5, color="k")
-        ax.axvline(np.log10(14), linestyle="--", linewidth=0.5, color="k")
+        ax.axvline(np.log10(3), linestyle="--", linewidth=1, color="k")
+        ax.axvline(np.log10(14), linestyle="--", linewidth=1, color="k")
         # Classification lines of Cid Fernandes+2011
-        ax.axvline(np.log10(0.5), linestyle=":", linewidth=0.5, color="k")  # "Passive" galaxies
+        ax.axvline(np.log10(0.5), linestyle=":", linewidth=1, color="k")  # "Passive" galaxies
         if col_y.startswith("log N2"):
-            ax.plot([np.log10(6), np.log10(6)], [-0.4, vmax_fn(col_y)], linestyle="-", linewidth=0.5, color="k") # Optimal K06 dividing line between LINERs and Seyferts
-            ax.axhline(-0.4, linestyle="-", linewidth=0.5, color="k") # Optimal K06 dividing line between SF and other mechanisms
+            ax.plot([np.log10(6), np.log10(6)], [-0.4, vmax_fn(col_y)], linestyle="-", linewidth=1, color="k") # Optimal K06 dividing line between LINERs and Seyferts
+            ax.axhline(-0.4, linestyle="-", linewidth=1, color="k") # Optimal K06 dividing line between SF and other mechanisms
         else:
-            ax.axvline(np.log10(6), linestyle="-", linewidth=0.5, color="k")  # Seyfert vs. LINER
+            ax.axvline(np.log10(6), linestyle="-", linewidth=1, color="k")  # Seyfert vs. LINER
 
     elif col_x.startswith("sigma_gas - sigma_*"):
         # Vertical line at 0
-        ax.axvline(0, linestyle="-", linewidth=0.5, color="k")
+        ax.axvline(0, linestyle="-", linewidth=1, color="k")
     elif col_y.startswith("sigma_gas - sigma_*"):
         # Vertical line at 0
-        ax.axhline(0, linestyle="-", linewidth=0.5, color="k")
+        ax.axhline(0, linestyle="-", linewidth=1, color="k")
         
     return fig
 

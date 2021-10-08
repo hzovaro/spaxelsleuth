@@ -116,7 +116,18 @@ def dqcut(df, ncomponents,
                       np.isnan(df["HALPHA (component 2)"]) &  np.isnan(df["sigma_gas (component 2)"])
         cond_has_any = cond_has_1 | cond_has_2 | cond_has_3
         # NaN them out.
-        df.loc[~cond_has_any] = np.nan
+        df.loc[~cond_has_any,
+               ["HALPHA (component 0)", "HALPHA (component 1)", "HALPHA (component 2)",
+                "HALPHA error (component 0)", "HALPHA error (component 1)", "HALPHA error (component 2)",
+                "HALPHA EW (component 0)", "HALPHA EW (component 1)", "HALPHA EW (component 2)",
+                "HALPHA EW error (component 0)", "HALPHA EW error (component 1)", "HALPHA EW error (component 2)",
+                "sigma_gas (component 0)", "sigma_gas (component 1)", "sigma_gas (component 2)",
+                "sigma_obs (component 0)", "sigma_obs (component 1)", "sigma_obs (component 2)",
+                "v_gas (component 0)", "v_gas (component 1)", "v_gas (component 2)",
+                "sigma_gas error (component 0)", "sigma_gas error (component 1)", "sigma_gas error (component 2)",
+                "v_gas error (component 0)", "v_gas error (component 1)", "v_gas error (component 2)",]
+                + [f"{e} (total)" for e in SNR_linelist]
+                + [f"{e} error (total)" for e in SNR_linelist]] = np.nan
 
         # Reset the number of components
         df.loc[cond_has_1, "Number of components"] = 1
@@ -126,7 +137,18 @@ def dqcut(df, ncomponents,
 
     elif ncomponents == 1:
         cond_has_1 = ~np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["sigma_gas (component 0)"])
-        df.loc[~cond_has_1] = np.nan
+        df.loc[~cond_has_1,
+               ["HALPHA (component 0)",
+                "HALPHA error (component 0)",
+                "HALPHA EW (component 0)",
+                "HALPHA EW error (component 0)",
+                "sigma_gas (component 0)",
+                "sigma_obs (component 0)",
+                "v_gas (component 0)",
+                "sigma_gas error (component 0)",
+                "v_gas error (component 0)"]
+                + [f"{e} (total)" for e in SNR_linelist]
+                + [f"{e} error (total)" for e in SNR_linelist]] = np.nan
 
         # Reset the number of components
         df.loc[cond_has_1, "Number of components"] = 1
@@ -173,6 +195,7 @@ def dqcut(df, ncomponents,
     df = df.dropna(subset=["catid"])
 
     # Cast catid column to int
+    df = df.copy()  # Required to suppress SettingValueWithCopy warning
     df["catid"] = df["catid"].astype(int)
 
     return df

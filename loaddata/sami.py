@@ -2,8 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 
-from . import dqcut, linefns
-from grid_utils import ratio_fn, bpt_fn, law2021_fn
+from spaxelsleuth.loaddata import dqcut, linefns
 
 from IPython.core.debugger import Tracer
 
@@ -18,7 +17,8 @@ sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3
 def load_sami_galaxies(ncomponents, bin_type,
                        eline_SNR_min, SNR_linelist=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
                        sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
-                       vgrad_cut=False, correct_extinction=True):
+                       vgrad_cut=False, correct_extinction=True,
+                       debug=False):
 
     #######################################################################
     # INPUT CHECKING
@@ -28,7 +28,10 @@ def load_sami_galaxies(ncomponents, bin_type,
     assert eline_SNR_min >= 0, "eline_SNR_min must be positive!"
     assert sigma_gas_SNR_min >= 0, "sigma_gas_SNR_min must be positive!"
     
-    df_fname = f"sami_{bin_type}_{ncomponents}-comp.hd5"
+    if not debug:
+        df_fname = f"sami_{bin_type}_{ncomponents}-comp.hd5"
+    else:
+        df_fname = f"sami_{bin_type}_{ncomponents}-comp_mini.hd5"
     assert os.path.exists(os.path.join(sami_data_path, df_fname)),\
         f"File {os.path.join(sami_data_path, df_fname)} does does not exist!"
 
@@ -42,7 +45,8 @@ def load_sami_galaxies(ncomponents, bin_type,
     ######################################################################
     df = dqcut.dqcut(df=df, ncomponents=3 if ncomponents == "recom" else 1,
                   eline_SNR_min=eline_SNR_min, SNR_linelist=SNR_linelist,
-                  sigma_gas_SNR_cut=True, sigma_gas_SNR_min=sigma_gas_SNR_min,
+                  sigma_gas_SNR_cut=sigma_gas_SNR_cut,
+                  sigma_gas_SNR_min=sigma_gas_SNR_min,
                   sigma_inst_kms=29.6,
                   vgrad_cut=vgrad_cut,
                   stekin_cut=True)
@@ -143,6 +147,25 @@ if __name__ == "__main__":
 
     # CHECK: "Number of components" is 0, 1, 2 or 3
     assert np.all(df["Number of components"].unique() == [0, 1, 2, 3])
+
+    # CHECK: all emission line fluxes in spaxels with 0 components are NaN
+    for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
+        assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{eline} (total)"]))
+        assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{eline} error (total)"]))
+
+    # CHECK: all HALPHA-derived columns in spaxels with 0 components are NaN
+    for col in ["HALPHA EW", "log HALPHA EW"]:
+        assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} (total)"]))
+        assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} error (total)"]))
+        for ii in range(3):
+            assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} error (component {ii})"]))
+
+    # CHECK: all kinematic quantities in spaxels with 0 components are NaN
+    for col in ["sigma_gas", "v_gas"]:
+        for ii in range(3):
+            assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} error (component {ii})"]))
 
     # CHECK: all emission line fluxes with S/N < SNR_min are NaN
     for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
