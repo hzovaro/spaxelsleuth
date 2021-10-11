@@ -7,6 +7,8 @@ from spaxelsleuth.plotting.plottools import bpt_ticks, bpt_labels, law2021_ticks
 import matplotlib.pyplot as plt
 plt.ion()
 
+from IPython.core.debugger import Tracer
+
 ###############################################################################
 def plot2dhist(df, col_x, col_y, col_z, ax, log_z=False,
                vmin=None, vmax=None,
@@ -71,9 +73,10 @@ def plot2dhist(df, col_x, col_y, col_z, ax, log_z=False,
         ymax = vmax_fn(col_y)
 
     # If we're plotting the BPT categories, also want to show the "uncategorised" ones.
-    if col_z == "BPT (numeric)":
-        df_classified = df[df["BPT (numeric)"] > -1]
-        df_unclassified = df[df["BPT (numeric)"] == -1]
+    if col_z.startswith("BPT (numeric)"):
+        df_classified = df[df[col_z] > -1]
+        df_unclassified = df[df[col_z] == -1]
+        cmap.set_bad("white", alpha=0.0)
         histhelper(df=df_unclassified, col_x=col_x, col_y=col_y, col_z=col_z,
                     log_z=log_z, nbins=nbins, ax=ax, cmap=cmap,
                     xmin=xmin, xmax=xmax,
@@ -86,7 +89,6 @@ def plot2dhist(df, col_x, col_y, col_z, ax, log_z=False,
                     ymin=ymin, ymax=ymax,
                     vmin=vmin, vmax=vmax,
                     alpha=alpha)
-
     else:
         m = histhelper(df=df, col_x=col_x, col_y=col_y, col_z=col_z, 
             log_z=log_z, nbins=nbins, ax=ax, cmap=cmap,
