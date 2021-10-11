@@ -510,8 +510,6 @@ def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False):
         axs.append(ax_O1)
         caxs.append(cax)
 
-    fig.show()
-
     if colorbar:
         if nrows == 1:
             return fig, axs, cax
