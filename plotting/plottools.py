@@ -135,7 +135,7 @@ for key in cmap_dict.keys():
 
 vmin_dict = {
     "count": None,
-    "log N2": -1.3,
+    "log N2": -1.5,
     "log O3": -1.5,
     "log O1": -2.2,
     "log S2": -1.3,
@@ -199,10 +199,10 @@ vmin_dict = {
 
 vmax_dict = {
     "count": None,
-    "log N2": 0.5,
+    "log N2": 0.0,
     "log O3": 1.2,
-    "log O1": 0.2,
-    "log S2": 0.5,
+    "log O1": -0.5,
+    "log S2": 0.0,
     "O3O2": 0.5,
     "log HALPHA EW": 3.5,
     "log HALPHA EW (total)": 3.5,
@@ -211,7 +211,7 @@ vmax_dict = {
     "log sigma_gas": 3,
     "sigma_gas": 300,
     "sigma_*": 300,
-    "sigma_gas - sigma_*": +300,
+    "sigma_gas - sigma_*": +600,
     "v_gas - v_*": +100,
     "HALPHA S/N": 50,
     "BPT (numeric)": 4.5,
