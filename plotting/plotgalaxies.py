@@ -310,17 +310,20 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
 ###############################################################################
 def plot2dscatter(df, col_x, col_y, col_z,
                   vmin=None, vmax=None, xmin=None, xmax=None, ymin=None, ymax=None,
-                  ax=None, axis_labels=True,
-                  plot_colorbar=True, cax=None, cax_orientation="vertical", alpha=1.0,
-                  errorbars=True, edgecolors="k", marker="o", markersize=20, figsize=(9, 7)):
+                  ax=None, axis_labels=True, 
+                  plot_colorbar=True, cax=None, cax_orientation="vertical", alpha=1.0, zorder=2,
+                  errorbars=True, edgecolors="k", markerfacecolour="k", marker="o", markersize=20, figsize=(9, 7)):
     """
     Plot a 2D histogram of spaxels from a SAMI galaxy (as specified by gal) 
     or from a given Pandas DataFrame df_gal.
     """
     assert col_z != "count", f"{col_z} cannot be 'count' in a scatter plot!"
-    for col in [col_x, col_y, col_z]:
-        assert (col in df.columns) or (f"{col} (component 0)" in df.columns) or (f"{col} (total)" in df.columns), f"{col} is not a valid column!"            
+    if col_z is not None:
+        for col in [col_x, col_y, col_z]:
+            assert (col in df.columns) or (f"{col} (component 0)" in df.columns) or (f"{col} (total)" in df.columns), f"{col} is not a valid column!"            
     assert cax_orientation == "horizontal" or cax_orientation == "vertical", "cax_orientation must be either 'horizontal' or 'vertical'!"
+    if col_z is None and plot_colorbar == True:
+        print("WARNING: not plotting colourbar because col_z is not specified!")
 
     # If no axis is specified then create a new one with a vertical colorbar.
     if ax is None:
@@ -382,7 +385,7 @@ def plot2dscatter(df, col_x, col_y, col_z,
         if col_x_err_label in df:
             xerr = df[col_x_err_label]
             ax.errorbar(x=df[col_x], y=df[col_y], xerr=df[col_x_err_label],
-                        ls="none", mec="none", ecolor="k", elinewidth=0.5, alpha=alpha / 2, zorder=2)
+                        ls="none", mec="none", ecolor="k", elinewidth=0.5, alpha=alpha / 2, zorder=zorder)
         # Asymmetric errors
         elif col_x_err_lower_label in df and col_x_err_upper_label in df:
             # Need to deal with special case where there is only one data point to prevent weird numpy error...
@@ -391,12 +394,12 @@ def plot2dscatter(df, col_x, col_y, col_z,
             else:
                 xerr = np.array([df[col_x_err_lower_label].values[0], df[col_x_err_lower_label].values[0]])[:, None]
             ax.errorbar(x=df[col_x], y=df[col_y], xerr=xerr,
-                        ls="none", mec="none", ecolor="k", elinewidth=0.5, alpha=alpha / 2, zorder=2)
+                        ls="none", mec="none", ecolor="k", elinewidth=0.5, alpha=alpha / 2, zorder=zorder)
 
         # y-axis: add errorbars, if they exist
         if col_y_err_label in df:
             ax.errorbar(x=df[col_x], y=df[col_y], yerr=df[col_y_err_label],
-                        ls="none", mec="none", ecolor="k", elinewidth=0.5, alpha=alpha / 2, zorder=2)
+                        ls="none", mec="none", ecolor="k", elinewidth=0.5, alpha=alpha / 2, zorder=zorder)
         elif col_y_err_lower_label in df and col_y_err_upper_label in df:
             # Need to deal with special case where there is only one data point to prevent weird numpy error...
             if len(df[col_y_err_lower_label]) > 1:
@@ -404,13 +407,14 @@ def plot2dscatter(df, col_x, col_y, col_z,
             else:
                 yerr = np.array([df[col_y_err_lower_label].values[0], df[col_y_err_upper_label].values[0]])[:, None]
             ax.errorbar(x=df[col_x], y=df[col_y], yerr=yerr,
-                        ls="none", mec="none", ecolor="k", elinewidth=0.5, alpha=alpha / 2, zorder=2)
+                        ls="none", mec="none", ecolor="k", elinewidth=0.5, alpha=alpha / 2, zorder=zorder)
 
     # Only colour the spaxels of the galaxy. 
-    if vmin is None:
-        vmin = vmin_fn(col_z)
-    if vmax is None:
-        vmax = vmax_fn(col_z) 
+    if col_z is not None:
+        if vmin is None:
+            vmin = vmin_fn(col_z)
+        if vmax is None:
+            vmax = vmax_fn(col_z) 
     if xmin is None:
         xmin = vmin_fn(col_x)
     if xmax is None:
@@ -419,13 +423,18 @@ def plot2dscatter(df, col_x, col_y, col_z,
         ymin = vmin_fn(col_y)
     if ymax is None:
         ymax = vmax_fn(col_y)  
-    m = ax.scatter(x=df[col_x], y=df[col_y], c=df[col_z], cmap=cmap_fn(col_z), vmin=vmin, vmax=vmax, marker=marker, edgecolors=edgecolors, s=markersize, alpha=alpha, zorder=3)
+    
+    # Plot the scatter points
+    if col_z is not None:
+        m = ax.scatter(x=df[col_x], y=df[col_y], c=df[col_z], cmap=cmap_fn(col_z), vmin=vmin, vmax=vmax, marker=marker, edgecolors=edgecolors, s=markersize, alpha=alpha, zorder=zorder + 1)
+    else:
+        m = ax.scatter(x=df[col_x], y=df[col_y], c=markerfacecolour, marker=marker, edgecolors=edgecolors, s=markersize, alpha=alpha, zorder=zorder + 1)
 
     # Nice axis limits
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
     
-    if plot_colorbar:
+    if plot_colorbar and col_z is not None:
         plt.colorbar(mappable=m, cax=cax, orientation=cax_orientation)
         if cax_orientation == "vertical":
             cax.set_ylabel(label_fn(col_z))
@@ -477,33 +486,33 @@ def plot2dscatter(df, col_x, col_y, col_z,
     # Add the EW classification lines of Lacerda+2017.
     if col_y.startswith("log HALPHA EW"):
         # Classification lines of Lacerda+2017
-        ax.axhline(np.log10(3), linestyle="--", linewidth=0.5, color="k")
-        ax.axhline(np.log10(14), linestyle="--", linewidth=0.5, color="k")
+        ax.axhline(np.log10(3), linestyle="--", linewidth=1, color="k")
+        ax.axhline(np.log10(14), linestyle="--", linewidth=1, color="k")
         # Classification lines of Cid Fernandes+2011
-        ax.axhline(np.log10(0.5), linestyle=":", linewidth=0.5, color="k")  # "Passive" galaxies
+        ax.axhline(np.log10(0.5), linestyle=":", linewidth=1, color="k")  # "Passive" galaxies
         if col_x.startswith("log N2"):
-            ax.plot([-0.4, vmax_fn(col_x)], [np.log10(6), np.log10(6)], linestyle="-", linewidth=0.5, color="k") # Optimal K06 dividing line between LINERs and Seyferts
-            ax.axvline(-0.4, linestyle="-", linewidth=0.5, color="k") # Optimal K06 dividing line between SF and other mechanisms
+            ax.plot([-0.4, vmax_fn(col_x)], [np.log10(6), np.log10(6)], linestyle="-", linewidth=1, color="k") # Optimal K06 dividing line between LINERs and Seyferts
+            ax.axvline(-0.4, linestyle="-", linewidth=1, color="k") # Optimal K06 dividing line between SF and other mechanisms
         else:
-            ax.axhline(np.log10(6), linestyle="-", linewidth=0.5, color="k")  # "Passive" galaxies
+            ax.axhline(np.log10(6), linestyle="-", linewidth=1, color="k")  # "Passive" galaxies
     
     elif col_x.startswith("log HALPHA EW"):
         # Classification lines of Lacerda+2017
-        ax.axvline(np.log10(3), linestyle="--", linewidth=0.5, color="k")
-        ax.axvline(np.log10(14), linestyle="--", linewidth=0.5, color="k")
+        ax.axvline(np.log10(3), linestyle="--", linewidth=1, color="k")
+        ax.axvline(np.log10(14), linestyle="--", linewidth=1, color="k")
         # Classification lines of Cid Fernandes+2011
-        ax.axvline(np.log10(0.5), linestyle=":", linewidth=0.5, color="k")  # "Passive" galaxies
+        ax.axvline(np.log10(0.5), linestyle=":", linewidth=1, color="k")  # "Passive" galaxies
         if col_y.startswith("log N2"):
-            ax.plot([np.log10(6), np.log10(6)], [-0.4, vmax_fn(col_y)], linestyle="-", linewidth=0.5, color="k") # Optimal K06 dividing line between LINERs and Seyferts
-            ax.axhline(-0.4, linestyle="-", linewidth=0.5, color="k") # Optimal K06 dividing line between SF and other mechanisms
+            ax.plot([np.log10(6), np.log10(6)], [-0.4, vmax_fn(col_y)], linestyle="-", linewidth=1, color="k") # Optimal K06 dividing line between LINERs and Seyferts
+            ax.axhline(-0.4, linestyle="-", linewidth=1, color="k") # Optimal K06 dividing line between SF and other mechanisms
         else:
-            ax.axvline(np.log10(6), linestyle="-", linewidth=0.5, color="k")  # "Passive" galaxies
+            ax.axvline(np.log10(6), linestyle="-", linewidth=1, color="k")  # "Passive" galaxies
 
     elif col_x.startswith("sigma_gas - sigma_*"):
         # Vertical line at 0
-        ax.axvline(0, linestyle="-", linewidth=0.5, color="k")
+        ax.axvline(0, linestyle="-", linewidth=1, color="k")
     elif col_y.startswith("sigma_gas - sigma_*"):
         # Vertical line at 0
-        ax.axhline(0, linestyle="-", linewidth=0.5, color="k")
+        ax.axhline(0, linestyle="-", linewidth=1, color="k")
 
     return fig
