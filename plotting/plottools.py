@@ -199,10 +199,10 @@ vmin_dict = {
 
 vmax_dict = {
     "count": None,
-    "log N2": 0.0,
+    "log N2": 0.5,
     "log O3": 1.2,
-    "log O1": -0.5,
-    "log S2": 0.0,
+    "log O1": 0.2,
+    "log S2": 0.5,
     "O3O2": 0.5,
     "log HALPHA EW": 3.5,
     "log HALPHA EW (total)": 3.5,
