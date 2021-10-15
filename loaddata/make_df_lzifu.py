@@ -404,7 +404,7 @@ for gal in gals:
         rename_dict[f"VDISP_ERR (component {ii})"] = f"sigma_gas error (component {ii})"
 
     # R_e
-    rename_dict["r_e"] = "R_e"
+    rename_dict["r_e"] = "R_e (arcsec)"
 
     # Rename columns
     df_spaxels = df_spaxels.rename(columns=rename_dict)
@@ -429,7 +429,7 @@ for gal in gals:
     # Add radius-derived value columns
     ######################################################################
     df_spaxels["r/R_e"] = df_spaxels["r (relative to galaxy centre, deprojected, arcsec)"] / df_spaxels["R_e"]
-    df_spaxels["R_e (kpc)"] = df_spaxels["R_e"] * df_spaxels["kpc per arcsec"]
+    df_spaxels["R_e (kpc)"] = df_spaxels["R_e (arcsec)"] * df_spaxels["kpc per arcsec"]
     df_spaxels["log(M/R_e)"] = df_spaxels["mstar"] - np.log10(df_spaxels["R_e (kpc)"])
 
     ######################################################################

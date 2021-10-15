@@ -18,6 +18,7 @@ warnings.filterwarnings(action="ignore", message="Mean of empty slice")
 warnings.filterwarnings(action="ignore", message="invalid value encountered in sqrt")
 
 ###############################################################################
+# Paths
 sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
 sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
 
@@ -425,7 +426,7 @@ rename_dict[f"extinct-corr_{bin_type}_{ncomponents}-comp"] = "HALPHA extinction 
 rename_dict[f"extinct-corr_{bin_type}_{ncomponents}-comp_error"] = "HALPHA extinction correction error"
 
 # R_e
-rename_dict["r_e"] = "R_e"
+rename_dict["r_e"] = "R_e (arcsec)"
 
 # Rename columns
 df_spaxels = df_spaxels.rename(columns=rename_dict)
@@ -471,7 +472,7 @@ df_spaxels = df_spaxels.rename(columns=rename_dict)
 # Add radius-derived value columns
 ######################################################################
 df_spaxels["r/R_e"] = df_spaxels["r (relative to galaxy centre, deprojected, arcsec)"] / df_spaxels["R_e"]
-df_spaxels["R_e (kpc)"] = df_spaxels["R_e"] * df_spaxels["kpc per arcsec"]
+df_spaxels["R_e (kpc)"] = df_spaxels["R_e (arcsec)"] * df_spaxels["kpc per arcsec"]
 df_spaxels["log(M/R_e)"] = df_spaxels["mstar"] - np.log10(df_spaxels["R_e (kpc)"])
 
 ######################################################################
