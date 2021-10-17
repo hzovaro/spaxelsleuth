@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 
 from spaxelsleuth.loaddata import dqcut, linefns
 
@@ -15,8 +16,8 @@ sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3
 def load_lzifu_galaxy(gal, ncomponents, bin_type,
                       eline_SNR_min,
                       SNR_linelist=["HALPHA", "HBETA", "OIII5007", "OI6300", "NII6583", "SII6716", "SII6731"],
-                      sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
-                      vgrad_cut=False, correct_extinction=True):
+                      sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3, stekin_cut=True,
+                      vgrad_cut=False, correct_extinction=False):
 
     #######################################################################
     # INPUT CHECKING
@@ -43,7 +44,7 @@ def load_lzifu_galaxy(gal, ncomponents, bin_type,
                   sigma_gas_SNR_cut=True, sigma_gas_SNR_min=sigma_gas_SNR_min, 
                   sigma_inst_kms=29.6,
                   vgrad_cut=vgrad_cut,
-                  stekin_cut=True)
+                  stekin_cut=stekin_cut)
     
     ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
@@ -89,7 +90,8 @@ def load_lzifu_galaxy(gal, ncomponents, bin_type,
             # Re-compute log errors
             df[f"log HALPHA EW error (lower) (component {component})"] = df[f"log HALPHA EW (component {component})"] - np.log10(df[f"HALPHA EW (component {component})"] - df[f"HALPHA EW error (component {component})"])
             df[f"log HALPHA EW error (upper) (component {component})"] = np.log10(df[f"HALPHA EW (component {component})"] + df[f"HALPHA EW error (component {component})"]) -  df[f"log HALPHA EW (component {component})"]
-
+    else:
+        print("WARNING: NOT correcting Halpha and HALPHA EW for extinction!")
     return df
 
 
