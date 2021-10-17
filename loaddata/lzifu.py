@@ -151,22 +151,22 @@ if __name__ == "__main__":
 
     # CHECK: all emission line fluxes in spaxels with 0 components are NaN
     for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
-        assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{eline} (total)"]))
-        assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{eline} error (total)"]))
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{eline} (total)"]))
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{eline} error (total)"]))
 
     # CHECK: all HALPHA-derived columns in spaxels with 0 components are NaN
     for col in ["HALPHA EW", "log HALPHA EW"]:
-        assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} (total)"]))
-        assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} error (total)"]))
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (total)"]))
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (total)"]))
         for ii in range(3):
-            assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} (component {ii})"]))
-            assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} error (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (component {ii})"]))
 
     # CHECK: all kinematic quantities in spaxels with 0 components are NaN
     for col in ["sigma_gas", "v_gas"]:
         for ii in range(3):
-            assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} (component {ii})"]))
-            assert np.all(np.isnan(df.loc[df["Numer of components"] == 0, f"{col} error (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (component {ii})"]))
 
     # CHECK: all emission line fluxes with S/N < SNR_min are NaN
     for eline in ["HALPHA", "HBETA", "OIII5007", "OI6300", "NII6583", "SII6716", "SII6731"]:
