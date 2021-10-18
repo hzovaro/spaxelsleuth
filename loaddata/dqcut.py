@@ -4,7 +4,7 @@ from IPython.core.debugger import Tracer
 A function for making data quality & S/N cuts on rows of a given DataFrame.
 """
 def dqcut(df, ncomponents,
-             eline_SNR_min, SNR_linelist,
+             eline_SNR_min, eline_list,
              sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3, sigma_inst_kms=29.6,
              vgrad_cut=False,
              stekin_cut=True):
@@ -26,7 +26,7 @@ def dqcut(df, ncomponents,
     So instead, such a spaxel will be filtered out by the below lines
     and it won't be included in our final sample.
     """
-    for eline in SNR_linelist:
+    for eline in eline_list:
         for ii in range(ncomponents):
             if f"{eline} (component {ii})" in df.columns:
                 df.loc[df[f"{eline} S/N (component {ii})"] < eline_SNR_min, f"{eline} (component {ii})"] = np.nan
@@ -79,7 +79,7 @@ def dqcut(df, ncomponents,
     # NaN out rows with insufficient S/N in sigma_gas
     ######################################################################
     # Gas kinematics: NaN out cells w/ sigma_gas S/N ratio < sigma_gas_SNR_min 
-    # (Red resolution is 29.6 km/s - see p6 of Croom+2021)
+    # (For SAMI, the red arm resolution is 29.6 km/s - see p6 of Croom+2021)
     for ii in range(ncomponents):
         # 1. Define sigma_obs = sqrt(sigma_gas**2 + sigma_inst_kms**2).
         df[f"sigma_obs (component {ii})"] = np.sqrt(df[f"sigma_gas (component {ii})"]**2 + sigma_inst_kms**2)
@@ -115,19 +115,27 @@ def dqcut(df, ncomponents,
                       np.isnan(df["HALPHA (component 1)"]) &  np.isnan(df["sigma_gas (component 1)"]) &\
                       np.isnan(df["HALPHA (component 2)"]) &  np.isnan(df["sigma_gas (component 2)"])
         cond_has_any = cond_has_1 | cond_has_2 | cond_has_3
-        # NaN them out.
-        df.loc[~cond_has_any,
-               ["HALPHA (component 0)", "HALPHA (component 1)", "HALPHA (component 2)",
-                "HALPHA error (component 0)", "HALPHA error (component 1)", "HALPHA error (component 2)",
-                "HALPHA EW (component 0)", "HALPHA EW (component 1)", "HALPHA EW (component 2)",
-                "HALPHA EW error (component 0)", "HALPHA EW error (component 1)", "HALPHA EW error (component 2)",
+        
+        # Define columns to NaN out 
+        cols_to_nan = [f"{e} (total)" for e in eline_list]
+        cols_to_nan += [f"{e} error (total)" for e in eline_list]
+        for ii in range(3):
+            for e in eline_list:
+                cols_to_nan += [f"{e} (component {ii})" for e in eline_list if f"{e} (component {ii})" in df.columns]
+                cols_to_nan += [f"{e} error (component {ii})" for e in eline_list if f"{e} error (component {ii})" in df.columns]
+        
+        # Add EWs, kinematic quantities
+        cols_to_nan += [
+                "HALPHA EW (component 0)", "HALPHA EW (component 1)", "HALPHA EW (component 2)", "HALPHA EW (total)",
+                "HALPHA EW error (component 0)", "HALPHA EW error (component 1)", "HALPHA EW error (component 2)", "HALPHA EW error (total)",
                 "sigma_gas (component 0)", "sigma_gas (component 1)", "sigma_gas (component 2)",
                 "sigma_obs (component 0)", "sigma_obs (component 1)", "sigma_obs (component 2)",
                 "v_gas (component 0)", "v_gas (component 1)", "v_gas (component 2)",
                 "sigma_gas error (component 0)", "sigma_gas error (component 1)", "sigma_gas error (component 2)",
-                "v_gas error (component 0)", "v_gas error (component 1)", "v_gas error (component 2)",]
-                + [f"{e} (total)" for e in SNR_linelist]
-                + [f"{e} error (total)" for e in SNR_linelist]] = np.nan
+                "v_gas error (component 0)", "v_gas error (component 1)", "v_gas error (component 2)"]
+
+        # NaN them out.
+        df.loc[~cond_has_any, cols_to_nan] = np.nan
 
         # Reset the number of components
         df.loc[cond_has_1, "Number of components"] = 1
@@ -137,18 +145,22 @@ def dqcut(df, ncomponents,
 
     elif ncomponents == 1:
         cond_has_1 = ~np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["sigma_gas (component 0)"])
-        df.loc[~cond_has_1,
-               ["HALPHA (component 0)",
-                "HALPHA error (component 0)",
-                "HALPHA EW (component 0)",
-                "HALPHA EW error (component 0)",
-                "sigma_gas (component 0)",
-                "sigma_obs (component 0)",
-                "v_gas (component 0)",
-                "sigma_gas error (component 0)",
-                "v_gas error (component 0)"]
-                + [f"{e} (total)" for e in SNR_linelist]
-                + [f"{e} error (total)" for e in SNR_linelist]] = np.nan
+
+        # Define columns to NaN out 
+        cols_to_nan = [f"{e} (total)" for e in eline_list]
+        cols_to_nan += [f"{e} error (total)" for e in eline_list]
+        cols_to_nan += [f"{e} (component 0)" for e in eline_list if f"{e} (component 0)" in df.columns]
+        cols_to_nan += [f"{e} error (component 0)" for e in eline_list if f"{e} error (component 0)" in df.columns]
+    
+        # Add EWs, kinematic quantities
+        cols_to_nan += [
+                "HALPHA EW (component 0)", "HALPHA EW (total)",
+                "HALPHA EW error (component 0)", "HALPHA EW error (total)",
+                "sigma_gas (component 0)", "sigma_obs (component 0)", "v_gas (component 0)",
+                "sigma_gas error (component 0)", "v_gas error (component 0)"]
+
+        # NaN them out
+        df.loc[~cond_has_1, cols_to_nan] = np.nan
 
         # Reset the number of components
         df.loc[cond_has_1, "Number of components"] = 1
@@ -174,29 +186,30 @@ def dqcut(df, ncomponents,
     # SFR and SFR surface density DQ cuts
     ######################################################################
     # Set components w/ SFR = 0 to NaN
+    # If the inclination is undefined, also set the SFR and SFR surface density to NaN.
     if "SFR" in df.columns:
         cond_zero_SFR = df["SFR"] == 0
         df.loc[cond_zero_SFR, "SFR"] = np.nan
         df.loc[cond_zero_SFR, "SFR error"] = np.nan
+        df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR surface density error"] = np.nan
+        df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR error"] = np.nan
     if "SFR surface density" in df.columns:
         df.loc[cond_zero_SFR, "SFR surface density"] = np.nan
         df.loc[cond_zero_SFR, "SFR surface density error"] = np.nan
-
-    # If the inclination is undefined, then set the SFR and SFR surface density to NaN.
-    df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR surface density"] = np.nan
-    df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR"] = np.nan
-    df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR surface density error"] = np.nan
-    df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR error"] = np.nan
+        df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR surface density"] = np.nan
+        df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR"] = np.nan
 
     ######################################################################
     # End
     ######################################################################
     # Drop rows that have been NaNed out
-    df = df.dropna(subset=["catid"])
+    if "catid" in df.columns: 
+        df = df.dropna(subset=["catid"])
 
-    # Cast catid column to int
-    df = df.copy()  # Required to suppress SettingValueWithCopy warning
-    df["catid"] = df["catid"].astype(int)
+        # Cast catid column to int
+        if all([type(c) == float for c in df["catid"]]):
+            df = df.copy()  # Required to suppress SettingValueWithCopy warning
+            df["catid"] = df["catid"].astype(int)
 
     return df
 
@@ -376,7 +389,7 @@ if __name__ == "__main__":
 
     eline_SNR_min = 5
     df_cut = df_dqcut(df=df_cut, ncomponents=3 if ncomponents == "recom" else 1,
-                   eline_list=eline_list, eline_SNR_min=eline_SNR_min, SNR_linelist=eline_list,
+                   eline_SNR_min=eline_SNR_min, eline_list=eline_list,
                    sigma_gas_SNR_cut=sigma_gas_SNR_cut, sigma_gas_SNR_min=sigma_gas_SNR_min, sigma_inst_kms=sigma_inst_kms,
                    vgrad_cut=False,
                    stekin_cut=True)
