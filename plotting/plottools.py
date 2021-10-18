@@ -148,7 +148,7 @@ vmin_dict = {
     "sigma_gas": 10,
     "sigma_*": 10,
     "sigma_gas - sigma_*": -300,
-    "v_gas - v_*": -100,
+    "v_gas - v_*": -250,
     "HALPHA S/N": 3,
     "BPT (numeric)": -1.5,
     "Law+2021 (numeric)": -1.5,
@@ -212,7 +212,7 @@ vmax_dict = {
     "sigma_gas": 300,
     "sigma_*": 300,
     "sigma_gas - sigma_*": +600,
-    "v_gas - v_*": +100,
+    "v_gas - v_*": +250,
     "HALPHA S/N": 50,
     "BPT (numeric)": 4.5,
     "Law+2021 (numeric)": 3.5,
@@ -433,7 +433,8 @@ def histhelper(df, col_x, col_y, col_z, nbins, ax, cmap,
 ###############################################################################
 # Plot empty BPT diagrams
 ###############################################################################
-def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False):
+def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False,
+                           axs=None):
     """
     Plot Baldwin, Philips & Terlevich (1986) optical line ratio diagrams.
     To add a colorbar:
@@ -466,6 +467,7 @@ def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False):
         if colorbar:
             cax = fig.add_axes([left+3*width,bottom,cbar_width,height])
 
+    for ii in range(nrows):
         # Plot the reference lines from literature
         x_vals = np.linspace(-2.5, 2.5, 100)
         ax_N2.plot(x_vals, Kewley2001("log N2", x_vals), "gray", linestyle="--")
@@ -517,6 +519,48 @@ def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False):
             return fig, axs, caxs
     else:
         return fig, axs
+
+###############################################################################
+# Convenience functions for plotting lines over BPT diagrams
+###############################################################################
+def plot_BPT_lines(ax, col_x, include_Law2021=False,
+                   color="gray", linewidth=1, zorder=1):
+    """
+    Over-plot demarcation lines of Kewley+2001, Kauffman+2003, Kewley+2006
+    and Law+2021 on the provided axis.
+    """
+    assert col_x in ["log N2", "log S2", "log O1"],\
+        "col_x must be one of log N2, log S2 or log O1!"
+
+    # Plot the demarcation lines from literature
+    x_vals = np.linspace(-2.5, 2.5, 100)
+    
+    # Kewley+2001: all 3 diagrams
+    ax.plot(x_vals, Kewley2001(col_x, x_vals), color=color, linewidth=linewidth, linestyle="--", zorder=zorder)
+    
+    # Kewley+2006: S2 and O1 only
+    if col_x == "log S2" or col_x == "log O1":
+        ax.plot(x_vals, Kewley2006(col_x, x_vals), color=color, linewidth=linewidth, linestyle="-.", zorder=zorder)
+    
+    # Kauffman+2003: log N2 only
+    if col_x == "log N2":
+        ax.plot(x_vals, Kauffman2003(col_x, x_vals), color=color, linewidth=linewidth, linestyle=":", zorder=zorder)
+
+    if include_Law2021:
+        y_vals = np.copy(x_vals)
+        ax.plot(x_vals, Law2021_1sigma(col_x, x_vals), color=color, linewidth=linewidth, linestyle="-", zorder=zorder)
+        ax.plot(Law2021_3sigma(col_x, y_vals), y_vals, color=color, linewidth=linewidth, linestyle="-", zorder=zorder)
+
+    # Axis limits
+    ax.set_ylim([-1.5, 1.2])
+    if col_x == "log N2":
+        ax.set_xlim([-1.3,0.5])
+    elif col_x == "log S2":
+        ax.set_xlim([-1.3,0.5])
+    elif col_x == "log O1":
+        ax.set_xlim([-2.2,0.2])
+
+    return
 
 ###############################################################################
 # Compass & scale bar functions for 2D map plots
