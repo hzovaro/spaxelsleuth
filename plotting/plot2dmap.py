@@ -3,15 +3,18 @@ import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 
-from plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn, plot_scale_bar, plot_compass
+from spaxelsleuth.plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn, plot_scale_bar, plot_compass
 
 import matplotlib.pyplot as plt
 plt.ion()
 
+from IPython.core.debugger import Tracer
+
 sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
+s7_data_path = "/priv/meggs3/u5708159/S7/"
 
 ###############################################################################
-def plot2dmap(df_gal, col_z, bin_type,
+def plot2dmap(df_gal, col_z, bin_type, survey,
               show_title=True, axis_labels=True,
               vmin=None, vmax=None,
               ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical",
@@ -26,15 +29,32 @@ def plot2dmap(df_gal, col_z, bin_type,
         "cax_orientation must be either 'horizontal' or 'vertical'!"
     assert len(df_gal.catid.unique()) == 1,\
         "df_gal contains must only contain one galaxy!"
+    survey = survey.lower()
+    assert survey in ["sami", "s7"],\
+        "survey must be either SAMI or S7!"
+    if survey == "sami":
+        assert bin_type in ["adaptive", "default"],\
+        "bin_type must be either 'adaptive' or 'default'!"
+        as_per_px = 0.5
+    elif survey == "s7":
+        assert bin_type == "default",\
+        "if survey is S7 then bin_type must be 'default'!"
+        as_per_px = 1.0
 
     # Load the non-binned data cube to get a continuum image
     gal = df_gal.catid.unique()[0]
-    hdulist = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
+    if survey == "sami":
+        hdulist = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
+    elif survey == "s7":
+        hdulist = fits.open(os.path.join(s7_data_path, f"0_Cubes/{gal}_B.fits"))
+
     data_cube = hdulist[0].data
     header = hdulist[0].header
-    lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
+    crpix = header["CRPIX3"] if survey == "sami" else 0
+    lambda_0_A = header["CRVAL3"] - crpix * header["CDELT3"]
     dlambda_A = header["CDELT3"]
     N_lambda = header["NAXIS3"]
+    
     lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
     start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z_spec"].unique()[0]) - 4000))
     stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z_spec"].unique()[0]) - 5000))
@@ -46,7 +66,7 @@ def plot2dmap(df_gal, col_z, bin_type,
     hdulist.close()
 
     # Reconstruct 2D arrays from the rows in the data frame.
-    col_z_map = np.full((50, 50), np.nan)
+    col_z_map = np.full((50, 50), np.nan) if survey == "sami" else np.full((38, 25), np.nan)
     if bin_type == "adaptive":
         hdulist = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
         bin_map = hdulist[2].data.astype("float")
@@ -56,7 +76,7 @@ def plot2dmap(df_gal, col_z, bin_type,
             col_z_map[bin_mask] = df_gal.loc[df_gal["bin_number"] == ii, col_z]
 
     elif bin_type == "default":
-        df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] * 2, df_gal["y (projected, arcsec)"] * 2))
+        df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
         for rr in range(df_gal.shape[0]):
             xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
             col_z_map[yy, xx] = df_gal.iloc[rr][col_z]
@@ -84,11 +104,11 @@ def plot2dmap(df_gal, col_z, bin_type,
     ax.contour(im_B, linewidths=0.5, colors="white", levels=np.logspace(0, 2.5, 15))
 
     # Include scale bar
-    plot_scale_bar(as_per_px=np.abs(header["CDELT1"]) * 3600, kpc_per_as=df_gal["kpc per arcsec"].unique()[0], ax=ax, l=10, units="arcsec", color="black", loffset=0.30)
+    plot_scale_bar(as_per_px=as_per_px, kpc_per_as=df_gal["kpc per arcsec"].unique()[0], ax=ax, l=10, units="arcsec", color="black", loffset=0.30)
     plot_compass(ax=ax, color="black")
 
     if show_title:
-        ax.set_title(f"GAMA{gal}")
+        ax.set_title(f"GAMA{gal}") if survey == "sami" else ax.set_title(gal)
 
     # If the user wants to plot a colorbar but the colorbar axis is not specified,
     # then create a new one.
