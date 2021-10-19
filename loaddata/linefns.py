@@ -1,5 +1,6 @@
 import numpy as np
 
+from IPython.core.debugger import Tracer
 ###############################################################################
 # Reference lines from literature
 def Kewley2001(ratio_x, ratio_x_vals, log=True):
@@ -141,19 +142,22 @@ def bpt_fn(df, s=None):
         cond_not_classified |= np.isnan(df["log N2"])
         cond_not_classified |= np.isnan(df["log S2"])
         df_not_classified = df[cond_not_classified]
-        df_not_classified.loc[:, "BPT"] = "Not classified"
-        df_not_classified.loc[:, "BPT (numeric)"] = "-1"
+        if not df_not_classified.empty:
+            df_not_classified.loc[:, "BPT"] = "Not classified"
+            df_not_classified.loc[:, "BPT (numeric)"] = -1
 
         # Everything that can be classified
         df_classified = df[~cond_not_classified]
-        df_classified.loc[:, "BPT"] = "Ambiguous"
+        if not df_classified.empty:
+            df_classified.loc[:, "BPT"] = "Ambiguous"
 
         # SF
         cond_SF  = df_classified["log O3"] < Kauffman2003("log N2", df_classified["log N2"])
         cond_SF &= df_classified["log O3"] < Kewley2001("log S2", df_classified["log S2"])
         df_SF = df_classified[cond_SF]
-        df_SF.loc[:, "BPT"] = "SF"
-        df_SF.loc[:, "BPT (numeric)"] = 0
+        if not df_SF.empty:
+            df_SF.loc[:, "BPT"] = "SF"
+            df_SF.loc[:, "BPT (numeric)"] = 0
         df_classified = df_classified[~cond_SF]
 
         # Composite
@@ -161,8 +165,9 @@ def bpt_fn(df, s=None):
         cond_Comp &= df_classified["log O3"] <  Kewley2001("log N2", df_classified["log N2"])
         cond_Comp &= df_classified["log O3"] <  Kewley2001("log S2", df_classified["log S2"])
         df_Comp = df_classified[cond_Comp]
-        df_Comp.loc[:, "BPT"] = "Composite"
-        df_Comp.loc[:, "BPT (numeric)"] = 1
+        if not df_Comp.empty:
+            df_Comp.loc[:, "BPT"] = "Composite"
+            df_Comp.loc[:, "BPT (numeric)"] = 1
         df_classified = df_classified[~cond_Comp]
 
         # LINER
@@ -170,8 +175,9 @@ def bpt_fn(df, s=None):
         cond_LINER &= df_classified["log O3"] >= Kewley2001("log S2", df_classified["log S2"])
         cond_LINER &= df_classified["log O3"] < Kewley2006("log S2", df_classified["log S2"])
         df_LINER = df_classified[cond_LINER]
-        df_LINER.loc[:, "BPT"] = "LINER"
-        df_LINER.loc[:, "BPT (numeric)"] = 2
+        if not df_LINER.empty:
+            df_LINER.loc[:, "BPT"] = "LINER"
+            df_LINER.loc[:, "BPT (numeric)"] = 2
         df_classified = df_classified[~cond_LINER]
 
         # Seyfert
@@ -179,13 +185,15 @@ def bpt_fn(df, s=None):
         cond_Seyfert &= df_classified["log O3"] >= Kewley2001("log S2", df_classified["log S2"])
         cond_Seyfert &= df_classified["log O3"] >= Kewley2006("log S2", df_classified["log S2"])
         df_Seyfert = df_classified[cond_Seyfert]
-        df_Seyfert.loc[:, "BPT"] = "Seyfert"
-        df_Seyfert.loc[:, "BPT (numeric)"] = 3
+        if not df_Seyfert.empty:
+            df_Seyfert.loc[:, "BPT"] = "Seyfert"
+            df_Seyfert.loc[:, "BPT (numeric)"] = 3
 
         # Ambiguous
         df_ambiguous = df_classified[~cond_Seyfert]
-        df_ambiguous.loc[:, "BPT"] = "Ambiguous"
-        df_ambiguous.loc[:, "BPT (numeric)"] = 4
+        if not df_ambiguous.empty:
+            df_ambiguous.loc[:, "BPT"] = "Ambiguous"
+            df_ambiguous.loc[:, "BPT (numeric)"] = 4
 
         # Smoosh them back together
         df = df_not_classified.append([df_SF, df_Comp, df_LINER, df_Seyfert, df_ambiguous])
@@ -230,8 +238,9 @@ def law2021_fn(df, s=None):
         cond_not_classified |= np.isnan(df["log N2"])
         cond_not_classified |= np.isnan(df["log S2"])
         df_not_classified = df[cond_not_classified]
-        df_not_classified.loc[:, "Law+2021"] = "Not classified"
-        df_not_classified.loc[:, "Law+2021 (numeric)"] = "-1"
+        if not df_not_classified.empty:
+            df_not_classified.loc[:, "Law+2021"] = "Not classified"
+            df_not_classified.loc[:, "Law+2021 (numeric)"] = "-1"
 
         # Everything that can be classified
         df_classified = df[~cond_not_classified]
@@ -242,8 +251,9 @@ def law2021_fn(df, s=None):
         # cond_cold &= df_classified["log N2"] < -0.032
         # cond_cold &= df_classified["log S2"] < 0.198
         df_cold = df_classified[cond_cold]
-        df_cold.loc[:, "Law+2021"] = "Cold"
-        df_cold.loc[:, "Law+2021 (numeric)"] = 0
+        if not df_cold.empty:
+            df_cold.loc[:, "Law+2021"] = "Cold"
+            df_cold.loc[:, "Law+2021 (numeric)"] = 0
         df_classified = df_classified[~cond_cold]
 
         # intermediate
@@ -254,8 +264,9 @@ def law2021_fn(df, s=None):
         cond_intermediate &= df_classified["log O3"] > -0.61
         # cond_intermediate &= df_classified["log O3"] < -0.61
         df_intermediate = df_classified[cond_intermediate]
-        df_intermediate.loc[:, "Law+2021"] = "Intermediate"
-        df_intermediate.loc[:, "Law+2021 (numeric)"] = 1
+        if not df_intermediate.empty:
+            df_intermediate.loc[:, "Law+2021"] = "Intermediate"
+            df_intermediate.loc[:, "Law+2021 (numeric)"] = 1
         df_classified = df_classified[~cond_intermediate]
 
         # warm
@@ -265,13 +276,15 @@ def law2021_fn(df, s=None):
         cond_warm &= df_classified["log S2"] >= Law2021_3sigma("log S2", df_classified["log O3"])
         # cond_warm |= df_classified["log N2"] > -0.032
         df_warm = df_classified[cond_warm]
-        df_warm.loc[:, "Law+2021"] = "Warm"
-        df_warm.loc[:, "Law+2021 (numeric)"] = 2
+        if not df_warm.empty:
+            df_warm.loc[:, "Law+2021"] = "Warm"
+            df_warm.loc[:, "Law+2021 (numeric)"] = 2
 
         # Ambiguous
         df_ambiguous = df_classified[~cond_warm]
-        df_ambiguous.loc[:, "Law+2021"] = "Ambiguous"
-        df_ambiguous.loc[:, "Law+2021 (numeric)"] = 3
+        if not df_ambiguous.empty:
+            df_ambiguous.loc[:, "Law+2021"] = "Ambiguous"
+            df_ambiguous.loc[:, "Law+2021 (numeric)"] = 3
 
         # Smoosh them back together
         df = df_not_classified.append([df_cold, df_intermediate, df_warm, df_ambiguous])
