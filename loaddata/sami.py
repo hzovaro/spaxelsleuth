@@ -15,7 +15,7 @@ sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
 sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
 
 def load_sami_galaxies(ncomponents, bin_type,
-                       eline_SNR_min, SNR_linelist=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
+                       eline_SNR_min, eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
                        sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
                        vgrad_cut=False, correct_extinction=False,
                        debug=False):
@@ -44,7 +44,7 @@ def load_sami_galaxies(ncomponents, bin_type,
     # DQ and S/N CUTS
     ######################################################################
     df = dqcut.dqcut(df=df, ncomponents=3 if ncomponents == "recom" else 1,
-                  eline_SNR_min=eline_SNR_min, SNR_linelist=SNR_linelist,
+                  eline_SNR_min=eline_SNR_min, eline_list=eline_list,
                   sigma_gas_SNR_cut=sigma_gas_SNR_cut,
                   sigma_gas_SNR_min=sigma_gas_SNR_min,
                   sigma_inst_kms=29.6,
@@ -70,7 +70,7 @@ def load_sami_galaxies(ncomponents, bin_type,
     # AFTER we compute line ratios, etc.
     ######################################################################
     if correct_extinction:
-        print("WARNING: correcting Halpha and HALPHA EW for extinction!")
+        print("WARNING: in load_sami_galaxies: correcting Halpha and HALPHA EW for extinction!")
         # Use the provided extinction correction map to correct Halpha 
         # fluxes & EWs
         df["HALPHA (total)"] *= df["HALPHA extinction correction"]
@@ -92,7 +92,7 @@ def load_sami_galaxies(ncomponents, bin_type,
             df[f"log HALPHA EW error (lower) (component {component})"] = df[f"log HALPHA EW (component {component})"] - np.log10(df[f"HALPHA EW (component {component})"] - df[f"HALPHA EW error (component {component})"])
             df[f"log HALPHA EW error (upper) (component {component})"] = np.log10(df[f"HALPHA EW (component {component})"] + df[f"HALPHA EW error (component {component})"]) -  df[f"log HALPHA EW (component {component})"]
     else:
-        print("WARNING: NOT correcting Halpha and HALPHA EW for extinction!")
+        print("WARNING: in load_sami_galaxies: NOT correcting Halpha and HALPHA EW for extinction!")
     return df
 
 ###############################################################################
@@ -110,9 +110,11 @@ if __name__ == "__main__":
     stekin_cut = True
 
     df = load_sami_galaxies(ncomponents="recom", bin_type="default",
-                            eline_SNR_min=eline_SNR_min, vgrad_cut=vgrad_cut)
+                            eline_SNR_min=eline_SNR_min, vgrad_cut=vgrad_cut, 
+                            debug=True)
     df_nocut = load_sami_galaxies(ncomponents="recom", bin_type="default",
-                                  eline_SNR_min=0, vgrad_cut=False)
+                                  eline_SNR_min=0, vgrad_cut=False, 
+                                  debug=True)
 
     # CHECK: proper S/N cuts have been made
     for eline in ["HALPHA", "HBETA", "OIII5007", "OI6300", "NII6583", "SII6716", "SII6731"]:
@@ -155,12 +157,22 @@ if __name__ == "__main__":
         assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{eline} error (total)"]))
 
     # CHECK: all HALPHA-derived columns in spaxels with 0 components are NaN
-    for col in ["HALPHA EW", "log HALPHA EW"]:
-        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (total)"]))
-        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (total)"]))
-        for ii in range(3):
-            assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (component {ii})"]))
-            assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (component {ii})"]))
+    col = "HALPHA EW"
+    assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (total)"]))
+    assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (total)"]))
+    for ii in range(3):
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (component {ii})"]))
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (component {ii})"]))
+
+    # CHECK: all HALPHA-derived columns in spaxels with 0 components are NaN
+    col = "log HALPHA EW"
+    assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (total)"]))
+    assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (upper) (total)"]))
+    assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (lower) (total)"]))
+    for ii in range(3):
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (component {ii})"]))
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (upper) (component {ii})"]))
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (lower) (component {ii})"]))
 
     # CHECK: all kinematic quantities in spaxels with 0 components are NaN
     for col in ["sigma_gas", "v_gas"]:
