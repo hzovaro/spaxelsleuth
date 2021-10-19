@@ -30,10 +30,10 @@ def get_sdss_image(gal, ra_deg, dec_deg,
     try:
         urlretrieve(url, imname)
     except:
-        print(f"{gal} not in SDSS footprint! Skipping...")
-        pass
+        print(f"{gal} not in SDSS footprint!")
+        return 0
 
-    return
+    return 1
 
 
 ###############################################################################
@@ -53,8 +53,10 @@ def plot_sdss_image(df_gal, show_title=True, axis_labels=True,
     if not os.path.exists(os.path.join(SDSS_IM_PATH, f"{gal}_{width_px}x{height_px}.jpg")):
         # Download the image
         print(f"WARNING: file {os.path.join(SDSS_IM_PATH, f'{gal}_{width_px}x{height_px}.jpg')} not found. Retrieving image from SDSS...")
-        get_sdss_image(gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
-                       as_per_px=as_per_px, width_px=250, height_px=250)
+        if not get_sdss_image(gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
+                       as_per_px=as_per_px, width_px=250, height_px=250):
+            return
+            
     im = mpimg.imread(os.path.join(SDSS_IM_PATH, f"{gal}_{width_px}x{height_px}.jpg"))
 
     # Make a WCS for the image
@@ -90,11 +92,11 @@ def plot_sdss_image(df_gal, show_title=True, axis_labels=True,
     # Include scale bar
     D_A_Mpc, D_L_Mpc = get_dist(z=df_gal["z_spec"].unique()[0], H0=70.0, WM=0.3)
     kpc_per_as = D_A_Mpc * 1e3 * np.pi / 180.0 / 3600.0
-    plot_scale_bar(as_per_px=0.1, kpc_per_as=kpc_per_as, ax=ax, l=15, units="arcsec", fontsize=10)
+    plot_scale_bar(as_per_px=0.1, loffset=0.25, kpc_per_as=kpc_per_as, ax=ax, l=10, units="arcsec", fontsize=12)
 
     # Axis labels
     if axis_labels:
         ax.set_ylabel("Dec (J2000)")
         ax.set_xlabel("RA (J2000)")
-
+    
     return fig
