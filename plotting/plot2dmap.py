@@ -3,7 +3,9 @@ import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 
-from spaxelsleuth.plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn, plot_scale_bar, plot_compass
+from spaxelsleuth.plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn 
+from spaxelsleuth.plotting.plottools import plot_scale_bar, plot_compass
+from spaxelsleuth.plotting.plottools import bpt_ticks, bpt_labels, morph_ticks, morph_labels, law2021_ticks, law2021_labels, ncomponents_ticks, ncomponents_labels
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -15,6 +17,7 @@ s7_data_path = "/priv/meggs3/u5708159/S7/"
 
 ###############################################################################
 def plot2dmap(df_gal, col_z, bin_type, survey,
+              PA_deg=0,
               show_title=True, axis_labels=True,
               vmin=None, vmax=None,
               ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical",
@@ -101,11 +104,16 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     m = ax.imshow(col_z_map, cmap=cmap, vmin=vmin, vmax=vmax)
 
     # Contours
-    ax.contour(im_B, linewidths=0.5, colors="white", levels=np.logspace(0, 2.5, 15))
+    if survey == "sami":
+        levels = np.logspace(0, 2.5, 15)
+        ax.contour(np.log10(im_B), linewidths=0.5, colors="white", levels=levels)
+    elif survey == "s7":
+        levels = 10
+        ax.contour(np.log10(im_B) + 15, linewidths=0.5, colors="white", levels=levels) 
 
     # Include scale bar
     plot_scale_bar(as_per_px=as_per_px, kpc_per_as=df_gal["kpc per arcsec"].unique()[0], ax=ax, l=10, units="arcsec", color="black", loffset=0.30)
-    plot_compass(ax=ax, color="black")
+    plot_compass(ax=ax, color="black", PA_deg=PA_deg)
 
     if show_title:
         ax.set_title(f"GAMA{gal}") if survey == "sami" else ax.set_title(gal)
