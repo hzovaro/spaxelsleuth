@@ -4,12 +4,6 @@ import numpy as np
 
 from spaxelsleuth.loaddata import dqcut, linefns
 
-"""
-In this file:
-- a function or class to load dataframes for individual LZIFU galaxies.
-
-"""
-
 sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
 sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
 
@@ -41,7 +35,7 @@ def load_lzifu_galaxy(gal, ncomponents, bin_type,
     ######################################################################
     df = dqcut.dqcut(df=df, ncomponents=3,
                   eline_SNR_min=eline_SNR_min, eline_list=eline_list,
-                  sigma_gas_SNR_cut=True, sigma_gas_SNR_min=sigma_gas_SNR_min, 
+                  sigma_gas_SNR_cut=sigma_gas_SNR_cut, sigma_gas_SNR_min=sigma_gas_SNR_min, 
                   sigma_inst_kms=29.6,
                   vgrad_cut=vgrad_cut,
                   stekin_cut=stekin_cut)
