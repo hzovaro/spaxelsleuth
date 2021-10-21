@@ -4,6 +4,7 @@ from itertools import product
 from astropy.io import fits
 import pandas as pd
 from scipy import constants
+from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -33,9 +34,8 @@ df_metadata["Good?"] = df_metadata["Good?"].astype("float")
 
 ###############################################################################
 # Create a separate data frame for each galaxy
-gals = [int(f.split("_merge_comp.fits")[0]) for f in os.listdir(lzifu_data_path) if f.endswith("merge_comp.fits") and not f.startswith("._")]
-for gal in gals:
-    print(f"Processing galaxy {gal}...")
+gals = [int(f.split("_merge_lzcomp.fits")[0]) for f in os.listdir(lzifu_data_path) if f.endswith("merge_lzcomp.fits") and not f.startswith("._")]
+for gal in tqdm(gals):
     ###############################################################################
     # Filenames
     df_fname = f"lzifu_{gal}.hd5"
@@ -59,7 +59,7 @@ for gal in gals:
     # Open the required FITS files.
     hdulist_B_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
     hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
-    hdulist_lzifu = fits.open(os.path.join(lzifu_data_path, f"{gal}_merge_comp.fits"))
+    hdulist_lzifu = fits.open(os.path.join(lzifu_data_path, f"{gal}_merge_lzcomp.fits"))
 
     #######################################################################
     # Compute the d4000 Angstrom break.
