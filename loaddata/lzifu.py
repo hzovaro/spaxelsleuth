@@ -1,11 +1,14 @@
 import os
 import pandas as pd
 import numpy as np
+from astropy.io import fits
+from tqdm import tqdm
 
 from spaxelsleuth.loaddata import dqcut, linefns
 
 sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
 sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
+lzifu_data_path = "/priv/meggs3/u5708159/LZIFU/products/"
 
 def load_lzifu_galaxy(gal, ncomponents, bin_type,
                       eline_SNR_min,
@@ -88,6 +91,172 @@ def load_lzifu_galaxy(gal, ncomponents, bin_type,
         print("WARNING: in load_lzifu_galaxy: NOT correcting Halpha and HALPHA EW for extinction!")
     return df
 
+###############################################################################
+def merge_datacubes(gal=None, plotit=False):
+    """
+    By default, LZIFU uses the "likelihood ratio test (LRT)" to determine the 
+    optimal number of components in each spaxel. However, this technique often
+    produces results very inconsistent with those derived using LZCOMP, the 
+    ANN used in SAMI DR3. 
+
+    This function takes the component maps from SAMI DR3, and applies them
+    to the LZIFU 1, 2 and 3-component fits to determine the optimal number of 
+    components in each spaxel. 
+
+    The results are saved in file <gal>_merge_lzcomp.fits, with identical
+    extensions and data formats as those in <gal>_merge_comp.fits, which is 
+    the default output of LZIFU.   
+
+    """
+    if gal is None:
+        gals = [int(f.split("_merge_comp.fits")[0]) for f in os.listdir(lzifu_data_path) if f.endswith("merge_comp.fits") and not f.startswith("._")]
+    else:
+        if type(gal) == list:
+            gals = gal
+        else:
+            gals = [gal]
+        for gal in gals:
+            assert type(gal) == int, "gal must be an integer!"
+            fname = os.path.join(lzifu_data_path, f"{gal}_merge_comp.fits")
+            assert os.path.exists(fname), f"File {fname} not found!"
+
+    for gal in tqdm(gals):
+        ###############################################################################
+        # Step 1: Create a map from the SAMI data showing how many components there 
+        # should be in each spaxel.
+        ###############################################################################
+        # Open the SAMI data.
+        hdulist_sami = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_Halpha_default_recom-comp.fits"))
+        halpha_map = np.copy(hdulist_sami[0].data[1:])
+
+        # Figure out how many components there are in each spaxel.
+        halpha_map[~np.isnan(halpha_map)] = 1
+        halpha_map[np.isnan(halpha_map)] = 0
+        ncomponents_map = np.nansum(halpha_map, axis=0)
+
+        ###############################################################################
+        # Step 2: Go through each of the 1, 2, 3 component-fit LZIFU cubes and re-
+        # construct the data saved in the final FITS file
+        # Simply open the FITS file saved in merge.pro and over-write the contents.
+        # Add an extra FITS header string to show that it's been edited.
+        ###############################################################################
+
+        # Open the FITS file saved in merge.pro.
+        hdulist_merged = fits.open(os.path.join(lzifu_data_path, f"{gal}_merge_comp.fits"))
+        hdulist_1 = fits.open(os.path.join(lzifu_data_path, f"{gal}_1_comp.fits"))
+        hdulist_2 = fits.open(os.path.join(lzifu_data_path, f"{gal}_2_comp.fits"))
+        hdulist_3 = fits.open(os.path.join(lzifu_data_path, f"{gal}_3_comp.fits"))
+
+        # For checking
+        halpha_map_old = np.copy(hdulist_merged["HALPHA"].data[1:])
+
+        ###############################################################################
+        # Replace the data in the FITS file with that from the appropriate LZIFU fit
+        ###############################################################################
+        for ncomponents, hdulist in zip([1, 2, 3], [hdulist_1, hdulist_2, hdulist_3]):
+            mask = ncomponents_map == ncomponents
+            # Quantities defined for each component
+            for ext in ["V", "VDISP", "HALPHA", "HBETA", "OIII5007", "OI6300", "NII6583", "SII6716", "SII6731"]:
+                hdulist_merged[ext].data[:ncomponents + 1, mask] = hdulist[ext].data[:, mask]
+                hdulist_merged[ext].data[ncomponents + 1:, mask] = np.nan
+                hdulist_merged[f"{ext}_ERR"].data[:ncomponents + 1, mask] = hdulist[f"{ext}_ERR"].data[:, mask]
+                hdulist_merged[f"{ext}_ERR"].data[ncomponents + 1:, mask] = np.nan
+
+            # Quantities defined as 2D maps
+            for ext in ["CHI2", "DOF"]:
+                hdulist_merged[ext].data[mask] = hdulist[ext].data[mask]
+
+            # Quantities defined over the whole data cube 
+            for ext in ["CONTINUUM", "LINE"] + [f"LINE_COMP{n + 1}" for n in range(ncomponents)]:
+                hdulist_merged[f"B_{ext}"].data[:, mask] = hdulist[f"B_{ext}"].data[:, mask]
+                hdulist_merged[f"R_{ext}"].data[:, mask] = hdulist[f"R_{ext}"].data[:, mask]
+
+        ###############################################################################
+        # Where there are 0 components, set everything to NaN
+        ###############################################################################
+        mask = ncomponents_map == 0
+        # Quantities defined for each component
+        for ext in ["V", "VDISP", "HALPHA", "HBETA", "OIII5007", "OI6300", "NII6583", "SII6716", "SII6731"]:
+            hdulist_merged[ext].data[:, mask] = np.nan
+            hdulist_merged[f"{ext}_ERR"].data[:, mask] = np.nan
+
+        # Quantities defined as 2D maps
+        for ext in ["CHI2", "DOF"]:
+            hdulist_merged[ext].data[mask] = np.nan
+
+        # Quantities defined over the whole data cube 
+        for ext in ["CONTINUUM", "LINE"] + [f"LINE_COMP{n + 1}" for n in range(ncomponents)]:
+            hdulist_merged[f"B_{ext}"].data[:, mask] = np.nan
+            hdulist_merged[f"R_{ext}"].data[:, mask] = np.nan
+
+        # Add the component map to the FITS file
+        ncomponents_map[mask] = np.nan
+        hdulist_merged["COMP_MAP"].data = ncomponents_map
+
+        ###############################################################################
+        # Save
+        ###############################################################################
+        # Add an extra FITS header string to show that it's been edited.
+        hdulist_merged[0].header["NOTE"] = "Number of components determined from SAMI DR3 data"
+
+        # Save
+        hdulist_merged.writeto(os.path.join(lzifu_data_path, f"{gal}_merge_lzcomp.fits"), overwrite=True, output_verify="ignore")
+
+        ###############################################################################
+        # If desired, plot the Halpha maps in each component for both the 
+        # LRT and LZCOMP-derived component maps
+        ###############################################################################
+        if plotit:
+            halpha_map_new = np.copy(hdulist_merged["HALPHA"].data[1:])
+
+            # Figure out how many components there are in each spaxel.
+            halpha_map_new[~np.isnan(halpha_map_new)] = 1
+            halpha_map_new[np.isnan(halpha_map_new)] = 0
+            ncomponents_map_check = np.nansum(halpha_map_new, axis=0)
+            ncomponents_map_check[ncomponents_map_check == 0] = np.nan
+
+            fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
+            axs[0].imshow(ncomponents_map)
+            axs[1].imshow(ncomponents_map_check)
+
+            # Show the old & new Halpha maps side-by-side
+            fig, axs = plt.subplots(nrows=3, ncols=2, figsize=(10, 15))
+            fig.suptitle(r"%s - H$\alpha$ maps" % gal)
+            axs[0][0].set_title("LZIFU LRT result")
+            axs[0][1].set_title("SAMI DR3 LZCOMP result")
+            axs[0][0].imshow(halpha_map_old[0])
+            axs[0][1].imshow(hdulist_merged["HALPHA"].data[1])
+            axs[1][0].imshow(halpha_map_old[1])
+            axs[1][1].imshow(hdulist_merged["HALPHA"].data[2])
+            axs[2][0].imshow(halpha_map_old[2])
+            axs[2][1].imshow(hdulist_merged["HALPHA"].data[3])
+
+        ###############################################################################
+        # Assertion checks 
+        ###############################################################################
+        # Check that the 1st slice of the V, VDISP extensions are all NaN
+        assert np.all(np.isnan(hdulist_merged["V"].data[0]))
+        assert np.all(np.isnan(hdulist_merged["V_ERR"].data[0]))
+        assert np.all(np.isnan(hdulist_merged["VDISP"].data[0]))
+        assert np.all(np.isnan(hdulist_merged["VDISP_ERR"].data[0]))
+
+        for ext in ["V", "VDISP", "HALPHA", "HBETA", "OIII5007", "OI6300", "NII6583", "SII6716", "SII6731"]:
+            for ncomponents, hdulist in zip([1, 2, 3], [hdulist_1, hdulist_2, hdulist_3]):
+                # Check that there are ONLY N data values in all N-component spaxels
+                mask = ncomponents_map == ncomponents
+                assert np.all(np.isnan(hdulist_merged[ext].data[ncomponents + 1:, mask]))
+                assert np.all(np.isnan(hdulist_merged[f"{ext}_ERR"].data[ncomponents + 1:, mask]))
+
+                # Check that the right data has been added 
+                for ii in range(ncomponents):
+                    diff = np.abs((hdulist_merged[ext].data[ii + 1, mask] - hdulist[ext].data[ii + 1, mask]) /hdulist_merged[ext].data[ii + 1, mask])
+                    diff[np.isnan(diff)] = 0
+                    assert np.all(diff < 1e-6)
+                    diff = np.abs((hdulist_merged[f"{ext}_ERR"].data[ii + 1, mask] - hdulist[f"{ext}_ERR"].data[ii + 1, mask]) / hdulist_merged[f"{ext}_ERR"].data[ii + 1, mask])
+                    diff[np.isnan(diff)] = 0
+                    assert np.all(diff < 1e-6)
+
+    return
 
 ###############################################################################
 if __name__ == "__main__":
