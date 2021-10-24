@@ -19,7 +19,7 @@ s7_data_path = "/priv/meggs3/u5708159/S7/"
 def plot2dmap(df_gal, col_z, bin_type, survey,
               PA_deg=0,
               show_title=True, axis_labels=True,
-              vmin=None, vmax=None,
+              vmin=None, vmax=None, contours=True,
               ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical",
               figsize=(5, 5)):
     """
@@ -104,15 +104,16 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     m = ax.imshow(col_z_map, cmap=cmap, vmin=vmin, vmax=vmax)
 
     # Contours
-    if survey == "sami":
-        levels = np.logspace(0, 2.5, 15)
-        ax.contour(np.log10(im_B), linewidths=0.5, colors="white", levels=levels)
-    elif survey == "s7":
+    if contours and survey == "sami":
+        # levels = np.logspace(0, 2.5, 15)
+        levels = 10
+        ax.contour(im_B, linewidths=0.5, colors="white", levels=levels)
+    elif contours and survey == "s7":
         levels = 10
         ax.contour(np.log10(im_B) + 15, linewidths=0.5, colors="white", levels=levels) 
 
     # Include scale bar
-    plot_scale_bar(as_per_px=as_per_px, kpc_per_as=df_gal["kpc per arcsec"].unique()[0], ax=ax, l=10, units="arcsec", color="black", loffset=0.30)
+    plot_scale_bar(as_per_px=as_per_px, kpc_per_as=df_gal["kpc per arcsec"].unique()[0], fontsize=10, ax=ax, l=10, units="arcsec", color="black", loffset=0.30)
     plot_compass(ax=ax, color="black", PA_deg=PA_deg)
 
     if show_title:
