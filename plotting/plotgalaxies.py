@@ -308,7 +308,7 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
     return fig
 
 ###############################################################################
-def plot2dscatter(df, col_x, col_y, col_z,
+def plot2dscatter(df, col_x, col_y, col_z=None,
                   vmin=None, vmax=None, xmin=None, xmax=None, ymin=None, ymax=None,
                   ax=None, axis_labels=True, 
                   plot_colorbar=True, cax=None, cax_orientation="vertical", alpha=1.0, zorder=2,
