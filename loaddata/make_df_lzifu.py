@@ -33,10 +33,19 @@ df_metadata = pd.read_hdf(os.path.join(sami_data_path, df_metadata_fname), key="
 df_metadata["Good?"] = df_metadata["Good?"].astype("float")
 
 ###############################################################################
-# Create a separate data frame for each galaxy
-gals = [int(f.split("_merge_lzcomp.fits")[0]) for f in os.listdir(lzifu_data_path) if f.endswith("merge_lzcomp.fits") and not f.startswith("._")]
+# List of galaxies
+if len(sys.argv) == 1:
+    gals = [int(f.split("_merge_lzcomp.fits")[0]) for f in os.listdir(lzifu_data_path) if f.endswith("merge_comp.fits") and not f.startswith("._")]
+else:
+    gals = sys.argv[1:]
+    for gal in gals:
+        assert type(gal) == int, "gal must be an integer!"
+        fname = os.path.join(lzifu_data_path, f"{gal}_merge_lzcomp.fits")
+        assert os.path.exists(fname), f"File {fname} not found!"
+
+###############################################################################
+# Save a separate data frame for each galaxy      
 for gal in tqdm(gals):
-    ###############################################################################
     # Filenames
     df_fname = f"lzifu_{gal}.hd5"
 
@@ -52,8 +61,6 @@ for gal in tqdm(gals):
     # Centre galaxy coordinates (see p16 of Croom+2021)
     x0_px = 25.5
     y0_px = 25.5
-
-    rows_list = []
 
     #######################################################################
     # Open the required FITS files.
@@ -459,7 +466,6 @@ for gal in tqdm(gals):
     ######################################################################
     # Save to .hd5 & .csv
     ######################################################################
-    print("Saving to file...")
     df_spaxels.to_csv(os.path.join(sami_data_path, df_fname.split("hd5")[0] + "csv"))
     try:
         df_spaxels.to_hdf(os.path.join(sami_data_path, df_fname), key=f"LZIFU")
