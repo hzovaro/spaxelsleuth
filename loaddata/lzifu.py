@@ -261,123 +261,312 @@ def merge_datacubes(gal=None, plotit=False):
 ###############################################################################
 if __name__ == "__main__":
 
-    import numpy as np
-    import matplotlib.pyplot as plt
-    plt.close("all")
-    plt.ion()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "test":
+        import numpy as np
+        import matplotlib.pyplot as plt
+        plt.close("all")
+        plt.ion()
 
-    gal = 209807
-    eline_SNR_min = 5
-    vgrad_cut = False
+        gal = 209807
+        eline_SNR_min = 5
+        vgrad_cut = False
 
-    df = load_lzifu_galaxy(gal,
-                            ncomponents="recom", bin_type="default",
-                            eline_SNR_min=eline_SNR_min, vgrad_cut=vgrad_cut)
-    df_nocut = load_lzifu_galaxy(gal,
-                            ncomponents="recom", bin_type="default",
-                            eline_SNR_min=0, vgrad_cut=False)
+        df = load_lzifu_galaxy(gal,
+                                ncomponents="recom", bin_type="default",
+                                eline_SNR_min=eline_SNR_min, vgrad_cut=vgrad_cut)
+        df_nocut = load_lzifu_galaxy(gal,
+                                ncomponents="recom", bin_type="default",
+                                eline_SNR_min=0, vgrad_cut=False)
 
-    # CHECK: proper S/N cuts have been made
-    for eline in ["HALPHA", "HBETA", "OIII5007", "OI6300", "NII6583", "SII6716", "SII6731"]:
-        plt.figure()
-        plt.scatter(x=df_nocut[f"{eline} (total)"], y=df_nocut[f"{eline} S/N (total)"], c="grey", alpha=0.1, s=5)
-        plt.scatter(x=df[f"{eline} (total)"], y=df[f"{eline} S/N (total)"], c="k", s=5)
-        plt.ylabel(f"{eline} (total) S/N")
-        plt.axhline(eline_SNR_min, color="r")
-        plt.xlabel(f"{eline} (total) flux")
-    for ii in range(3):
-        plt.figure()
-        plt.scatter(x=df_nocut[f"HALPHA (component {ii})"], y=df_nocut[f"HALPHA S/N (component {ii})"], c="grey", alpha=0.1, s=5)
-        plt.scatter(x=df[f"HALPHA (component {ii})"], y=df[f"HALPHA S/N (component {ii})"], c="k", s=5)
-        plt.ylabel(f"HALPHA (component {ii}) S/N")
-        plt.axhline(eline_SNR_min, color="r")
-        plt.xlabel(f"HALPHA (component {ii}) flux")
-    for ii in range(3):
-        plt.figure()
-        plt.scatter(x=df_nocut[f"HALPHA EW (component {ii})"], y=df_nocut[f"HALPHA S/N (component {ii})"], c="grey", alpha=0.1, s=5)
-        plt.scatter(x=df[f"HALPHA EW (component {ii})"], y=df[f"HALPHA S/N (component {ii})"], c="k", s=5)
-        plt.ylabel(f"HALPHA (component {ii}) S/N")
-        plt.axhline(eline_SNR_min, color="r")
-        plt.xlabel(f"HALPHA EW (component {ii})")
+        # CHECK: proper S/N cuts have been made
+        for eline in ["HALPHA", "HBETA", "OIII5007", "OI6300", "NII6583", "SII6716", "SII6731"]:
+            plt.figure()
+            plt.scatter(x=df_nocut[f"{eline} (total)"], y=df_nocut[f"{eline} S/N (total)"], c="grey", alpha=0.1, s=5)
+            plt.scatter(x=df[f"{eline} (total)"], y=df[f"{eline} S/N (total)"], c="k", s=5)
+            plt.ylabel(f"{eline} (total) S/N")
+            plt.axhline(eline_SNR_min, color="r")
+            plt.xlabel(f"{eline} (total) flux")
+        for ii in range(3):
+            plt.figure()
+            plt.scatter(x=df_nocut[f"HALPHA (component {ii})"], y=df_nocut[f"HALPHA S/N (component {ii})"], c="grey", alpha=0.1, s=5)
+            plt.scatter(x=df[f"HALPHA (component {ii})"], y=df[f"HALPHA S/N (component {ii})"], c="k", s=5)
+            plt.ylabel(f"HALPHA (component {ii}) S/N")
+            plt.axhline(eline_SNR_min, color="r")
+            plt.xlabel(f"HALPHA (component {ii}) flux")
+        for ii in range(3):
+            plt.figure()
+            plt.scatter(x=df_nocut[f"HALPHA EW (component {ii})"], y=df_nocut[f"HALPHA S/N (component {ii})"], c="grey", alpha=0.1, s=5)
+            plt.scatter(x=df[f"HALPHA EW (component {ii})"], y=df[f"HALPHA S/N (component {ii})"], c="k", s=5)
+            plt.ylabel(f"HALPHA (component {ii}) S/N")
+            plt.axhline(eline_SNR_min, color="r")
+            plt.xlabel(f"HALPHA EW (component {ii})")
 
-    # CHECK: gas kinematics
-    for ii in range(3):
-        plt.figure()
-        plt.scatter(x=df_nocut[f"sigma_obs S/N (component {ii})"], y=df_nocut[f"sigma_obs target S/N (component {ii})"], c="grey", alpha=0.1, s=5)
-        plt.scatter(x=df[f"sigma_obs S/N (component {ii})"], y=df[f"sigma_obs target S/N (component {ii})"], c="k", s=5)
-        plt.ylabel(f"sigma_obs target S/N (component {ii})")
-        plt.axhline(3, color="b")
-        plt.xlabel(f"sigma_obs S/N (component {ii})")
+        # CHECK: gas kinematics
+        for ii in range(3):
+            plt.figure()
+            plt.scatter(x=df_nocut[f"sigma_obs S/N (component {ii})"], y=df_nocut[f"sigma_obs target S/N (component {ii})"], c="grey", alpha=0.1, s=5)
+            plt.scatter(x=df[f"sigma_obs S/N (component {ii})"], y=df[f"sigma_obs target S/N (component {ii})"], c="k", s=5)
+            plt.ylabel(f"sigma_obs target S/N (component {ii})")
+            plt.axhline(3, color="b")
+            plt.xlabel(f"sigma_obs S/N (component {ii})")
 
-    # CHECK: "Number of components" is 0, 1, 2 or 3
-    assert np.all(df["Number of components"].unique() == [0, 1, 2, 3])
+        # CHECK: "Number of components" is 0, 1, 2 or 3
+        assert np.all(df["Number of components"].unique() == [0, 1, 2, 3])
 
-    # CHECK: all emission line fluxes in spaxels with 0 components are NaN
-    for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OIII5007", "SII6716", "SII6731"]:
-        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{eline} (total)"]))
-        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{eline} error (total)"]))
+        # CHECK: all emission line fluxes in spaxels with 0 components are NaN
+        for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OIII5007", "SII6716", "SII6731"]:
+            assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{eline} (total)"]))
+            assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{eline} error (total)"]))
 
-    # CHECK: all HALPHA-derived columns in spaxels with 0 components are NaN
-    col = "HALPHA EW"
-    assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (total)"]))
-    assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (total)"]))
-    for ii in range(3):
-        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (component {ii})"]))
-        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (component {ii})"]))
-
-    # CHECK: all HALPHA-derived columns in spaxels with 0 components are NaN
-    col = "log HALPHA EW"
-    assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (total)"]))
-    assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (upper) (total)"]))
-    assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (lower) (total)"]))
-    for ii in range(3):
-        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (component {ii})"]))
-        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (upper) (component {ii})"]))
-        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (lower) (component {ii})"]))
-
-    # CHECK: all kinematic quantities in spaxels with 0 components are NaN
-    for col in ["sigma_gas", "v_gas"]:
+        # CHECK: all HALPHA-derived columns in spaxels with 0 components are NaN
+        col = "HALPHA EW"
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (total)"]))
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (total)"]))
         for ii in range(3):
             assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (component {ii})"]))
             assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (component {ii})"]))
 
-    # CHECK: all emission line fluxes with S/N < SNR_min are NaN
-    for eline in ["HALPHA", "HBETA", "OIII5007", "OI6300", "NII6583", "SII6716", "SII6731"]:
-        assert np.all(np.isnan(df.loc[df[f"{eline} S/N (total)"] < eline_SNR_min, f"{eline} (total)"]))
-
-        # CHECK: all eline components below S/N limit are NaN
+        # CHECK: all HALPHA-derived columns in spaxels with 0 components are NaN
+        col = "log HALPHA EW"
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (total)"]))
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (upper) (total)"]))
+        assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (lower) (total)"]))
         for ii in range(3):
-            assert np.all(np.isnan(df.loc[df[f"{eline} S/N (component {ii})"] < eline_SNR_min, f"{eline} (component {ii})"]))
-            assert np.all(np.isnan(df.loc[df[f"{eline} S/N (component {ii})"] < eline_SNR_min, f"{eline} error (component {ii})"]))
-    
-    # CHECK: all HALPHA EW components where the HALPHA flux is below S/N limit are NaN
-    assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"HALPHA EW (component {ii})"]))
-    assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"HALPHA EW error (component {ii})"]))
-    assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"log HALPHA EW (component {ii})"]))
-    assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"log HALPHA EW error (upper) (component {ii})"]))
-    assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"log HALPHA EW error (lower) (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (upper) (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (lower) (component {ii})"]))
 
-    # CHECK: all sigma_gas components with S/N < S/N target are NaN
-    for ii in range(3):
-        assert np.all(np.isnan(df.loc[df[f"sigma_obs S/N (component {ii})"] < df[f"sigma_obs target S/N (component {ii})"], f"sigma_gas (component {ii})"]))
-        assert np.all(np.isnan(df.loc[df[f"sigma_obs S/N (component {ii})"] < df[f"sigma_obs target S/N (component {ii})"], f"sigma_gas error (component {ii})"]))
+        # CHECK: all kinematic quantities in spaxels with 0 components are NaN
+        for col in ["sigma_gas", "v_gas"]:
+            for ii in range(3):
+                assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} (component {ii})"]))
+                assert np.all(np.isnan(df.loc[df["Number of components"] == 0, f"{col} error (component {ii})"]))
 
-    # CHECK: all sigma_gas components that don't meet the v_grad requirement are NaN
-    if vgrad_cut:
+        # CHECK: all emission line fluxes with S/N < SNR_min are NaN
+        for eline in ["HALPHA", "HBETA", "OIII5007", "OI6300", "NII6583", "SII6716", "SII6731"]:
+            assert np.all(np.isnan(df.loc[df[f"{eline} S/N (total)"] < eline_SNR_min, f"{eline} (total)"]))
+
+            # CHECK: all eline components below S/N limit are NaN
+            for ii in range(3):
+                assert np.all(np.isnan(df.loc[df[f"{eline} S/N (component {ii})"] < eline_SNR_min, f"{eline} (component {ii})"]))
+                assert np.all(np.isnan(df.loc[df[f"{eline} S/N (component {ii})"] < eline_SNR_min, f"{eline} error (component {ii})"]))
+        
+        # CHECK: all HALPHA EW components where the HALPHA flux is below S/N limit are NaN
+        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"HALPHA EW (component {ii})"]))
+        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"HALPHA EW error (component {ii})"]))
+        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"log HALPHA EW (component {ii})"]))
+        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"log HALPHA EW error (upper) (component {ii})"]))
+        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"log HALPHA EW error (lower) (component {ii})"]))
+
+        # CHECK: all sigma_gas components with S/N < S/N target are NaN
         for ii in range(3):
-            assert np.all(np.isnan(df.loc[df[f"v_grad (component {ii})"] > 2 * df[f"sigma_gas (component {ii})"], f"sigma_gas (component {ii})"]))
-            assert np.all(np.isnan(df.loc[df[f"v_grad (component {ii})"] > 2 * df[f"sigma_gas (component {ii})"], f"sigma_gas error (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df[f"sigma_obs S/N (component {ii})"] < df[f"sigma_obs target S/N (component {ii})"], f"sigma_gas (component {ii})"]))
+            assert np.all(np.isnan(df.loc[df[f"sigma_obs S/N (component {ii})"] < df[f"sigma_obs target S/N (component {ii})"], f"sigma_gas error (component {ii})"]))
 
-    # CHECK: stellar kinematics
-    assert np.all(df.loc[~np.isnan(df["sigma_*"]), "sigma_*"] > 35)
-    assert np.all(df.loc[~np.isnan(df["v_* error"]), "v_* error"] < 30)
-    assert np.all(df.loc[~np.isnan(df["sigma_* error"]), "sigma_* error"] < df.loc[~np.isnan(df["sigma_* error"]), "sigma_*"] * 0.1 + 25)
+        # CHECK: all sigma_gas components that don't meet the v_grad requirement are NaN
+        if vgrad_cut:
+            for ii in range(3):
+                assert np.all(np.isnan(df.loc[df[f"v_grad (component {ii})"] > 2 * df[f"sigma_gas (component {ii})"], f"sigma_gas (component {ii})"]))
+                assert np.all(np.isnan(df.loc[df[f"v_grad (component {ii})"] > 2 * df[f"sigma_gas (component {ii})"], f"sigma_gas error (component {ii})"]))
 
-    # CHECK: no "orphan" components
-    assert df[np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["HALPHA (component 1)"])].shape[0] == 0
-    assert df[np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["HALPHA (component 2)"])].shape[0] == 0
-    assert df[np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["HALPHA (component 2)"])].shape[0] == 0
-    assert df[np.isnan(df["sigma_gas (component 0)"]) & ~np.isnan(df["sigma_gas (component 1)"])].shape[0] == 0
-    assert df[np.isnan(df["sigma_gas (component 0)"]) & ~np.isnan(df["sigma_gas (component 2)"])].shape[0] == 0
-    assert df[np.isnan(df["sigma_gas (component 1)"]) & ~np.isnan(df["sigma_gas (component 2)"])].shape[0] == 0
-    
+        # CHECK: stellar kinematics
+        assert np.all(df.loc[~np.isnan(df["sigma_*"]), "sigma_*"] > 35)
+        assert np.all(df.loc[~np.isnan(df["v_* error"]), "v_* error"] < 30)
+        assert np.all(df.loc[~np.isnan(df["sigma_* error"]), "sigma_* error"] < df.loc[~np.isnan(df["sigma_* error"]), "sigma_*"] * 0.1 + 25)
+
+        # CHECK: no "orphan" components
+        assert df[np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["HALPHA (component 1)"])].shape[0] == 0
+        assert df[np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["HALPHA (component 2)"])].shape[0] == 0
+        assert df[np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["HALPHA (component 2)"])].shape[0] == 0
+        assert df[np.isnan(df["sigma_gas (component 0)"]) & ~np.isnan(df["sigma_gas (component 1)"])].shape[0] == 0
+        assert df[np.isnan(df["sigma_gas (component 0)"]) & ~np.isnan(df["sigma_gas (component 2)"])].shape[0] == 0
+        assert df[np.isnan(df["sigma_gas (component 1)"]) & ~np.isnan(df["sigma_gas (component 2)"])].shape[0] == 0
+        
+    else:
+        # Imports
+        import sys
+        import os 
+        import numpy as np
+        import pandas as pd
+        from astropy.visualization import hist
+
+        from spaxelsleuth.loaddata.lzifu import load_lzifu_galaxy
+        from spaxelsleuth.loaddata.sami import load_sami_galaxies
+        from spaxelsleuth.plotting.plot2dmap import plot2dmap
+        from spaxelsleuth.plotting.sdssimg import plot_sdss_image
+        from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
+        from spaxelsleuth.plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn, component_colours
+        from spaxelsleuth.plotting.plotgalaxies import plot2dscatter, plot2dhistcontours
+
+        import matplotlib
+        from matplotlib import rc, rcParams
+        from matplotlib.backends.backend_pdf import PdfPages
+        import matplotlib.pyplot as plt
+        from matplotlib.lines import Line2D
+
+        from IPython.core.debugger import Tracer
+
+        rc("text", usetex=False)
+        rc("font",**{"family": "serif", "size": 14})
+        rcParams["savefig.bbox"] = "tight"
+        rcParams["savefig.format"] = "pdf"
+        plt.ion()
+        plt.close("all")
+
+        ###########################################################################
+        # Options
+        ###########################################################################
+        fig_path = "/priv/meggs3/u5708159/SAMI/figs/individual_plots/"
+        savefigs = True
+        bin_type = "default"    # Options: "default" or "adaptive" for Voronoi binning
+        ncomponents = "recom"   # Options: "1" or "recom"
+        eline_SNR_min = 5       # Minimum S/N of emission lines to accept
+
+        ###########################################################################
+        # Load the SAMI sample
+        ###########################################################################
+        df_sami = load_sami_galaxies(ncomponents="recom",
+                                     bin_type="default",
+                                     eline_SNR_min=eline_SNR_min, 
+                                     vgrad_cut=False,
+                                     correct_extinction=False,
+                                     sigma_gas_SNR_cut=True)
+
+        ###########################################################################
+        # Make summary plots
+        ###########################################################################
+        if len(sys.argv) > 1:
+            gals = sys.argv[1:]
+            for gal in gals:
+                assert gal.isdigit(), "each gal given must be an integer!"
+                assert os.path.exists(os.path.join(lzifu_data_path, f"{gal}_merge_lzcomp.fits"))
+        else:
+            gals = [int(f.split("_merge_lzcomp.fits")[0]) for f in os.listdir(lzifu_data_path) if f.endswith("merge_lzcomp.fits") and not f.startswith("._")]
+        
+        for gal in tqdm(gals):
+
+            # Load the DataFrame
+            df_gal = load_lzifu_galaxy(gal=gal, bin_type=bin_type, ncomponents=ncomponents,
+                                   eline_SNR_min=eline_SNR_min,
+                                   sigma_gas_SNR_cut=True,
+                                   vgrad_cut=False,
+                                   stekin_cut=True)
+            df_gal.loc[df_gal["Number of components"] == 0, "Number of components"] = np.nan
+
+            ###########################################################################
+            # Collage figure
+            ###########################################################################
+            markers = ["o", ">", "D"]
+            l = 0.05
+            b = 0.05
+            dw = 0.1
+            dh = 0.1
+            w = (1 - 2 * l - dw) / 4
+            h = (1 - 2 * b - dh) / 2
+
+            # Create the figure
+            fig = plt.figure(figsize=(15, 7))
+            ax_sdss = fig.add_axes([l, b, w, h])
+            ax_im = fig.add_axes([l, b + h + dh, w, h])
+            bbox = ax_im.get_position()
+            cax_im = fig.add_axes([bbox.x0 + bbox.width * 0.035, bbox.y0 + bbox.height, bbox.width * 0.93, 0.025])
+            axs_bpt = []
+            axs_bpt.append(fig.add_axes([l + w + dw, b + h + dh, w, h]))
+            axs_bpt.append(fig.add_axes([l + w + dw + w, b + h + dh, w, h]))
+            axs_bpt.append(fig.add_axes([l + w + dw + 2 * w, b + h + dh, w, h]))
+            # cax_bpt = fig.add_axes(([l + w + dw + 3 * w, b + h + dh, 0.025, h]))
+            axs_whav = []
+            axs_whav.append(fig.add_axes([l + w + dw, b, w, h]))
+            axs_whav.append(fig.add_axes([l + w + dw + w, b, w, h]))
+            axs_whav.append(fig.add_axes([l + w + dw + 2 * w, b, w, h]))
+            # cax_whav = fig.add_axes(([l + w + dw + 3 * w, b, 0.025, h]))
+
+            # SDSS image
+            plot_sdss_image(df_gal, ax=ax_sdss)
+            ax_sdss.text(s="SAMI FoV", x=0.5, y=0.6, 
+                         horizontalalignment="center",
+                         verticalalignment="bottom", color="purple",
+                         transform=ax_sdss.transAxes, zorder=89423423423)
+
+            # Plot the number of components fitted.
+            plot2dmap(df_gal=df_gal, bin_type="default", survey="sami",
+                      PA_deg=0,
+                      col_z="Number of components", 
+                      ax=ax_im, cax=cax_im, cax_orientation="horizontal", show_title=False)
+            ax_im.text(s=f"{gal}", x=0.9, y=0.9, horizontalalignment="right", verticalalignment="top", transform=ax_im.transAxes)
+
+            # Plot BPT diagram
+            col_y = "log O3"
+            col_z = None
+            for cc, col_x in enumerate(["log N2", "log S2", "log O1"]):
+                # Plot full SAMI sample
+                plot2dhistcontours(df=df_sami, 
+                                   col_x=f"{col_x} (total)",
+                                   col_y=f"{col_y} (total)", col_z="count", log_z=True,
+                                   alpha=0.5, cmap="gray_r",
+                                   ax=axs_bpt[cc], plot_colorbar=False)
+
+                # Add BPT functions
+                plot_BPT_lines(ax=axs_bpt[cc], col_x=col_x)    
+
+                # Plot LZIFU measurements
+                for ii in range(3):
+                    plot2dscatter(df=df_gal,
+                                  col_x=f"{col_x} (component {ii})",
+                                  col_y=f"{col_y} (component {ii})",
+                                  col_z=f"{col_z} (component {ii})" if f"{col_z} (component {ii})"  in df_gal else col_z,
+                                  marker=markers[ii], ax=axs_bpt[cc], cax=cax_bpt,
+                                  markersize=20, markerfacecolour=component_colours[ii], edgecolors="black",
+                                  plot_colorbar=False)
+
+            # Decorations
+            [ax.grid() for ax in axs_bpt]
+            [ax.set_ylabel("") for ax in axs_bpt[1:]]
+            [ax.set_yticklabels([]) for ax in axs_bpt[1:]]
+            [ax.set_xticks(ax.get_xticks()[:-1]) for ax in axs_bpt[:-1]]
+            [ax.collections[0].set_rasterized(True) for ax in axs_bpt]
+
+            # Plot WHAN, WHAV and WHAV* diagrams.
+            col_y = "log HALPHA EW"
+            col_z = None
+
+            # Plot LZIFU measurements
+            for cc, col_x in enumerate(["log N2", "sigma_gas - sigma_*", "v_gas - v_*"]):
+                # Plot full SAMI sample
+                plot2dhistcontours(df=df_sami, col_x=f"{col_x} (total)" if col_x == "log N2" else f"{col_x}",
+                                   col_y=f"{col_y} (total)" if col_x == "log N2" else f"{col_y}",
+                                   col_z="count", log_z=True,
+                                   alpha=0.5, cmap="gray_r", ax=axs_whav[cc],
+                                   plot_colorbar=False)
+                # Plot the S7 data
+                for ii in range(3):
+                    plot2dscatter(df=df_gal,
+                                  col_x=f"{col_x} (component {ii})",
+                                  col_y=f"{col_y} (component {ii})",
+                                  col_z=f"{col_z} (component {ii})" if f"{col_z} (component {ii})"  in df_gal else col_z,
+                                  marker=markers[ii], ax=axs_whav[cc], cax=cax_whav,
+                                  markersize=20, markerfacecolour=component_colours[ii], edgecolors="black",
+                                  plot_colorbar=True if ii == 1 else False)
+
+            # Decorations
+            [ax.grid() for ax in axs_whav]
+            [ax.set_ylabel("") for ax in axs_whav[1:]]
+            [ax.set_yticklabels([]) for ax in axs_whav[1:]]
+            [ax.set_xticks(ax.get_xticks()[:-1]) for ax in axs_whav[:-1]]
+            [ax.axvline(0, ls="--", color="k") for ax in axs_whav[1:]]
+            
+            # Legend
+            legend_elements = [Line2D([0], [0], marker=markers[ii], 
+                                      color="none", markeredgecolor="black",
+                                      label=f"Component {ii}",
+                                      markerfacecolor=component_colours[ii], markersize=5) for ii in range(3)]
+            axs_bpt[-1].legend(handles=legend_elements, fontsize="x-small", loc="upper right")
+
+            # Save 
+            if savefigs:
+                fig.savefig(os.path.join(fig_path, f"{gal}_LZIFU_summary"), format="pdf", bbox_inches="tight")
+
+            # Tracer()()
+
+            plt.close(fig)
