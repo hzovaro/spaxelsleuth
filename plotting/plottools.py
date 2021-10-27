@@ -155,7 +155,7 @@ vmin_dict = {
     "radius": 0,
     "D4000": 1.0,
     "HALPHA": 0,
-    "v_gas": -250,
+    "v_gas": -200,
     "v_*": -250,
     "A_V": 0,
     "S2 ratio": 0.38,
@@ -219,7 +219,7 @@ vmax_dict = {
     "radius": 10,
     "D4000": 2.2,
     "HALPHA": 1e3,  # 1.5 is good for SAMI
-    "v_gas": +250,
+    "v_gas": +200,
     "v_*": +250,
     "A_V": 5,
     "S2 ratio": 1.44,
