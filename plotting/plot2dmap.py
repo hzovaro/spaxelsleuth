@@ -19,13 +19,17 @@ s7_data_path = "/priv/meggs3/u5708159/S7/"
 def plot2dmap(df_gal, col_z, bin_type, survey,
               PA_deg=0,
               show_title=True, axis_labels=True,
-              vmin=None, vmax=None, contours=True,
+              vmin=None, vmax=None,
+              contours=True, col_z_contours="continuum", levels=None, linewidths=0.5, colors="white",
               ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical",
               figsize=(5, 5)):
     """
     Show a 2D map of the galaxy, where sectors/bins/spaxels are coloured by
     the desired quantities.
     """
+    ###########################################################################
+    # Input verification
+    ###########################################################################
     assert col_z in df_gal.columns,\
         f"{col_z} is not a valid column!"
     assert cax_orientation == "horizontal" or cax_orientation == "vertical",\
@@ -44,6 +48,9 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
         "if survey is S7 then bin_type must be 'default'!"
         as_per_px = 1.0
 
+    ###########################################################################
+    # Load the data cube to get the WCS and continuum image, if necessary
+    ###########################################################################
     # Load the non-binned data cube to get a continuum image
     gal = df_gal.catid.unique()[0]
     if survey == "sami":
@@ -51,23 +58,29 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     elif survey == "s7":
         hdulist = fits.open(os.path.join(s7_data_path, f"0_Cubes/{gal}_B.fits"))
 
-    data_cube = hdulist[0].data
-    header = hdulist[0].header
-    crpix = header["CRPIX3"] if survey == "sami" else 0
-    lambda_0_A = header["CRVAL3"] - crpix * header["CDELT3"]
-    dlambda_A = header["CDELT3"]
-    N_lambda = header["NAXIS3"]
-    
-    lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
-    start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z_spec"].unique()[0]) - 4000))
-    stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z_spec"].unique()[0]) - 5000))
-    im_B = np.nansum(data_cube[start_idx:stop_idx], axis=0)
-    im_B[im_B == 0] = np.nan
+    # Get the WCS
+    wcs = WCS(hdulist[0].header).dropaxis(2)
 
-    # Also, get the WCS.
-    wcs = WCS(hdulist[0].header).dropaxis(2)  # ?? check this
+    # Get the continuum inage if desired
+    if col_z_contours.lower() == "continuum":
+        data_cube = hdulist[0].data
+        header = hdulist[0].header
+        crpix = header["CRPIX3"] if survey == "sami" else 0
+        lambda_0_A = header["CRVAL3"] - crpix * header["CDELT3"]
+        dlambda_A = header["CDELT3"]
+        N_lambda = header["NAXIS3"]
+        
+        lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
+        start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z_spec"].unique()[0]) - 4000))
+        stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z_spec"].unique()[0]) - 5000))
+        im_B = np.nansum(data_cube[start_idx:stop_idx], axis=0)
+        im_B[im_B == 0] = np.nan
+
     hdulist.close()
 
+    ###########################################################################
+    # Reconstruct & plot the 2D map
+    ###########################################################################
     # Reconstruct 2D arrays from the rows in the data frame.
     col_z_map = np.full((50, 50), np.nan) if survey == "sami" else np.full((38, 25), np.nan)
     if bin_type == "adaptive":
@@ -103,22 +116,39 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     cmap.set_bad("#b3b3b3")
     m = ax.imshow(col_z_map, cmap=cmap, vmin=vmin, vmax=vmax)
 
+    ###########################################################################
     # Contours
-    if contours and survey == "sami":
-        # levels = np.logspace(0, 2.5, 15)
-        levels = 10
-        ax.contour(im_B, linewidths=0.5, colors="white", levels=levels)
-    elif contours and survey == "s7":
-        levels = 10
-        ax.contour(np.log10(im_B) + 15, linewidths=0.5, colors="white", levels=levels) 
+    ###########################################################################
+    if contours:
+        if col_z_contours.lower() == "continuum":
+            if survey == "sami":
+                ax.contour(im_B, linewidths=linewidths, colors=colors, levels=10 if levels is None else levels)
+            elif survey == "s7":
+                ax.contour(np.log10(im_B) + 15, linewidths=linewidths, colors=colors, levels=10 if levels is None else levels)
+        else:
+            assert col_z_contours in df_gal.columns, f"{col_z_contours} not found in df_gal!"
+            # Reconstruct 2D arrays from the rows in the data frame.
+            col_z_contour_map = np.full((50, 50), np.nan) if survey == "sami" else np.full((38, 25), np.nan)
+            if bin_type == "adaptive":
+                hdulist = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
+                bin_map = hdulist[2].data.astype("float")
+                bin_map[bin_map==0] = np.nan
+                for ii in df_gal["bin_number"]:
+                    bin_mask = bin_map == ii
+                    col_z_contour_map[bin_mask] = df_gal.loc[df_gal["bin_number"] == ii, col_z_contours]
 
-    # Include scale bar
-    plot_scale_bar(as_per_px=as_per_px, kpc_per_as=df_gal["kpc per arcsec"].unique()[0], fontsize=10, ax=ax, l=10, units="arcsec", color="black", loffset=0.30)
-    plot_compass(ax=ax, color="black", PA_deg=PA_deg)
+            elif bin_type == "default":
+                df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
+                for rr in range(df_gal.shape[0]):
+                    xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
+                    col_z_contour_map[yy, xx] = df_gal.iloc[rr][col_z_contours]
 
-    if show_title:
-        ax.set_title(f"GAMA{gal}") if survey == "sami" else ax.set_title(gal)
+            # Draw contours
+            ax.contour(col_z_contour_map, linewidths=linewidths, colors=colors, levels=10 if levels is None else levels)
 
+    ###########################################################################
+    # Colourbar
+    ###########################################################################
     # If the user wants to plot a colorbar but the colorbar axis is not specified,
     # then create a new one.
     if plot_colorbar and cax is None:
@@ -168,6 +198,17 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
             elif cax_orientation == "horizontal":
                 cax.xaxis.set_ticks(ncomponents_ticks)
                 cax.xaxis.set_ticklabels(ncomponents_labels)
+
+    ###########################################################################
+    # Decorations
+    ###########################################################################
+    # Include scale bar
+    plot_scale_bar(as_per_px=as_per_px, kpc_per_as=df_gal["kpc per arcsec"].unique()[0], fontsize=10, ax=ax, l=10, units="arcsec", color="black", loffset=0.30)
+    plot_compass(ax=ax, color="black", PA_deg=PA_deg)
+
+    # Title
+    if show_title:
+        ax.set_title(f"GAMA{gal}") if survey == "sami" else ax.set_title(gal)
 
     # Axis labels
     if axis_labels:
