@@ -16,29 +16,29 @@ SDSS_IM_PATH = "/priv/meggs3/u5708159/SAMI/sami_dr3/sdss/"
 
 ###############################################################################
 def get_sdss_image(gal, ra_deg, dec_deg,
-                   as_per_px=0.1, width_px=250, height_px=250):
+                   as_per_px=0.1, width_px=500, height_px=500):
     """
     Download an SDSS cutout image.
     """
     
     # Determine the URL
-    url = f"http://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/getjpeg?TaskName=Skyserver.Explore.Image&ra={ra_deg}&dec={dec_deg}&scale={as_per_px:.1f}&width=250&height=250&opt=G"
+    url = f"http://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/getjpeg?TaskName=Skyserver.Explore.Image&ra={ra_deg}&dec={dec_deg}&scale={as_per_px:.1f}&width={width_px}&height={height_px}&opt=G"
     
     # Download the image
-    imname = os.path.join(SDSS_IM_PATH, "sdss", f"{gal}_{width_px}x{height_px}.jpg")
+    imname = os.path.join(SDSS_IM_PATH, f"{gal}_{width_px}x{height_px}.jpg")
     
     try:
         urlretrieve(url, imname)
     except:
         print(f"{gal} not in SDSS footprint!")
-        return 0
+        return False
 
-    return 1
+    return True
 
 
 ###############################################################################
 def plot_sdss_image(df_gal, show_title=True, axis_labels=True,
-                    as_per_px=0.1, width_px=250, height_px=250,
+                    as_per_px=0.1, width_px=500, height_px=500,
                     ax=None, figsize=(9, 7)):    
 
     # Input checking
@@ -54,7 +54,7 @@ def plot_sdss_image(df_gal, show_title=True, axis_labels=True,
         # Download the image
         print(f"WARNING: file {os.path.join(SDSS_IM_PATH, f'{gal}_{width_px}x{height_px}.jpg')} not found. Retrieving image from SDSS...")
         if not get_sdss_image(gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
-                       as_per_px=as_per_px, width_px=250, height_px=250):
+                       as_per_px=as_per_px, width_px=width_px, height_px=height_px):
             return
             
     im = mpimg.imread(os.path.join(SDSS_IM_PATH, f"{gal}_{width_px}x{height_px}.jpg"))
@@ -92,7 +92,7 @@ def plot_sdss_image(df_gal, show_title=True, axis_labels=True,
     # Include scale bar
     D_A_Mpc, D_L_Mpc = get_dist(z=df_gal["z_spec"].unique()[0], H0=70.0, WM=0.3)
     kpc_per_as = D_A_Mpc * 1e3 * np.pi / 180.0 / 3600.0
-    plot_scale_bar(as_per_px=0.1, loffset=0.25, kpc_per_as=kpc_per_as, ax=ax, l=10, units="arcsec", fontsize=12)
+    plot_scale_bar(as_per_px=0.1, loffset=0.25, kpc_per_as=kpc_per_as, ax=ax, l=10, units="arcsec", fontsize=10)
 
     # Axis labels
     if axis_labels:
