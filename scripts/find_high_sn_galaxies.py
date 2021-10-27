@@ -15,6 +15,9 @@ from IPython.core.debugger import Tracer
 # Find a subset of high-S/N galaxies from the SAMI sample which we can re-fit
 # with LZIFU.
 """
+###############################################################################
+# User options
+compute_snrs = False  # if True, re-compute SNRs.
 
 ###############################################################################
 # Paths
@@ -27,8 +30,6 @@ df_metadata = pd.read_hdf(os.path.join(sami_data_path, "sami_dr3_metadata.hd5"),
 
 # Obtain list of galaxies
 gals = df_metadata[df_metadata["Good?"] == True].index.values
-
-###############################################################################
 
 ###############################################################################
 # For multithreading
@@ -49,7 +50,6 @@ def compute_snr(gal, plotit=False):
 
     #######################################################################
     # Use R_e to compute the median S/N within 1, 1.5, 2 R_e. 
-
     # Transform coordinates into the galaxy plane
     e = df_metadata.loc[gal, "ellip"]
     PA = df_metadata.loc[gal, "pa"]
@@ -89,6 +89,7 @@ def compute_snr(gal, plotit=False):
     SNR_2Re_B = np.nanmedian(im_SNR_B[mask_2Re])
     SNR_2Re_R = np.nanmedian(im_SNR_R[mask_2Re])
 
+    #######################################################################
     # Plot
     if plotit:
         # Set up figure
@@ -122,6 +123,8 @@ def compute_snr(gal, plotit=False):
         Tracer()()
         plt.close(fig)
 
+    #######################################################################
+    # End
     print(f"Finished processing {gal}")
     return [gal, SNR_full_B, SNR_full_R, 
                  SNR_1Re_B, SNR_1Re_R, 
@@ -129,8 +132,9 @@ def compute_snr(gal, plotit=False):
                  SNR_2Re_B, SNR_2Re_R]
 
 ###############################################################################
-# Run in parallel
+# Compute SNRs, if desired
 if compute_snrs:
+    # Run in parallel
     print("Beginning pool...")
     args_list = gals
     pool = multiprocessing.Pool(40)
@@ -157,7 +161,67 @@ if compute_snrs:
 
 else:
     # Otherwise, just load the dataframe
-    df_snr = pd.read_hdf(os.path.join(sami_data_path, "aperture_snrs.hd5"))
+    df_snr = pd.read_hdf(os.path.join(sami_data_path, "aperture_snrs.hd5"), key="SNR")
+    df_snr = df_snr.set_index("catid")
 
 ###############################################################################
-# Plot: 
+# Plot: histograms showing the S/N distributions within different apertures
+fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(10, 4))
+
+axs[0].hist(df_snr["Median SNR (B, full field)"], histtype="step", range=(0, 50), bins=25, label="Full field")
+axs[0].hist(df_snr["Median SNR (B, 1R_e)"], histtype="step", range=(0, 50), bins=25, label="1R_e")
+axs[0].hist(df_snr["Median SNR (B, 1.5R_e)"], histtype="step", range=(0, 50), bins=25, label="1.5R_e")
+axs[0].hist(df_snr["Median SNR (B, 2R_e)"], histtype="step", range=(0, 50), bins=25, label="2R_e")
+
+axs[1].hist(df_snr["Median SNR (R, full field)"], histtype="step", range=(0, 50), bins=25, label="Full field")
+axs[1].hist(df_snr["Median SNR (R, 1R_e)"], histtype="step", range=(0, 50), bins=25, label="1R_e")
+axs[1].hist(df_snr["Median SNR (R, 1.5R_e)"], histtype="step", range=(0, 50), bins=25, label="1.5R_e")
+axs[1].hist(df_snr["Median SNR (R, 2R_e)"], histtype="step", range=(0, 50), bins=25, label="2R_e")
+axs[1].legend()
+
+# Decorations
+axs[0].set_xlabel("Median continuum S/N (blue)")
+axs[1].set_xlabel("Median continuum S/N (red)")
+axs[0].set_ylabel(r"$N$")
+axs[0].set_ylabel(r"$N$")
+
+###############################################################################
+# Want to select the N highest-S/N late-type (i.e., SF) galaxies.
+df_morphologies = pd.read_csv(os.path.join(sami_data_path, "sami_dr3_morphologies.csv")).drop(["Unnamed: 0"], axis=1)
+df_morphologies = df_morphologies.rename(columns={"type": "Morphology (numeric)"})
+
+# Morphologies (numeric) - merge "?" and "no agreement" into a single category.
+df_morphologies.loc[df_morphologies["Morphology (numeric)"] == 5.0, "Morphology (numeric)"] = -0.5
+df_morphologies.loc[df_morphologies["Morphology (numeric)"] == -9.0, "Morphology (numeric)"] = -0.5
+df_morphologies.loc[df_morphologies["Morphology (numeric)"] == np.nan, "Morphology (numeric)"] = -0.5
+
+# Key: Morphological Type
+morph_dict = {
+    "0.0": "E",
+    "0.5": "E/S0",
+    "1.0": "S0",
+    "1.5": "S0/Early-spiral",
+    "2.0": "Early-spiral",
+    "2.5": "Early/Late spiral",
+    "3.0": "Late spiral",
+    "5.0": "?",
+    "-9.0": "no agreement",
+    "-0.5": "Unknown"
+}
+df_morphologies["Morphology"] = [morph_dict[str(m)] for m in df_morphologies["Morphology (numeric)"]]
+
+# merge with metadata, but do NOT include the morphology column as it 
+# causes all data to be cast to "object" type which is extremely slow!!!
+df_snr = df_snr.merge(df_morphologies[["catid", "Morphology (numeric)", "Morphology"]], on="catid")
+df_snr = df_snr.merge(df_metadata[["r_e"]], on="catid")
+
+df_snr = df_snr.set_index("catid")
+
+# Sort by S/N in 1R_e
+df_snr.sort_values(by=["Median SNR (B, full field)"], ascending=False, inplace=True)
+
+# Select only late-types
+df_snr_ltgs = df_snr[df_snr["Morphology (numeric)"] >= 2.0]
+# with pd.option_context('display.max_rows', -1, 'display.max_columns', 5):
+#     print(df_snr_ltgs["r_e", "Median SNR (B, full field)", "Median SNR (B, 1R_e)"])
+
