@@ -80,6 +80,25 @@ def Law2021_3sigma(ratio_x, ratio_y_vals, log=True):
         ratio_y_vals[ratio_y_vals > 0.65] = np.nan
         return 18.664 * ratio_y_vals**4 - 36.343 * ratio_y_vals**3 + 22.238 * ratio_y_vals**2 - 6.134 * ratio_y_vals - 0.283
 
+###############################################################################
+def Proxauf2014():
+    """
+    Electron density computation from eqn. 3 Proxauf+2014.
+    The calculation assumes an electron temperature of 10^4 K.
+    Input: 
+        R = F([SII]6716) / F([SII]6731)
+    """
+    log_ne = 0.0543 * np.tan(-3.0553 * R + 2.8506)\
+             + 6.98 - 10.6905 * R\
+             + 9.9186 * R**2 - 3.5442 * R**3
+
+    # High & low density limits
+    if log_ne < 40:
+        return 40
+    elif log_ne > 1e4:
+        return 1e4
+
+    return n_e
 
 ###############################################################################
 def bpt_fn(df, s=None):
@@ -494,3 +513,4 @@ def ratio_fn(df, s=None):
         df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
 
     return df
+
