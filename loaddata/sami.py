@@ -52,16 +52,16 @@ def load_sami_galaxies(ncomponents, bin_type,
                   stekin_cut=True)
     
     ######################################################################
-    # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
-    ######################################################################
-    df = dqcut.compute_extra_columns(df, ncomponents=3 if ncomponents=="recom" else 1)
-
-    ######################################################################
     # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
     ######################################################################
     df = linefns.ratio_fn(df, s=f" (total)")
     df = linefns.bpt_fn(df, s=f" (total)")
     df = linefns.law2021_fn(df, s=f" (total)")
+
+    ######################################################################
+    # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
+    ######################################################################
+    df = dqcut.compute_extra_columns(df, ncomponents=3 if ncomponents=="recom" else 1)
 
     ######################################################################
     # CORRECT HALPHA FLUX AND EW FOR EXTINCTION
