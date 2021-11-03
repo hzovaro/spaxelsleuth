@@ -93,12 +93,12 @@ def Proxauf2014():
              + 9.9186 * R**2 - 3.5442 * R**3
 
     # High & low density limits
-    if log_ne < 40:
+    if 10**(log_ne) < 40:
         return 40
-    elif log_ne > 1e4:
+    elif 10**(log_ne) > 1e4:
         return 1e4
 
-    return n_e
+    return 10**n_e
 
 ###############################################################################
 def bpt_fn(df, s=None):
