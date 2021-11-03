@@ -81,7 +81,7 @@ def Law2021_3sigma(ratio_x, ratio_y_vals, log=True):
         return 18.664 * ratio_y_vals**4 - 36.343 * ratio_y_vals**3 + 22.238 * ratio_y_vals**2 - 6.134 * ratio_y_vals - 0.283
 
 ###############################################################################
-def Proxauf2014():
+def Proxauf2014(R):
     """
     Electron density computation from eqn. 3 Proxauf+2014.
     The calculation assumes an electron temperature of 10^4 K.
