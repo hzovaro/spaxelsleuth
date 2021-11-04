@@ -88,17 +88,24 @@ def Proxauf2014(R):
     Input: 
         R = F([SII]6716) / F([SII]6731)
     """
-    log_ne = 0.0543 * np.tan(-3.0553 * R + 2.8506)\
+    log_n_e = 0.0543 * np.tan(-3.0553 * R + 2.8506)\
              + 6.98 - 10.6905 * R\
              + 9.9186 * R**2 - 3.5442 * R**3
+    n_e = 10**log_n_e
 
     # High & low density limits
-    if 10**(log_ne) < 40:
-        return 40
-    elif 10**(log_ne) > 1e4:
-        return 1e4
+    if type(R) == "float":
+        if n_e < 40:
+            return 40
+        elif n_e > 1e4:
+            return 1e4
+    else:
+        lolim_mask = n_e < 40
+        uplim_mask = n_e > 1e4
+        n_e[lolim_mask] = 40
+        n_e[uplim_mask] = 1e4
 
-    return 10**n_e
+    return n_e
 
 ###############################################################################
 def bpt_fn(df, s=None):
