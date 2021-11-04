@@ -55,7 +55,7 @@ def plot_sdss_image(df_gal, show_title=True, axis_labels=True,
         print(f"WARNING: file {os.path.join(SDSS_IM_PATH, f'{gal}_{width_px}x{height_px}.jpg')} not found. Retrieving image from SDSS...")
         if not get_sdss_image(gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
                        as_per_px=as_per_px, width_px=width_px, height_px=height_px):
-            return
+            return None
             
     im = mpimg.imread(os.path.join(SDSS_IM_PATH, f"{gal}_{width_px}x{height_px}.jpg"))
 
