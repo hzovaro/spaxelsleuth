@@ -35,7 +35,7 @@ df_metadata["Good?"] = df_metadata["Good?"].astype("float")
 ###############################################################################
 # List of galaxies
 if len(sys.argv) == 1:
-    gals = [int(f.split("_merge_lzcomp.fits")[0]) for f in os.listdir(lzifu_data_path) if f.endswith("merge_comp.fits") and not f.startswith("._")]
+    gals = [int(f.split("_merge_lzcomp.fits")[0]) for f in os.listdir(lzifu_data_path) if f.endswith("merge_lzcomp.fits") and not f.startswith("._")]
 else:
     gals = sys.argv[1:]
     for gal in gals:
