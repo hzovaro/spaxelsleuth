@@ -233,6 +233,18 @@ def compute_log_columns(df, ncomponents):
     df["log HALPHA EW (total)"] = np.log10(df["HALPHA EW (total)"])
     df["log HALPHA EW error (lower) (total)"] = df["log HALPHA EW (total)"] - np.log10(df["HALPHA EW (total)"] - df["HALPHA EW error (total)"])
     df["log HALPHA EW error (upper) (total)"] = np.log10(df["HALPHA EW (total)"] + df["HALPHA EW error (total)"]) -  df["log HALPHA EW (total)"]
+
+    # Compute log quantities for total HALPHA EW
+    for ii in range(ncomponents):
+        if f"S2 ratio (component {ii})" in df.columns:
+            df[f"log S2 ratio (component {ii})"] = np.log10(df[f"S2 ratio (component {ii})"])
+            df[f"log S2 ratio error (lower) (component {ii})"] = df[f"log S2 ratio (component {ii})"] - np.log10(df[f"S2 ratio (component {ii})"] - df[f"S2 ratio error (component {ii})"])
+            df[f"log S2 ratio error (upper) (component {ii})"] = np.log10(df[f"S2 ratio (component {ii})"] + df[f"S2 ratio error (component {ii})"]) -  df[f"log S2 ratio (component {ii})"]
+    if f"S2 ratio (total)" in df.columns:    
+        df[f"log S2 ratio (total)"] = np.log10(df["S2 ratio (total)"])
+        df[f"log S2 ratio error (lower) (total)"] = df[f"log S2 ratio (total)"] - np.log10(df["S2 ratio (total)"] - df["S2 ratio error (total)"])
+        df[f"log S2 ratio error (upper) (total)"] = np.log10(df["S2 ratio (total)"] + df["S2 ratio error (total)"]) -  df[f"log S2 ratio (total)"]
+
     
     # Compute log quantities for total SFR
     if "SFR" in df.columns:
@@ -304,6 +316,15 @@ def compute_component_offsets(df, ncomponents):
         # Fractional of total Halpha EW in each component
         for ii in range(3):
             df[f"HALPHA EW/HALPHA EW (total) (component {ii})"] = df[f"HALPHA EW (component {ii})"] / df[f"HALPHA EW (total)"]
+
+        # Forbidden line ratios:
+        for col in ["log O3", "log N2", "log S2", "log O1"]:
+            if f"{col} (component 0)" in df.columns and f"{col} (component 1)" in df.columns:
+                df[f"delta {col} (1/0)"] = df[f"{col} (component 1)"] - df[f"{col} (component 0)"]
+                df[f"delta {col} (1/0) error"] = np.sqrt(df[f"{col} (component 1)"]**2 + df[f"{col} (component 0)"]**2)
+            if f"{col} (component 1)" in df.columns and f"{col} (component 2)" in df.columns:
+                df[f"delta {col} (2/1)"] = df[f"{col} (component 2)"] - df[f"{col} (component 1)"]
+                df[f"delta {col} (2/1) error"] = np.sqrt(df[f"{col} (component 2)"]**2 + df[f"{col} (component 1)"]**2)
 
     return df
 
