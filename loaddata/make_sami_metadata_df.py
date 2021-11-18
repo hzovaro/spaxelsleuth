@@ -6,6 +6,23 @@ from cosmocalc import get_dist
 
 from IPython.core.debugger import Tracer
 
+"""
+This script is used to create a DataFrame containing "metadata", including
+stellar masses, spectroscopic redshifts, morphologies and other information
+for each galaxy in SAMI. In addition to the provided values in the input
+catalogues, the angular scale (in kpc per arcsecond) and inclination are 
+computed for each galaxy.
+
+This script must be run before make_df_sami.py, as the resulting DataFrame
+is used there.
+
+The information used here is from the catalogues are available at 
+https://datacentral.org.au/. 
+
+The DataFrame is saved to "sami_dr3_metadata.hd5".
+
+"""
+
 ###############################################################################
 sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
 
@@ -119,6 +136,9 @@ for gal in gal_ids_dq_cut:
     df_metadata.loc[gal, "D_A (Mpc)"] = D_A_Mpc
     df_metadata.loc[gal, "D_L (Mpc)"] = D_L_Mpc
 df_metadata["kpc per arcsec"] = df_metadata["D_A (Mpc)"] * 1e3 * np.pi / 180.0 / 3600.0
+
+df_metadata["R_e (kpc)"] = df_metadata["r_e"] * df_metadata["kpc per arcsec"]
+df_metadata["log(M/R_e)"] = df_metadata["mstar"] - np.log10(df_metadata["R_e (kpc)"])
 
 ###############################################################################
 # Save to file
