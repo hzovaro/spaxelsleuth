@@ -310,9 +310,9 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
 ###############################################################################
 def plot2dscatter(df, col_x, col_y, col_z=None,
                   vmin=None, vmax=None, xmin=None, xmax=None, ymin=None, ymax=None,
-                  ax=None, axis_labels=True, 
+                  ax=None, axis_labels=True, cmap=None,
                   plot_colorbar=True, cax=None, cax_orientation="vertical", alpha=1.0, zorder=2,
-                  errorbars=True, edgecolors="k", markerfacecolour="k", marker="o", markersize=20, figsize=(9, 7)):
+                  errorbars=True, markeredgecolors="k", markerfacecolor="k", marker="o", markersize=20, figsize=(9, 7)):
     """
     Plot a 2D histogram of spaxels from a SAMI galaxy (as specified by gal) 
     or from a given Pandas DataFrame df_gal.
@@ -415,6 +415,8 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
             vmin = vmin_fn(col_z)
         if vmax is None:
             vmax = vmax_fn(col_z) 
+        if cmap is None:
+            cmap = cmap_fn(col_z)
     if xmin is None:
         xmin = vmin_fn(col_x)
     if xmax is None:
@@ -426,9 +428,9 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
     
     # Plot the scatter points
     if col_z is not None:
-        m = ax.scatter(x=df[col_x], y=df[col_y], c=df[col_z], cmap=cmap_fn(col_z), vmin=vmin, vmax=vmax, marker=marker, edgecolors=edgecolors, s=markersize, alpha=alpha, zorder=zorder + 1)
+        m = ax.scatter(x=df[col_x], y=df[col_y], c=df[col_z], cmap=cmap, vmin=vmin, vmax=vmax, marker=marker, edgecolors=markeredgecolors, s=markersize, alpha=alpha, zorder=zorder + 1)
     else:
-        m = ax.scatter(x=df[col_x], y=df[col_y], c=markerfacecolour, marker=marker, edgecolors=edgecolors, s=markersize, alpha=alpha, zorder=zorder + 1)
+        m = ax.scatter(x=df[col_x], y=df[col_y], c=markerfacecolor, marker=marker, edgecolors=markeredgecolors, s=markersize, alpha=alpha, zorder=zorder + 1)
 
     # Nice axis limits
     ax.set_xlim(xmin, xmax)
