@@ -40,6 +40,9 @@ def load_sami_galaxies(ncomponents, bin_type,
     #######################################################################    
     df = pd.read_hdf(os.path.join(sami_data_path, df_fname))
 
+    # Drop 9008500001, because it is a duplicate
+    df = df[df["catid"] != 9008500001]
+
     ######################################################################
     # DQ and S/N CUTS
     ######################################################################
