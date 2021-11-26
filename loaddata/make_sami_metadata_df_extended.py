@@ -186,6 +186,12 @@ else:
     df_snr.to_hdf(os.path.join(sami_data_path, "sami_dr3_aperture_snrs.hd5"), key="SNR")
 
 ###############################################################################
+# Merge with the metadata DataFrame
+###############################################################################
+df_snr = df_snr.merge(df_metadata.drop("catid", axis=1), on="catid")
+df_snr = df_snr.set_index("catid")
+
+###############################################################################
 # Plot: histograms showing the S/N distributions within different apertures
 ###############################################################################
 if plotit:
@@ -209,7 +215,6 @@ if plotit:
     axs[0].set_ylabel(r"$N$")
 
 ###############################################################################
-# Compute total SFRs from HALPHA emission
 # Load the SAMI sample
 ###############################################################################
 df_sami = load_sami_galaxies(ncomponents="recom",
@@ -220,36 +225,31 @@ df_sami = load_sami_galaxies(ncomponents="recom",
                              sigma_gas_SNR_cut=True)
 
 for gal in df_sami.catid.unique():
+
+    ###########################################################################
+    # Compute total SFRs from HALPHA emission
+    ###########################################################################
     df_gal = df_sami[df_sami["catid"] == gal]
     sfr_comp0 = df_gal["SFR (component 0)"].sum()
     df_snr.loc[gal, "SFR (component 0)"] = sfr_comp0 if sfr_comp0 > 0 else np.nan
     sfr_tot = df_gal["SFR"].sum()
     df_snr.loc[gal, "SFR (total)"] = sfr_tot if sfr_tot > 0 else np.nan
 
-###############################################################################
-# Compute maximum number of components fitted in each galaxy
-###############################################################################
-for gal in df_sami.catid.unique():
-    df_gal = df_sami[df_sami["catid"] == gal]
+    ###########################################################################
+    # Compute maximum number of components fitted in each galaxy
+    ###########################################################################
     df_snr.loc[gal, "Maximum number of components"] = np.nanmax(df_gal["Number of components"])
 
-##############################################################################
-# Compute inclination
-###############################################################################
-for gal in gals:
+    ###########################################################################
+    # Compute inclination
+    ###########################################################################
     e = df_metadata.loc[gal, "ellip"]
     PA = df_metadata.loc[gal, "pa"]
     beta_rad = np.deg2rad(PA - 90)
     b_over_a = 1 - e
     q0 = 0.2
-    df_snr.loc[gal, "Inclination i (radians)"] = np.arccos(np.sqrt((b_over_a**2 - q0**2) / (1 - q0**2)))  # Want to store this!
-    df_snr.loc[gal, "Inclination i (degrees)"] = np.rad2deg(df_snr.loc[gal, "Inclination i (radians)"])
-
-###############################################################################
-# Finally, merge with the metadata DataFrame
-###############################################################################
-df_snr = df_snr.merge(df_metadata.drop("catid", axis=1), on="catid")
-df_snr = df_snr.set_index("catid")
+    i_rad = np.arccos(np.sqrt((b_over_a**2 - q0**2) / (1 - q0**2)))  # Want to store this!
+    df_snr.loc[gal, "Inclination i (degrees)"] = np.rad2deg(i_rad)
 
 ###############################################################################
 # Save to .csv 

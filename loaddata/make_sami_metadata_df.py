@@ -119,7 +119,10 @@ if df_flags_cut.shape[0] != len(df_flags_cut.catid.unique()):
 # Convert to int
 df_metadata["catid"] = df_metadata["catid"].astype(int) 
 df_flags_cut["catid"] = df_flags_cut["catid"].astype(int)
-gal_ids_dq_cut = df_flags_cut["catid"]
+gal_ids_dq_cut = list(df_flags_cut["catid"])
+
+# Remove 9008500001 since it's a duplicate!
+gal_ids_dq_cut.pop(gal_ids_dq_cut.index(9008500001))
 
 # Add DQ cut column
 df_metadata["Good?"] = False
