@@ -245,18 +245,22 @@ def compute_log_columns(df, ncomponents):
         df[f"log S2 ratio error (lower) (total)"] = df[f"log S2 ratio (total)"] - np.log10(df["S2 ratio (total)"] - df["S2 ratio error (total)"])
         df[f"log S2 ratio error (upper) (total)"] = np.log10(df["S2 ratio (total)"] + df["S2 ratio error (total)"]) -  df[f"log S2 ratio (total)"]
 
-    
     # Compute log quantities for total SFR
-    if "SFR" in df.columns:
-        df["log SFR"] = np.log10(df["SFR"])
-        df["log SFR error (lower)"] = df["log SFR"] - np.log10(df["SFR"] - df["SFR error"])
-        df["log SFR error (upper)"] = np.log10(df["SFR"] + df["SFR error"]) -  df["log SFR"]
-        
-    if "SFR surface density" in df.columns:
-        # Compute log quantities for total SFR surface density
-        df["log SFR surface density"] = np.log10(df["SFR surface density"])
-        df["log SFR surface density error (lower)"] = df["log SFR surface density"] - np.log10(df["SFR surface density"] - df["SFR surface density error"])
-        df["log SFR surface density error (upper)"] = np.log10(df["SFR surface density"] + df["SFR surface density error"]) -  df["log SFR surface density"]
+    for s in ["(total)", "(component 0)"]:
+        if f"SFR {s}" in df.columns:
+            cond = ~np.isnan(df[f"SFR {s}"])
+            cond &= df[f"SFR {s}"] > 0
+            df.loc[cond, f"log SFR {s}"] = np.log10(df.loc[cond, f"SFR {s}"])
+            df.loc[cond, f"log SFR error (lower) {s}"] = df.loc[cond, f"log SFR {s}"] - np.log10(df.loc[cond, f"SFR {s}"] - df.loc[cond, f"SFR error {s}"])
+            df.loc[cond, f"log SFR error (upper) {s}"] = np.log10(df.loc[cond, f"SFR {s}"] + df.loc[cond, f"SFR error {s}"]) -  df.loc[cond, f"log SFR {s}"]
+            
+        if f"SFR surface density {s}" in df.columns:
+            cond = ~np.isnan(df[f"SFR surface density {s}"])
+            cond &= df[f"SFR surface density {s}"] > 0
+            # Compute log quantities for total SFR surface density
+            df.loc[cond, f"log SFR surface density {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"])
+            df.loc[cond, f"log SFR surface density error (lower) {s}"] = df.loc[cond, f"log SFR surface density {s}"] - np.log10(df.loc[cond, f"SFR surface density {s}"] - df.loc[cond, f"SFR surface density error {s}"])
+            df.loc[cond, f"log SFR surface density error (upper) {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"] + df.loc[cond, f"SFR surface density error {s}"]) -  df.loc[cond, f"log SFR surface density {s}"]
 
     return df
 

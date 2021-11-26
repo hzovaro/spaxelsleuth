@@ -332,7 +332,7 @@ def law2021_fn(df, s=None):
 ###############################################################################
 def ratio_fn(df, s=None):
     """
-        Make new columns in the given DataFrame corresponding to certain line ratios.
+    Make new columns in the given DataFrame corresponding to certain line ratios.
     """
     # Remove suffixes on columns
     if s is not None:

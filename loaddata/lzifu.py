@@ -48,9 +48,6 @@ def load_lzifu_galaxies(ncomponents, bin_type,
     #######################################################################
     df = pd.read_hdf(os.path.join(sami_data_path, df_fname))
 
-    # Drop 9008500001, because it is a duplicate
-    df = df[df["catid"] != 9008500001]
-
     ######################################################################
     # DQ and S/N CUTS
     ######################################################################
@@ -60,7 +57,7 @@ def load_lzifu_galaxies(ncomponents, bin_type,
                   sigma_inst_kms=29.6,
                   vgrad_cut=vgrad_cut,
                   stekin_cut=stekin_cut)
-    
+
     ######################################################################
     # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
     ######################################################################
@@ -107,6 +104,7 @@ def load_lzifu_galaxies(ncomponents, bin_type,
             df[f"log HALPHA EW error (upper) (component {component})"] = np.log10(df[f"HALPHA EW (component {component})"] + df[f"HALPHA EW error (component {component})"]) -  df[f"log HALPHA EW (component {component})"]
     else:
         print("WARNING: in load_lzifu_galaxy: NOT correcting Halpha and HALPHA EW for extinction!")
+    
     return df
 
 ###############################################################################

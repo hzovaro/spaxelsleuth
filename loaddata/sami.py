@@ -40,9 +40,6 @@ def load_sami_galaxies(ncomponents, bin_type,
     #######################################################################    
     df = pd.read_hdf(os.path.join(sami_data_path, df_fname))
 
-    # Drop 9008500001, because it is a duplicate
-    df = df[df["catid"] != 9008500001]
-
     ######################################################################
     # DQ and S/N CUTS
     ######################################################################
@@ -54,6 +51,11 @@ def load_sami_galaxies(ncomponents, bin_type,
                   vgrad_cut=vgrad_cut,
                   stekin_cut=True)
     
+    # ISSUE: there are spaxels which do not have any HALPHA flux due to our 
+    # S/N requirement that still have defined SFRs. We need to NaN these out. 
+    sfr_cols = [s for s in df.columns if "SFR" in s]
+    df.loc[df["Number of components"] == 0, sfr_cols] = np.nan
+
     ######################################################################
     # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
     ######################################################################
@@ -96,20 +98,6 @@ def load_sami_galaxies(ncomponents, bin_type,
             df[f"log HALPHA EW error (upper) (component {component})"] = np.log10(df[f"HALPHA EW (component {component})"] + df[f"HALPHA EW error (component {component})"]) -  df[f"log HALPHA EW (component {component})"]
     else:
         print("WARNING: in load_sami_galaxies: NOT correcting Halpha and HALPHA EW for extinction!")
-
-    ######################################################################
-    # Compute the SFR and SFR surface density from the 0th component ONLY
-    ######################################################################
-    if ncomponents == "recom":
-        df["SFR surface density (component 0)"] = df["SFR surface density"] * df["HALPHA (component 0)"] / df["HALPHA (total)"]
-        df["log SFR surface density (component 0)"] = np.log10(df["SFR surface density (component 0)"])
-        df["SFR (component 0)"] = df["SFR"] * df["HALPHA (component 0)"] / df["HALPHA (total)"]
-        df["log SFR (component 0)"] = np.log10(df["SFR (component 0)"])
-
-    # ISSUE: there are spaxels which do not have any HALPHA flux due to our 
-    # S/N requirement that still have defined SFRs. We need to NaN these out. 
-    sfr_cols = [s for s in df.columns if "SFR" in s]
-    df.loc[df["Number of components"] == 0, sfr_cols] = np.nan
 
     return df
 

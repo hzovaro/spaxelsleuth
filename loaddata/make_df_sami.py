@@ -353,7 +353,7 @@ def process_gals(args):
 # Run in parallel
 ###############################################################################
 print("Beginning pool...")
-args_list = [[ii, g] for ii, g in enumerate(gal_ids_dq_cut)]
+args_list = [[ii, g] for ii, g in enumerate(gal_ids_dq_cut[:10])]
 pool = multiprocessing.Pool(20)
 res_list = np.array((pool.map(process_gals, args_list)))
 pool.close()
@@ -459,14 +459,23 @@ if ncomponents == "recom":
             columns=[f"SFR (component {ii})", f"SFR error (component {ii})",
                      f"SFR surface density (component {ii})", f"SFR surface density error (component {ii})"])
 
-# NOW we can rename SFR (compnent 0) to SFR
+# NOW we can rename SFR (compnent 0) to SFR (total)
 rename_dict = {}
-rename_dict["SFR (component 0)"] = "SFR"
-rename_dict["SFR error (component 0)"] = "SFR error"
-rename_dict["SFR surface density (component 0)"] = "SFR surface density"
-rename_dict["SFR surface density error (component 0)"] = "SFR surface density error"
+rename_dict["SFR (component 0)"] = "SFR (total)"
+rename_dict["SFR error (component 0)"] = "SFR error (total)"
+rename_dict["SFR surface density (component 0)"] = "SFR surface density (total)"
+rename_dict["SFR surface density error (component 0)"] = "SFR surface density error (total)"
 
 df_spaxels = df_spaxels.rename(columns=rename_dict)
+
+######################################################################
+# Compute the SFR and SFR surface density from the 0th component ONLY
+######################################################################
+if ncomponents == "recom":
+    df_spaxels["SFR surface density (component 0)"] = df_spaxels["SFR surface density (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
+    df_spaxels["SFR surface density error (component 0)"] = df_spaxels["SFR surface density error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
+    df_spaxels["SFR (component 0)"] = df_spaxels["SFR (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
+    df_spaxels["SFR error (component 0)"] = df_spaxels["SFR error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
 
 ######################################################################
 # Add radius-derived value columns
