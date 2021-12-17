@@ -62,7 +62,8 @@ if len(sys.argv) > 1:
     gals = sys.argv[1:]
     for gal in gals:
         assert gal.isdigit(), "each gal given must be an integer!"
-        assert gal in df_sami.catid, f"{gal} not found in SAMI sample!"
+        assert int(gal) in df_sami.catid.values, f"{gal} not found in SAMI sample!"
+    gals = [int(g) for g in gals]
 else:
     # Load the SNR DataFrame.
     df_snr = pd.read_csv(os.path.join(sami_data_path, "sample_summary.csv"))
@@ -150,7 +151,7 @@ for gal in gals:
     ax.legend(handles=legend_elements, loc="upper center", ncol=2, fontsize="x-small")
 
     # Save
-    fig.savefig(os.path.join(fig_path, f"{gal}_im.pdf"), format="pdf", bbox_inches="tight")
+    fig.savefig(os.path.join(fig_path, f"{gal}_im.ps"), format="ps", bbox_inches="tight")
 
     ###########################################################################
     # Extract the spectrum from the red data cube 
@@ -228,4 +229,4 @@ for gal in gals:
                 transform=axs[1].transAxes)
 
     # Save
-    fig.savefig(os.path.join(fig_path, f"{gal}_spec.pdf"), format="pdf", bbox_inches="tight")
+    fig.savefig(os.path.join(fig_path, f"{gal}_spec.ps"), format="ps", bbox_inches="tight")

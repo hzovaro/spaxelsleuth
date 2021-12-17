@@ -209,11 +209,11 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
         bbox = ax.get_position()
         # Shrink axis first
         if cax_orientation == "vertical":
-            ax.set_position([bbox.x0, bbox.y0, bbox.width * .85, bbox.height])
-            cax = fig.add_axes([bbox.x0 + bbox.width * .85, bbox.y0, 0.05, bbox.height])
+            # ax.set_position([bbox.x0, bbox.y0, bbox.width * .85, bbox.height])
+            cax = fig.add_axes([bbox.x0 + bbox.width, bbox.y0, 0.05, bbox.height])
         elif cax_orientation == "horizontal":
-            ax.set_position([bbox.x0, bbox.y0, bbox.width, bbox.height * 0.85])
-            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height * 0.85, bbox.width, 0.05])
+            # ax.set_position([bbox.x0, bbox.y0, bbox.width, bbox.height * 0.85])
+            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height, bbox.width, 0.05])
 
     # Plot the full sample
     if hist:
@@ -312,7 +312,7 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
                   vmin=None, vmax=None, xmin=None, xmax=None, ymin=None, ymax=None,
                   ax=None, axis_labels=True, cmap=None,
                   plot_colorbar=True, cax=None, cax_orientation="vertical", alpha=1.0, zorder=2,
-                  errorbars=True, markeredgecolors="k", markerfacecolor="k", marker="o", markersize=20, figsize=(9, 7)):
+                  errorbars=True, markeredgecolor="k", markerfacecolor="k", marker="o", markersize=20, figsize=(9, 7)):
     """
     Plot a 2D histogram of spaxels from a SAMI galaxy (as specified by gal) 
     or from a given Pandas DataFrame df_gal.
@@ -428,9 +428,9 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
     
     # Plot the scatter points
     if col_z is not None:
-        m = ax.scatter(x=df[col_x], y=df[col_y], c=df[col_z], cmap=cmap, vmin=vmin, vmax=vmax, marker=marker, edgecolors=markeredgecolors, s=markersize, alpha=alpha, zorder=zorder + 1)
+        m = ax.scatter(x=df[col_x], y=df[col_y], c=df[col_z], cmap=cmap, vmin=vmin, vmax=vmax, marker=marker, edgecolors=markeredgecolor, s=markersize, alpha=alpha, zorder=zorder + 1)
     else:
-        m = ax.scatter(x=df[col_x], y=df[col_y], c=markerfacecolor, marker=marker, edgecolors=markeredgecolors, s=markersize, alpha=alpha, zorder=zorder + 1)
+        m = ax.scatter(x=df[col_x], y=df[col_y], c=markerfacecolor, marker=marker, edgecolors=markeredgecolor, s=markersize, alpha=alpha, zorder=zorder + 1)
 
     # Nice axis limits
     ax.set_xlim(xmin, xmax)

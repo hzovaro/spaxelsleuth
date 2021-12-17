@@ -388,6 +388,14 @@ def label_fn(col):
         return col
 
 ###############################################################################
+# Helper function for computing the mode in a data set 
+###############################################################################
+def mode(data):
+    vals, counts = np.unique(data, return_counts=True)
+    idx = np.nanargmax(counts)
+    return vals[idx]
+
+###############################################################################
 # Helper function for plotting 2D histograms
 ###############################################################################
 def histhelper(df, col_x, col_y, col_z, nbins, ax, cmap,
@@ -413,13 +421,22 @@ def histhelper(df, col_x, col_y, col_z, nbins, ax, cmap,
     # Combine the x- and y-cuts
     cuts = pd.DataFrame({"xbin": xcut, "ybin": ycut})
 
+    # Function for colouring the histogram: if it's a continuous property, e.g.
+    # SFR, then use the median. If it's a discrete quantity, e.g. BPT category,
+    # then use the mode (= most frequent number in a data set). This will 
+    # help to avoid the issue in which np.nanmedian returns a non-integer value.
+    if col_z.startswith("BPT") or col_z.startswith("Morphology"):
+        func = mode
+    else:
+        func = np.nanmedian
+
     # Calculate the desired quantities for the data binned by x and y    
     gb_binned = df.join(cuts).groupby(list(cuts))
     if col_z == "count":
         df_binned = gb_binned.agg({df.columns[0]: lambda g: g.count()})
         df_binned = df_binned.rename(columns={df.columns[0]: "count"})
     else:
-        df_binned = gb_binned.agg({col_z: np.nanmedian})
+        df_binned = gb_binned.agg({col_z: func})
 
     # Pull out arrays to plot
     count_map = df_binned[col_z].values.reshape((nbins, nbins))
@@ -449,14 +466,6 @@ def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False,
                            axs=None):
     """
     Plot Baldwin, Philips & Terlevich (1986) optical line ratio diagrams.
-    To add a colorbar:
-        cbar_ax = fig.get_axes[-1]
-        cb = fig.colorbar(s, cax=cbar_ax)
-        cb.ax.set_ylabel(zorder_label)
-    ----------------------------------------------------------------------------
-    Returns:
-        FIG: 
-            The figure instance.
     """
     # Make axes
     fig = plt.figure(figsize=(15, 5 * nrows))
@@ -470,7 +479,8 @@ def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False,
     height = 0.8 / nrows
 
     axs = []
-    caxs = []
+    if colorbar:
+        caxs = []
     for ii in range(nrows):
         bottom = 0.1 + (nrows - ii - 1) * height
         ax_N2 = fig.add_axes([left,bottom,width,height])
@@ -522,7 +532,8 @@ def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False,
         axs.append(ax_N2)
         axs.append(ax_S2)
         axs.append(ax_O1)
-        caxs.append(cax)
+        if colorbar:
+            caxs.append(cax)
 
     if colorbar:
         if nrows == 1:

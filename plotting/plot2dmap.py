@@ -54,6 +54,7 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     # Load the non-binned data cube to get a continuum image
     gal = df_gal.catid.unique()[0]
     if survey == "sami":
+        gal = int(gal)
         hdulist = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
     elif survey == "s7":
         hdulist = fits.open(os.path.join(s7_data_path, f"0_Cubes/{gal}_B.fits"))

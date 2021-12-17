@@ -6,6 +6,7 @@ import os
 import numpy as np
 import pandas as pd
 from astropy.visualization import hist
+from astropy.io import fits
 
 from spaxelsleuth.loaddata.lzifu import load_lzifu_galaxy
 from spaxelsleuth.loaddata.sami import load_sami_galaxies
@@ -34,12 +35,13 @@ plt.close("all")
 Take a quick look at SAMI galaxies.
 """
 sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
+sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
 
 ###########################################################################
 # Options
 ###########################################################################
 fig_path = "/priv/meggs3/u5708159/SAMI/figs/"
-savefigs = True
+savefigs = False
 bin_type = "default"    # Options: "default" or "adaptive" for Voronoi binning
 ncomponents = "recom"   # Options: "1" or "recom"
 eline_SNR_min = 5       # Minimum S/N of emission lines to accept
@@ -63,14 +65,34 @@ if len(sys.argv) > 1:
         assert gal.isdigit(), "each gal given must be an integer!"
         assert gal in df_sami.catid, f"{gal} not found in SAMI sample!"
 else:
-    # Load the SNR DataFrame. Order galaxies by their median red S/N in 2R_e.
+    # Load the SNR DataFrame.
     df_snr = pd.read_csv(os.path.join(sami_data_path, "sample_summary.csv"))
 
     # Sort by median red S/N in 2R_e
     df_snr = df_snr.sort_values("Median SNR (R, 2R_e)", ascending=False)
-    df_snr = df_snr[df_snr["Median SNR (R, 2R_e)"] > 10]
+
+    # Make a redshift cut to ensure that Na D is in the wavelength range 
+    df_snr = df_snr[df_snr["z_spec"] > 0.072035]
+
     df_snr = df_snr.set_index("catid")
     gals = df_snr.index.values
+
+###########################################################################
+# X, Y pixel coordinates for extracting spectra
+###########################################################################
+ys, xs = np.meshgrid(np.arange(50), np.arange(50), indexing="ij")
+as_per_px = 0.5
+ys_as = ys * as_per_px
+xs_as = xs * as_per_px
+
+# Centre galaxy coordinates (see p16 of Croom+2021)
+x0_px = 25.5
+y0_px = 25.5
+
+# Create a mask 
+mask = (xs - x0_px)**2 + (ys - y0_px)**2 <= 3**2
+mask_area_px = len(mask[mask])
+mask_area_arcsec2 = mask_area_px * as_per_px**2
 
 ###########################################################################
 # Collage figure 1: coloured by number of components
@@ -78,14 +100,14 @@ else:
 markers = ["o", ">", "D"]
 l = 0.05
 b = 0.05
-dw = 0.1
+dw = 0.05
 dh = 0.1
-w = (1 - 2 * l - dw) / 4
+w = (1 - 2 * l - 2 * dw) / 5
 h = (1 - 2 * b - dh) / 2
 
 # Multi-page pdf
 if savefigs:
-    pp = PdfPages(os.path.join(fig_path, "quicklook.pdf"))
+    pp = PdfPages(os.path.join(fig_path, "quicklook_NaD.pdf"))
 
 for gal in gals:
 
@@ -96,7 +118,7 @@ for gal in gals:
     ###########################################################################
     # Create the figure
     ###########################################################################
-    fig_collage = plt.figure(figsize=(15, 7))
+    fig_collage = plt.figure(figsize=(18, 7))
     ax_sdss = fig_collage.add_axes([l, b, w, h])
     ax_im = fig_collage.add_axes([l, b + h + dh, w, h])
     bbox = ax_im.get_position()
@@ -109,6 +131,7 @@ for gal in gals:
     axs_whav.append(fig_collage.add_axes([l + w + dw, b, w, h]))
     axs_whav.append(fig_collage.add_axes([l + w + dw + w, b, w, h]))
     axs_whav.append(fig_collage.add_axes([l + w + dw + 2 * w, b, w, h]))
+    ax_nad = fig_collage.add_axes([l + w + dw + 3 * w + dw, (1 - h) / 2, w, h])
 
     ###########################################################################
     # Plot SDSS image and component map
@@ -220,6 +243,44 @@ for gal in gals:
                               markerfacecolor=component_colours[ii], markersize=5) for ii in range(3)]
     axs_bpt[-1].legend(handles=legend_elements, fontsize="x-small", loc="upper right")
 
+    ###########################################################################
+    # Extract the spectrum from the red data cube 
+    ###########################################################################
+    hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
+    header = hdulist_R_cube[0].header
+    data_cube_R = hdulist_R_cube[0].data
+    var_cube_R = hdulist_R_cube[1].data
+
+    # Get wavelength values 
+    z = df_snr.loc[gal, "z_spec"]
+    lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
+    dlambda_A = header["CDELT3"]
+    N_lambda = header["NAXIS3"]
+    lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
+    lambda_rest_A = lambda_vals_A / (1 + z)
+
+    # Extract spectrum
+    spec = np.nansum(data_cube_R[:, mask], axis=1)
+    spec_err = np.sqrt(np.nansum(var_cube_R[:, mask], axis=1))
+    start = np.nanargmin(np.abs(lambda_rest_A - (5889 - 10)))
+    stop = np.nanargmin(np.abs(lambda_rest_A - (5896 + 10)))
+
+    # Divide by pixel area in arcsec2
+    spec /= mask_area_arcsec2
+    spec_err /= mask_area_arcsec2
+
+    # Plot 
+    ax_nad.errorbar(x=lambda_rest_A, y=spec, yerr=spec_err, color="k")
+    ax_nad.set_xlim([(5889 - 10), (5896 + 10)])
+    ax_nad.set_ylim([0.9 * np.nanmin(spec[start:stop]), 1.1 * np.nanmax(spec[start:stop])])
+    ax_nad.axvline(5889, color="r")
+    ax_nad.axvline(5896, color="r")
+    ax_nad.set_xlabel(r"Rest-frame wavelength $\lambda \,\rm (\AA)$")
+    ax_nad.set_ylabel(r"$F_\lambda(\lambda)\,\rm (10^{-16} \, erg \, s^{-1} \, cm^{-2} \, \AA^{-1} \, arcsec^{-2}$)")
+
+    ###########################################################################
+    # Save 
+    ###########################################################################
     if savefigs:
         # fname = "ncomponents" if col_z == "Number of components" else "radius"
         # fig_collage.savefig(os.path.join(fig_path, f"{gal}_SAMI_summary_{fname}.pdf"), format="pdf", bbox_inches="tight")
@@ -241,6 +302,7 @@ for gal in gals:
     # fig_collage.canvas.draw()
     # plt.close(fig_ims)
 
+    # Tracer()()
     plt.close(fig_collage)
 
 if savefigs:

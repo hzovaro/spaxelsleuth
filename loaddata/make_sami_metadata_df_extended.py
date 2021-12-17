@@ -188,8 +188,12 @@ else:
 ###############################################################################
 # Merge with the metadata DataFrame
 ###############################################################################
-df_snr = df_snr.merge(df_metadata.drop("catid", axis=1), on="catid")
+common_cols = [c for c in df_snr.columns if c not in df_metadata.columns]
+
+df_snr = df_snr.merge(df_metadata[common_cols].drop("catid", axis=1), on="catid")
 df_snr = df_snr.set_index("catid")
+
+Tracer()()
 
 ###############################################################################
 # Plot: histograms showing the S/N distributions within different apertures
