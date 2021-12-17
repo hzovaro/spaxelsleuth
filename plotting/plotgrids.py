@@ -19,7 +19,7 @@ rc("font",**{"family": "serif", "size": 12})
 plt.ion()
 
 ##############################################################################
-GRID_PATH = "../data/grids/"
+GRID_PATH = "/home/u5708159/python/Modules/spaxelsleuth/data/grids/"
 
 ##############################################################################
 # Convert solar-scaled abundances to log(O/H) + 12
@@ -32,12 +32,12 @@ zeta_to_logOH12 = {
 }
 
 ###############################################################################
-def load_HII_grid(drrecmode=0):
+def load_HII_grid(drrecmode="0"):
     # Load the dataframe
     grid_df = pd.read_hdf(os.path.join(GRID_PATH, "HII_grid.hd5"))
     grid_df.drrecmode = grid_df.drrecmode.astype(str)
 
-    assert drrecmode in grid_df["drrecmode"].unique(), f"drrecmode {drrecmode} not in pAGB dataframe!"
+    assert drrecmode in grid_df["drrecmode"].unique(), f"drrecmode {drrecmode} not in HII region grid dataframe!"
 
     # Sort grid
     grid_df = grid_df.sort_values("log(U) (inner)")
@@ -60,7 +60,7 @@ def load_pAGB_grid(drrecmode="0"):
     grid_df = pd.read_hdf(os.path.join(GRID_PATH, "pAGB_grid.hd5"))
     grid_df.drrecmode = grid_df.drrecmode.astype(str)
 
-    assert drrecmode in grid_df["drrecmode"].unique(), f"drrecmode {drrecmode} not in HII region dataframe!"
+    assert drrecmode in grid_df["drrecmode"].unique(), f"drrecmode {drrecmode} not in pAGB grid dataframe!"
 
     # Sort grid
     grid_df = grid_df.sort_values("log(U) (inner)")
@@ -410,7 +410,7 @@ def plot_grids(col_x, col_y, ax=None,
                drrecmode="0", shock_model_type="total",
                cmap_logU="cubehelix", cmap_logOH12="cividis", cmap_logEpeak="spring",
                cmap_vel="plasma", cmap_density="summer_r",
-               alpha=1.0, ls="-", lw=1, zorder=1, shrink_axis=True, legend=True, return_legend_handles=False):
+               alpha=1.0, ls="-", lw=1, zorder=1, shrink_axis=False, legend=True, return_legend_handles=False):
 
     # for legend
     lines = []
