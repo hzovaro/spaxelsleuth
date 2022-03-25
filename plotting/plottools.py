@@ -337,6 +337,73 @@ label_dict = {
      "log n_e (cm^-3)": r"$\log_{10} n_e \,\rm (cm^{-3})$",
 }
 
+fname_dict = {
+     "count": "count",
+     "log N2": "logN2",
+     "log O3": "logO3",
+     "log O1": "logO1",
+     "log S2": "logS2",
+     "O3O2": "O3O2",
+     "log HALPHA EW": "logHaEW",
+     "log HALPHA EW (total)": "logHaEWtot",
+     "HALPHA EW": "HaEW",
+     "HALPHA EW (total)": "HaEwtot",
+     "log sigma_gas": "log_sigma_gas",
+     "sigma_gas": "sigma_gas",
+     "sigma_*": "sigma_star",
+     "sigma_gas - sigma_*": "sigma_gas-sigma_star",
+     "v_gas - v_*": "v_gas-v_star",
+     "HALPHA S/N": "HaSNR",
+     "BPT (numeric)": "BPT",
+     "Law+2021 (numeric)": "Law2021",
+     "radius": "radius",
+     "D4000": "D4000",
+     "HALPHA": "HALPHA",
+     "v_gas": "v_gas",
+     "v_*": "v_star",
+     "A_V": "A_V",
+     "S2 ratio": "S2ratio",
+     "log S2 ratio": "logS2ratio",
+     "O1O3": "O1O3",
+     "mstar": "mstar",
+     "g_i": "g_i",
+     "Morphology (numeric)": "morphology",
+     "m_r": "m_r",
+     "z_spec": "z_spec",
+     "delta log O3 (1/0)": "deltalogO3_10",
+     "delta log O3 (2/1)": "deltalogO3_21",
+     "delta log O1 (1/0)": "deltalogO1_10",
+     "delta log O1 (2/1)": "deltalogO1_21",
+     "delta log N2 (1/0)": "deltalogN2_10",
+     "delta log N2 (2/1)": "deltalogN2_21",
+     "delta log S2 (1/0)": "deltalogS2_10",
+     "delta log S2 (2/1)": "deltalogS2_21",
+     "sigma_gas/sigma_*": "sigma_gas_over_sigma_star",
+     "N2O2": "N2O2",
+     "HALPHA EW/HALPHA EW (total)": "HaEW_over_HaEWtot",
+     "HALPHA EW ratio (1/0)": "HaEwRatio_10",
+     "HALPHA EW ratio (2/1)": "HaEwRatio_21",
+     "delta sigma_gas (1/0)": "delta_sigma_gas_10",
+     "delta sigma_gas (2/1)": "delta_sigma_gas_21",
+     "delta v_gas (1/0)": "delta_v_gas_10",
+     "delta v_gas (2/1)": "delta_v_gas_21",
+     "r/R_e": "r_over_Re",
+     "R_e (kpc)": "Re_kpc",
+     "log(M/R_e)": "log_M_over_Re",
+     "Inclination i (degrees)": "inclination",
+     "Bin size (square kpc)": "bin_size",
+     "SFR": "SFR",
+     "SFR surface density": "SFR_surface_density",
+     "log SFR": "logSFR",
+     "log SFR surface density": "logSFR_surface_density",
+     "Delta HALPHA EW (0/1)": "Delta_HaEW_10",
+     "Number of components": "ncomponents",
+     "HALPHA extinction correction": "Ha_ext_corr",
+     "v_grad" : "v_grad" ,
+     "n_e (cm^-3)": "ne",
+     "log n_e (cm^-3)": "logne",
+}
+
 ###############################################################################
 # Helper functions to return colourmaps, min/max values and labels
 ###############################################################################
@@ -385,6 +452,18 @@ def label_fn(col):
         return label_dict[col]
     else:
         print("WARNING: in label_fn(): undefined column")
+        return col
+
+###############################################################################
+def fname_fn(col):
+    if " (component" in col:
+        col = col.split(" (component")[0]
+    elif "(total)" in col:
+        col = col.split(" (total)")[0]
+    if col in cmap_dict.keys():
+        return fname_dict[col]
+    else:
+        print("WARNING: in fname_fn(): undefined column")
         return col
 
 ###############################################################################
