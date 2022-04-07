@@ -271,7 +271,15 @@ def compute_gas_stellar_offsets(df, ncomponents):
     for ii in range(ncomponents):
         df[f"sigma_gas - sigma_* (component {ii})"] = df[f"sigma_gas (component {ii})"] - df["sigma_*"]
         df[f"sigma_gas - sigma_* error (component {ii})"] = np.sqrt(df[f"sigma_gas error (component {ii})"]**2 + df["sigma_* error"]**2)
-        
+
+        df[f"sigma_gas^2 - sigma_*^2 (component {ii})"] = df[f"sigma_gas (component {ii})"]**2 - df["sigma_*"]**2
+        df[f"sigma_gas^2 - sigma_*^2 error (component {ii})"] = 2 * np.sqrt(df[f"sigma_gas (component {ii})"]**2 * df[f"sigma_gas error (component {ii})"]**2 +\
+                                                                            df["sigma_*"]**2 * df["sigma_* error"]**2)
+
+        df[f"log(sigma_gas^2 - sigma_*^2) (component {ii})"] = df[f"sigma_gas (component {ii})"]**2 - df["sigma_*"]**2
+        df[f"log(sigma_gas^2 - sigma_*^2) error (component {ii})"] = 2 * np.sqrt(df[f"sigma_gas (component {ii})"]**2 * df[f"sigma_gas error (component {ii})"]**2 +\
+                                                                            df["sigma_*"]**2 * df["sigma_* error"]**2)
+
         df[f"v_gas - v_* (component {ii})"] = df[f"v_gas (component {ii})"] - df["v_*"]
         df[f"v_gas - v_* error (component {ii})"] = np.sqrt(df[f"v_gas error (component {ii})"]**2 + df["v_* error"]**2)
         
@@ -342,7 +350,8 @@ def compute_extra_columns(df, ncomponents):
         - SFR
      - offsets between gas & stellar kinematics
      - offsets in Halpha EW, sigma_gas, v_gas between adjacent components
-     - fraction of Halpha EW in each component.
+     - fraction of Halpha EW in each component
+     - FWHM of emission lines
 
     This function should be called AFTER calling df_dqcut because it relies 
     on quantities that may be masked out due to S/N and DQ cuts.
@@ -359,6 +368,10 @@ def compute_extra_columns(df, ncomponents):
     if ncomponents > 1:
         df = compute_component_offsets(df, ncomponents=ncomponents)
 
+    # Compute FWHM
+    for ii in range(ncomponents):
+        df[f"FWHM_gas (component {ii})"] = df[f"sigma_gas (component {ii})"] * 2 * np.sqrt(2 * np.log(2))
+        df[f"FWHM_gas error (component {ii})"] = df[f"sigma_gas error (component {ii})"] * 2 * np.sqrt(2 * np.log(2))
 
     return df
 
