@@ -224,4 +224,12 @@ if __name__ == "__main__":
     assert df[np.isnan(df["sigma_gas (component 0)"]) & ~np.isnan(df["sigma_gas (component 1)"])].shape[0] == 0
     assert df[np.isnan(df["sigma_gas (component 0)"]) & ~np.isnan(df["sigma_gas (component 2)"])].shape[0] == 0
     assert df[np.isnan(df["sigma_gas (component 1)"]) & ~np.isnan(df["sigma_gas (component 2)"])].shape[0] == 0
+
+    # CHECK: calculation of HALPHA luminosity per kpc2
+    # These two should have an approx. 1:1 relationship.
+    plt.figure()
+    m = plt.scatter(df["log SFR surface density (total)"], np.log10(df["HALPHA luminosity (total)"] * 5.5e-42), c=df["BPT (numeric) (total)"])
+    plt.colorbar(m)
+    plt.plot([-10,1], [-10,1], "black")
+    plt.xlim([-5, 1])
     
