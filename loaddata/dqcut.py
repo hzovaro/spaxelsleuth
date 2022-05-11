@@ -219,10 +219,14 @@ def compute_log_columns(df, ncomponents):
     # Halpha flux and EW for individual components
     for ii in range(ncomponents):          
         # log quantities
+        df[f"log HALPHA luminosity (component {ii})"] = np.log10(df[f"HALPHA luminosity (component {ii})"])
         df[f"log HALPHA EW (component {ii})"] = np.log10(df[f"HALPHA EW (component {ii})"])
         df[f"log sigma_gas (component {ii})"] = np.log10(df[f"sigma_gas (component {ii})"])
 
         # Compute errors for log quantities
+        df[f"log HALPHA luminosity error (lower) (component {ii})"] = df[f"log HALPHA luminosity (component {ii})"] - np.log10(df[f"HALPHA luminosity (component {ii})"] - df[f"HALPHA luminosity error (component {ii})"])
+        df[f"log HALPHA luminosity error (upper) (component {ii})"] = np.log10(df[f"HALPHA luminosity (component {ii})"] + df[f"HALPHA luminosity error (component {ii})"]) - df[f"log HALPHA luminosity (component {ii})"]
+
         df[f"log HALPHA EW error (lower) (component {ii})"] = df[f"log HALPHA EW (component {ii})"] - np.log10(df[f"HALPHA EW (component {ii})"] - df[f"HALPHA EW error (component {ii})"])
         df[f"log HALPHA EW error (upper) (component {ii})"] = np.log10(df[f"HALPHA EW (component {ii})"] + df[f"HALPHA EW error (component {ii})"]) - df[f"log HALPHA EW (component {ii})"]
         
@@ -230,6 +234,14 @@ def compute_log_columns(df, ncomponents):
         df[f"log sigma_gas error (upper) (component {ii})"] = np.log10(df[f"sigma_gas (component {ii})"] + df[f"sigma_gas error (component {ii})"]) - df[f"log sigma_gas (component {ii})"]
         
     # Compute log quantities for total HALPHA EW
+    df[f"log HALPHA luminosity (total)"] = np.log10(df[f"HALPHA luminosity (total)"])
+    df["log HALPHA luminosity error (lower) (total)"] = df["log HALPHA luminosity (total)"] - np.log10(df["HALPHA luminosity (total)"] - df["HALPHA luminosity error (total)"])
+    df["log HALPHA luminosity error (upper) (total)"] = np.log10(df["HALPHA luminosity (total)"] + df["HALPHA luminosity error (total)"]) -  df["log HALPHA luminosity (total)"]
+    
+    df[f"log HALPHA continuum luminosity"] = np.log10(df[f"HALPHA continuum luminosity"])
+    df["log HALPHA continuum luminosity error (lower)"] = df["log HALPHA continuum luminosity"] - np.log10(df["HALPHA continuum luminosity"] - df["HALPHA continuum luminosity error"])
+    df["log HALPHA continuum luminosity error (upper)"] = np.log10(df["HALPHA continuum luminosity"] + df["HALPHA continuum luminosity error"]) -  df["log HALPHA continuum luminosity"]
+    
     df["log HALPHA EW (total)"] = np.log10(df["HALPHA EW (total)"])
     df["log HALPHA EW error (lower) (total)"] = df["log HALPHA EW (total)"] - np.log10(df["HALPHA EW (total)"] - df["HALPHA EW error (total)"])
     df["log HALPHA EW error (upper) (total)"] = np.log10(df["HALPHA EW (total)"] + df["HALPHA EW error (total)"]) -  df["log HALPHA EW (total)"]
@@ -275,11 +287,7 @@ def compute_gas_stellar_offsets(df, ncomponents):
         df[f"sigma_gas^2 - sigma_*^2 (component {ii})"] = df[f"sigma_gas (component {ii})"]**2 - df["sigma_*"]**2
         df[f"sigma_gas^2 - sigma_*^2 error (component {ii})"] = 2 * np.sqrt(df[f"sigma_gas (component {ii})"]**2 * df[f"sigma_gas error (component {ii})"]**2 +\
                                                                             df["sigma_*"]**2 * df["sigma_* error"]**2)
-
-        df[f"log(sigma_gas^2 - sigma_*^2) (component {ii})"] = df[f"sigma_gas (component {ii})"]**2 - df["sigma_*"]**2
-        df[f"log(sigma_gas^2 - sigma_*^2) error (component {ii})"] = 2 * np.sqrt(df[f"sigma_gas (component {ii})"]**2 * df[f"sigma_gas error (component {ii})"]**2 +\
-                                                                            df["sigma_*"]**2 * df["sigma_* error"]**2)
-
+        
         df[f"v_gas - v_* (component {ii})"] = df[f"v_gas (component {ii})"] - df["v_*"]
         df[f"v_gas - v_* error (component {ii})"] = np.sqrt(df[f"v_gas error (component {ii})"]**2 + df["v_* error"]**2)
         
@@ -359,19 +367,32 @@ def compute_extra_columns(df, ncomponents):
     function but it would be cumbersome to do so...
 
     """
-    df = compute_log_columns(df, ncomponents=ncomponents)
     
-    if "v_*" in df.columns and "sigma_*" in df.columns:
-        df = compute_gas_stellar_offsets(df, ncomponents=ncomponents)
-
-    
-    if ncomponents > 1:
-        df = compute_component_offsets(df, ncomponents=ncomponents)
+    # Halpha & continuum luminosity
+    # HALPHA luminosity: units of erg s^-1 kpc^-2
+    # HALPHA cont. luminosity: units of erg s^-1 Å-1 kpc^-2
+    df[f"HALPHA continuum luminosity"] = df[f"HALPHA continuum"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+    df[f"HALPHA continuum luminosity error"] = df[f"HALPHA continuum error"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+    df[f"HALPHA luminosity (total)"] = df[f"HALPHA (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+    df[f"HALPHA luminosity error (total)"] = df[f"HALPHA error (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+    for ii in range(ncomponents):
+        df[f"HALPHA luminosity (component {ii})"] = df[f"HALPHA (component {ii})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+        df[f"HALPHA luminosity error (component {ii})"] = df[f"HALPHA error (component {ii})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
 
     # Compute FWHM
     for ii in range(ncomponents):
         df[f"FWHM_gas (component {ii})"] = df[f"sigma_gas (component {ii})"] * 2 * np.sqrt(2 * np.log(2))
         df[f"FWHM_gas error (component {ii})"] = df[f"sigma_gas error (component {ii})"] * 2 * np.sqrt(2 * np.log(2))
+
+    # Stellar & gas kinematic offsets
+    if "v_*" in df.columns and "sigma_*" in df.columns:
+        df = compute_gas_stellar_offsets(df, ncomponents=ncomponents)
+
+    # Compute logs
+    df = compute_log_columns(df, ncomponents=ncomponents)
+    
+    if ncomponents > 1:
+        df = compute_component_offsets(df, ncomponents=ncomponents)
 
     return df
 
