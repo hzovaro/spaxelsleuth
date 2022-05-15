@@ -69,6 +69,14 @@ def load_s7_galaxies(eline_SNR_min, eline_list=["HALPHA", "HBETA", "NII6583", "O
         df = linefns.law2021_fn(df, s=f" (component {ii})")
 
     ######################################################################
+    # WHAV* classification
+    ######################################################################
+    if ncomponents == "recom":
+        df = linefns.whav_fn(df)
+    else:
+        print("WARNING: WHAV* classifications for the 1-component fits has not yet been implemented!!")
+
+    ######################################################################
     # CORRECT HALPHA FLUX AND EW FOR EXTINCTION
     # We use the same A_V for all 3 components because the Hbeta fluxes
     # for individual components aren't always reliable.

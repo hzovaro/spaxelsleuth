@@ -69,6 +69,14 @@ def load_sami_galaxies(ncomponents, bin_type,
     df = dqcut.compute_extra_columns(df, ncomponents=3 if ncomponents=="recom" else 1)
 
     ######################################################################
+    # WHAV* classification
+    ######################################################################
+    if ncomponents == "recom":
+        df = linefns.whav_fn(df)
+    else:
+        print("WARNING: WHAV* classifications for the 1-component fits has not yet been implemented!!")
+
+    ######################################################################
     # CORRECT HALPHA FLUX AND EW FOR EXTINCTION
     # Note that we only have enough information from the provided extinction
     # maps to correct the Halpha line. We therefore apply this correction 
