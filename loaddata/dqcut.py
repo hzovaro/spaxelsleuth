@@ -332,6 +332,7 @@ def compute_component_offsets(df, ncomponents):
         
         # Ratio of HALPHA EWs between components (log)
         df["Delta HALPHA EW (0/1)"] = df["log HALPHA EW (component 0)"] - df["log HALPHA EW (component 1)"]
+        df["Delta HALPHA EW (1/2)"] = df["log HALPHA EW (component 1)"] - df["log HALPHA EW (component 2)"]
 
         # Fractional of total Halpha EW in each component
         for ii in range(3):
