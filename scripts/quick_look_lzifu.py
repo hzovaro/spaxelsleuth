@@ -35,12 +35,12 @@ sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
 ###########################################################################
 # Options
 ###########################################################################
-fig_path = "/priv/meggs3/u5708159/SAMI/figs/individual_plots/"
+fig_path = "/priv/meggs3/u5708159/SAMI/figs/paper/"
 lzifu_data_path = "/priv/meggs3/u5708159/LZIFU/products"
 savefigs = True
 bin_type = "default"    # Options: "default" or "adaptive" for Voronoi binning
 ncomponents = "recom"   # Options: "1" or "recom"
-eline_SNR_min = 3       # Minimum S/N of emission lines to accept
+eline_SNR_min = 5       # Minimum S/N of emission lines to accept
 debug = False
 
 ###########################################################################
@@ -113,15 +113,16 @@ for gal in tqdm(gals):
         ###########################################################################
         # Collage figure 2: coloured by r/R_e
         ###########################################################################
-        for col_z in ["Number of components", "r/R_e", "BPT (numeric)", "log N2", "HALPHA EW (total)"]:
-        for col_z in ["BPT (numeric)"]:
-
+        for col_z in ["Number of components", "r/R_e", "BPT (numeric)", "log N2", "HALPHA EW (total)", "WHAV* (numeric)"]:
             # Create the figure
             fig_collage = plt.figure(figsize=(15, 7))
             ax_sdss = fig_collage.add_axes([l, b, w, h])
             ax_im = fig_collage.add_axes([l, b + h + dh, w, h])
             bbox = ax_im.get_position()
-            cax_im = fig_collage.add_axes([bbox.x0 + bbox.width * 0.035, bbox.y0 + bbox.height, bbox.width * 0.93, 0.025])
+            if col_z != "WHAV* (numeric)":
+                cax_im = fig_collage.add_axes([bbox.x0 + bbox.width * 0.035, bbox.y0 + bbox.height, bbox.width * 0.93, 0.025])
+            else:
+                cax_im = None
             axs_bpt = []
             axs_bpt.append(fig_collage.add_axes([l + w + dw, b + h + dh, w, h]))
             axs_bpt.append(fig_collage.add_axes([l + w + dw + w, b + h + dh, w, h]))
@@ -140,7 +141,9 @@ for gal in tqdm(gals):
             plot2dmap(df_gal=df_gal, bin_type="default", survey="sami",
                       PA_deg=0,
                       col_z="Number of components" if f"{col_z} (component 0)" in df_gal.columns else col_z,
-                      ax=ax_im, cax=cax_im, cax_orientation="horizontal", show_title=False)
+                      ax=ax_im, 
+                      plot_colorbar=False if col_z == "WHAV* (numeric)" else True, cax=cax_im, cax_orientation="horizontal", 
+                      show_title=False)
 
             # Plot BPT diagram
             col_y = "log O3"
@@ -217,6 +220,12 @@ for gal in tqdm(gals):
                                    plot_colorbar=False)
                 # Plot the S7 data
                 for ii in range(3):
+                    if col_z == "Number of components":
+                        colz = None
+                    elif col_z in df_gal.columns:
+                        colz = col_z 
+                    elif f"{col_z} (component 0)" in df_gal.columns:
+                        colz = f"{col_z} (component {ii})"
                     plot2dscatter(df=df_gal,
                                   col_x=f"{col_x} (component {ii})",
                                   col_y=f"{col_y} (component {ii})",
@@ -309,9 +318,9 @@ for gal in tqdm(gals):
         fig_line_ratios.suptitle(f"GAMA{gal}", y=0.99)
 
         ###########################################################################
-        # Maps showing HALPHA EW for each component
+        # Maps showing various quantities for each component
         ###########################################################################
-        col_z_list = ["HALPHA EW", "v_gas", "sigma_gas", "sigma_*", "sigma_gas - sigma_*"]
+        col_z_list = ["HALPHA EW", "BPT (numeric)", "v_gas", "sigma_gas", "sigma_*", "sigma_gas - sigma_*"]
         fig_maps, axs = plt.subplots(nrows=len(col_z_list), ncols=3, figsize=(9.7, 18.8))
         fig_maps.subplots_adjust(wspace=0)
 
