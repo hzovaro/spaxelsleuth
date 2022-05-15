@@ -5,7 +5,7 @@ from astropy.wcs import WCS
 
 from spaxelsleuth.plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn 
 from spaxelsleuth.plotting.plottools import plot_scale_bar, plot_compass
-from spaxelsleuth.plotting.plottools import bpt_ticks, bpt_labels, morph_ticks, morph_labels, law2021_ticks, law2021_labels, ncomponents_ticks, ncomponents_labels
+from spaxelsleuth.plotting.plottools import bpt_ticks, bpt_labels, whav_ticks, whav_labels, morph_ticks, morph_labels, law2021_ticks, law2021_labels, ncomponents_ticks, ncomponents_labels
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -61,6 +61,8 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
 
     # Get the WCS
     wcs = WCS(hdulist[0].header).dropaxis(2)
+    if survey == "s7":
+        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
 
     # Get the continuum inage if desired
     if col_z_contours.lower() == "continuum":
@@ -157,10 +159,10 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
         # Shrink axis first
         if cax_orientation == "vertical":
             ax.set_position([bbox.x0, bbox.y0, bbox.width * .85, bbox.height])
-            cax = fig.add_axes([bbox.x0 + bbox.width * .85, bbox.y0, 0.05, bbox.height])
+            cax = fig.add_axes([bbox.x0 + bbox.width * .85, bbox.y0, bbox.width * 0.1, bbox.height])
         elif cax_orientation == "horizontal":
             ax.set_position([bbox.x0, bbox.y0, bbox.width, bbox.height * 0.85])
-            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height * 0.85, bbox.width, 0.05])
+            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height * 0.85, bbox.width, bbox.height * 0.1])
 
     # Add labels & ticks to colourbar, if necessary
     if plot_colorbar:
@@ -178,6 +180,13 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
             elif cax_orientation == "horizontal":
                 cax.xaxis.set_ticks(bpt_ticks)
                 cax.xaxis.set_ticklabels(bpt_labels)
+        if col_z.startswith("WHAV* (numeric)"):
+            if cax_orientation == "vertical":
+                cax.yaxis.set_ticks(whav_ticks)
+                cax.yaxis.set_ticklabels(whav_labels)
+            elif cax_orientation == "horizontal":
+                cax.xaxis.set_ticks(whav_ticks)
+                cax.xaxis.set_ticklabels(whav_labels)
         if col_z == "Morphology (numeric)":
             if cax_orientation == "vertical":
                 cax.yaxis.set_ticks(morph_ticks)
@@ -216,6 +225,6 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
         ax.set_ylabel("Dec (J2000)")
         ax.set_xlabel("RA (J2000)")
 
-    return fig
+    return fig, ax
 
 

@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 from spaxelsleuth.plotting.plottools import cmap_fn, vmin_fn, vmax_fn, label_fn, histhelper
-from spaxelsleuth.plotting.plottools import bpt_ticks, bpt_labels, law2021_ticks, law2021_labels, morph_ticks, morph_labels, ncomponents_ticks, ncomponents_labels
+from spaxelsleuth.plotting.plottools import bpt_ticks, bpt_labels, whav_ticks, whav_labels, law2021_ticks, law2021_labels, morph_ticks, morph_labels, ncomponents_ticks, ncomponents_labels 
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -73,16 +73,17 @@ def plot2dhist(df, col_x, col_y, col_z, ax, log_z=False,
         ymax = vmax_fn(col_y)
 
     # If we're plotting the BPT categories, also want to show the "uncategorised" ones.
-    if col_z.startswith("BPT (numeric)"):
+    if col_z.startswith("BPT (numeric)") or col_z.startswith("WHAV* (numeric)"):
         df_classified = df[df[col_z] > -1]
         df_unclassified = df[df[col_z] == -1]
         cmap.set_bad("white", alpha=0.0)
-        histhelper(df=df_unclassified, col_x=col_x, col_y=col_y, col_z=col_z,
-                    log_z=log_z, nbins=nbins, ax=ax, cmap=cmap,
-                    xmin=xmin, xmax=xmax,
-                    ymin=ymin, ymax=ymax,
-                    vmin=vmin, vmax=vmax,
-                    alpha=alpha)
+        if df_unclassified.shape[0] > 0 and np.any(~np.isnan(df_unclassified[col_x])) and np.any(~np.isnan(df_unclassified[col_y])):
+            histhelper(df=df_unclassified, col_x=col_x, col_y=col_y, col_z=col_z,
+                        log_z=log_z, nbins=nbins, ax=ax, cmap=cmap,
+                        xmin=xmin, xmax=xmax,
+                        ymin=ymin, ymax=ymax,
+                        vmin=vmin, vmax=vmax,
+                        alpha=alpha)
         m = histhelper(df=df_classified, col_x=col_x, col_y=col_y, col_z=col_z,
                     log_z=log_z, nbins=nbins, ax=ax, cmap=cmap,
                     xmin=xmin, xmax=xmax,
@@ -210,10 +211,10 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
         # Shrink axis first
         if cax_orientation == "vertical":
             # ax.set_position([bbox.x0, bbox.y0, bbox.width * .85, bbox.height])
-            cax = fig.add_axes([bbox.x0 + bbox.width, bbox.y0, 0.05, bbox.height])
+            cax = fig.add_axes([bbox.x0 + bbox.width, bbox.y0, bbox.width * 0.1, bbox.height])
         elif cax_orientation == "horizontal":
             # ax.set_position([bbox.x0, bbox.y0, bbox.width, bbox.height * 0.85])
-            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height, bbox.width, 0.05])
+            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height, bbox.width, bbox.height * 0.1])
 
     # Plot the full sample
     if hist:
@@ -240,6 +241,13 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
             elif cax_orientation == "horizontal":
                 cax.xaxis.set_ticks(bpt_ticks)
                 cax.xaxis.set_ticklabels(bpt_labels)
+        if col_z.startswith("WHAV* (numeric)"):
+            if cax_orientation == "vertical":
+                cax.yaxis.set_ticks(whav_ticks)
+                cax.yaxis.set_ticklabels(whav_labels)
+            elif cax_orientation == "horizontal":
+                cax.xaxis.set_ticks(whav_ticks)
+                cax.xaxis.set_ticklabels(whav_labels)
         if col_z == "Morphology (numeric)":
             if cax_orientation == "vertical":
                 cax.yaxis.set_ticks(morph_ticks)
@@ -338,10 +346,10 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
         # Shrink axis first
         if cax_orientation == "vertical":
             ax.set_position([bbox.x0, bbox.y0, bbox.width * .85, bbox.height])
-            cax = fig.add_axes([bbox.x0 + bbox.width * .85, bbox.y0, 0.05, bbox.height])
+            cax = fig.add_axes([bbox.x0 + bbox.width * .85, bbox.y0, bbox.width * 0.1, bbox.height])
         elif cax_orientation == "horizontal":
             ax.set_position([bbox.x0, bbox.y0, bbox.width, bbox.height * 0.85])
-            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height * 0.85, bbox.width, 0.05])
+            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height * 0.85, bbox.width, bbox.height * 0.1])
 
     # Deal with annoying case where there are multiple components
     if "component" in col_x:
@@ -452,6 +460,13 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
             elif cax_orientation == "horizontal":
                 cax.xaxis.set_ticks(bpt_ticks)
                 cax.xaxis.set_ticklabels(bpt_labels)
+        if col_z.startswith("WHAV* (numeric)"):
+            if cax_orientation == "vertical":
+                cax.yaxis.set_ticks(whav_ticks)
+                cax.yaxis.set_ticklabels(whav_labels)
+            elif cax_orientation == "horizontal":
+                cax.xaxis.set_ticks(whav_ticks)
+                cax.xaxis.set_ticklabels(whav_labels)
         if col_z == "Morphology (numeric)":
             if cax_orientation == "vertical":
                 cax.yaxis.set_ticks(morph_ticks)
