@@ -7,6 +7,9 @@ from spaxelsleuth.loaddata.linefns import Kewley2001, Kewley2006, Kauffman2003, 
 from matplotlib.colors import ListedColormap, to_rgba, LogNorm
 import matplotlib.patheffects as PathEffects
 import matplotlib.pyplot as plt
+from matplotlib import cm
+
+from IPython.core.debugger import Tracer
 
 ###############################################################################
 # Custom colour maps for discrete quantities
@@ -23,6 +26,39 @@ c6 = np.array([256/256, 100/256, 256/256, 1])       # Ambiguous
 bpt_colours = np.vstack((c1, c2, c3, c4, c5, c6))
 bpt_cmap = ListedColormap(bpt_colours)
 bpt_cmap.set_bad(color="white", alpha=0)
+
+# Custom colour map for BPT categories
+whav_labels = [
+    "Unknown",
+    "HOLMES",    
+    "Mixing + HOLMES + no wind",
+    "Mixing + HOLMES + wind",
+    "Mixing + no wind",
+    "Mixing + wind",
+    "AGN + HOLMES + no wind",
+    "AGN + HOLMES + wind",
+    "AGN + no wind",
+    "AGN + wind",
+    "SF + HOLMES + no wind",
+    "SF + HOLMES + wind",
+    "SF + no wind",
+    "SF + wind",
+]
+whav_ticks = np.arange(len(whav_labels)) - 1
+Spectral = plt.cm.get_cmap("jet_r")
+whav_colors = Spectral(np.linspace(0, 1, len(whav_labels)))
+whav_colors[0] = [0.5, 0.5, 0.5, 1]  # Unknown
+whav_colors[12] = np.array(to_rgba("#004cff"))  # SF + no wind 
+whav_colors[11] = np.array(to_rgba("#00ffff"))  # SF + HOLMES + wind
+whav_colors[10] = np.array(to_rgba("#00bfff"))  # SF + HOLMES + no wind
+whav_colors[9] = np.array(to_rgba("#ff00ff"))  # AGN + wind
+whav_colors[8] = np.array(to_rgba("#ffa7ff"))  # AGN + no wind
+whav_colors[7] = np.array(to_rgba("#13cc00"))  # AGN + HOLMES + wind
+whav_colors[6] = np.array(to_rgba("#49ff36"))  # AGN + HOLMES + no wind
+whav_colors[5] = np.array(to_rgba("#ffff00"))  # Mixing + wind
+
+whav_cmap = ListedColormap(whav_colors)
+whav_cmap.set_bad(color="white", alpha=0)
 
 # Custom colour map for morphologies
 morph_labels = ["Unknown", "E", "E/S0", "S0", "S0/Early-spiral", "Early-spiral", "Early/Late spiral", "Late spiral"]
@@ -83,10 +119,15 @@ cmap_dict = {
     "v_gas - v_*": copy.copy(plt.cm.get_cmap("RdYlBu_r")),
     "HALPHA S/N": copy.copy(plt.cm.get_cmap("copper")),
     "BPT (numeric)": bpt_cmap,
+    "WHAV* (numeric)": whav_cmap,
     "Law+2021 (numeric)": law2021_cmap,
     "radius": copy.copy(plt.cm.get_cmap("gnuplot2_r")),
     "D4000": copy.copy(plt.cm.get_cmap("pink_r")),
     "HALPHA": copy.copy(plt.cm.get_cmap("viridis")),
+    "HALPHA luminosity": copy.copy(plt.cm.get_cmap("viridis")),
+    "HALPHA continuum luminosity": copy.copy(plt.cm.get_cmap("viridis")),
+    "log HALPHA luminosity": copy.copy(plt.cm.get_cmap("viridis")),
+    "log HALPHA continuum luminosity": copy.copy(plt.cm.get_cmap("viridis")),
     "v_gas": copy.copy(plt.cm.get_cmap("coolwarm")),
     "v_*": copy.copy(plt.cm.get_cmap("coolwarm")),
     "A_V": copy.copy(plt.cm.get_cmap("afmhot_r")),
@@ -156,10 +197,15 @@ vmin_dict = {
     "v_gas - v_*": -600,
     "HALPHA S/N": 3,
     "BPT (numeric)": -1.5,
+    "WHAV* (numeric)": -1.5,
     "Law+2021 (numeric)": -1.5,
     "radius": 0,
     "D4000": 1.0,
     "HALPHA": 0,
+    "HALPHA luminosity": 1e37,
+    "HALPHA continuum luminosity": 1e35,
+    "log HALPHA luminosity": 37,
+    "log HALPHA continuum luminosity": 35,
     "v_gas": -200,
     "v_*": -250,
     "A_V": 0,
@@ -224,10 +270,15 @@ vmax_dict = {
     "v_gas - v_*": +600,
     "HALPHA S/N": 50,
     "BPT (numeric)": 4.5,
+    "WHAV* (numeric)": 12.5,
     "Law+2021 (numeric)": 3.5,
     "radius": 10,
     "D4000": 2.2,
     "HALPHA": 1e3,  # 1.5 is good for SAMI
+    "HALPHA luminosity": 1e42,
+    "HALPHA continuum luminosity": 1e41,
+    "log HALPHA luminosity": 42,
+    "log HALPHA continuum luminosity": 41,
     "v_gas": +200,
     "v_*": +250,
     "A_V": 5,
@@ -292,10 +343,15 @@ label_dict = {
      "v_gas - v_*": r"$v_{\rm gas} - v_*\,\rm\left(km\,s^{-1}\right)$", 
      "HALPHA S/N": r"$\rm H\alpha$ S/N",
      "BPT (numeric)": "Spectral classification",
+     "WHAV* (numeric)": "WHAV* classification",
      "Law+2021 (numeric)": "Law+2021 kinematic classification",
      "radius": "Radius (arcsec)",
      "D4000": r"$\rm D_n 4000 \, \AA$ break strength",
      "HALPHA": r"$\rm H\alpha$ flux",
+     "HALPHA luminosity": r"$L(\rm H\alpha) \, \rm (erg\,s^{-1}\,kpc^{-2})$",
+     "HALPHA continuum luminosity": r"$F(C_{\rm H\alpha}) \, \rm (erg\,s^{-1}\,Å^{-1}\,kpc^{-2})$",
+     "log HALPHA luminosity": r"$\log_{10} \left(L(\rm H\alpha) \, \rm [erg\,s^{-1}\,kpc^{-2}]\right)$",
+     "log HALPHA continuum luminosity": r"$\log_{10} \left(F(C_{\rm H\alpha}) \, \rm [erg\,s^{-1}\,Å^{-1}\,kpc^{-2}]\right)$",
      "v_gas": r"$v_{\rm gas} \,\rm (km\,s^{-1})$",
      "v_*": r"$v_* \,\rm (km\,s^{-1})$",
      "A_V": r"$A_V\,\rm (mag)$",
@@ -360,10 +416,15 @@ fname_dict = {
      "v_gas - v_*": "v_gas-v_star",
      "HALPHA S/N": "HaSNR",
      "BPT (numeric)": "BPT",
+     "WHAV* (numeric)": "WHAV",
      "Law+2021 (numeric)": "Law2021",
      "radius": "radius",
      "D4000": "D4000",
      "HALPHA": "HALPHA",
+     "HALPHA luminosity": "HALPHA_lum_per_kpc2",
+     "HALPHA continuum luminosity": "HALPHA_cont_lum_per_kpc2",
+     "log HALPHA luminosity": "log_HALPHA_lum_per_kpc2",
+     "log HALPHA continuum luminosity": "log_HALPHA_cont_lum_per_kpc2",
      "v_gas": "v_gas",
      "v_*": "v_star",
      "A_V": "A_V",
@@ -469,6 +530,8 @@ def fname_fn(col):
         return fname_dict[col]
     else:
         print("WARNING: in fname_fn(): undefined column")
+        # Remove bad characters 
+        col = col.replace("(", "_").replace(")", "_").replace("/", "_over_").replace("*", "_star").replace(" ", "_")
         return col
 
 ###############################################################################
@@ -509,7 +572,7 @@ def histhelper(df, col_x, col_y, col_z, nbins, ax, cmap,
     # SFR, then use the median. If it's a discrete quantity, e.g. BPT category,
     # then use the mode (= most frequent number in a data set). This will 
     # help to avoid the issue in which np.nanmedian returns a non-integer value.
-    if col_z.startswith("BPT") or col_z.startswith("Morphology"):
+    if col_z.startswith("BPT") or col_z.startswith("Morphology") or col_z.startswith("WHAV*"):
         func = mode
     else:
         func = np.nanmedian
@@ -523,7 +586,11 @@ def histhelper(df, col_x, col_y, col_z, nbins, ax, cmap,
         df_binned = gb_binned.agg({col_z: func})
 
     # Pull out arrays to plot
+    # try:
     count_map = df_binned[col_z].values.reshape((nbins, nbins))
+    # except ValueError as e:
+        # print(f"ERROR: df_binned[col_z] cannot be reshaped as it has size {df_binned[col_z].shape[0]:d}")
+        # return None
 
     # Plot.
     if log_z:
