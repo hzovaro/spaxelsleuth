@@ -241,6 +241,154 @@ def bpt_fn(df, s=None):
     return df
 
 ###############################################################################
+def whav_fn(df):
+    """
+    Make new columns in the given DataFrame corresponding to the WHAV* 
+    classification of each spaxel.
+    """
+
+    df["WHAV*"] = "Unknown"  # Initialise everything to "unknown"
+    df["WHAN"] = "Unknown"  # Initialise everything to "unknown"
+
+    #///////////////////////////////////////////////////////////////////////////////
+    # Step 1: filter out evolved stars
+    cond = df["HALPHA EW (total)"] <= 3
+    df.loc[cond, "WHAV*"] = "HOLMES"
+    df.loc[cond, "WHAN"] = "HOLMES"
+    cond_remainder = df["WHAV*"] == "Unknown"
+
+    #///////////////////////////////////////////////////////////////////////////////
+    # Step 2: use the N2 ratio to divide into SF, mixed and AGN/evolved stars/shocks
+    # Because we used the TOTAL N2 ratio in each spaxel to determine these boundaries, these categories are representative of the DOMINANT ionisation mechanism in each spaxel.
+    cond_SF = cond_remainder & (df["log N2 (total)"] < -0.35)
+    cond_Mixing = cond_remainder & (df["log N2 (total)"] >= -0.35) & (df["log N2 (total)"] < -0.20)
+    cond_AGN = cond_remainder & (df["log N2 (total)"] >= -0.20)
+    cond_no_N2 = cond_remainder & (np.isnan(df["log N2 (total)"]))
+
+    df.loc[cond_SF, "WHAN"] = "SF" 
+    df.loc[cond_Mixing, "WHAN"] = "Mixing"
+    df.loc[cond_AGN, "WHAN"] = "AGN/HOLMES/shocks"
+    df.loc[cond_no_N2, "WHAN"] = "No N2"
+
+    #///////////////////////////////////////////////////////////////////////////////
+    # For convenience: mark components as possible HOLMES 
+    # Question: how confident can we be that these are ALWAYS HOLMES? how common are components from e.g. LLAGN?
+    for ii in range(3):
+        cond_possible_HOLMES = cond_AGN & (df[f"HALPHA EW (component {ii})"] < 3) & (df[f"sigma_gas - sigma_* (component {ii})"] < 0)
+        df.loc[cond_possible_HOLMES, f"Possible HOLMES (component {ii})"] = True
+        df.loc[~cond_possible_HOLMES, f"Possible HOLMES (component {ii})"] = False
+        
+    #///////////////////////////////////////////////////////////////////////////////
+    # For convenience: mark components as being kinematically disturbed (by 3sigma)
+    for ii in range(3):
+        cond_kinematically_disturbed = df[f"sigma_gas - sigma_* (component {ii})"] - 3 * df[f"sigma_gas - sigma_* error (component {ii})"] > 0
+        df.loc[cond_kinematically_disturbed, f"Kinematically disturbed (component {ii})"] = True
+        df.loc[~cond_kinematically_disturbed, f"Kinematically disturbed (component {ii})"] = False
+    
+    # Test 
+    for ii in range(3):
+        assert not df.loc[np.isnan(df[f"sigma_gas - sigma_* (component {ii})"]), f"Kinematically disturbed (component {ii})"].any(),\
+            f"There are rows where sigma_gas - sigma_* (component {ii}) == NaN but 'Kinematically disturbed (component {ii})' == True!"
+
+    for ii in range(3):
+        assert not df.loc[np.isnan(df[f"log HALPHA EW (component {ii})"]), f"Possible HOLMES (component {ii})"].any(),\
+            f"There are rows where log HALPHA EW (component {ii}) == NaN but 'Possible HOLMES (component {ii})' == True!"
+        assert not df.loc[np.isnan(df[f"sigma_gas - sigma_* (component {ii})"]), f"Possible HOLMES (component {ii})"].any(),\
+            f"There are rows where sigma_gas - sigma_* (component {ii}) == NaN but 'Possible HOLMES (component {ii})' == True!"
+        assert not df.loc[df[f"log HALPHA EW (component {ii})"] > 3, f"Possible HOLMES (component {ii})"].any(),\
+            f"There are rows where log HALPHA EW (component {ii}) > 3 but 'Possible HOLMES (component {ii})' == True!"
+        
+        assert df[df[f"Possible HOLMES (component {ii})"] & df[f"Kinematically disturbed (component {ii})"]].shape[0] == 0,\
+            f"There are rows where both 'Possible HOLMES (component {ii})' and 'Kinematically disturbed (component {ii})' are true!"
+
+    # ///////////////////////////////////////////////////////////////////////////////
+    # SF-like spaxels
+    #///////////////////////////////////////////////////////////////////////////////
+    # Wind: number of components > 1, AND EITHER delta sigma of 1 or 2 is > 0
+    # Note: may want to also add if ncomponents == 1 but delta_sigma >> 0. 
+    # How many SF (either classified via BPT or N2) spaxels are there like this, though? Just checked - only ~0.1% have dsigma > 0 by 3sigma, so probably don't worry 
+    cond_SF_no_wind = cond_SF & ~(df["Kinematically disturbed (component 0)"] | df["Kinematically disturbed (component 1)"] | df["Kinematically disturbed (component 2)"])
+    df.loc[cond_SF_no_wind, "WHAV*"] = "SF + no wind"
+
+    cond_SF_wind = cond_SF & (df["Kinematically disturbed (component 0)"] | df["Kinematically disturbed (component 1)"] | df["Kinematically disturbed (component 2)"])
+    df.loc[cond_SF_wind, "WHAV*"] = "SF + wind"
+
+    # SF + HOLMES 
+    cond_SF_no_wind_HOLMES = cond_SF_no_wind & (df["Number of components"] >= 2) & (df["Possible HOLMES (component 0)"] | df["Possible HOLMES (component 1)"] | df["Possible HOLMES (component 2)"])
+    df.loc[cond_SF_no_wind_HOLMES, "WHAV*"] = "SF + HOLMES + no wind"
+
+    cond_SF_wind_HOLMES = cond_SF_wind & (df["Number of components"] >= 2) & (df["Possible HOLMES (component 0)"] | df["Possible HOLMES (component 1)"] | df["Possible HOLMES (component 2)"])
+    df.loc[cond_SF_wind_HOLMES, "WHAV*"] = "SF + HOLMES + wind"
+
+
+    # Note: what to do about low-metallicity AGN? e.g., ones that are classified as ambiguous that have log N2 < -0.35 so get lumped in with SF?
+
+    #///////////////////////////////////////////////////////////////////////////////
+    # Mixing-like spaxels
+    #///////////////////////////////////////////////////////////////////////////////
+    # wind/no wind
+    # Note: <1% of composite/mixing-like spaxels have ncomponents == 1 but delta_sigma >> 0 by 3sigma
+    cond_Mixing_no_wind = cond_Mixing & ~(df["Kinematically disturbed (component 0)"] | df["Kinematically disturbed (component 1)"] | df["Kinematically disturbed (component 2)"])
+    df.loc[cond_Mixing_no_wind, "WHAV*"] = "Mixing + no wind"
+
+    cond_Mixing_wind = cond_Mixing & (df["Kinematically disturbed (component 0)"] | df["Kinematically disturbed (component 1)"] | df["Kinematically disturbed (component 2)"])
+    df.loc[cond_Mixing_wind, "WHAV*"] = "Mixing + wind"
+
+    # Mixing + HOLMES 
+    cond_Mixing_no_wind_HOLMES = cond_Mixing_no_wind & (df["Number of components"] >= 2) & (df["Possible HOLMES (component 0)"] | df["Possible HOLMES (component 1)"] | df["Possible HOLMES (component 2)"])
+    df.loc[cond_Mixing_no_wind_HOLMES, "WHAV*"] = "Mixing + HOLMES + no wind"
+
+    # Mixing + HOLMES + wind
+    cond_Mixing_wind_HOLMES = cond_Mixing_wind & (df["Number of components"] >= 2) & (df["Possible HOLMES (component 0)"] | df["Possible HOLMES (component 1)"] | df["Possible HOLMES (component 2)"])
+    df.loc[cond_Mixing_wind_HOLMES, "WHAV*"] = "Mixing + HOLMES + wind"
+
+    #///////////////////////////////////////////////////////////////////////////////
+    # AGN-like spaxels
+    #///////////////////////////////////////////////////////////////////////////////
+    # If there is 1 component and its EW is > 0, then it's an AGN. Note that Seyfert-like components have a range of EWs, so we can't really split between LLAGN and Seyferts here - really need [OIII] for that.
+    cond_AGN_no_wind = cond_AGN & (df["Number of components"] == 1) & (df["HALPHA EW (component 0)"] > 3) & ~df["Kinematically disturbed (component 0)"]
+    df.loc[cond_AGN_no_wind, "WHAV*"] = "AGN only"
+
+    # AGN + wind
+    cond_AGN_nowind = cond_AGN & ~(df["Kinematically disturbed (component 0)"] | df["Kinematically disturbed (component 1)"] | (df["Kinematically disturbed (component 2)"] ))
+    df.loc[cond_AGN_nowind, "WHAV*"] = "AGN + no wind"
+
+    cond_AGN_wind = cond_AGN & (df["Kinematically disturbed (component 0)"] | df["Kinematically disturbed (component 1)"] | (df["Kinematically disturbed (component 2)"] ))
+    df.loc[cond_AGN_wind, "WHAV*"] = "AGN + wind"
+
+    # If there are multiple components and at least one of them is in the HOLMES regime, then classify it as HOLMES + AGN. 
+    cond_AGN_nowind_HOLMES = cond_AGN_nowind & (df["Number of components"] >= 2) & (df["Possible HOLMES (component 0)"] | df["Possible HOLMES (component 1)"] | df["Possible HOLMES (component 2)"])
+    df.loc[cond_AGN_nowind_HOLMES, "WHAV*"] = "AGN + HOLMES + no wind"
+
+    cond_AGN_wind_HOLMES = cond_AGN_wind & (df["Number of components"] >= 2) & (df["Possible HOLMES (component 0)"] | df["Possible HOLMES (component 1)"] | df["Possible HOLMES (component 2)"])
+    df.loc[cond_AGN_wind_HOLMES, "WHAV*"] = "AGN + HOLMES + wind"
+
+    #///////////////////////////////////////////////////////////////////////////////
+    # Numerical labels
+    #///////////////////////////////////////////////////////////////////////////////
+    num_dict = {
+        "Unknown": -1,
+        "HOLMES": 0,
+        "Mixing + HOLMES + no wind": 1,
+        "Mixing + HOLMES + wind": 2,
+        "Mixing + no wind": 3,
+        "Mixing + wind": 4,    
+        "AGN + HOLMES + no wind": 5,
+        "AGN + HOLMES + wind": 6,
+        "AGN + no wind": 7,
+        "AGN + wind": 8,
+        "SF + HOLMES + no wind": 9,
+        "SF + HOLMES + wind": 10,
+        "SF + no wind": 11,
+        "SF + wind": 12
+    }
+    cats = list(num_dict.keys())
+    for cat in cats:
+        df.loc[df["WHAV*"] == cat, "WHAV* (numeric)"] = num_dict[cat]
+
+    return df
+
+###############################################################################
 def law2021_fn(df, s=None):
     """
     Make new columns in the given DataFrame corresponding to their kinematic 
