@@ -596,6 +596,8 @@ def ratio_fn(df, s=None):
         df["S3O3"] = np.log10((df["SIII9069+SIII9531"]) / (df["OIII4959+OIII5007"]))
     if in_df(["OIII5007", "OII3726", "OII3729"]):
         df["O3O2"] = np.log10((df["OIII5007"]) / (df["OII3726"] + df["OII3729"]))
+    elif in_df(["OIII5007", "OII3726+OII3729"]):
+        df["O3O2"] = np.log10((df["OIII5007"]) / (df["OII3726+OII3729"]))
     if in_df(["OIII5007", "OII3726"]):
         df["O2O3"] = np.log10(df["OII3726"] / df["OIII5007"])  # fig. 13 of Allen+1999
     if in_df(["OIII5007", "OI6300"]):
