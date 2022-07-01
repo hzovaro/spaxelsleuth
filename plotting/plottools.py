@@ -149,6 +149,9 @@ cmap_dict = {
     "delta log S2 (2/1)": copy.copy(plt.cm.get_cmap("PiYG")),
     "sigma_gas/sigma_*": copy.copy(plt.cm.get_cmap("RdYlBu_r")),
     "N2O2": copy.copy(plt.cm.get_cmap("cividis")),
+    "R23": copy.copy(plt.cm.get_cmap("cividis")),
+    "N2S2": copy.copy(plt.cm.get_cmap("cividis")),
+    "O3O2": copy.copy(plt.cm.get_cmap("cividis")),
     "HALPHA EW/HALPHA EW (total)": copy.copy(plt.cm.get_cmap("jet")),
     "HALPHA EW ratio (1/0)": copy.copy(plt.cm.get_cmap("jet")),
     "HALPHA EW ratio (2/1)": copy.copy(plt.cm.get_cmap("jet")),
@@ -194,13 +197,13 @@ vmin_dict = {
     "sigma_*": 10,
     "sigma_gas - sigma_*": -300,
     "sigma_gas^2 - sigma_*^2": -2e5,
-    "v_gas - v_*": -600,
+    "v_gas - v_*": -200,  # CHANGE BACK TO 600
     "HALPHA S/N": 3,
     "BPT (numeric)": -1.5,
     "WHAV* (numeric)": -1.5,
     "Law+2021 (numeric)": -1.5,
     "radius": 0,
-    "D4000": 1.0,
+    "D4000": 0.5,
     "HALPHA": 0,
     "HALPHA luminosity": 1e37,
     "HALPHA continuum luminosity": 1e35,
@@ -227,6 +230,9 @@ vmin_dict = {
     "delta log S2 (2/1)": -0.5,
     "sigma_gas/sigma_*": 0,
     "N2O2": -1.5,
+    "R23": -0.3,
+    "N2S2": -1.3,
+    "O3O2": -1.5,
     "HALPHA EW/HALPHA EW (total)": 0,
     "HALPHA EW ratio (1/0)": 0,
     "HALPHA EW ratio (2/1)": 0,
@@ -263,11 +269,11 @@ vmax_dict = {
     "HALPHA EW": 14,
     "HALPHA EW (total)": 14,
     "log sigma_gas": 3,
-    "sigma_gas": 300,
+    "sigma_gas": 300,  # CHANGE BACK TO 300
     "sigma_*": 300,
-    "sigma_gas - sigma_*": +600,
+    "sigma_gas - sigma_*": 600,  # CHANGE BACK TO 600
     "sigma_gas^2 - sigma_*^2": +2e5,
-    "v_gas - v_*": +600,
+    "v_gas - v_*": +600,  # CHANGE BACK TO 600
     "HALPHA S/N": 50,
     "BPT (numeric)": 4.5,
     "WHAV* (numeric)": 12.5,
@@ -300,6 +306,9 @@ vmax_dict = {
     "delta log S2 (2/1)": +0.5,
     "sigma_gas/sigma_*": 4,
     "N2O2": 0.5,
+    "R23": 1.6,
+    "N2S2": 0.9,
+    "O3O2": 1.6,
     "HALPHA EW/HALPHA EW (total)": 1,
     "HALPHA EW ratio (1/0)": 2,
     "HALPHA EW ratio (2/1)": 2,
@@ -326,10 +335,10 @@ vmax_dict = {
 
 label_dict = {
      "count": r"$N$", 
-     "log N2": "N2",
-     "log O3": "O3",
-     "log O1": "O1",
-     "log S2": "S2",
+     "log N2": r"$\log_{10}$([N II]6583/H$\alpha$)",
+     "log O3": r"$\log_{10}$([O III]5007/H$\beta$)",
+     "log O1": r"$\log_{10}$([O I]6300/H$\alpha$)",
+     "log S2": r"$\log_{10}$([S II]6716,31/H$\alpha$)",
      "O3O2": "O3O2",
      "log HALPHA EW": r"$\log_{10} \left(W_{\rm H\alpha}\,[{\rm \AA}]\right)$",
      "log HALPHA EW (total)": r"$\log_{10} \left(W_{\rm H\alpha}\,[{\rm \AA}]\right)$ (total)",
@@ -373,13 +382,18 @@ label_dict = {
      "delta log S2 (2/1)": r"$\Delta$ log S2 (2/1)",
      "sigma_gas/sigma_*": r"$\sigma_{\rm gas}/\sigma_*$",
      "N2O2": "N2O2",
+     "R23": "R23",
+     "N2S2": "N2S2",
+     "O3O2": "O3O2",
      "HALPHA EW/HALPHA EW (total)": r"$\rm EW(H\alpha)/EW_{\rm tot}(H\alpha)$",
-     "HALPHA EW ratio (1/0)": r"Component 1/component 0 $\rm EW(H\alpha)$ ratio",
-     "HALPHA EW ratio (2/1)": r"Component 2/component 1 $\rm EW(H\alpha)$ ratio",
-     "delta sigma_gas (1/0)": r"$\sigma_{\rm gas,\,1} - \sigma_{\rm gas\,0}$",
-     "delta sigma_gas (2/1)": r"$\sigma_{\rm gas,\,2} - \sigma_{\rm gas\,1}$",
-     "delta v_gas (1/0)": r"$v_{\rm gas,\,1} - v_{\rm gas\,0}$",
-     "delta v_gas (2/1)": r"$v_{\rm gas,\,2} - v_{\rm gas\,1}$",
+     "HALPHA EW ratio (1/0)": r"Component 2/component 1 $\rm EW(H\alpha)$ ratio",
+     "HALPHA EW ratio (2/1)": r"Component 3/component 2 $\rm EW(H\alpha)$ ratio",
+     "delta sigma_gas (1/0)": r"$\sigma_{\rm gas,\,2} - \sigma_{\rm gas,\,1}$",
+     "delta sigma_gas (2/1)": r"$\sigma_{\rm gas,\,3} - \sigma_{\rm gas,\,2}$",
+     "delta sigma_gas (2/0)": r"$\sigma_{\rm gas,\,3} - \sigma_{\rm gas,\,1}$",
+     "delta v_gas (1/0)": r"$v_{\rm gas,\,2} - v_{\rm gas,\,1}$",
+     "delta v_gas (2/1)": r"$v_{\rm gas,\,3} - v_{\rm gas,\,2}$",
+     "delta v_gas (2/0)": r"$v_{\rm gas,\,3} - v_{\rm gas,\,1}$",
      "r/R_e": r"$r/R_e$",
      "R_e (kpc)": r"$R_e$ (kpc)",
      "log(M/R_e)": r"$\log_{10}(M_* / R_e \,\rm [M_\odot \, kpc^{-1}])$",
@@ -446,6 +460,9 @@ fname_dict = {
      "delta log S2 (2/1)": "deltalogS2_21",
      "sigma_gas/sigma_*": "sigma_gas_over_sigma_star",
      "N2O2": "N2O2",
+     "R23": "R23",
+     "N2S2": "N2S2",
+     "O3O2": "O3O2",
      "HALPHA EW/HALPHA EW (total)": "HaEW_over_HaEWtot",
      "HALPHA EW ratio (1/0)": "HaEwRatio_10",
      "HALPHA EW ratio (2/1)": "HaEwRatio_21",
@@ -490,7 +507,7 @@ def vmin_fn(col):
         col = col.split(" (component")[0]
     elif "(total)" in col:
         col = col.split(" (total)")[0]
-    if col in cmap_dict.keys():
+    if col in vmin_dict.keys():
         return vmin_dict[col]
     else:
         print("WARNING: in vmin_fn(): undefined column")
@@ -502,7 +519,7 @@ def vmax_fn(col):
         col = col.split(" (component")[0]
     elif "(total)" in col:
         col = col.split(" (total)")[0]
-    if col in cmap_dict.keys():
+    if col in vmax_dict.keys():
         return vmax_dict[col]
     else:
         print("WARNING: in vmax_fn(): undefined column")
@@ -514,7 +531,7 @@ def label_fn(col):
         col = col.split(" (component")[0]
     elif "(total)" in col:
         col = col.split(" (total)")[0]
-    if col in cmap_dict.keys():
+    if col in label_dict.keys():
         return label_dict[col]
     else:
         print("WARNING: in label_fn(): undefined column")
@@ -526,7 +543,7 @@ def fname_fn(col):
         col = col.split(" (component")[0]
     elif "(total)" in col:
         col = col.split(" (total)")[0]
-    if col in cmap_dict.keys():
+    if col in fname_dict.keys():
         return fname_dict[col]
     else:
         print("WARNING: in fname_fn(): undefined column")
@@ -614,12 +631,15 @@ def histhelper(df, col_x, col_y, col_z, nbins, ax, cmap,
 # Plot empty BPT diagrams
 ###############################################################################
 def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False,
-                           axs=None):
+                           axs=None, figsize=None):
     """
     Plot Baldwin, Philips & Terlevich (1986) optical line ratio diagrams.
     """
     # Make axes
-    fig = plt.figure(figsize=(15, 5 * nrows))
+    if figsize is not None:
+        fig = plt.figure(figsize=figsize)
+    else:
+        fig = plt.figure(figsize=(15, 5 * nrows))
     left = 0.1
     bottom = 0.1
     if colorbar:
@@ -640,7 +660,6 @@ def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False,
         if colorbar:
             cax = fig.add_axes([left+3*width,bottom,cbar_width,height])
 
-    for ii in range(nrows):
         # Plot the reference lines from literature
         x_vals = np.linspace(-2.5, 2.5, 100)
         ax_N2.plot(x_vals, Kewley2001("log N2", x_vals), "gray", linestyle="--")
@@ -854,9 +873,9 @@ def plot_scale_bar(as_per_px, kpc_per_as,
 
     ax.plot(endpoints_x, endpoints_y, color, linewidth=5, zorder=zorder)
     if units == "arcsec":
-        dist_str = f"{l_arcsec:.2f} = {l_kpc:.2f} kpc"
+        dist_str = f'{l_arcsec:.2f}" = {l_kpc:.2f} kpc'
     elif units == "arcmin":
-        dist_str = f"{l_arcmin:.2f} = {l_kpc:.2f} kpc"
+        dist_str = f"{l_arcmin:.2f}' = {l_kpc:.2f} kpc"
         
     t = ax.text(
         x=line_centre_x,

@@ -19,7 +19,7 @@ s7_data_path = "/priv/meggs3/u5708159/S7/"
 def plot2dmap(df_gal, col_z, bin_type, survey,
               PA_deg=0,
               show_title=True, axis_labels=True,
-              vmin=None, vmax=None,
+              vmin=None, vmax=None, cmap=None,
               contours=True, col_z_contours="continuum", levels=None, linewidths=0.5, colors="white",
               ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical",
               figsize=(5, 5)):
@@ -115,8 +115,9 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
         vmin = vmin_fn(col_z)
     if vmax is None:
         vmax = vmax_fn(col_z)
-    cmap = cmap_fn(col_z)
-    cmap.set_bad("#b3b3b3")
+    if cmap is None:
+        cmap = cmap_fn(col_z)
+        cmap.set_bad("#b3b3b3")
     m = ax.imshow(col_z_map, cmap=cmap, vmin=vmin, vmax=vmax)
 
     ###########################################################################
@@ -156,13 +157,10 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     # then create a new one.
     if plot_colorbar and cax is None:
         bbox = ax.get_position()
-        # Shrink axis first
         if cax_orientation == "vertical":
-            ax.set_position([bbox.x0, bbox.y0, bbox.width * .85, bbox.height])
-            cax = fig.add_axes([bbox.x0 + bbox.width * .85, bbox.y0, bbox.width * 0.1, bbox.height])
+            cax = fig.add_axes([bbox.x0 + bbox.width, bbox.y0, bbox.width * 0.1, bbox.height])
         elif cax_orientation == "horizontal":
-            ax.set_position([bbox.x0, bbox.y0, bbox.width, bbox.height * 0.85])
-            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height * 0.85, bbox.width, bbox.height * 0.1])
+            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height, bbox.width, bbox.height * 0.1])
 
     # Add labels & ticks to colourbar, if necessary
     if plot_colorbar:

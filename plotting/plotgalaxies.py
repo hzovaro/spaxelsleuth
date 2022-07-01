@@ -145,6 +145,7 @@ def plot2dcontours(df, col_x, col_y, ax,
     if levels is None:
         levels = np.logspace(1, 3, 10)
 
+
     # Determine bin edges for the x & y-axis line ratio 
     # Messy hack to include that final bin...
     ybins = np.linspace(ymin, ymax, nbins)

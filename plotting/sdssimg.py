@@ -99,4 +99,4 @@ def plot_sdss_image(df_gal, show_title=True, axis_labels=True,
         ax.set_ylabel("Dec (J2000)")
         ax.set_xlabel("RA (J2000)")
     
-    return fig
+    return ax
