@@ -67,10 +67,13 @@ s7_data_path = "/priv/meggs3/u5708159/S7/"
 
 ###############################################################################
 # User options
+debug = False
+if debug:
+    print("WARNING: running in debug mode...")
 
 ###############################################################################
 # Filenames
-df_fname = "s7_spaxels.hd5"
+df_fname = "s7_spaxels_DEBUG.hd5" if debug else "s7_spaxels.hd5"
 df_metadata_fname = "s7_metadata.hd5"
 
 ###############################################################################
@@ -78,6 +81,8 @@ df_metadata_fname = "s7_metadata.hd5"
 ###############################################################################
 df_metadata = pd.read_hdf(os.path.join(s7_data_path, df_metadata_fname))
 gal_ids_dq_cut = df_metadata[df_metadata["Good?"] == True].index.values
+if debug: 
+    gal_ids_dq_cut = gal_ids_dq_cut[:5]
 df_metadata["Good?"] = df_metadata["Good?"].astype("float")
 
 ###############################################################################
@@ -116,6 +121,7 @@ for gal in gal_ids_dq_cut:
 
     # Make a 2D map of the continuum intensity
     cont_map = np.nanmean(data_cube_R[start_idx:stop_idx], axis=0)
+    cont_map_std = np.nanstd(data_cube_R[start_idx:stop_idx], axis=0)
     cont_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_R[start_idx:stop_idx], axis=0))
     hdulist_R_cube.close() 
 
@@ -194,6 +200,16 @@ for gal in gal_ids_dq_cut:
     n_y, n_x = stellar_v_map.shape 
 
     ###############################################################################
+    # Compute v_grad using eqn. 1 of Zhou+2017
+    v_grad_map = np.full_like(v_map, np.nan)
+
+    # Compute v_grad for each spaxel in each component
+    # in units of km/s/pixel
+    for yy, xx in product(range(1, v_map.shape[1] - 1), range(1, v_map.shape[2] - 1)):
+        v_grad_map[:, yy, xx] = np.sqrt(((v_map[:, yy, xx + 1] - v_map[:, yy, xx - 1]) / 2)**2 +\
+                                        ((v_map[:, yy + 1, xx] - v_map[:, yy - 1, xx]) / 2)**2)
+
+    ###############################################################################
     # Make a radius map
     radius_map = np.zeros((n_y, n_x))
     x_0 = df_metadata.loc[df_metadata["catid"] == gal, "x0 (pixels)"].values[0]
@@ -227,10 +243,12 @@ for gal in gal_ids_dq_cut:
         thisrow["y (projected, arcsec)"] = yy
         thisrow["r (relative to galaxy centre, deprojected, arcsec)"] = radius_map[yy, xx]
         thisrow["HALPHA continuum"] = cont_map[yy, xx] * 1e16
+        thisrow["HALPHA continuum std. dev."] = cont_map_std[yy, xx] * 1e16
         thisrow["HALPHA continuum error"] = cont_map_err[yy, xx] * 1e16
         thisrow["D4000"] = d4000_map[yy, xx]
         thisrow["D4000 error"] = d4000_map_err[yy, xx]
         thisrow[f"A_V (total)"] = A_V_map[yy, xx]
+        thisrow[f"A_V error (total)"] = A_V_map_err[yy, xx]
         thisrow[f"A_V error (total)"] = A_V_map_err[yy, xx]
 
         for nn, component_str in enumerate(["total", "component 0", "component 1", "component 2"]):
@@ -265,20 +283,24 @@ for gal in gal_ids_dq_cut:
                     vdisp_err = vdisp_err_map[max_idx, yy, xx]
                     v = v_map[max_idx, yy, xx]
                     v_err = v_err_map[max_idx, yy, xx]
+                    v_grad = v_grad_map[max_idx, yy, xx]
                 except ValueError as e:
                     vdisp = np.nan
                     vdisp_err = np.nan
                     v = np.nan
                     v_err = np.nan
+                    v_grad = np.nan
                 thisrow[f"sigma_gas ({component_str})"] = vdisp
                 thisrow[f"sigma_gas error ({component_str})"] = vdisp_err
                 thisrow[f"v_gas ({component_str})"] = v
                 thisrow[f"v_gas error ({component_str})"] = v_err
+                thisrow[f"v_grad ({component_str})"] = v_grad
             else:
                 thisrow[f"sigma_gas ({component_str})"] = vdisp_map[nn, yy, xx]
                 thisrow[f"sigma_gas error ({component_str})"] = vdisp_err_map[nn, yy, xx]
                 thisrow[f"v_gas ({component_str})"] = v_map[nn, yy, xx]
                 thisrow[f"v_gas error ({component_str})"] = v_err_map[nn, yy, xx]
+                thisrow[f"v_grad ({component_str})"] = v_grad_map[nn, yy, xx]
 
             # Stellar kinematics
             thisrow["sigma_*"] = stellar_vdisp_map[yy, xx]
@@ -298,6 +320,14 @@ for gal in gal_ids_dq_cut:
 # Merge with metadata
 ###############################################################################
 df_spaxels = df_spaxels.merge(df_metadata, left_on="catid", right_index=True)
+
+###############################################################################
+# Compute the ORIGINAL number of components
+###############################################################################
+df_spaxels["Number of components (original)"] =\
+    (~df_spaxels["sigma_gas (component 0)"].isna()).astype(int) +\
+    (~df_spaxels["sigma_gas (component 1)"].isna()).astype(int) +\
+    (~df_spaxels["sigma_gas (component 2)"].isna()).astype(int)
 
 ###############################################################################
 # Calculate equivalent widths
@@ -347,6 +377,13 @@ for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726", "OII3729", "OII
 ######################################################################
 df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {ii})"] for ii in range(3)], axis=0)
 df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {ii})"]**2 for ii in range(3)], axis=0))
+
+###############################################################################
+# Add spaxel scale
+###############################################################################
+df_spaxels["Bin size (pixels)"] = 1.0
+df_spaxels["Bin size (square arcsec)"] = 1.0
+df_spaxels["Bin size (square kpc)"] = df_spaxels["kpc per arcsec"]**2
 
 ###############################################################################
 # Save to .hd5 & .csv

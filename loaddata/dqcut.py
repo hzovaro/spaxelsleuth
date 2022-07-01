@@ -1,5 +1,22 @@
 import numpy as np
+from scipy import constants
 from IPython.core.debugger import Tracer
+"""
+Convenience function for computing a Doppler-shifted wavelength given a 
+velocity and a rest-frame wavelength - used for converting SAMI fluxes 
+into amplitudes
+"""
+def get_wavelength_from_velocity(lambda_rest, v, units):
+    assert units == 'm/s' or units == 'km/s', "units must be m/s or km/s!"
+    if units == 'm/s':
+        v_m_s = v
+    elif units == 'km/s':
+        v_m_s = v * 1e3
+    lambda_obs = lambda_rest * np.sqrt((1 + v_m_s / constants.c) /
+                                       (1 - v_m_s / constants.c))
+    return lambda_obs
+
+
 """
 A function for making data quality & S/N cuts on rows of a given DataFrame.
 """
@@ -7,12 +24,16 @@ def dqcut(df, ncomponents,
              eline_SNR_min, eline_list,
              sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3, sigma_inst_kms=29.6,
              vgrad_cut=False,
+             line_amplitude_SNR_cut=True,
              stekin_cut=True):
-    
+
     ######################################################################
-    # Input checking
+    # INITIALISE FLAGS: these will get set below.
     ###################################################################### 
-    # If stekin, check that the dataframe includes stellar kinematics
+    for ii in range(ncomponents):
+        df[f"Beam smearing flag (component {ii})"] = False
+        df[f"sigma_gas S/N flag (component {ii})"] = False
+        df[f"Bad stellar kinematics"] = False
 
     ######################################################################
     # NaN out line fluxes that don't meet the emission line S/N requirement
@@ -35,45 +56,109 @@ def dqcut(df, ncomponents,
         # NaN out the TOTAL flux
         df.loc[df[f"{eline} S/N (total)"] < eline_SNR_min, f"{eline} (total)"] = np.nan
         df.loc[df[f"{eline} S/N (total)"] < eline_SNR_min, f"{eline} error (total)"] = np.nan
-    
 
     ######################################################################
-    # NaN out the Halpha EW in each component when the Halpha flux doesn't
-    # meet the S/N requirement
+    # NaN out rows where any component doesn't meet the amplitude 
+    # requirement imposed by Avery+2021
+    # Note that we do NOT NaN out the TOTAL fluxes in lines where the 
+    # fluxes of INDIVIDUAL fluxes do not meet our S/N requirement.
     ######################################################################
-    # 1: Deal with case where the continuum level is zero. In this case the EWs will be NaN. 
-    df.loc[df["HALPHA continuum"] <= 0, "HALPHA EW (total)"] = np.nan
-    df.loc[df["HALPHA continuum"] <= 0, "HALPHA EW error (total)"] = np.nan
-    df.loc[np.isnan(df["HALPHA continuum"]), "HALPHA EW (total)"] = np.nan
-    df.loc[np.isnan(df["HALPHA continuum"]), "HALPHA EW error (total)"] = np.nan
-
-    # Mask out the HALPHA EW in rows where the Halpha doesn't meet the S/N requirement.
-    if "HALPHA (component 0)" in df.columns:
+    # Compute the amplitude corresponding to each component
+    # WARNING: only implemented for HALPHA!!! 
+    # TODO: implement other lines
+    for eline in ["HALPHA"]:
+        lambda_rest_A = 6562.8  
         for ii in range(ncomponents):
-            df.loc[df[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"HALPHA EW (component {ii})"] = np.nan
-            df.loc[df[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"HALPHA EW error (component {ii})"] = np.nan
+            if f"{eline} (component {ii})" in df.columns:
+                # Compute the amplitude of the line
+                lambda_obs_A = get_wavelength_from_velocity(lambda_rest=lambda_rest_A, 
+                                                            v=df[f"v_gas (component {ii})"], 
+                                                            units='km/s')
+                df[f"{eline} lambda_obs (component {ii}) (Å)"] = lambda_obs_A
+                df[f"{eline} sigma_gas (component {ii}) (Å)"] = lambda_obs_A * df[f"sigma_gas (component {ii})"] * 1e3 / constants.c
+                df[f"{eline} A (component {ii})"] = df[f"HALPHA (component {ii})"] / df[f"{eline} sigma_gas (component {ii}) (Å)"] / np.sqrt(2 * np.pi)
+            
+                # Flag bad components
+                df[f"Low S/N component - {eline} (component {ii})"] = True 
+                cond_bad_gasamp = df[f"{eline} A (component {ii})"] >= 3 * df["HALPHA continuum std. dev."]
+                df.loc[cond_bad_gasamp, f"Low S/N component - {eline} (component {ii})"] = False
 
-    # NaN out the TOTAL Halpha S/N if it doesn't meet the requirement
-    df.loc[df[f"HALPHA S/N (total)"] < eline_SNR_min, f"HALPHA EW (total)"] = np.nan
-    df.loc[df[f"HALPHA S/N (total)"] < eline_SNR_min, f"HALPHA EW error (total)"] = np.nan
+                # NaN out fluxes and kinematics associated with this component and this line
+                if line_amplitude_SNR_cut:
+                    cols = [f"{eline} (component {ii})", f"{eline} error (component {ii})"]
+                    # Only NaN out the corresponding velocities if the line is HALPHA, since this is usually the strongest line
+                    # Also NaN out the EW in that case
+                    if eline == "HALPHA":
+                        cols += [f"v_gas (component {ii})",
+                                 f"sigma_gas (component {ii})",
+                                 f"v_gas error (component {ii})",
+                                 f"sigma_gas error (component {ii})",]
+                        cols += [f"HALPHA EW (component {ii})", f"HALPHA EW error (component {ii})"]
+                    df.loc[df[f"Low S/N component - {eline} (component {ii})"], cols] = np.nan
+
+        # IF ALL COMPONENTS HAVE LOW S/N, THEN DISCARD TOTAL VALUES AS WELL
+        if line_amplitude_SNR_cut:
+            if ncomponents == 3:
+                cond_all_bad_components = df[f"Low S/N component - {eline} (component 0)"] &\
+                                          df[f"Low S/N component - {eline} (component 1)"] &\
+                                          df[f"Low S/N component - {eline} (component 2)"]
+            else:
+                cond_all_bad_components = df[f"Low S/N component - {eline} (component 0)"] 
+            if any(cond_all_bad_components):
+                cols = [f"{eline} (total)", f"{eline} error (total)"]
+                # Also zero SFR measurements
+                if eline == "HALPHA":
+                    cols += [c for c in df.columns if "SFR" in c]
+                    cols += ["HALPHA EW (total)", "HALPHA EW error (total)"]
+                df.loc[cond_all_bad_components, cols] = np.nan
+
+    # ######################################################################
+    # # NaN out rows where the flux ratio of the broad:narrow component < 0.05 
+    # # (using the method of Avery+2021)
+    # ######################################################################
+    # if ncomponents > 1:
+    #     for ii in [1, 2]:
+    #         cond_low_flux = df[f"HALPHA A (component {ii})"] < 0.05 * df["HALPHA A (component 0)"]
+    #         df.loc[cond_low_flux, f"Low flux component (component {ii})"] = True
+            
+    #         # NaN out rows 
+    #         cols = [f"HALPHA (component {ii})", f"HALPHA error (component {ii})"]
+    #         cols += [f"HALPHA EW (component {ii})", f"HALPHA EW error (component {ii})"]
+    #         cols += [f"v_gas (component {ii})",
+    #                  f"sigma_gas (component {ii})",
+    #                  f"v_gas error (component {ii})",
+    #                  f"sigma_gas error (component {ii})",]
+    #         df.loc[df[f"Low flux component (component {ii})"], cols] = np.nan
+
+    ######################################################################
+    # NaN out the Halpha EW in each component where the HALPHA fluxes have 
+    # been NaN'd out
+    ######################################################################
+    # # Mask out the HALPHA EW in rows where the Halpha doesn't meet the S/N requirement.
+    # if "HALPHA (component 0)" in df.columns:
+    #     for ii in range(ncomponents):
+    #         df.loc[df[f"HALPHA (component {ii})"].isna(), f"HALPHA EW (component {ii})"] = np.nan
+    #         df.loc[df[f"HALPHA (component {ii})"].isna(), f"HALPHA EW error (component {ii})"] = np.nan
+
+    # # NaN out the TOTAL Halpha S/N if it doesn't meet the requirement
+    # df.loc[df[f"HALPHA (total)"].isna(), f"HALPHA EW (total)"] = np.nan
+    # df.loc[df[f"HALPHA (total)"].isna(), f"HALPHA EW error (total)"] = np.nan
 
     ######################################################################
     # NaN out rows that don't meet the beam smearing requirement
     ######################################################################
     # Gas kinematics: beam semaring criteria of Federrath+2017 and Zhou+2017.
-    if vgrad_cut:
-        for ii in range(ncomponents):
-            cond_bad_gaskin = df[f"sigma_gas (component {ii})"] < 2 * df[f"v_grad (component {ii})"]
-            df.loc[cond_bad_gaskin] = np.nan
+    for ii in range(ncomponents):
+        cond_beam_smearing = df[f"sigma_gas (component {ii})"] < 2 * df[f"v_grad (component {ii})"]
+        df.loc[cond_beam_smearing, f"Beam smearing flag (component {ii})"] = True
 
-        # Also, NaN out rows where EVERY v_grad component is NaN.
-        cond_NaN_vgrad = None
-        for ii in range(ncomponents):
-            if cond_NaN_vgrad is None:
-                cond_NaN_vgrad = np.isnan(df[f"v_grad (component {ii})"])
-            else:
-                cond_NaN_vgrad &= np.isnan(df[f"v_grad (component {ii})"])
-        df.loc[cond_NaN_vgrad] = np.nan
+        # NaN out offending cells
+        if vgrad_cut:
+            df.loc[cond_beam_smearing, 
+                   [f"v_gas (component {ii})",
+                    f"sigma_gas (component {ii})", 
+                    f"v_gas error (component {ii})",
+                    f"sigma_gas error (component {ii})",]] = np.nan
 
     ######################################################################
     # NaN out rows with insufficient S/N in sigma_gas
@@ -92,26 +177,48 @@ def dqcut(df, ncomponents,
         # 3. Given our target SNR_gas, compute the target SNR_obs,
         # using the method in section 2.2.2 of Zhou+2017.
         df[f"sigma_obs target S/N (component {ii})"] = sigma_gas_SNR_min * (1 + sigma_inst_kms**2 / df[f"sigma_gas (component {ii})"]**2)
+        cond_bad_sigma = df[f"sigma_obs S/N (component {ii})"] < df[f"sigma_obs target S/N (component {ii})"]
+        df.loc[cond_bad_sigma, f"sigma_gas S/N flag (component {ii})"] = True
 
-        # 4. Make a cut.
+        # NaN out offending cells
         if sigma_gas_SNR_cut:
-            cond_bad_gaskin = df[f"sigma_obs S/N (component {ii})"] < df[f"sigma_obs target S/N (component {ii})"]
-            df.loc[cond_bad_gaskin] = np.nan
+            df.loc[cond_bad_sigma, 
+                   [f"sigma_gas (component {ii})", 
+                    f"sigma_gas error (component {ii})",]] = np.nan
 
     ######################################################################
-    # Finally, NaN out rows that have not met our flux or velocity 
-    # dispersion S/N cuts
+    # Determine how to compute the number of components in each 
+    # spaxel
     ######################################################################
+    """
+    2 ways to do this -
+    1. Conservative: 
+        cut spaxels in which ANY component has low S/N - i.e. NaN out ALL
+        emission-line measurements including fluxes and kinematics for ALL
+        components and for total values as well.
+        Re-set the number of components in each spaxel 
+
+    2. Relaxed:
+        leave everything as-is, including the original number of components
+        fitted by LZIFU. HOWEVER - the downside of this is that when making
+        selections of spaxels based on the original number of components 
+        fitted, there will be missing data in components with insufficient
+        S/N.
+    
+    """
     # Identify rows with non-NaN Halpha fluxes AND sigma_gas values. i.e., get 
     # rid of the orphan components.
     if ncomponents == 3:
-        cond_has_3 = ~np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["sigma_gas (component 0)"]) &\
+        cond_has_3 = (df["Number of components (original)"] == 3) &\
+                     ~np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["sigma_gas (component 0)"]) &\
                      ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
                      ~np.isnan(df["HALPHA (component 2)"]) & ~np.isnan(df["sigma_gas (component 2)"]) 
-        cond_has_2 = ~np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["sigma_gas (component 0)"]) &\
+        cond_has_2 = (df["Number of components (original)"] == 2) &\
+                     ~np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["sigma_gas (component 0)"]) &\
                      ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
                       np.isnan(df["HALPHA (component 2)"]) &  np.isnan(df["sigma_gas (component 2)"])  
-        cond_has_1 = ~np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["sigma_gas (component 0)"]) &\
+        cond_has_1 = (df["Number of components (original)"] == 1) &\
+                     ~np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["sigma_gas (component 0)"]) &\
                       np.isnan(df["HALPHA (component 1)"]) &  np.isnan(df["sigma_gas (component 1)"]) &\
                       np.isnan(df["HALPHA (component 2)"]) &  np.isnan(df["sigma_gas (component 2)"])
         cond_has_any = cond_has_1 | cond_has_2 | cond_has_3
@@ -144,7 +251,7 @@ def dqcut(df, ncomponents,
         df.loc[~cond_has_any, "Number of components"] = 0
 
     elif ncomponents == 1:
-        cond_has_1 = ~np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["sigma_gas (component 0)"])
+        cond_has_1 = (df["Number of components (original)"] == 1) & ~np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["sigma_gas (component 0)"])
 
         # Define columns to NaN out 
         cols_to_nan = [f"{e} (total)" for e in eline_list]
@@ -174,13 +281,16 @@ def dqcut(df, ncomponents,
     ######################################################################
     # Stellar kinematics: NaN out cells that don't meet the criteria given  
     # on page 18 of Croom+2021
-    if stekin_cut and all([c in df.columns for c in ["sigma_*", "v_*"]]):
+    if all([c in df.columns for c in ["sigma_*", "v_*"]]):
         cond_bad_stekin = df["sigma_*"] <= 35
         cond_bad_stekin |= df["v_* error"] >= 30
         cond_bad_stekin |= df["sigma_* error"] >= df["sigma_*"] * 0.1 + 25
+        df.loc[cond_bad_stekin, "Bad stellar kinematics"] = True
 
-        # Only NaN out the stellar kinematic info, since it's unrelated to the gas kinematics & other quantities
-        df.loc[cond_bad_stekin, ["sigma_*", "sigma_* error", "v_*", "v_* error"]] = np.nan
+        if stekin_cut:
+            # Only NaN out the stellar kinematic info, since it's unrelated to the gas kinematics & other quantities
+            df.loc[cond_bad_stekin, ["v_*", "v_* error", 
+                                     "sigma_*", "sigma_* error"]] = np.nan
 
     ######################################################################
     # SFR and SFR surface density DQ cuts
@@ -191,13 +301,12 @@ def dqcut(df, ncomponents,
         cond_zero_SFR = df["SFR"] == 0
         df.loc[cond_zero_SFR, "SFR"] = np.nan
         df.loc[cond_zero_SFR, "SFR error"] = np.nan
-        df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR surface density error"] = np.nan
-        df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR error"] = np.nan
     if "SFR surface density" in df.columns:
+        cond_zero_SFR = df["SFR"] == 0
         df.loc[cond_zero_SFR, "SFR surface density"] = np.nan
         df.loc[cond_zero_SFR, "SFR surface density error"] = np.nan
         df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR surface density"] = np.nan
-        df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR"] = np.nan
+        df.loc[np.isnan(df["Inclination i (degrees)"]), "SFR surface density error"] = np.nan
 
     ######################################################################
     # End
@@ -489,7 +598,6 @@ if __name__ == "__main__":
         assert np.all(np.isnan(df_cut.loc[df_cut[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"log HALPHA EW (component {ii})"]))
         assert np.all(np.isnan(df_cut.loc[df_cut[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"log HALPHA EW error (upper) (component {ii})"]))
         assert np.all(np.isnan(df_cut.loc[df_cut[f"HALPHA S/N (component {ii})"] < eline_SNR_min, f"log HALPHA EW error (lower) (component {ii})"]))
-
 
     # CHECK: all sigma_gas components with S/N < S/N target are NaN
     for ii in range(3 if ncomponents == "recom" else 1):

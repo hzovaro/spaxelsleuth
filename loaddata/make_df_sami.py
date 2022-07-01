@@ -27,12 +27,14 @@ sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3
 ncomponents = sys.argv[1]       # Options: "1" or "recom"
 bin_type = "default"
 assert bin_type == "default", "bin_type must be 'default'!"
-
+debug = False
 plotit = False
+if debug:
+    print("WARNING: running in debug mode...")
 
 ###############################################################################
 # Filenames
-df_fname = f"sami_{bin_type}_{ncomponents}-comp.hd5"
+df_fname = f"sami_{bin_type}_{ncomponents}-comp_DEBUG.hd5" if debug else f"sami_{bin_type}_{ncomponents}-comp.hd5"
 df_metadata_fname = "sami_dr3_metadata.hd5"
 
 ###############################################################################
@@ -40,6 +42,8 @@ df_metadata_fname = "sami_dr3_metadata.hd5"
 ###############################################################################
 df_metadata = pd.read_hdf(os.path.join(sami_data_path, df_metadata_fname), key="metadata")
 gal_ids_dq_cut = df_metadata[df_metadata["Good?"] == True].index.values
+if debug: 
+    gal_ids_dq_cut = gal_ids_dq_cut[:10]
 df_metadata["Good?"] = df_metadata["Good?"].astype("float")
 
 ###############################################################################
@@ -139,6 +143,7 @@ def process_gals(args):
     start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 6500))
     stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 6540))
     cont_map = np.nanmean(data_cube_R[start_idx:stop_idx], axis=0)
+    cont_map_std = np.nanstd(data_cube_R[start_idx:stop_idx], axis=0)
     cont_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_R[start_idx:stop_idx], axis=0))
     hdulist_R_cube.close() 
 
@@ -282,15 +287,19 @@ def process_gals(args):
     #######################################################################
     # Do the same but with the continuum intensity for calculating the HALPHA EW
     thisrow = np.full_like(x_c_list, np.nan, dtype="float")
+    thisrow_std = np.full_like(x_c_list, np.nan, dtype="float")
     thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
     for jj, coords in enumerate(zip(x_c_list, y_c_list)):
         x_c, y_c = coords
         y, x = (int(np.round(y_c)), int(np.round(x_c)))
         thisrow[jj] = cont_map[y, x]
+        thisrow_std[jj] = cont_map_std[y, x]
         thisrow_err[jj] = cont_map_err[y, x]
     rows_list.append(thisrow)
+    rows_list.append(thisrow_std)
     rows_list.append(thisrow_err)
     colnames.append("HALPHA continuum")
+    colnames.append("HALPHA continuum std. dev.")
     colnames.append("HALPHA continuum error")        
 
     #######################################################################
@@ -353,7 +362,7 @@ def process_gals(args):
 # Run in parallel
 ###############################################################################
 print("Beginning pool...")
-args_list = [[ii, g] for ii, g in enumerate(gal_ids_dq_cut[:10])]
+args_list = [[ii, g] for ii, g in enumerate(gal_ids_dq_cut)]
 pool = multiprocessing.Pool(20)
 res_list = np.array((pool.map(process_gals, args_list)))
 pool.close()
@@ -391,6 +400,7 @@ df_spaxels["Morphology"] = [morph_dict[str(m)] for m in df_spaxels["Morphology (
 print("Renaming columns...")
 rename_dict = {}
 sami_colnames = [col.split(f"_{bin_type}_{ncomponents}-comp")[0].upper() for col in df_spaxels.columns if col.endswith(f"_{bin_type}_{ncomponents}-comp")]
+
 # Emission lines except for Halpha
 for col in [c for c in df_spaxels.columns if c.endswith(f"_{bin_type}_{ncomponents}-comp")]:
     eline = col.split(f"_{bin_type}_{ncomponents}-comp")[0].upper()
@@ -432,9 +442,21 @@ rename_dict["r_e"] = "R_e (arcsec)"
 df_spaxels = df_spaxels.rename(columns=rename_dict)
 
 ###############################################################################
+# Compute the ORIGINAL number of components
+###############################################################################
+if ncomponents == "recom":
+    df_spaxels["Number of components (original)"] =\
+        (~df_spaxels["sigma_gas (component 0)"].isna()).astype(int) +\
+        (~df_spaxels["sigma_gas (component 1)"].isna()).astype(int) +\
+        (~df_spaxels["sigma_gas (component 2)"].isna()).astype(int)
+elif ncomponents == "1":
+    df_spaxels["Number of components (original)"] =\
+        (~df_spaxels["sigma_gas (component 0)"].isna()).astype(int)
+
+###############################################################################
 # Calculate equivalent widths
 ###############################################################################
-for col in ["HALPHA continuum", "HALPHA continuum error"]:
+for col in ["HALPHA continuum", "HALPHA continuum error", "HALPHA continuum std. dev."]:
     df_spaxels[col] = pd.to_numeric(df_spaxels[col])
 
 df_spaxels.loc[df_spaxels["HALPHA continuum"] < 0, "HALPHA continuum"] = 0
@@ -442,12 +464,31 @@ for nn in range(3 if ncomponents == "recom" else 1):
     # Cast to float
     df_spaxels[f"HALPHA (component {nn})"] = pd.to_numeric(df_spaxels[f"HALPHA (component {nn})"])
     df_spaxels[f"HALPHA error (component {nn})"] = pd.to_numeric(df_spaxels[f"HALPHA error (component {nn})"])
+   
     # Compute EWs
     df_spaxels[f"HALPHA EW (component {nn})"] = df_spaxels[f"HALPHA (component {nn})"] / df_spaxels["HALPHA continuum"]
-    df_spaxels.loc[np.isinf(df_spaxels[f"HALPHA EW (component {nn})"].astype(float)), f"HALPHA EW (component {nn})"] = np.nan  # If the continuum level == 0, then the EW is undefined, so set to NaN.
     df_spaxels[f"HALPHA EW error (component {nn})"] = df_spaxels[f"HALPHA EW (component {nn})"] *\
         np.sqrt((df_spaxels[f"HALPHA error (component {nn})"] / df_spaxels[f"HALPHA (component {nn})"])**2 +\
                 (df_spaxels[f"HALPHA continuum error"] / df_spaxels[f"HALPHA continuum"])**2) 
+    
+    # If the continuum level <= 0, then the EW is undefined, so set to NaN.
+    df_spaxels.loc[df_spaxels["HALPHA continuum"] <= 0, 
+                   [f"HALPHA EW (component {nn})", 
+                    f"HALPHA EW error (component {nn})"]] = np.nan  
+
+# Calculate total EWs
+df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {ii})"] for ii in range(3 if ncomponents == "recom" else 1)], axis=0)
+df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {ii})"]**2 for ii in range(3 if ncomponents == "recom" else 1)], axis=0))
+
+# If all HALPHA EWs are NaN, then make the total HALPHA EW NaN too
+if ncomponents == "recom":
+    df_spaxels.loc[df_spaxels["HALPHA EW (component 0)"].isna() &\
+                   df_spaxels["HALPHA EW (component 1)"].isna() &\
+                   df_spaxels["HALPHA EW (component 2)"].isna(), 
+                   ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
+elif ncomponents == "1":
+    df_spaxels.loc[df_spaxels["HALPHA EW (component 0)"].isna(),
+                   ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
 
 ######################################################################
 # SFR and SFR surface density
@@ -467,15 +508,6 @@ rename_dict["SFR surface density (component 0)"] = "SFR surface density (total)"
 rename_dict["SFR surface density error (component 0)"] = "SFR surface density error (total)"
 
 df_spaxels = df_spaxels.rename(columns=rename_dict)
-
-######################################################################
-# Compute the SFR and SFR surface density from the 0th component ONLY
-######################################################################
-if ncomponents == "recom":
-    df_spaxels["SFR surface density (component 0)"] = df_spaxels["SFR surface density (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
-    df_spaxels["SFR surface density error (component 0)"] = df_spaxels["SFR surface density error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
-    df_spaxels["SFR (component 0)"] = df_spaxels["SFR (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
-    df_spaxels["SFR error (component 0)"] = df_spaxels["SFR error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
 
 ######################################################################
 # Add radius-derived value columns
@@ -503,10 +535,12 @@ for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII50
     df_spaxels[f"{eline} S/N (total)"] = df_spaxels[f"{eline} (total)"] / df_spaxels[f"{eline} error (total)"]
 
 ######################################################################
-# Calculate the TOTAL Halpha EW
+# Compute the SFR and SFR surface density from the 0th component ONLY
 ######################################################################
-df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {ii})"] for ii in range(3 if ncomponents == "recom" else 1)], axis=0)
-df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {ii})"]**2 for ii in range(3 if ncomponents == "recom" else 1)], axis=0))
+df_spaxels["SFR surface density (component 0)"] = df_spaxels["SFR surface density (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
+df_spaxels["SFR surface density error (component 0)"] = df_spaxels["SFR surface density error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
+df_spaxels["SFR (component 0)"] = df_spaxels["SFR (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
+df_spaxels["SFR error (component 0)"] = df_spaxels["SFR error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
 
 ###############################################################################
 # Save to .hd5 & .csv

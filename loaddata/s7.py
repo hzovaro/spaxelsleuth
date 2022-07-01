@@ -17,6 +17,7 @@ sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3
 
 def load_s7_galaxies(eline_SNR_min, eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726", "OII3729", "OIII5007", "SII6716", "SII6731"],
                      sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
+                     line_amplitude_SNR_cut=True,
                      vgrad_cut=False, correct_extinction=False,
                      stekin_cut=True):
 
@@ -50,6 +51,7 @@ def load_s7_galaxies(eline_SNR_min, eline_list=["HALPHA", "HBETA", "NII6583", "O
                   sigma_gas_SNR_min=sigma_gas_SNR_min,
                   sigma_inst_kms=sigma_inst_km_s,
                   vgrad_cut=vgrad_cut,
+                  line_amplitude_SNR_cut=line_amplitude_SNR_cut,
                   stekin_cut=stekin_cut)
     
     ######################################################################
@@ -71,10 +73,7 @@ def load_s7_galaxies(eline_SNR_min, eline_list=["HALPHA", "HBETA", "NII6583", "O
     ######################################################################
     # WHAV* classification
     ######################################################################
-    if ncomponents == "recom":
-        df = linefns.whav_fn(df)
-    else:
-        print("WARNING: WHAV* classifications for the 1-component fits has not yet been implemented!!")
+    df = linefns.whav_fn(df, ncomponents=3)
 
     ######################################################################
     # CORRECT HALPHA FLUX AND EW FOR EXTINCTION

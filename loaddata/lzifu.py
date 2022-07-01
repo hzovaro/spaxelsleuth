@@ -77,10 +77,7 @@ def load_lzifu_galaxies(ncomponents, bin_type,
     ######################################################################
     # WHAV* classification
     ######################################################################
-    if ncomponents == "recom":
-        df = linefns.whav_fn(df)
-    else:
-        print("WARNING: WHAV* classifications for the 1-component fits has not yet been implemented!!")
+    df = linefns.whav_fn(df, ncomponents=3 if ncomponents=="recom" else 1)
 
     ######################################################################
     # CORRECT HALPHA FLUX AND EW FOR EXTINCTION
