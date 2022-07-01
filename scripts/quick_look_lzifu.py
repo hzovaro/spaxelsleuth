@@ -35,7 +35,7 @@ sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
 ###########################################################################
 # Options
 ###########################################################################
-fig_path = "/priv/meggs3/u5708159/SAMI/figs/paper/"
+fig_path = "/priv/meggs3/u5708159/SAMI/figs/paper/individual_galaxies/"
 lzifu_data_path = "/priv/meggs3/u5708159/LZIFU/products"
 savefigs = True
 bin_type = "default"    # Options: "default" or "adaptive" for Voronoi binning

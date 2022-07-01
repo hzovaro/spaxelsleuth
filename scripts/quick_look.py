@@ -8,7 +8,6 @@ import pandas as pd
 from astropy.visualization import hist
 from astropy.io import fits
 
-from spaxelsleuth.loaddata.lzifu import load_lzifu_galaxy
 from spaxelsleuth.loaddata.sami import load_sami_galaxies
 from spaxelsleuth.plotting.plot2dmap import plot2dmap
 from spaxelsleuth.plotting.sdssimg import plot_sdss_image
@@ -57,24 +56,26 @@ df_sami = load_sami_galaxies(ncomponents="recom",
                              sigma_gas_SNR_cut=True)
 
 ###########################################################################
-# Make summary plots
+# Load the DataFrame containing S/N metadata
+###########################################################################
+# Load the SNR DataFrame.
+df_snr = pd.read_csv(os.path.join(sami_data_path, "sample_summary.csv"))
+
+# Sort by median red S/N in 2R_e
+df_snr = df_snr.sort_values("Median SNR (R, 2R_e)", ascending=False)
+
+# Set index to catid for ease of indexing
+df_snr = df_snr.set_index("catid")
+
+###########################################################################
+# Check input
 ###########################################################################
 if len(sys.argv) > 1:
-    gals = sys.argv[1:]
+    gals = [int(g) for g in sys.argv[1:]]
     for gal in gals:
         assert gal.isdigit(), "each gal given must be an integer!"
         assert gal in df_sami.catid, f"{gal} not found in SAMI sample!"
 else:
-    # Load the SNR DataFrame.
-    df_snr = pd.read_csv(os.path.join(sami_data_path, "sample_summary.csv"))
-
-    # Sort by median red S/N in 2R_e
-    df_snr = df_snr.sort_values("Median SNR (R, 2R_e)", ascending=False)
-
-    # Make a redshift cut to ensure that Na D is in the wavelength range 
-    df_snr = df_snr[df_snr["z_spec"] > 0.072035]
-
-    df_snr = df_snr.set_index("catid")
     gals = df_snr.index.values
 
 ###########################################################################
@@ -90,7 +91,7 @@ x0_px = 25.5
 y0_px = 25.5
 
 # Create a mask 
-mask = (xs - x0_px)**2 + (ys - y0_px)**2 <= 3**2
+mask = (xs - x0_px)**2 + (ys - y0_px)**2 <= 1.5**2
 mask_area_px = len(mask[mask])
 mask_area_arcsec2 = mask_area_px * as_per_px**2
 
@@ -107,7 +108,7 @@ h = (1 - 2 * b - dh) / 2
 
 # Multi-page pdf
 if savefigs:
-    pp = PdfPages(os.path.join(fig_path, "quicklook_NaD.pdf"))
+    pp = PdfPages(os.path.join(fig_path, "quicklook_spec.pdf"))
 
 for gal in gals:
 
@@ -131,7 +132,7 @@ for gal in gals:
     axs_whav.append(fig_collage.add_axes([l + w + dw, b, w, h]))
     axs_whav.append(fig_collage.add_axes([l + w + dw + w, b, w, h]))
     axs_whav.append(fig_collage.add_axes([l + w + dw + 2 * w, b, w, h]))
-    ax_nad = fig_collage.add_axes([l + w + dw + 3 * w + dw, (1 - h) / 2, w, h])
+    ax_spec = fig_collage.add_axes([l + w + dw + 3 * w + dw, (1 - h) / 2, w, h])
 
     ###########################################################################
     # Plot SDSS image and component map
@@ -153,7 +154,12 @@ for gal in gals:
 
     # Plot BPT diagram
     col_y = "log O3"
-    t = axs_bpt[0].text(s=f"{gal}, {df_snr.loc[gal, 'Morphology']}, SFR = {df_snr.loc[gal, 'SFR (component 0)']:.3f}" + r" $\rm M_\odot\,yr^{-1}$" + f", SNR = {df_snr.loc[gal, 'Median SNR (R, 2R_e)']:.2f}", 
+    sfr = df_snr.loc[gal, 'SFR (component 0)']
+    if np.isnan(sfr):
+        sfr = "n/a"
+    else:
+        sfr = f"{sfr:.3f}" + r" $\rm M_\odot\,yr^{-1}$"
+    t = axs_bpt[0].text(s=f"{gal}, {df_snr.loc[gal, 'Morphology']}, SFR = {sfr}, SNR = {df_snr.loc[gal, 'Median SNR (R, 2R_e)']:.2f}", 
         x=0.0, y=1.02, transform=axs_bpt[0].transAxes)
     for cc, col_x in enumerate(["log N2", "log S2", "log O1"]):
         # Plot full SAMI sample
@@ -174,8 +180,8 @@ for gal in gals:
                       marker=markers[0], ax=axs_bpt[cc], 
                       cax=None,
                       markersize=20, 
-                      markerfacecolour=component_colours[0] if col_z == "Number of components" else None, 
-                      edgecolors="black",
+                      markerfacecolor=component_colours[0] if col_z == "Number of components" else None, 
+                      markeredgecolor="black",
                       plot_colorbar=False)
 
     # Decorations
@@ -208,8 +214,8 @@ for gal in gals:
                   marker=markers[0], ax=axs_whav[0], 
                   cax=None,
                   markersize=20, 
-                  markerfacecolour=component_colours[0] if col_z == "Number of components" else None, 
-                  edgecolors="black",
+                  markerfacecolor=component_colours[0] if col_z == "Number of components" else None, 
+                  markeredgecolor="black",
                   plot_colorbar=False)
 
     # Kinematics 
@@ -223,8 +229,8 @@ for gal in gals:
                           marker=markers[ii], ax=axs_whav[cc + 1], 
                           cax=None,
                           markersize=20, 
-                          markerfacecolour=component_colours[ii] if col_z == "Number of components" else None, 
-                          edgecolors="black",
+                          markerfacecolor=component_colours[ii] if col_z == "Number of components" else None, 
+                          markeredgecolor="black",
                           plot_colorbar=False)
 
     # Decorations
@@ -262,21 +268,24 @@ for gal in gals:
     # Extract spectrum
     spec = np.nansum(data_cube_R[:, mask], axis=1)
     spec_err = np.sqrt(np.nansum(var_cube_R[:, mask], axis=1))
-    start = np.nanargmin(np.abs(lambda_rest_A - (5889 - 10)))
-    stop = np.nanargmin(np.abs(lambda_rest_A - (5896 + 10)))
+    start = np.nanargmin(np.abs(lambda_rest_A - (6562.8 - 40)))
+    stop = np.nanargmin(np.abs(lambda_rest_A - (6562.8 + 40)))
 
     # Divide by pixel area in arcsec2
     spec /= mask_area_arcsec2
     spec_err /= mask_area_arcsec2
 
     # Plot 
-    ax_nad.errorbar(x=lambda_rest_A, y=spec, yerr=spec_err, color="k")
-    ax_nad.set_xlim([(5889 - 10), (5896 + 10)])
-    ax_nad.set_ylim([0.9 * np.nanmin(spec[start:stop]), 1.1 * np.nanmax(spec[start:stop])])
-    ax_nad.axvline(5889, color="r")
-    ax_nad.axvline(5896, color="r")
-    ax_nad.set_xlabel(r"Rest-frame wavelength $\lambda \,\rm (\AA)$")
-    ax_nad.set_ylabel(r"$F_\lambda(\lambda)\,\rm (10^{-16} \, erg \, s^{-1} \, cm^{-2} \, \AA^{-1} \, arcsec^{-2}$)")
+    ax_spec.errorbar(x=lambda_rest_A, y=spec, yerr=spec_err, color="k")
+    ax_spec.set_xlim([(6562.8 - 40), (6562.8 + 40)])
+    ax_spec.set_ylim([0.9 * np.nanmin(spec[start:stop]), 1.1 * np.nanmax(spec[start:stop])])
+    ax_spec.axvline(6562.8, color="r", alpha=0.5, lw=0.5, label=r"H$\alpha$")
+    ax_spec.axvline(6548, color="g", alpha=0.5, lw=0.5, label=r"[NII]$6548,83$")
+    ax_spec.axvline(6583, color="g", alpha=0.5, lw=0.5)
+    ax_spec.set_xlabel(r"Rest-frame wavelength $\lambda \,\rm (\AA)$")
+    ax_spec.set_ylabel(r"$F_\lambda(\lambda)\,\rm (10^{-16} \, erg \, s^{-1} \, cm^{-2} \, \AA^{-1} \, arcsec^{-2}$)")
+    ax_spec.legend(loc="upper right", fontsize="small")
+    ax_spec.set_title("Spectrum extracted from 3\" aperture")
 
     ###########################################################################
     # Save 
@@ -302,7 +311,7 @@ for gal in gals:
     # fig_collage.canvas.draw()
     # plt.close(fig_ims)
 
-    # Tracer()()
+    Tracer()()
     plt.close(fig_collage)
 
 if savefigs:
