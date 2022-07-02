@@ -19,37 +19,40 @@ is used there.
 The information used here is from the catalogues are available at 
 https://datacentral.org.au/. 
 
-The DataFrame is saved to "sami_dr3_metadata.hd5".
+The DataFrame is saved to "SAMI_DIR/sami_dr3_metadata.hd5".
 
 """
 
 ###############################################################################
-sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
+# Paths
+sami_data_path = os.environ["SAMI_DIR"]
+assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 
 ###############################################################################
 # Filenames
 df_fname = f"sami_dr3_metadata.hd5"
 
-gama_metadata_fname = "sami_dr3_metadata_gama.csv"
-cluster_metadata_fname = "sami_dr3_metadata_clusters.csv"
-filler_metadata_fname = "sami_dr3_metadata_filler.csv"
-morphologies_fname = "sami_dr3_morphologies.csv"
+gama_metadata_fname = "sami_InputCatGAMADR3.csv"
+cluster_metadata_fname = "sami_InputCatClustersDR3.csv"
+filler_metadata_fname = "sami_InputCatFiller.csv"
+morphologies_fname = "sami_VisualMorphologyDR3.csv"
 
-flag_metadata_fname = "sami_CubeObs.fits"
+flag_metadata_fname = "sami_CubeObs.csv"
 
 ###############################################################################
-# READ IN THE METADATA
+# Read in galaxy metadata
 ###############################################################################
-df_metadata_gama = pd.read_csv(os.path.join(sami_data_path, gama_metadata_fname))  # ALL possible GAMA targets
-df_metadata_cluster = pd.read_csv(os.path.join(sami_data_path, cluster_metadata_fname))  # ALL possible cluster targets
-df_metadata_filler = pd.read_csv(os.path.join(sami_data_path, filler_metadata_fname))  # ALL possible filler targets
+df_metadata_gama = pd.read_csv(os.path.join("../data/", gama_metadata_fname))  # ALL possible GAMA targets
+df_metadata_cluster = pd.read_csv(os.path.join("../data/", cluster_metadata_fname))  # ALL possible cluster targets
+df_metadata_filler = pd.read_csv(os.path.join("../data/", filler_metadata_fname))  # ALL possible filler targets
 df_metadata = pd.concat([df_metadata_gama, df_metadata_cluster, df_metadata_filler]).drop(["Unnamed: 0"], axis=1)
 
 gal_ids_metadata = list(np.sort(list(df_metadata["catid"])))
 
 ###############################################################################
-# Tack on the morphologies
-df_morphologies = pd.read_csv(os.path.join(sami_data_path, morphologies_fname)).drop(["Unnamed: 0"], axis=1)
+# Append morphology data
+###############################################################################
+df_morphologies = pd.read_csv(os.path.join("../data/", morphologies_fname)).drop(["Unnamed: 0"], axis=1)
 df_morphologies = df_morphologies.rename(columns={"type": "Morphology (numeric)"})
 
 # Morphologies (numeric) - merge "?" and "no agreement" into a single category.
@@ -77,22 +80,13 @@ df_morphologies["Morphology"] = [morph_dict[str(m)] for m in df_morphologies["Mo
 df_metadata = df_metadata.merge(df_morphologies[["catid", "Morphology (numeric)", "Morphology"]], on="catid")
 
 ###############################################################################
-# READ IN FLAG METADATA
+# Read in flag metadata
 ###############################################################################
-hdulist = fits.open(os.path.join(sami_data_path, flag_metadata_fname))
-t = hdulist[1].data
-
-# Convert into a dataframe so we can merge it 
-rows_list = []
-for rr in range(t.shape[0]):
-    row_dict = {t.columns[ii].name: t[rr][ii] for ii in range(len(t.columns))}
-    rows_list.append(row_dict)
-df_flags = pd.DataFrame(rows_list)
-
-df_flags = df_flags.astype({col.name: "int64" for col in t.columns if col.name.startswith("warn")})
+df_flags = pd.read_csv(os.path.join("../data/", flag_metadata_fname)).drop(["Unnamed: 0"], axis=1)
+df_flags = df_flags.astype({col: "int64" for col in df_flags.columns if col.startswith("warn")})
 df_flags = df_flags.astype({"isbest": bool})
 
-# Get rid of all columns where isbest == False
+# Get rid of rows failing the following data quality criteria
 cond = df_flags["isbest"] == True
 cond &= df_flags["warnstar"] == 0
 # cond &= df_flags["warnz"] == 0
@@ -103,13 +97,11 @@ cond &= df_flags["warnfcbr"] == 0  # flux calibration issues
 cond &= df_flags["warnskyb"] == 0  # bad sky subtraction residuals
 cond &= df_flags["warnskyr"] == 0  # bad sky subtraction residuals
 cond &= df_flags["warnre"] == 0  # significant difference between standard & MGE Re
-#
 df_flags_cut = df_flags[cond]
 
 for gal in df_flags_cut.catid:
     if df_flags_cut[df_flags_cut.catid == gal].shape[0] > 1:
-        # Can't figure out what it means when there are two "best" observaitons...
-        # For now just drop the second one.
+        # If there are two "best" observations, drop the second one.
         drop_idxs = df_flags_cut.index[df_flags_cut.catid == gal][1:]
         df_flags_cut = df_flags_cut.drop(drop_idxs)
 
@@ -139,7 +131,6 @@ for gal in gal_ids_dq_cut:
     df_metadata.loc[gal, "D_A (Mpc)"] = D_A_Mpc
     df_metadata.loc[gal, "D_L (Mpc)"] = D_L_Mpc
 df_metadata["kpc per arcsec"] = df_metadata["D_A (Mpc)"] * 1e3 * np.pi / 180.0 / 3600.0
-
 df_metadata["R_e (kpc)"] = df_metadata["r_e"] * df_metadata["kpc per arcsec"]
 df_metadata["log(M/R_e)"] = df_metadata["mstar"] - np.log10(df_metadata["R_e (kpc)"])
 
