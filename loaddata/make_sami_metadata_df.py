@@ -32,11 +32,13 @@ assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 # Filenames
 df_fname = f"sami_dr3_metadata.hd5"
 
+# .csv files containing metadata 
+# These correspond to the tables of the same name at 
+# https://datacentral.org.au/ 
 gama_metadata_fname = "sami_InputCatGAMADR3.csv"
 cluster_metadata_fname = "sami_InputCatClustersDR3.csv"
 filler_metadata_fname = "sami_InputCatFiller.csv"
 morphologies_fname = "sami_VisualMorphologyDR3.csv"
-
 flag_metadata_fname = "sami_CubeObs.csv"
 
 ###############################################################################
