@@ -9,19 +9,37 @@ from astropy.coordinates import SkyCoord
 
 from IPython.core.debugger import Tracer
 
+"""
+This script is used to create a DataFrame containing "metadata", including
+stellar masses, spectroscopic redshifts, morphologies and other information
+for each galaxy in S7. In addition to the provided values in the input
+catalogues, the angular scale (in kpc per arcsecond) and inclination are 
+computed for each galaxy.
+
+This script must be run before make_df_s7.py, as the resulting DataFrame
+is used there.
+
+The information used here is from S7_DR2_Table_2_Catalogue.csv which can 
+be downloaded at 
+    https://miocene.anu.edu.au/S7/Data_release_2/ 
+
+The DataFrame is saved to "S7_DIR/s7_metadata.hd5".
+
+"""
 ###############################################################################
 # Paths
-s7_data_path = "/priv/meggs3/u5708159/S7/"
+s7_data_path = os.environ["S7_DIR"]
+assert "S7_DIR" in os.environ, "Environment variable S7_DIR is not defined!"
 
 ###############################################################################
 # Filenames
-df_metadata_fname = "s7_metadata.csv"
+df_metadata_fname = "S7_DR2_Table_2_Catalogue.csv"
 df_fname = "s7_metadata.hd5"
 
 ###############################################################################
 # READ IN THE METADATA
 ###############################################################################
-df_metadata = pd.read_csv(os.path.join(s7_data_path, df_metadata_fname), skiprows=58)
+df_metadata = pd.read_csv(os.path.join("../data", df_metadata_fname), skiprows=58)
 gals = df_metadata["S7_Name"].values
 
 ###############################################################################
