@@ -8,13 +8,27 @@ from spaxelsleuth.loaddata import dqcut, linefns
 from IPython.core.debugger import Tracer
 
 """
-In this file:
-- a function or class to load a dataframe containing the entire SAMI sample.
+This script contains the function load_sami_galaxies() which is used to 
+load the Pandas DataFrame containing spaxel-by-spaxel information for all 
+S7 galaxies that was created in make_df_s7.py.
+
+After the DataFrame is loaded, a number of S/N and data quality cuts are 
+optionally made based on emission line S/N, the quality of the stellar 
+kinematics fit, and other quantities. 
+
+Other quantities, such as BPT categories, are computed for each spaxel.
+
+The function returns the DataFrame with added columns containing these 
+additional quantities, and with rows/cells that do not meet data quality 
+or S/N requirements either droppped or replaced with NaNs.
 
 """
-s7_data_path = "/priv/meggs3/u5708159/S7/"
-sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
+###############################################################################
+# Paths
+s7_data_path = os.environ["S7_DIR"]
+assert "S7_DIR" in os.environ, "Environment variable S7_DIR is not defined!"
 
+###############################################################################
 def load_s7_galaxies(eline_SNR_min, eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726", "OII3729", "OIII5007", "SII6716", "SII6731"],
                      sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
                      line_amplitude_SNR_cut=True,
