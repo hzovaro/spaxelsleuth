@@ -7,6 +7,8 @@ from scipy import constants
 from tqdm import tqdm
 import multiprocessing
 
+import linefns
+
 import matplotlib.pyplot as plt
 plt.ion()
 plt.close("all")
@@ -46,17 +48,30 @@ ncomponents = sys.argv[1]       # Options: "1" or "recom"
 bin_type = sys.argv[2]          # Options: "default" (i.e. no binning) or "adaptive" (i.e. Voronoi binning)
 assert bin_type in ["default", "adaptive"], "bin_type must be 'default' or 'adaptive'!"
 nthreads_max = 20               # Maximum number of threds to use 
+correct_extinction = True
+
+# For printing to stdout
+status_str = f"In sami.load_sami_galaxies() [bin_type={bin_type}, ncomponents={ncomponents}, correct_extinction={correct_extinction}]"
 
 # If run in debug mode, the script will only be run for one galaxy.
 debug = False 
 plotit = False
 if debug:
-    print("WARNING: running in debug mode...")
+    print(f"{status_str}: WARNING: running in debug mode...")
 
 ###############################################################################
 # Filenames
-df_fname = f"sami_{bin_type}_{ncomponents}-comp_DEBUG.hd5" if debug else f"sami_{bin_type}_{ncomponents}-comp.hd5"
 df_metadata_fname = "sami_dr3_metadata.hd5"
+
+# Output file name 
+df_fname = f"sami_{bin_type}_{ncomponents}-comp"
+if correct_extinction:
+    df_fname += "_extcorr"
+if debug:
+    df_fname += "_DEBUG"
+df_fname += ".hd5"
+
+print(f"{status_str}: saving to file {df_fname}...")
 
 ###############################################################################
 # READ IN THE METADATA
@@ -421,7 +436,7 @@ def process_gals(args):
     gal_metadata = np.tile(df_metadata.loc[df_metadata.loc[:, "catid"] == gal][safe_cols].values, (ngood_bins, 1))
     rows_good = np.hstack((gal_metadata, rows_good))
 
-    print(f"Finished processing {gal} ({gal_idx}/{len(gal_ids_dq_cut)})")
+    print(f"{status_str}: Finished processing {gal} ({gal_idx}/{len(gal_ids_dq_cut)})")
 
     return rows_good, colnames 
 
@@ -433,7 +448,7 @@ args_list = [[ii, g] for ii, g in enumerate(gal_ids_dq_cut)]
 if len(gal_ids_dq_cut) == 1:
     res_list = [process_gals(args_list[0])]
 else:
-    print("Beginning pool...")
+    print(f"{status_str}: Beginning pool...")
     pool = multiprocessing.Pool(min([nthreads_max, len(gal_ids_dq_cut)]))
     res_list = np.array((pool.map(process_gals, args_list)))
     pool.close()
@@ -468,7 +483,7 @@ df_spaxels["Morphology"] = [morph_dict[str(m)] for m in df_spaxels["Morphology (
 # Rename columns
 ###############################################################################
 # Only necessary for the adaptively-binned and unbinned data - not necessary for the aperture data
-print("Renaming columns...")
+print(f"{status_str}: Renaming columns...")
 rename_dict = {}
 sami_colnames = [col.split(f"_{bin_type}_{ncomponents}-comp")[0].upper() for col in df_spaxels.columns if col.endswith(f"_{bin_type}_{ncomponents}-comp")]
 
@@ -613,12 +628,30 @@ df_spaxels["SFR surface density error (component 0)"] = df_spaxels["SFR surface 
 df_spaxels["SFR (component 0)"] = df_spaxels["SFR (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
 df_spaxels["SFR error (component 0)"] = df_spaxels["SFR error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
 
+######################################################################
+# EXTINCTION CORRECTION
+# Correct emission line fluxes (but not EWs!)
+# NOTE: extinction.fm07 assumes R_V = 3.1 so do not change R_V from 
+# this value!!!
+######################################################################
+if correct_extinction:
+    print(f"{status_str}: WARNING: correcting emission line fluxes (but not EWs) for extinction!")
+    df_spaxels = linefns.extinction_corr_fn(df_spaxels, 
+                                    eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
+                                    reddening_curve="fm07", 
+                                    balmer_SNR_min=5, nthreads=nthreads_max,
+                                    s=f" (total)")
+    df_spaxels["Corrected for extinction?"] = True
+else:
+    print(f"{status_str}: WARNING: NOT correcting emission line fluxes for extinction!")
+    df_spaxels["Corrected for extinction?"] = False
+
 ###############################################################################
 # Save to .hd5 & .csv
 ###############################################################################
-print("Saving to file...")
+print(f"{status_str}: Saving to file...")
 df_spaxels.to_csv(os.path.join(sami_data_path, df_fname.split("hd5")[0] + "csv"))
 try:
     df_spaxels.to_hdf(os.path.join(sami_data_path, df_fname), key=f"{bin_type}, {ncomponents}-comp")
 except:
-    print("Unable to save to HDF file... sigh...")
+    print(f"{status_str}: Unable to save to HDF file... sigh...")
