@@ -1,6 +1,40 @@
 import numpy as np
+import extinction
+from tqdm import tqdm
 
 from IPython.core.debugger import Tracer
+
+###############################################################################
+# Emission line wavelengths 
+eline_lambdas_A = {
+            "NeV3347" : 3346.79,
+            "OIII3429" : 3429.0,
+            "OII3726" : 3726.032,
+            "OII3729" : 3728.815,
+            "OII3726+OII3729": 3726.032,  # For the doublet, assume the blue wavelength 
+            "NEIII3869" : 3869.060,
+            "HeI3889" : 3889.0,
+            "HEPSILON" : 3970.072,
+            "HDELTA" : 4101.734, 
+            "HGAMMA" : 4340.464, 
+            "HEI4471" : 4471.479,
+            "OIII4363" : 4363.210, 
+            "HBETA" : 4861.325, 
+            "OIII4959" : 4958.911, 
+            "OIII5007" : 5006.843, 
+            "HEI5876" : 5875.624, 
+            "OI6300" : 6300.304, 
+            "SIII6312" : 6312.060,
+            "OI6364" : 6363.776,
+            "NII6548" : 6548.04, 
+            "HALPHA" : 6562.800, 
+            "NII6583" : 6583.460,
+            "SII6716" : 6716.440, 
+            "SII6731" : 6730.810,
+            "SIII9069": 9068.600,
+            "SIII9531": 9531.100
+}
+
 ###############################################################################
 # Reference lines from literature
 def Kewley2001(ratio_x, ratio_x_vals, log=True):
@@ -676,4 +710,229 @@ def ratio_fn(df, s=None):
         df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
 
     return df
+
+################################################################################
+def extinction_corr_fn(df, eline_list,
+                       reddening_curve="fm07", R_V=3.1, 
+                       balmer_SNR_min=5,
+                       s=None):
+    """
+    Correct emission line fluxes (and errors) for extinction.
+
+    eline_list:         list of str
+        Emission line fluxes to correct.
+    reddening_curve:    str
+        Reddening curve to assume. Defaults to Fitzpatrick & Massa (2007).
+    R_V:                float
+        R_V to assume (in magnitudes). Ignored if Fitzpatrick & Massa (2007) is 
+        used, which implicitly assumes R_V = 3.1.
+    balmer_SNR_min:     float
+        Minimum SNR of the HALPHA and HBETA fluxes to accept in order to compute 
+        A_V.
+
+    """
+    # Remove suffixes on columns
+    if s is not None:
+        df_old = df
+        suffix_cols = [c for c in df.columns if c.endswith(s)]
+        suffix_removed_cols = [c.split(s)[0] for c in suffix_cols]
+        df = df_old.rename(columns=dict(zip(suffix_cols, suffix_removed_cols)))
+    old_cols = df.columns
+
+    # Determine which reddening curve to use
+    if reddening_curve.lower() == "fm07":
+        ext_fn = extinction.fm07
+        if R_V != 3.1:
+            print(f"WARNING: in linefns.extinction_corr_fn(): R_V is fixed at 3.1 in the FM07 reddening curve. Ignoring supplied R_V value of {R_V:.2f}...")
+    elif reddening_curve.lower() == "ccm89":
+        ext_fn = extinction.ccm89
+    elif reddening_curve.lower() == "calzetti00":
+        ext_fn = extinction.calzetti00
+        if R_V != 4.05:
+            print(f"WARNING: in linefns.extinction_corr_fn(): R_V should be set to 4.05 for the calzetti00 reddening curve. Using supplied R_V value of {R_V:.2f}...")
+    else:  
+        raise ValueError("For now, 'reddening_curve' must be one of 'fm07', 'ccm89' or 'calzetti00'!")
+
+    # Compute A_V in each spaxel
+    df[f"Balmer decrement"] = df[f"HALPHA"] / df[f"HBETA"]
+    df[f"Balmer decrement error"] =\
+        df[f"Balmer decrement"] * \
+        np.sqrt( (df[f"HALPHA error"] / df[f"HALPHA"])**2 +\
+                 (df[f"HBETA error"] / df[f"HBETA"])**2 )
+
+    # Compute E(B-V)
+    E_ba = 2.5 * (np.log10(df[f"Balmer decrement"])) - 2.5 * np.log10(2.86)
+    E_ba_err = 2.5 / np.log(10) * df[f"Balmer decrement error"] / df[f"Balmer decrement"]
+
+    # Calculate ( A(Ha) - A(Hb) ) / E(B-V) from extinction curve
+    R_V = 3.1
+    wave_1_A = np.array([eline_lambdas_A["HALPHA"]])
+    wave_2_A = np.array([eline_lambdas_A["HBETA"]])
+    E_ba_over_E_BV = float(ext_fn(wave_2_A, a_v=1.0) - ext_fn(wave_1_A, a_v=1.0) ) /  1.0 * R_V
+
+    # Calculate E(B-V)
+    E_BV = 1 / E_ba_over_E_BV * E_ba
+    E_BV_err = 1 / E_ba_over_E_BV * E_ba_err
+
+    # Calculate A(V)
+    df[f"A_V"] = R_V * E_BV
+    df[f"A_V error"] = R_V * E_BV_err
+
+    # DQ cut: non-physical Balmer decrement (set A_V = 0)
+    cond_negative_A_V = df[f"A_V"] < 0
+    df.loc[cond_negative_A_V, f"A_V"] = 0
+    df.loc[cond_negative_A_V, f"A_V error"] = 0
+
+    # DQ cut: low S/N HALPHA and HBETA fluxes (set A_V = NaN)
+    cond_bad_A_V = df[f"HALPHA S/N"] < balmer_SNR_min
+    cond_bad_A_V |= df[f"HBETA S/N"] < balmer_SNR_min
+    df.loc[cond_bad_A_V, f"A_V"] = np.nan
+    df.loc[cond_bad_A_V, f"A_V error"] = np.nan
+
+    # Correct emission line fluxes in cells where A_V > 0
+    # idxs_to_correct = df[(df[f"A_V"] > 0) & (~df[f"A_V"].isna())].index.values
+    for rr in tqdm(df.index.values):
+        if df.loc[rr, f"A_V"] > 0:
+            for eline in eline_list:
+                lambda_A = eline_lambdas_A[eline]
+                A_line = ext_fn(wave=np.array([lambda_A]), 
+                                a_v=df.loc[rr, f"A_V"], 
+                                unit="aa")[0]
+                
+                # Apply correction
+                tmp = df.loc[rr, f"{eline}"].copy()
+                df.loc[rr, f"{eline}"] *= 10**(0.4 * A_line)
+                df.loc[rr, f"{eline} error"] *= 10**(0.4 * A_line)
+                
+                # Check that the extinction correction has actually been applied
+                try:
+                    if ~np.isnan(tmp):
+                        assert df.loc[rr, f"{eline}"] >= tmp
+                except AssertionError:
+                    Tracer()()
+
+    # Rename columns
+    if s is not None:
+        # Get list of new columns that have been added
+        added_cols = [c for c in df.columns if c not in old_cols]
+        suffix_added_cols = [f"{c}{s}" for c in added_cols]
+        # Rename the new columns
+        df = df.rename(columns=dict(zip(added_cols, suffix_added_cols)))
+        # Replace the suffix in the column names
+        df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
+
+    return df
+
+
+################################################################################
+def metallicity_fn(met_diagnostic, u_diagnostic, flux_dict, flux_err_dict,
+    niters=100, fn=None, quiet=True):
+    """
+        Use the iterative method described in Kewley & Dopita (2002) to estimate 
+        the metallicity and ionisation parameter using emission line ratios via 
+        the diagnostics given in Lisa"s ARAA paper.
+        ------------------------------------------------------------------------
+        met_diagnostic: 
+            "R23"  = ([OIII] + [OII])/Hbeta
+            "N2O2" : [NII]/[OII]
+            "O2S2" : [OII]/[SII]
+
+        u_diagnostic: 
+            "O3O2" : [OIII]/[OII]
+
+        flux_dict:
+            dictionary containing emission line fluxes used in the diagnostics.
+            Can be scalars or arrays.
+
+        flux_err_dict:
+            dictionary containing Gaussian 1sigma error estimates for 
+            emission line fluxes used in the diagnostics.
+            Can be scalars or arrays.
+        
+    """
+    if not quiet:
+        print("-------------------------------------------")
+        print("USING METALLICITY DIAGNOSTIC " + met_diagnostic)
+        print("USING IONISATION PARAMETER DIAGNOSTIC " + u_diagnostic)
+        print("-------------------------------------------")
+
+    _check_dict_sizes(flux_dict)
+
+    # Check dimensions of input arrays
+    if np.isscalar(flux_dict[list(flux_dict.keys())[0]]):
+        for eline in flux_dict.keys():
+            flux_dict[eline] = np.array([[flux_dict[eline]]])
+            flux_err_dict[eline] = np.array([[flux_err_dict[eline]]])
+    elif flux_dict[list(flux_dict.keys())[0]].ndim == 1:
+        for eline in flux_dict.keys():
+            flux_dict[eline] = flux_dict[eline][:,None]
+            flux_err_dict[eline] = flux_err_dict[eline][:,None]
+    nrows, ncols = flux_dict[list(flux_dict.keys())[0]].shape
+
+    # ITERATIVE PROCEDURE FOR ESTIMATING METALLICITY AND IONISATION PARAMETER
+    logOH12_map = np.full((nrows,ncols),np.nan)
+    logU_map= np.full((nrows,ncols),np.nan)
+    logOH12_err_map = np.full((nrows,ncols),np.nan)
+    logU_err_map= np.full((nrows,ncols),np.nan)
+
+    for rr in range(nrows):
+        for cc in range(ncols):
+            if not quiet:
+                print("Processing spaxel ({:d}, {:d})...".format(rr,cc))
+            # Use an iterative method to estimate the error on the estimated 
+            # metallicity and ionisation parameter in each spaxel
+
+            # Arrays to store the metallicity and ionisation parameter estimatd
+            # in each iteration
+            logOH12_vals = np.full(niters,np.nan)
+            logU_vals = np.full(niters,np.nan)
+
+            for nn in range(niters):
+
+                # Make a dict to use for this spaxel
+                flux_dict_tmp = {}
+                for key in flux_dict.keys():
+                    flux_dict_tmp[key] = flux_dict[key][rr,cc]
+                    # Add a random error
+                    flux_dict_tmp[key] += np.random.normal(scale=flux_err_dict[key][rr,cc])
+
+                # Starting guesses
+                logOH12 = 8.0
+                logOH12_old = 0
+                logU = -3.0
+                logU_old = 0
+
+                # Use an iterative method to determine the metallicity and
+                # ionisation parameter
+                iters = 0
+                max_iters = 1e3
+                while np.abs((logOH12 - logOH12_old)/logOH12) > 0.001 and np.abs((logU - logU_old)/logU) > 0.001:
+                    if iters >= max_iters:
+                        if not quiet:
+                            print("Maximum number of iterations exceeded for spaxel ({:d}, {:d})!".format(rr,cc))
+                        break
+                    logU_old = logU
+                    logOH12_old = logOH12
+                    logU = get_ionisation_parameter(u_diagnostic,flux_dict_tmp, logOH12)
+                    logOH12 = get_metallicity(met_diagnostic, flux_dict_tmp, logU, fn)
+                    iters += 1
+
+                # If the chosen diagnostic is not one of the default ones, then assume its valid range is infinite
+                if met_diagnostic in met_coeffs:
+                    Zmin = met_coeffs[met_diagnostic]["Zmin"]
+                    Zmax = met_coeffs[met_diagnostic]["Zmax"]
+                else:
+                    Zmin = -np.inf
+                    Zmax = np.inf
+                if logOH12 >= Zmin and logOH12 <= Zmax and ~np.isnan(logU) and ~np.isnan(logOH12) and iters < max_iters:
+                    logOH12_vals[nn] = logOH12
+                    logU_vals[nn] = logU
+
+            logOH12_map[rr,cc] = np.nanmean(logOH12_vals)
+            logU_map[rr,cc] = np.nanmean(logU_vals)
+            logOH12_err_map[rr,cc] = np.nanstd(logOH12_vals)
+            logU_err_map[rr,cc] = np.nanstd(logU_vals)
+
+    return logOH12_map, logU_map, logOH12_err_map, logU_err_map
+
 
