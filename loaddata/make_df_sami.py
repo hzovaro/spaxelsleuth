@@ -17,17 +17,38 @@ import warnings
 warnings.filterwarnings(action="ignore", message="Mean of empty slice")
 warnings.filterwarnings(action="ignore", message="invalid value encountered in sqrt")
 
+
+"""
+This script is used to create a Pandas DataFrame containing emission line 
+fluxes & kinematics, stellar kinematics, extinction, star formation rates, 
+and other quantities for all galaxies as taken from SAMI DR3. 
+
+FITS files containing each quantity for each galaxy
+    e.g., "<gal>_Halpha_<bin type>_<number of components>-comp.fits"
+must be stored here:
+    SAMI_DIR/ifs/<gal>/
+
+The output is stored as a Pandas DataFrame in which each row corresponds
+to a given spaxel (or Voronoi bin) for every galaxy.
+
+"""
+
 ###############################################################################
 # Paths
-sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
-sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
+sami_data_path = os.environ["SAMI_DIR"]
+assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
+sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
+assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
 
 ###############################################################################
 # User options
 ncomponents = sys.argv[1]       # Options: "1" or "recom"
-bin_type = "default"
-assert bin_type == "default", "bin_type must be 'default'!"
-debug = False
+bin_type = sys.argv[2]          # Options: "default" (i.e. no binning) or "adaptive" (i.e. Voronoi binning)
+assert bin_type in ["default", "adaptive"], "bin_type must be 'default' or 'adaptive'!"
+nthreads_max = 20               # Maximum number of threds to use 
+
+# If run in debug mode, the script will only be run for one galaxy.
+debug = False 
 plotit = False
 if debug:
     print("WARNING: running in debug mode...")
@@ -45,6 +66,10 @@ gal_ids_dq_cut = df_metadata[df_metadata["Good?"] == True].index.values
 if debug: 
     gal_ids_dq_cut = gal_ids_dq_cut[:10]
 df_metadata["Good?"] = df_metadata["Good?"].astype("float")
+
+# Turn off plotting if more than 1 galaxy is to be run
+if plotit and len(gal_ids_dq_cut) > 1:
+    plotit = False
 
 ###############################################################################
 # STORING IFS DATA
@@ -165,14 +190,57 @@ def process_gals(args):
     hdulist_v.close()
 
     #######################################################################
-    # Create an image from the datacube to figure out where are "good" spaxels
+    # Compute the spaxel or bin coordinates, depending on the binning scheme 
     im = np.nansum(data_cube_B, axis=0)
-    if np.any(im.flatten() < 0): # NaN out -ve spaxels. Most galaxies seem to have *some* -ve pixels
-        im[im <= 0] = np.nan
+    if bin_type == "default":
+        # Create an image from the datacube to figure out where are "good" spaxels
+        if np.any(im.flatten() < 0): # NaN out -ve spaxels. Most galaxies seem to have *some* -ve pixels
+            im[im <= 0] = np.nan
 
-    # Compute the coordinates of "good" spaxels, store in arrays
-    y_c_list, x_c_list = np.argwhere(~np.isnan(im)).T
-    ngood_bins = len(x_c_list)
+        # Compute the coordinates of "good" spaxels, store in arrays
+        y_c_list, x_c_list = np.argwhere(~np.isnan(im)).T
+        ngood_bins = len(x_c_list)
+
+        # List of bin sizes, in pixels
+        bin_size_list_px = [1] * ngood_bins
+        bin_number_list = np.arange(1, ngood_bins + 1)
+
+    # Compute the light-weighted bin centres, based on the blue unbinned
+    # data cube
+    elif bin_type == "adaptive":
+        # Open the binned blue cube. Get the bin mask extension.
+        hdulist_binned_cube = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_adaptive_blue.fits.gz"))
+        bin_map = hdulist_binned_cube[2].data.astype("float")
+        bin_map[bin_map==0] = np.nan
+
+        bin_number_list = np.array([nn for nn in np.unique(bin_map) if ~np.isnan(nn)])
+        nbins = len(bin_number_list)
+        x_c_list = np.full(nbins, np.nan)
+        y_c_list = np.full(nbins, np.nan)
+        bin_size_list_px = np.full(nbins, np.nan)
+        for ii, nn in enumerate(bin_number_list):
+            # generate a bin mask.
+            bin_mask = bin_map == nn
+            bin_size_list_px[ii] = len(bin_mask[bin_mask == True])
+            # compute the centroid of the bin.
+            x_c = np.nansum(xs * bin_mask * im) / np.nansum(bin_mask * im)
+            y_c = np.nansum(ys * bin_mask * im) / np.nansum(bin_mask * im)
+            # Don't add the centroids if they are out of bounds.
+            if (x_c < 0 or x_c >= 50 or y_c < 0 or y_c >= 50):
+                x_c_list[ii] = np.nan
+                y_c_list[ii] = np.nan
+            else:
+                x_c_list[ii] = x_c
+                y_c_list[ii] = y_c
+
+        #######################################################################
+        # Bin numbers corresponding to bins actually present in the image
+        good_bins = np.argwhere(~np.isnan(x_c_list)).flatten()
+        ngood_bins = len(good_bins)
+        x_c_list = x_c_list[good_bins]
+        y_c_list = y_c_list[good_bins]
+        bin_size_list_px = bin_size_list_px[good_bins]
+        bin_number_list = bin_number_list[good_bins]  
 
     #######################################################################
     # Calculate the inclination
@@ -212,9 +280,7 @@ def process_gals(args):
     #######################################################################
     # For plotting
     if plotit:
-        for ax in axs:
-            ax.clear()
-        fig.suptitle(gal)
+        fig, axs = plt.subplots(ncols=2, figsize=(10, 5))
         axs[0].imshow(im, origin="lower")
         axs[1].axhline(0)
         axs[1].axvline(0)
@@ -222,7 +288,6 @@ def process_gals(args):
         axs[0].scatter(x0_px, y0_px, color="white")
         axs[1].scatter(x_prime_list, y_prime_list, color="r")
         axs[1].scatter(x_prime_list, y_prime_projec_list, color="r", alpha=0.3)
-        # Plot circles showing 
         axs[1].axis("equal")
         fig.canvas.draw()
 
@@ -326,9 +391,10 @@ def process_gals(args):
     rows_list.append(np.array(x_prime_list).flatten() * as_per_px)
     rows_list.append(np.array(y_prime_list).flatten() * as_per_px)
     rows_list.append(np.array(r_prime_list).flatten() * as_per_px)
-    rows_list.append(np.array([1] * ngood_bins))
-    rows_list.append(np.array([as_per_px**2] * ngood_bins))
-    rows_list.append(np.array([as_per_px**2 * df_metadata.loc[gal, "kpc per arcsec"]**2] * ngood_bins))
+    rows_list.append(np.array(bin_number_list))
+    rows_list.append(np.array(bin_size_list_px))
+    rows_list.append(np.array(bin_size_list_px) * as_per_px**2)
+    rows_list.append(np.array(bin_size_list_px) * as_per_px**2 * df_metadata.loc[gal, "kpc per arcsec"]**2)
     colnames.append("Inclination i (degrees)")
     colnames.append("Galaxy centre x0_px (projected, arcsec)")
     colnames.append("Galaxy centre y0_px (projected, arcsec)")
@@ -337,6 +403,7 @@ def process_gals(args):
     colnames.append("x (relative to galaxy centre, deprojected, arcsec)")
     colnames.append("y (relative to galaxy centre, deprojected, arcsec)")
     colnames.append("r (relative to galaxy centre, deprojected, arcsec)")
+    colnames.append("Bin number")
     colnames.append("Bin size (pixels)")
     colnames.append("Bin size (square arcsec)")
     colnames.append("Bin size (square kpc)")
@@ -361,12 +428,16 @@ def process_gals(args):
 ###############################################################################
 # Run in parallel
 ###############################################################################
-print("Beginning pool...")
 args_list = [[ii, g] for ii, g in enumerate(gal_ids_dq_cut)]
-pool = multiprocessing.Pool(20)
-res_list = np.array((pool.map(process_gals, args_list)))
-pool.close()
-pool.join()
+
+if len(gal_ids_dq_cut) == 1:
+    res_list = [process_gals(args_list[0])]
+else:
+    print("Beginning pool...")
+    pool = multiprocessing.Pool(min([nthreads_max, len(gal_ids_dq_cut)]))
+    res_list = np.array((pool.map(process_gals, args_list)))
+    pool.close()
+    pool.join()
 
 ###############################################################################
 # Convert to a Pandas DataFrame
