@@ -1,6 +1,8 @@
 import numpy as np
 import extinction
 from tqdm import tqdm
+import pandas as pd
+import multiprocessing
 
 from IPython.core.debugger import Tracer
 
@@ -712,9 +714,27 @@ def ratio_fn(df, s=None):
     return df
 
 ################################################################################
+def a_v_fn(args):
+    rr, df, eline_list, ext_fn = args 
+    df_row = df.loc[rr]
+    if df_row[f"A_V"] > 0:
+        for eline in eline_list:
+            lambda_A = eline_lambdas_A[eline]
+            A_line = ext_fn(wave=np.array([lambda_A]), 
+                            a_v=df_row[f"A_V"], 
+                            unit="aa")[0]
+            
+            # Apply correction
+            df_row[f"{eline}"] *= 10**(0.4 * A_line)
+            df_row[f"{eline} error"] *= 10**(0.4 * A_line)
+    # print(f"Finished processing row {rr}")
+    return df_row
+
+################################################################################
 def extinction_corr_fn(df, eline_list,
                        reddening_curve="fm07", R_V=3.1, 
                        balmer_SNR_min=5,
+                       nthreads=20,
                        s=None):
     """
     Correct emission line fluxes (and errors) for extinction.
@@ -729,6 +749,9 @@ def extinction_corr_fn(df, eline_list,
     balmer_SNR_min:     float
         Minimum SNR of the HALPHA and HBETA fluxes to accept in order to compute 
         A_V.
+    nthreads:           int
+        Number of threads on which to concurrently compute extinction correction
+        factors. 
 
     """
     # Remove suffixes on columns
@@ -791,25 +814,55 @@ def extinction_corr_fn(df, eline_list,
 
     # Correct emission line fluxes in cells where A_V > 0
     # idxs_to_correct = df[(df[f"A_V"] > 0) & (~df[f"A_V"].isna())].index.values
-    for rr in tqdm(df.index.values):
-        if df.loc[rr, f"A_V"] > 0:
-            for eline in eline_list:
-                lambda_A = eline_lambdas_A[eline]
-                A_line = ext_fn(wave=np.array([lambda_A]), 
-                                a_v=df.loc[rr, f"A_V"], 
-                                unit="aa")[0]
-                
-                # Apply correction
-                tmp = df.loc[rr, f"{eline}"].copy()
-                df.loc[rr, f"{eline}"] *= 10**(0.4 * A_line)
-                df.loc[rr, f"{eline} error"] *= 10**(0.4 * A_line)
-                
-                # Check that the extinction correction has actually been applied
-                try:
-                    if ~np.isnan(tmp):
-                        assert df.loc[rr, f"{eline}"] >= tmp
-                except AssertionError:
-                    Tracer()()
+    if False:
+        for rr in tqdm(df.index.values):
+            if df.loc[rr, f"A_V"] > 0:
+                for eline in eline_list:
+                    lambda_A = eline_lambdas_A[eline]
+                    A_line = ext_fn(wave=np.array([lambda_A]), 
+                                    a_v=df.loc[rr, f"A_V"], 
+                                    unit="aa")[0]
+                    
+                    # Apply correction
+                    tmp = df.loc[rr, f"{eline}"].copy()
+                    df.loc[rr, f"{eline}"] *= 10**(0.4 * A_line)
+                    df.loc[rr, f"{eline} error"] *= 10**(0.4 * A_line)
+                    
+                    # Check that the extinction correction has actually been applied
+                    try:
+                        if ~np.isnan(tmp):
+                            assert df.loc[rr, f"{eline}"] >= tmp
+                    except AssertionError:
+                        Tracer()()
+
+    
+    
+
+
+    # Multithreading 
+    pd.options.mode.chained_assignment = None
+    args_list = [[rr, df, eline_list, ext_fn] for rr in df.index.values]
+    print("Beginning pool...")
+    pool = multiprocessing.Pool(nthreads)
+    res_list = tqdm(pool.map(a_v_fn, args_list), total=len(args_list))
+    pool.close()
+    pool.join()
+    pd.options.mode.chained_assignment = "warn"
+
+    # Check results 
+    df_results = pd.concat(res_list, axis=1).T
+
+    # Cast back to previous data types
+    for col in df.columns:
+        df_results[col] = df_results[col].astype(df[col].dtype)
+    df = df_results
+
+    # rr = 314 
+    # print(df_results.loc[rr, "HALPHA"])
+    # print(df.loc[rr, "HALPHA"])
+    # Tracer()()
+
+    # NOTE: what to do if emission line ratios are not SF-like?
 
     # Rename columns
     if s is not None:
