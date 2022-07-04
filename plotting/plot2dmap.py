@@ -12,8 +12,14 @@ plt.ion()
 
 from IPython.core.debugger import Tracer
 
-sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
-s7_data_path = "/priv/meggs3/u5708159/S7/"
+###############################################################################
+# Paths
+sami_data_path = os.environ["SAMI_DIR"]
+assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
+sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
+assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
+s7_data_path = os.environ["S7_DIR"]
+assert "S7_DIR" in os.environ, "Environment variable S7_DIR is not defined!"
 
 ###############################################################################
 def plot2dmap(df_gal, col_z, bin_type, survey,
@@ -85,14 +91,18 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     # Reconstruct & plot the 2D map
     ###########################################################################
     # Reconstruct 2D arrays from the rows in the data frame.
-    col_z_map = np.full((50, 50), np.nan) if survey == "sami" else np.full((38, 25), np.nan)
+    if survey == "sami":
+        col_z_map = np.full((50, 50), np.nan)
+    elif survey == "s7":
+        col_z_map = np.full((38, 25), np.nan)
+    
     if bin_type == "adaptive":
         hdulist = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
         bin_map = hdulist[2].data.astype("float")
         bin_map[bin_map==0] = np.nan
-        for ii in df_gal["bin_number"]:
-            bin_mask = bin_map == ii
-            col_z_map[bin_mask] = df_gal.loc[df_gal["bin_number"] == ii, col_z]
+        for nn in df_gal["Bin number"]:
+            bin_mask = bin_map == nn
+            col_z_map[bin_mask] = df_gal.loc[df_gal["Bin number"] == nn, col_z]
 
     elif bin_type == "default":
         df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
@@ -137,9 +147,9 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
                 hdulist = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
                 bin_map = hdulist[2].data.astype("float")
                 bin_map[bin_map==0] = np.nan
-                for ii in df_gal["bin_number"]:
-                    bin_mask = bin_map == ii
-                    col_z_contour_map[bin_mask] = df_gal.loc[df_gal["bin_number"] == ii, col_z_contours]
+                for nn in df_gal["Bin number"]:
+                    bin_mask = bin_map == nn
+                    col_z_contour_map[bin_mask] = df_gal.loc[df_gal["Bin number"] == nn, col_z_contours]
 
             elif bin_type == "default":
                 df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
