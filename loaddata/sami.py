@@ -1,6 +1,8 @@
 import os
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
+import extinction
 
 from spaxelsleuth.loaddata import dqcut, linefns
 
@@ -76,6 +78,85 @@ def load_sami_galaxies(ncomponents, bin_type,
     df.loc[df["Number of components"] == 0, sfr_cols] = np.nan
 
     ######################################################################
+    # EXTINCTION CORRECTION
+    # Correct emission line fluxes (but not EWs!)
+    # NOTE: extinction.fm07 assumes R_V = 3.1 so do not change R_V from 
+    # this value!!!
+    ######################################################################
+    if correct_extinction:
+        print("WARNING: in load_sami_galaxies: correcting emission line fluxes (but not EWs) for extinction!")
+        """
+        for cc in ["total"]:
+            # Compute A_V in each spaxel
+            df[f"Balmer decrement ({cc})"] = df[f"HALPHA ({cc})"] / df[f"HBETA ({cc})"]
+            df[f"Balmer decrement error ({cc})"] =\
+                df[f"Balmer decrement ({cc})"] * \
+                np.sqrt( (df[f"HALPHA error ({cc})"] / df[f"HALPHA ({cc})"])**2 +\
+                         (df[f"HBETA error ({cc})"] / df[f"HBETA ({cc})"])**2 )
+
+            # Compute E(B-V)
+            E_ba = 2.5 * (np.log10(df[f"Balmer decrement ({cc})"])) - 2.5 * np.log10(2.86)
+            E_ba_err = 2.5 / np.log(10) * df[f"Balmer decrement error ({cc})"] / df[f"Balmer decrement ({cc})"]
+
+            # Calculate ( A(Ha) - A(Hb) ) / E(B-V) from extinction curve
+            R_V = 3.1
+            wave_1_A = np.array([linefns.eline_lambdas_A["HALPHA"]])
+            wave_2_A = np.array([linefns.eline_lambdas_A["HBETA"]])
+            E_ba_over_E_BV = float(extinction.fm07(wave_2_A, a_v=1.0) - extinction.fm07(wave_1_A, a_v=1.0) ) /  1.0 * R_V
+
+            # Calculate E(B-V)
+            E_BV = 1 / E_ba_over_E_BV * E_ba
+            E_BV_err = 1 / E_ba_over_E_BV * E_ba_err
+
+            # Calculate A(V)
+            df[f"A_V ({cc})"] = R_V * E_BV
+            df[f"A_V error ({cc})"] = R_V * E_BV_err
+
+            # DQ cut: non-physical Balmer decrement (set A_V = 0)
+            cond_negative_A_V = df[f"A_V ({cc})"] < 0
+            df.loc[cond_negative_A_V, f"A_V ({cc})"] = 0
+            df.loc[cond_negative_A_V, f"A_V error ({cc})"] = 0
+
+            # DQ cut: low S/N HALPHA and HBETA fluxes (set A_V = NaN)
+            cond_bad_A_V = df[f"HALPHA S/N ({cc})"] < 5
+            cond_bad_A_V |= df[f"HBETA S/N ({cc})"] < 5
+            df.loc[cond_bad_A_V, f"A_V ({cc})"] = np.nan
+            df.loc[cond_bad_A_V, f"A_V error ({cc})"] = np.nan
+
+            # Correct emission line fluxes in cells where A_V > 0
+            # idxs_to_correct = df[(df[f"A_V ({cc})"] > 0) & (~df[f"A_V ({cc})"].isna())].index.values
+            for rr in tqdm(df.index.values):
+                if df.loc[rr, f"A_V ({cc})"] > 0:
+                    for eline in eline_list:
+                        lambda_A = linefns.eline_lambdas_A[eline]
+                        A_line = extinction.fm07(wave=np.array([lambda_A]), 
+                                                 a_v=df.loc[rr, f"A_V ({cc})"], 
+                                                 unit="aa")[0]
+                        
+                        # Apply correction
+                        # print("Before correction: %.6f" % df.iloc[rr][f"{eline} ({cc})"])
+                        tmp = df.loc[rr, f"{eline} ({cc})"].copy()
+                        df.loc[rr, f"{eline} ({cc})"] *= 10**(0.4 * A_line)
+                        df.loc[rr, f"{eline} error ({cc})"] *= 10**(0.4 * A_line)
+                        # Check that the extinction correction has actually been applied
+                        try:
+                            if ~np.isnan(tmp):
+                                assert df.loc[rr, f"{eline} ({cc})"] >= tmp
+                        except AssertionError:
+                            Tracer()()
+
+                        # print("After correction: %.6f" % df.iloc[rr][f"{eline} ({cc})"])
+        """
+        df = linefns.extinction_corr_fn(df, eline_list=eline_list, 
+                                        reddening_curve="fm07", 
+                                        balmer_SNR_min=5,
+                                        s=f" (total)")
+        df["Corrected for extinction?"] = True
+    else:
+        print("WARNING: in load_sami_galaxies: NOT correcting emission line fluxes for extinction!")
+        df["Corrected for extinction?"] = False
+
+    ######################################################################
     # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
     ######################################################################
     df = linefns.ratio_fn(df, s=f" (total)")
@@ -92,38 +173,7 @@ def load_sami_galaxies(ncomponents, bin_type,
     ######################################################################
     df = linefns.whav_fn(df, ncomponents=3 if ncomponents=="recom" else 1)
 
-    ######################################################################
-    # CORRECT HALPHA FLUX AND EW FOR EXTINCTION
-    # Note that we only have enough information from the provided extinction
-    # maps to correct the Halpha line. We therefore apply this correction 
-    # AFTER we compute line ratios, etc.
-    ######################################################################
-    if correct_extinction:
-        print("WARNING: in load_sami_galaxies: correcting Halpha and HALPHA EW for extinction!")
-        # Use the provided extinction correction map to correct Halpha 
-        # fluxes & EWs
-        df["HALPHA (total)"] *= df["HALPHA extinction correction"]
-        df["HALPHA error (total)"] *= df["HALPHA extinction correction"]
-        df["HALPHA EW (total)"] *= df["HALPHA extinction correction"]
-        df["HALPHA EW error (total)"] *= df["HALPHA extinction correction"]
-        df["log HALPHA EW (total)"] += np.log10(df["HALPHA extinction correction"])
-        # Re-compute log errors
-        df["log HALPHA EW error (lower) (total)"] = df["log HALPHA EW (total)"] - np.log10(df["HALPHA EW (total)"] - df["HALPHA EW error (total)"])
-        df["log HALPHA EW error (upper) (total)"] = np.log10(df["HALPHA EW (total)"] + df["HALPHA EW error (total)"]) -  df["log HALPHA EW (total)"]
-
-        for component in range(3 if ncomponents == "recom" else 1):
-            df[f"HALPHA (component {component})"] *= df["HALPHA extinction correction"]
-            df[f"HALPHA error (component {component})"] *= df["HALPHA extinction correction"]
-            df[f"HALPHA EW (component {component})"] *= df["HALPHA extinction correction"]
-            df[f"HALPHA EW error (component {component})"] *= df["HALPHA extinction correction"]
-            df[f"log HALPHA EW (component {component})"] += np.log10(df["HALPHA extinction correction"])
-            # Re-compute log errors
-            df[f"log HALPHA EW error (lower) (component {component})"] = df[f"log HALPHA EW (component {component})"] - np.log10(df[f"HALPHA EW (component {component})"] - df[f"HALPHA EW error (component {component})"])
-            df[f"log HALPHA EW error (upper) (component {component})"] = np.log10(df[f"HALPHA EW (component {component})"] + df[f"HALPHA EW error (component {component})"]) -  df[f"log HALPHA EW (component {component})"]
-    else:
-        print("WARNING: in load_sami_galaxies: NOT correcting Halpha and HALPHA EW for extinction!")
-
-    return df
+    return df.sort_index()
 
 ###############################################################################
 if __name__ == "__main__":
