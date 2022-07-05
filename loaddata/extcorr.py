@@ -37,7 +37,11 @@ eline_lambdas_A = {
 }
 
 ################################################################################
-def a_v_fn(args):
+def extcorr_helper_fn(args):
+    """
+    Function used to parallelise extinction correction computation in
+    extinction_corr_fn().
+    """
     rr, df, eline_list, ext_fn = args 
     df_row = df.loc[rr]
     if df_row[f"A_V"] > 0:
@@ -154,7 +158,7 @@ def extinction_corr_fn(df, eline_list,
     #//////////////////////////////////////////////////////////////////////////
     # Correct emission line fluxes in cells where A_V > 0
     #//////////////////////////////////////////////////////////////////////////
-    # Turn off "settingwithcopy" warning because it pops up in a_v_fn,
+    # Turn off "settingwithcopy" warning because it pops up in extcorr_helper_fn,
     # even though we ARE changing the values properly.
     pd.options.mode.chained_assignment = None
 
@@ -162,7 +166,7 @@ def extinction_corr_fn(df, eline_list,
     args_list = [[rr, df_extcorr, eline_list, ext_fn] for rr in df_extcorr.index.values]
     print(f"In extcorr.extinction_corr_fn(): Multithreading A_V computation across {nthreads} threads...")
     pool = multiprocessing.Pool(nthreads)
-    res_list = pool.map(a_v_fn, args_list)
+    res_list = pool.map(extcorr_helper_fn, args_list)
     pool.close()
     pool.join()
 
