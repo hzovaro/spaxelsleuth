@@ -48,10 +48,9 @@ ncomponents = sys.argv[1]       # Options: "1" or "recom"
 bin_type = sys.argv[2]          # Options: "default" (i.e. no binning) or "adaptive" (i.e. Voronoi binning)
 assert bin_type in ["default", "adaptive"], "bin_type must be 'default' or 'adaptive'!"
 nthreads_max = 20               # Maximum number of threds to use 
-correct_extinction = True
 
 # For printing to stdout
-status_str = f"In sami.load_sami_galaxies() [bin_type={bin_type}, ncomponents={ncomponents}, correct_extinction={correct_extinction}]"
+status_str = f"In sami.load_sami_galaxies() [bin_type={bin_type}, ncomponents={ncomponents}]"
 
 # If run in debug mode, the script will only be run for one galaxy.
 debug = False 
@@ -65,13 +64,29 @@ df_metadata_fname = "sami_dr3_metadata.hd5"
 
 # Output file name 
 df_fname = f"sami_{bin_type}_{ncomponents}-comp"
-if correct_extinction:
-    df_fname += "_extcorr"
+df_fname_extcorr = f"sami_{bin_type}_{ncomponents}-comp_extcorr"
 if debug:
     df_fname += "_DEBUG"
+    df_fname_extcorr += "_DEBUG"
 df_fname += ".hd5"
+df_fname_extcorr += ".hd5"
 
-print(f"{status_str}: saving to file {df_fname}...")
+print(f"{status_str}: saving to files {df_fname} and {df_fname_extcorr}...")
+
+# ###############################################################################
+# # Seeing why the extinction correction breaks...
+# ###############################################################################
+# df_spaxels = pd.read_hdf(os.path.join(sami_data_path, df_fname))
+# df_spaxels_extcorr = df_spaxels.copy()
+# df_spaxels_extcorr = linefns.extcorr.extinction_corr_fn(df_spaxels_extcorr, 
+#                                 eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
+#                                 reddening_curve="fm07", 
+#                                 balmer_SNR_min=5, nthreads=nthreads_max,
+#                                 s=f" (total)")
+# df_spaxels_extcorr["Corrected for extinction?"] = True
+# df_spaxels["Corrected for extinction?"] = False
+
+# sys.exit()
 
 ###############################################################################
 # READ IN THE METADATA
@@ -629,29 +644,41 @@ df_spaxels["SFR (component 0)"] = df_spaxels["SFR (total)"] * df_spaxels["HALPHA
 df_spaxels["SFR error (component 0)"] = df_spaxels["SFR error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
 
 ######################################################################
-# EXTINCTION CORRECTION
+# Make a copy of the DataFrame with EXTINCTION CORRECTION
 # Correct emission line fluxes (but not EWs!)
 # NOTE: extinction.fm07 assumes R_V = 3.1 so do not change R_V from 
 # this value!!!
 ######################################################################
-if correct_extinction:
-    print(f"{status_str}: WARNING: correcting emission line fluxes (but not EWs) for extinction!")
-    df_spaxels = linefns.extinction_corr_fn(df_spaxels, 
-                                    eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
-                                    reddening_curve="fm07", 
-                                    balmer_SNR_min=5, nthreads=nthreads_max,
-                                    s=f" (total)")
-    df_spaxels["Corrected for extinction?"] = True
-else:
-    print(f"{status_str}: WARNING: NOT correcting emission line fluxes for extinction!")
-    df_spaxels["Corrected for extinction?"] = False
+print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
+df_spaxels_extcorr = df_spaxels.copy()
+df_spaxels_extcorr = extcorr.extinction_corr_fn(df_spaxels_extcorr, 
+                                eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
+                                reddening_curve="fm07", 
+                                balmer_SNR_min=5, nthreads=nthreads_max,
+                                s=f" (total)")
+df_spaxels_extcorr["Corrected for extinction?"] = True
+df_spaxels["Corrected for extinction?"] = False
+
+# Sort so that both DataFrames have the same order
+df_spaxels_extcorr = df_spaxels_extcorr.sort_index()
+df_spaxels = df_spaxels.sort_index()
 
 ###############################################################################
 # Save to .hd5 & .csv
 ###############################################################################
 print(f"{status_str}: Saving to file...")
+
+# No extinction correction
 df_spaxels.to_csv(os.path.join(sami_data_path, df_fname.split("hd5")[0] + "csv"))
 try:
     df_spaxels.to_hdf(os.path.join(sami_data_path, df_fname), key=f"{bin_type}, {ncomponents}-comp")
 except:
     print(f"{status_str}: Unable to save to HDF file... sigh...")
+
+# With extinction correction
+df_spaxels_extcorr.to_csv(os.path.join(sami_data_path, df_fname_extcorr.split("hd5")[0] + "csv"))
+try:
+    df_spaxels_extcorr.to_hdf(os.path.join(sami_data_path, df_fname_extcorr), key=f"{bin_type}, {ncomponents}-comp")
+except:
+    print(f"{status_str}: Unable to save to HDF file... sigh...")
+
