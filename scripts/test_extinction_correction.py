@@ -164,3 +164,78 @@ cond_low_SN = df_extcorr["HALPHA S/N (total)"] < 5
 cond_low_SN |= df_extcorr["HBETA S/N (total)"] < 5
 assert np.all(df_extcorr.loc[cond_low_SN, "A_V (total)"].isna())
 assert np.all(df_extcorr.loc[cond_low_SN, "A_V error (total)"].isna())
+
+###########################################################################
+# Check how long it takes to extinction-correct the full sample
+###########################################################################
+Tracer()()
+plt.close("all")
+df_extcorr = load_sami_galaxies(ncomponents=ncomponents,
+                        bin_type="default",
+                        eline_SNR_min=eline_SNR_min, 
+                        vgrad_cut=False,
+                        line_amplitude_SNR_cut=True,
+                        correct_extinction=True,
+                        sigma_gas_SNR_cut=True,
+                        debug=False)
+
+df_noextcorr = load_sami_galaxies(ncomponents=ncomponents,
+                        bin_type="default",
+                        eline_SNR_min=eline_SNR_min, 
+                        vgrad_cut=False,
+                        line_amplitude_SNR_cut=True,
+                        correct_extinction=False,
+                        sigma_gas_SNR_cut=True,
+                        debug=False)
+
+###########################################################################
+# BPT before/after 
+###########################################################################
+fig, axs_bpt = plot_empty_BPT_diagram(nrows=3)
+axs_bpt = [axs_bpt[:3], axs_bpt[3:6], axs_bpt[6:]]
+col_y = "log O3"
+for cc, col_x in enumerate(["log N2", "log S2", "log O1"]):
+    # Add BPT functions
+    plot_BPT_lines(ax=axs_bpt[0][cc], col_x=col_x)    
+    plot_BPT_lines(ax=axs_bpt[1][cc], col_x=col_x)    
+    plot_BPT_lines(ax=axs_bpt[2][cc], col_x=col_x)    
+
+    # Plot measurements for this galaxy
+    plot2dhistcontours(df=df_noextcorr,
+                  col_x=f"{col_x} (total)",
+                  col_y=f"{col_y} (total)",
+                  col_z="HALPHA (total)",
+                  ax=axs_bpt[0][cc], 
+                  cax=None, vmin=0, vmax=10,
+                  plot_colorbar=False)
+    
+
+    # Plot measurements for this galaxy
+    plot2dhistcontours(df=df_extcorr,
+                  col_x=f"{col_x} (total)",
+                  col_y=f"{col_y} (total)",
+                  col_z="HALPHA (total)",
+                  ax=axs_bpt[1][cc], 
+                  cax=None, vmin=0, vmax=10,
+                  plot_colorbar=False)
+    
+
+    # Plot measurements for this galaxy
+    plot2dhistcontours(df=df_extcorr,
+                  col_x=f"{col_x} (total)",
+                  col_y=f"{col_y} (total)",
+                  col_z="A_V (total)",
+                  ax=axs_bpt[2][cc], 
+                  cax=None, vmin=0, vmax=3,
+                  plot_colorbar=False)
+
+axs_bpt[0][0].text(s="Before extinction correction (HALPHA flux)",
+                       x=0.05, y=0.95,
+                       transform=axs_bpt[0][0].transAxes)
+axs_bpt[1][0].text(s="After extinction correction (HALPHA flux)",
+                       x=0.05, y=0.95,
+                       transform=axs_bpt[1][0].transAxes)
+axs_bpt[2][0].text(s="After extinction correction (A_V)",
+                   x=0.05, y=0.95,
+                   transform=axs_bpt[2][0].transAxes)
+
