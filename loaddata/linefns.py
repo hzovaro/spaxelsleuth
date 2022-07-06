@@ -610,8 +610,8 @@ def ratio_fn(df, s=None):
         df["O3N2"] = np.log10((df["OIII5007"] / df["HBETA"]) / (df["NII6583"] / df["HALPHA"]))
     if in_df(["OIII4959+OIII5007", "OII3726+OII3729", "HBETA"]):
         df["R23"] = np.log10((df["OIII4959+OIII5007"] + df["OII3726+OII3729"]) / (df["HBETA"]))
-    if in_df(["SII6716+SII6731", "SIII9069", "SIII9531", "HALPHA"]):
-        df["S23"] = np.log10((df["SII6716+SII6731"] + df["SIII9069"] + df["SIII9531"]) / df["HALPHA"])
+    if in_df(["SII6716+SII6731", "SIII9069+SIII9531", "HALPHA"]):
+        df["S23"] = np.log10((df["SII6716+SII6731"] + df["SIII9069+SIII9531"]) / df["HALPHA"])
     if in_df(["SIII9069+SIII9531", "OIII4959+OIII5007"]):
         df["S3O3"] = np.log10((df["SIII9069+SIII9531"]) / (df["OIII4959+OIII5007"]))
     if in_df(["OIII5007", "OII3726", "OII3729"]):
@@ -622,14 +622,21 @@ def ratio_fn(df, s=None):
         df["O2O3"] = np.log10(df["OII3726"] / df["OIII5007"])  # fig. 13 of Allen+1999
     if in_df(["OIII5007", "OI6300"]):
         df["O1O3"] = np.log10(df["OI6300"] / df["OIII5007"])  # fig. 15 of Allen+1999
-    if in_df(["OIII5007", "OII3726", "OII3729"]):
-        df["O3O2"] = np.log10((df["OIII5007"]) / (df["OII3726"] + df["OII3729"]))
+    if in_df(["OIII5007", "OII3726+OII3729"]):
+        df["O3O2"] = np.log10((df["OIII5007"]) / (df["OII3726+OII3729"]))
     if in_df(["SIII9069+SIII9531", "SII6716+SII6731"]):
         df["S32"] = np.log10((df["SIII9069+SIII9531"]) / (df["SII6716+SII6731"]))
     if in_df(["SIII9069+SIII9531", "HALPHA"]):
         df["S3"] = np.log10((df["SIII9069+SIII9531"]) / (df["HALPHA"]))
     if in_df(["NeV3426", "NeIII3869"]):
         df["Ne53"] = np.log10(df["NeV3426"] / df["NeIII3869"])
+    
+    # For the Dopita+2016 metallicity diagnostic, which uses the ratio
+    #   y = log[Nii]/[Sii] + 0.264 log[Nii]/Hα
+    # (see eqn. 13 of Kewley+2019)
+    if in_df(["NII6583", "SII6716+SII6731", "HALPHA"]):
+        df["Dopita+2016"] = np.log10(df["NII6583"] / df["SII6716+SII6731"]) +\
+                            0.264 * np.log10(df["NII6583"] / df["HALPHA"])
 
     # Standard BPT axes
     if in_df(["NII6583", "HALPHA"]):
