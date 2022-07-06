@@ -33,11 +33,7 @@ assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DI
 
 
 ###############################################################################
-def load_sami_galaxies(ncomponents, bin_type,
-                       eline_SNR_min, eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
-                       sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
-                       line_amplitude_SNR_cut=True,
-                       vgrad_cut=False, correct_extinction=False,
+def load_sami_galaxies(ncomponents, bin_type, correct_extinction, eline_SNR_min,
                        debug=False):
 
     #######################################################################
@@ -45,72 +41,23 @@ def load_sami_galaxies(ncomponents, bin_type,
     #######################################################################
     assert (ncomponents == "recom") | (ncomponents == "1"), "ncomponents must be 'recom' or '1'!!"
     assert (bin_type == "default") | (bin_type == "adaptive"), "bin_type must be 'default' or 'adaptive'!!"
-    assert eline_SNR_min >= 0, "eline_SNR_min must be positive!"
-    assert sigma_gas_SNR_min >= 0, "sigma_gas_SNR_min must be positive!"
-    
-    if not debug:
-        df_fname = f"sami_{bin_type}_{ncomponents}-comp.hd5"
-    else:
-        df_fname = f"sami_{bin_type}_{ncomponents}-comp_DEBUG.hd5"
+
+    # Input file name 
+    df_fname = f"sami_{bin_type}_{ncomponents}-comp"
+    if correct_extinction:
+        df_fname += "_extcorr"
+    df_fname += f"_minSNR={eline_SNR_min}"
+    if debug:
+        df_fname += "_DEBUG"
+    df_fname += ".hd5"
+
     assert os.path.exists(os.path.join(sami_data_path, df_fname)),\
         f"File {os.path.join(sami_data_path, df_fname)} does does not exist!"
 
-    #######################################################################
-    # LOAD THE DATAFRAME FROM MEMORY
-    #######################################################################    
+    # Load the data frame
     df = pd.read_hdf(os.path.join(sami_data_path, df_fname))
 
-    ######################################################################
-    # DQ and S/N CUTS
-    ######################################################################
-    df = dqcut.dqcut(df=df, ncomponents=3 if ncomponents == "recom" else 1,
-                  eline_SNR_min=eline_SNR_min, eline_list=eline_list,
-                  sigma_gas_SNR_cut=sigma_gas_SNR_cut,
-                  sigma_gas_SNR_min=sigma_gas_SNR_min,
-                  sigma_inst_kms=29.6,
-                  vgrad_cut=vgrad_cut,
-                  line_amplitude_SNR_cut=line_amplitude_SNR_cut,
-                  stekin_cut=True)
-    
-    # ISSUE: there are spaxels which do not have any HALPHA flux due to our 
-    # S/N requirement that still have defined SFRs. We need to NaN these out. 
-    sfr_cols = [s for s in df.columns if "SFR" in s]
-    df.loc[df["Number of components"] == 0, sfr_cols] = np.nan
-
-    ######################################################################
-    # EXTINCTION CORRECTION
-    # Correct emission line fluxes (but not EWs!)
-    # NOTE: extinction.fm07 assumes R_V = 3.1 so do not change R_V from 
-    # this value!!!
-    ######################################################################
-    if correct_extinction:
-        print("WARNING: in sami.load_sami_galaxies(): correcting emission line fluxes (but not EWs) for extinction!")
-        df = linefns.extinction_corr_fn(df, eline_list=eline_list, 
-                                        reddening_curve="fm07", 
-                                        balmer_SNR_min=5,
-                                        s=f" (total)")
-        df["Corrected for extinction?"] = True
-    else:
-        print("WARNING: in sami.load_sami_galaxies(): NOT correcting emission line fluxes for extinction!")
-        df["Corrected for extinction?"] = False
-
-    ######################################################################
-    # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
-    ######################################################################
-    df = linefns.ratio_fn(df, s=f" (total)")
-    df = linefns.bpt_fn(df, s=f" (total)")
-    df = linefns.law2021_fn(df, s=f" (total)")
-
-    ######################################################################
-    # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
-    ######################################################################
-    df = dqcut.compute_extra_columns(df, ncomponents=3 if ncomponents=="recom" else 1)
-
-    ######################################################################
-    # WHAV* classification
-    ######################################################################
-    df = linefns.whav_fn(df, ncomponents=3 if ncomponents=="recom" else 1)
-
+    # Return
     return df.sort_index()
 
 ###############################################################################
