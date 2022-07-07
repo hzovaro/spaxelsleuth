@@ -12,20 +12,44 @@ from matplotlib.patches import Circle
 
 from IPython.core.debugger import Tracer
 
-SDSS_IM_PATH = "/priv/meggs3/u5708159/SAMI/sami_dr3/sdss/"
-
 ###############################################################################
 def get_sdss_image(gal, ra_deg, dec_deg,
                    as_per_px=0.1, width_px=500, height_px=500):
     """
     Download an SDSS cutout image.
+    --------------------------------------------------------------------------
+    gal:            str
+        Name of galaxy. Note that this is not used in actually retrieving 
+        the image, and is only used in the filename of the image - hence the 
+        name can be arbitrary.
+
+    ra_deg:         float 
+        Right ascension of the galaxy in degrees.
+
+    dec_deg:        float 
+        Declination of the galaxy in degrees.
+
+    as_per_px:      float 
+        Plate scale of the SDSS image in arcseconds per pixel.
+
+    width_px:       int
+        Width of image to download.
+
+    height_px:      int
+        height of image to download.
+
+    --------------------------------------------------------------------------
+    Returns:
+        True if the image was successfully received; False otherwise.
     """
-    
+    sdss_im_path = os.environ["SDSS_IM_PATH"]
+    assert "SDSS_IM_PATH" in os.environ, "Environment variable SDSS_IM_PATH is not defined!"
+
     # Determine the URL
     url = f"http://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/getjpeg?TaskName=Skyserver.Explore.Image&ra={ra_deg}&dec={dec_deg}&scale={as_per_px:.1f}&width={width_px}&height={height_px}&opt=G"
     
     # Download the image
-    imname = os.path.join(SDSS_IM_PATH, f"{gal}_{width_px}x{height_px}.jpg")
+    imname = os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg")
     
     try:
         urlretrieve(url, imname)
@@ -37,9 +61,53 @@ def get_sdss_image(gal, ra_deg, dec_deg,
 
 
 ###############################################################################
-def plot_sdss_image(df_gal, show_title=True, axis_labels=True,
+def plot_sdss_image(df_gal, axis_labels=True,
                     as_per_px=0.1, width_px=500, height_px=500,
                     ax=None, figsize=(9, 7)):    
+
+    """
+    Download and plot the SDSS image of a galaxy with RA and Dec in the supplied 
+    pandas DataFrame. The images are stored in environment variable 
+    SDSS_IM_PATH. Note that if the galaxy is outside the SDSS footprint, 
+    no image is plotted.
+    --------------------------------------------------------------------------
+    df_gal:         pandas DataFrame
+        DataFrame containing spaxel-by-spaxel data for a single galaxy.
+        Must have columns:
+            catid - the catalogue ID of the galaxy
+            ra_obj - the RA of the galaxy in degrees
+            dec_obj - the declination of the galaxy in degrees
+
+    axis_labels:    bool
+        If True, plot RA and Dec axis labels.
+
+    as_per_px:      float 
+        Plate scale of the SDSS image in arcseconds per pixel.
+
+    width_px:       int
+        Width of image to download.
+
+    height_px:      int
+        height of image to download.
+
+    ax:             matplotlib.axis
+        axis on which to plot the image. Note that because axis projections 
+        cannot be changed after an axis is created, the original axis is 
+        removed and replaced with one of the same size with the correct WCS 
+        projection. As a result, the order of the axis in fig.get_axes() 
+        may change! 
+
+    figsize:        tuple (width, height)
+        Only used if axis is not specified, in which case a new figure is 
+        created with figure size figsize.
+
+    --------------------------------------------------------------------------
+    Returns:
+        the axis containing the plotted image.
+
+    """
+    sdss_im_path = os.environ["SDSS_IM_PATH"]
+    assert "SDSS_IM_PATH" in os.environ, "Environment variable SDSS_IM_PATH is not defined!"
 
     # Input checking
     assert len(df_gal["catid"].unique()) == 1, "df_gal must only contain one galaxy!!"
@@ -50,14 +118,14 @@ def plot_sdss_image(df_gal, show_title=True, axis_labels=True,
     gal = df_gal["catid"].unique()[0]
 
     # Load image
-    if not os.path.exists(os.path.join(SDSS_IM_PATH, f"{gal}_{width_px}x{height_px}.jpg")):
+    if not os.path.exists(os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg")):
         # Download the image
-        print(f"WARNING: file {os.path.join(SDSS_IM_PATH, f'{gal}_{width_px}x{height_px}.jpg')} not found. Retrieving image from SDSS...")
+        print(f"WARNING: file {os.path.join(sdss_im_path, f'{gal}_{width_px}x{height_px}.jpg')} not found. Retrieving image from SDSS...")
         if not get_sdss_image(gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
                        as_per_px=as_per_px, width_px=width_px, height_px=height_px):
             return None
             
-    im = mpimg.imread(os.path.join(SDSS_IM_PATH, f"{gal}_{width_px}x{height_px}.jpg"))
+    im = mpimg.imread(os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg"))
 
     # Make a WCS for the image
     wcs = WCS(naxis=2)
