@@ -42,11 +42,12 @@ sami_data_path = os.environ["SAMI_DIR"]
 assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
 assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
+sami_fig_path = os.environ["SAMI_FIG_DIR"]
+assert "SAMI_FIG_DIR" in os.environ, "Environment variable SAMI_FIG_DIR is not defined!"
 
 ###########################################################################
 # Options
-fig_path = "/priv/meggs3/u5708159/SAMI/figs/paper/"
-plt.close("all")
+eline_SNR_min = 5       # Minimum S/N of emission lines to accept
 
 ###########################################################################
 # Load the data
@@ -54,7 +55,7 @@ plt.close("all")
 # Load the ubinned data 
 df = load_sami_galaxies(ncomponents="recom",
                         bin_type="default",
-                        eline_SNR_min=5,
+                        eline_SNR_min=eline_SNR_min,
                         correct_extinction=True,
                         debug=True)
 
@@ -97,7 +98,7 @@ for eline in ["HALPHA", "HBETA", "NII6583", "OIII5007"]:
 # Load the ubinned data 
 df = load_sami_galaxies(ncomponents="1",
                         bin_type="default",
-                        eline_SNR_min=5,
+                        eline_SNR_min=eline_SNR_min,
                         correct_extinction=True,
                         debug=True)
 

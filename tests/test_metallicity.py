@@ -44,13 +44,12 @@ sami_data_path = os.environ["SAMI_DIR"]
 assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
 assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
+sami_fig_path = os.environ["SAMI_FIG_DIR"]
+assert "SAMI_FIG_DIR" in os.environ, "Environment variable SAMI_FIG_DIR is not defined!"
 
 ###########################################################################
 # Options
-fig_path = "/priv/meggs3/u5708159/SAMI/figs/paper/"
-ncomponents = "recom"   # Options: "1" or "recom"
 eline_SNR_min = 5       # Minimum S/N of emission lines to accept
-plt.close("all")
 
 ###########################################################################
 # Load the data
