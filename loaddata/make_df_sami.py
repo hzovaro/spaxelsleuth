@@ -1,3 +1,127 @@
+"""
+File:       make_df_sami.py
+Author:     Henry Zovaro
+Email:      henry.zovaro@anu.edu.au
+
+DESCRIPTION
+------------------------------------------------------------------------------
+This script is used to create a Pandas DataFrame containing emission line 
+fluxes & kinematics, stellar kinematics, extinction, star formation rates, 
+and other quantities for individual spaxels in SAMI galaxies as taken from SAMI 
+DR3.
+
+The output is stored as a Pandas DataFrame in which each row corresponds
+to a given spaxel (or Voronoi bin) for every galaxy. 
+
+USAGE
+------------------------------------------------------------------------------
+make_df_sami.py is run from the command line as follows:    
+
+    >>> python make_df_sami.py <ncomponents> <bin_type> <eline_SNR_min>
+
+where 
+
+    ncomponents:        str
+        Which number of Gaussian components to assume. Options are "recom" (the
+        recommended multi-component fits) or "1" (1-component fits)
+
+    bin_type:           str
+        Spatial binning strategy. Options are "default" (unbinned), "adaptive"
+        (Voronoi binning) or "sectors" (sector binning)
+
+    eline_SNR_min:      int 
+        Minimum emission line flux S/N to assume.
+
+For example,
+    
+    >>> python make_df_sami.py 1 default 5 
+
+will create a DataFrame comprising the 1-component Gaussian fits to the 
+unbinned datacubes, and will use a minimum S/N threshold of 5 to mask out 
+unreliable emission line fluxes and associated quantities.
+
+Other flags and parameters may be set in the script to control other aspects
+of the data quality and S/N cuts made (see lines ~90 below)
+
+Running this script on the full sample takes some time (~10-20 minutes when
+threaded across 20 threads). Execution time can be sped up by tweaking the 
+NTHREADS_MAX parameter. 
+
+If you wish to run in debug mode, set the DEBUG flag to True: this will run 
+the script on a subset (by default 10) galaxies to speed up execution. 
+
+OUTPUTS
+------------------------------------------------------------------------------
+Each time the script is run, TWO DataFrames are produced - with and without 
+extinction correction applied to the emission line fluxes. 
+
+The resulting DataFrame will be stored as 
+
+    SAMI_DIR/sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5
+and SAMI_DIR/sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5
+
+The DataFrames will be stored in CSV format in case saving in HDF format fails
+for any reason.
+
+Note that the Halpha equivalent widths are NOT corrected for extinction in 
+either case. This is because stellar continuum extinction measurements are 
+not available, and so applying the correction only to the Halpha fluxes may 
+over-estimate the true EW.
+
+PREREQUISITES
+------------------------------------------------------------------------------
+SAMI_DIR and SAMI_DATACUBE_DIR must be defined as an environment variable.
+
+make_sami_metadata_df.py must be run first.
+
+SAMI data products must be downloaded from DataCentral
+
+    https://datacentral.org.au/services/download/
+
+and stored as follows: 
+
+    SAMI_DIR/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits
+
+This is essentially the default file structure when data products are 
+downloaded from DataCentral and unzipped:
+
+    sami/dr3/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits
+
+The following data products are required to run this script:
+
+    Halpha_{bin_type}_{ncomponents}-comp.fits,
+    Hbeta_{bin_type}_{ncomponents}-comp.fits,
+    NII6583_{bin_type}_{ncomponents}-comp.fits,
+    OI6300_{bin_type}_{ncomponents}-comp.fits,
+    OII3728_{bin_type}_{ncomponents}-comp.fits,
+    OIII5007_{bin_type}_{ncomponents}-comp.fits,
+    SII6716_{bin_type}_{ncomponents}-comp.fits,
+    SII6731_{bin_type}_{ncomponents}-comp.fits,
+    gas-vdisp_{bin_type}_{ncomponents}-comp.fits,
+    gas-velocity_{bin_type}_{ncomponents}-comp.fits,
+    stellar-velocity-dispersion_{bin_type}_two-moment.fits,
+    stellar-velocity_{bin_type}_two-moment.fits,
+    extinct-corr_{bin_type}_{ncomponents}-comp.fits,
+    sfr-dens_{bin_type}_{ncomponents}-comp.fits,
+    sfr_{bin_type}_{ncomponents}-comp.fits
+
+SAMI data cubes must also be downloaded from DataCentral and stored as follows: 
+
+    SAMI_DATACUBE_DIR/ifs/<gal>/<gal>_A_cube_<blue/red>.fits.gz
+
+SAMI_DATACUBE_DIR can be the same as SAMI_DIR (I just have them differently
+in my setup due to storage space limitations).
+
+------------------------------------------------------------------------------
+Copyright (C) 2022 Henry Zovaro
+"""
+###############################################################################
+# FLAGS 
+NTHREADS_MAX = 20  # Maximum number of threds to use 
+DEBUG = False      # Run in debug mode 
+
+###############################################################################
+# Imports
 import os, sys
 import numpy as np
 from itertools import product
@@ -8,6 +132,9 @@ from tqdm import tqdm
 import multiprocessing
 
 import linefns
+import dqcut
+import extcorr
+import metallicity
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -19,22 +146,6 @@ import warnings
 warnings.filterwarnings(action="ignore", message="Mean of empty slice")
 warnings.filterwarnings(action="ignore", message="invalid value encountered in sqrt")
 
-
-"""
-This script is used to create a Pandas DataFrame containing emission line 
-fluxes & kinematics, stellar kinematics, extinction, star formation rates, 
-and other quantities for all galaxies as taken from SAMI DR3. 
-
-FITS files containing each quantity for each galaxy
-    e.g., "<gal>_Halpha_<bin type>_<number of components>-comp.fits"
-must be stored here:
-    SAMI_DIR/ifs/<gal>/
-
-The output is stored as a Pandas DataFrame in which each row corresponds
-to a given spaxel (or Voronoi bin) for every galaxy.
-
-"""
-
 ###############################################################################
 # Paths
 sami_data_path = os.environ["SAMI_DIR"]
@@ -44,28 +155,36 @@ assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DI
 
 ###############################################################################
 # User options
-ncomponents = sys.argv[1]       # Options: "1" or "recom"
-bin_type = sys.argv[2]          # Options: "default" (i.e. no binning) or "adaptive" (i.e. Voronoi binning)
-assert bin_type in ["default", "adaptive"], "bin_type must be 'default' or 'adaptive'!"
-nthreads_max = 20               # Maximum number of threds to use 
+ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3])]
+assert bin_type in ["default", "adaptive", "sectors"], "bin_type must be 'default' or 'adaptive' or 'sectors'!"
+
+#//////////////////////////////////////////////////////////////////////////////
+# Parameters you may want to change
+met_diagnostic_list = ["N2O2"]  # Which metallicity diagnostics to use 
+logU = -3.0                     # Constant ionisation parameter to assume in metallicity calculation
+
+#//////////////////////////////////////////////////////////////////////////////
+# Parameters you probably don't want to mess with
+line_flux_SNR_cut = True        # Bit of a no-brainer, really...
+vgrad_cut = False               # Set to False b/c it tends to remove nuclear spaxels which may be of interest to your science case, & because it doesn't reliably remove spaxels with quite large beam smearing components
+sigma_gas_SNR_cut = True        # Set to True b/c it's a robust way to account for emission line widths < instrumental
+sigma_gas_SNR_min = 3
+line_amplitude_SNR_cut = True   # Set to True b/c this removes components which are most likely due to errors in the stellar continuum fit
+flux_fraction_cut = False       # Set to False b/c it's unclear whether we need this yet 
+stekin_cut = True               # No reason not to do this
+eline_list = ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]  # Default SAMI emission lines - don't change this!
 
 # For printing to stdout
-status_str = f"In sami.load_sami_galaxies() [bin_type={bin_type}, ncomponents={ncomponents}]"
-
-# If run in debug mode, the script will only be run for one galaxy.
-debug = False 
-plotit = False
-if debug:
-    print(f"{status_str}: WARNING: running in debug mode...")
+status_str = f"In sami.make_df_sami() [bin_type={bin_type}, ncomponents={ncomponents}, debug={DEBUG}, eline_SNR_min={eline_SNR_min}]"
 
 ###############################################################################
 # Filenames
 df_metadata_fname = "sami_dr3_metadata.hd5"
 
 # Output file name 
-df_fname = f"sami_{bin_type}_{ncomponents}-comp"
-df_fname_extcorr = f"sami_{bin_type}_{ncomponents}-comp_extcorr"
-if debug:
+df_fname = f"sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}"
+df_fname_extcorr = f"sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}"
+if DEBUG:
     df_fname += "_DEBUG"
     df_fname_extcorr += "_DEBUG"
 df_fname += ".hd5"
@@ -73,38 +192,27 @@ df_fname_extcorr += ".hd5"
 
 print(f"{status_str}: saving to files {df_fname} and {df_fname_extcorr}...")
 
-# ###############################################################################
-# # Seeing why the extinction correction breaks...
-# ###############################################################################
-# df_spaxels = pd.read_hdf(os.path.join(sami_data_path, df_fname))
-# df_spaxels_extcorr = df_spaxels.copy()
-# df_spaxels_extcorr = linefns.extcorr.extinction_corr_fn(df_spaxels_extcorr, 
-#                                 eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
-#                                 reddening_curve="fm07", 
-#                                 balmer_SNR_min=5, nthreads=nthreads_max,
-#                                 s=f" (total)")
-# df_spaxels_extcorr["Corrected for extinction?"] = True
-# df_spaxels["Corrected for extinction?"] = False
-
-# sys.exit()
-
 ###############################################################################
 # READ IN THE METADATA
 ###############################################################################
-df_metadata = pd.read_hdf(os.path.join(sami_data_path, df_metadata_fname), key="metadata")
+try:
+    df_metadata = pd.read_hdf(os.path.join(sami_data_path, df_metadata_fname), key="metadata")
+except FileNotFoundError:
+    print(f"ERROR: metadata DataFrame file not found ({os.path.join(sami_data_path, df_metadata_fname)}). Please run make_sami_metadata_df.py first!")
+
 gal_ids_dq_cut = df_metadata[df_metadata["Good?"] == True].index.values
-if debug: 
+if DEBUG: 
     gal_ids_dq_cut = gal_ids_dq_cut[:10]
 df_metadata["Good?"] = df_metadata["Good?"].astype("float")
 
 # Turn off plotting if more than 1 galaxy is to be run
 if plotit and len(gal_ids_dq_cut) > 1:
     plotit = False
+plotit = False 
 
 ###############################################################################
 # STORING IFS DATA
 ###############################################################################
-
 # List of filenames
 fname_list = [
     f"Halpha_{bin_type}_{ncomponents}-comp",
@@ -237,9 +345,9 @@ def process_gals(args):
 
     # Compute the light-weighted bin centres, based on the blue unbinned
     # data cube
-    elif bin_type == "adaptive":
+    elif bin_type == "adaptive" or bin_type == "sectors":
         # Open the binned blue cube. Get the bin mask extension.
-        hdulist_binned_cube = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_adaptive_blue.fits.gz"))
+        hdulist_binned_cube = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
         bin_map = hdulist_binned_cube[2].data.astype("float")
         bin_map[bin_map==0] = np.nan
 
@@ -339,6 +447,9 @@ def process_gals(args):
             for jj, coords in enumerate(zip(x_c_list, y_c_list)):
                 x_c, y_c = coords
                 y, x = (int(np.round(y_c)), int(np.round(x_c)))
+                if x > 49 or y > 49:
+                    x = min([x, 49])
+                    y = min([y, 49])
                 thisrow[jj] = data[y, x]
                 thisrow_err[jj] = data_err[y, x]
             rows_list.append(thisrow)
@@ -360,6 +471,9 @@ def process_gals(args):
                 for jj, coords in enumerate(zip(x_c_list, y_c_list)):
                     x_c, y_c = coords
                     y, x = (int(np.round(y_c)), int(np.round(x_c)))
+                    if x > 49 or y > 49:
+                        x = min([x, 49])
+                        y = min([y, 49])
                     thisrow[jj] = data[nn, y, x]
                     thisrow_err[jj] = data_err[nn, y, x]
                 rows_list.append(thisrow)
@@ -375,6 +489,9 @@ def process_gals(args):
         for jj, coords in enumerate(zip(x_c_list, y_c_list)):
             x_c, y_c = coords
             y, x = (int(np.round(y_c)), int(np.round(x_c)))
+            if x > 49 or y > 49:
+                x = min([x, 49])
+                y = min([y, 49])
             thisrow[jj] = v_grad[nn, y, x]
         rows_list.append(thisrow)
         colnames.append(f"v_grad (component {nn})")       
@@ -387,6 +504,9 @@ def process_gals(args):
     for jj, coords in enumerate(zip(x_c_list, y_c_list)):
         x_c, y_c = coords
         y, x = (int(np.round(y_c)), int(np.round(x_c)))
+        if x > 49 or y > 49:
+            x = min([x, 49])
+            y = min([y, 49])
         thisrow[jj] = cont_map[y, x]
         thisrow_std[jj] = cont_map_std[y, x]
         thisrow_err[jj] = cont_map_err[y, x]
@@ -404,6 +524,9 @@ def process_gals(args):
     for jj, coords in enumerate(zip(x_c_list, y_c_list)):
         x_c, y_c = coords
         y, x = (int(np.round(y_c)), int(np.round(x_c)))
+        if x > 49 or y > 49:
+            x = min([x, 49])
+            y = min([y, 49])
         thisrow[jj] = d4000_map[y, x]
         thisrow_err[jj] = d4000_map_err[y, x]
     rows_list.append(thisrow)
@@ -464,10 +587,15 @@ if len(gal_ids_dq_cut) == 1:
     res_list = [process_gals(args_list[0])]
 else:
     print(f"{status_str}: Beginning pool...")
-    pool = multiprocessing.Pool(min([nthreads_max, len(gal_ids_dq_cut)]))
+    pool = multiprocessing.Pool(min([NTHREADS_MAX, len(gal_ids_dq_cut)]))
     res_list = np.array((pool.map(process_gals, args_list)))
     pool.close()
     pool.join()
+
+# res_list = []
+# for args in args_list:
+#     res = process_gals(args)
+#     res_list.append(res)
 
 ###############################################################################
 # Convert to a Pandas DataFrame
@@ -497,7 +625,6 @@ df_spaxels["Morphology"] = [morph_dict[str(m)] for m in df_spaxels["Morphology (
 ###############################################################################
 # Rename columns
 ###############################################################################
-# Only necessary for the adaptively-binned and unbinned data - not necessary for the aperture data
 print(f"{status_str}: Renaming columns...")
 rename_dict = {}
 sami_colnames = [col.split(f"_{bin_type}_{ncomponents}-comp")[0].upper() for col in df_spaxels.columns if col.endswith(f"_{bin_type}_{ncomponents}-comp")]
@@ -621,7 +748,7 @@ df_spaxels["log(M/R_e)"] = df_spaxels["mstar"] - np.log10(df_spaxels["R_e (kpc)"
 # Compute S/N in all lines, in all components
 # Compute TOTAL line fluxes
 ######################################################################
-for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
+for eline in eline_list:
     # Compute S/N 
     for ii in range(3 if ncomponents == "recom" else 1):
         if f"{eline} (component {ii})" in df_spaxels.columns:
@@ -636,12 +763,40 @@ for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII50
     df_spaxels[f"{eline} S/N (total)"] = df_spaxels[f"{eline} (total)"] / df_spaxels[f"{eline} error (total)"]
 
 ######################################################################
-# Compute the SFR and SFR surface density from the 0th component ONLY
+# Fix SFR columns
 ######################################################################
+# Compute the SFR and SFR surface density from the 0th component ONLY
 df_spaxels["SFR surface density (component 0)"] = df_spaxels["SFR surface density (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
 df_spaxels["SFR surface density error (component 0)"] = df_spaxels["SFR surface density error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
 df_spaxels["SFR (component 0)"] = df_spaxels["SFR (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
 df_spaxels["SFR error (component 0)"] = df_spaxels["SFR error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
+
+# NaN the SFR surface density if the inclination is undefined
+cond_NaN_inclination = np.isnan(df_spaxels["Inclination i (degrees)"])
+cols = [c for c in df_spaxels.columns if "SFR surface density" in c]
+df_spaxels.loc[cond_NaN_inclination, cols] = np.nan
+
+# NaN the SFR if the SFR == 0
+# Note: I'm not entirely sure why there are spaxels with SFR == 0
+# in the first place.
+cond_zero_SFR = df_spaxels["SFR (total)"]  == 0
+cols = [c for c in df_spaxels.columns if "SFR" in c]
+df_spaxels.loc[cond_zero_SFR, cols] = np.nan
+
+######################################################################
+# DQ and S/N CUTS
+######################################################################
+df_spaxels = dqcut.dqcut(df=df_spaxels, 
+              ncomponents=3 if ncomponents == "recom" else 1,
+              line_flux_SNR_cut=line_flux_SNR_cut,
+              eline_SNR_min=eline_SNR_min, eline_list=eline_list,
+              sigma_gas_SNR_cut=sigma_gas_SNR_cut,
+              sigma_gas_SNR_min=sigma_gas_SNR_min,
+              sigma_inst_kms=29.6,
+              vgrad_cut=vgrad_cut,
+              line_amplitude_SNR_cut=line_amplitude_SNR_cut,
+              flux_fraction_cut=flux_fraction_cut,
+              stekin_cut=stekin_cut)
 
 ######################################################################
 # Make a copy of the DataFrame with EXTINCTION CORRECTION
@@ -652,9 +807,9 @@ df_spaxels["SFR error (component 0)"] = df_spaxels["SFR error (total)"] * df_spa
 print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
 df_spaxels_extcorr = df_spaxels.copy()
 df_spaxels_extcorr = extcorr.extinction_corr_fn(df_spaxels_extcorr, 
-                                eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
+                                eline_list=eline_list,
                                 reddening_curve="fm07", 
-                                balmer_SNR_min=5, nthreads=nthreads_max,
+                                balmer_SNR_min=5, nthreads=NTHREADS_MAX,
                                 s=f" (total)")
 df_spaxels_extcorr["Corrected for extinction?"] = True
 df_spaxels["Corrected for extinction?"] = False
@@ -662,6 +817,54 @@ df_spaxels["Corrected for extinction?"] = False
 # Sort so that both DataFrames have the same order
 df_spaxels_extcorr = df_spaxels_extcorr.sort_index()
 df_spaxels = df_spaxels.sort_index()
+
+######################################################################
+# EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
+######################################################################
+df_spaxels = linefns.ratio_fn(df_spaxels, s=f" (total)")
+df_spaxels = linefns.bpt_fn(df_spaxels, s=f" (total)")
+df_spaxels_extcorr = linefns.ratio_fn(df_spaxels_extcorr, s=f" (total)")
+df_spaxels_extcorr = linefns.bpt_fn(df_spaxels_extcorr, s=f" (total)")
+
+######################################################################
+# EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
+######################################################################
+df_spaxels = dqcut.compute_extra_columns(df_spaxels, ncomponents=3 if ncomponents=="recom" else 1)
+df_spaxels_extcorr = dqcut.compute_extra_columns(df_spaxels_extcorr, ncomponents=3 if ncomponents=="recom" else 1)
+
+######################################################################
+# EVALUATE METALLICITY
+######################################################################
+for met_diagnostic in met_diagnostic_list:
+    df_spaxels = metallicity.metallicity_fn(df_spaxels, met_diagnostic, logU, s=" (total)")
+    df_spaxels_extcorr = metallicity.metallicity_fn(df_spaxels_extcorr, met_diagnostic, logU, s=" (total)")
+
+###############################################################################
+# Save input flags to the DataFrame so that we can keep track
+###############################################################################
+df_spaxels["Extinction correction applied"] = False
+df_spaxels["line_flux_SNR_cut"] = line_flux_SNR_cut
+df_spaxels["eline_SNR_min"] = eline_SNR_min
+df_spaxels["sigma_gas_SNR_min"] = sigma_gas_SNR_min
+df_spaxels["vgrad_cut"] = vgrad_cut
+df_spaxels["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
+df_spaxels["sigma_gas_SNR_min"] = sigma_gas_SNR_min
+df_spaxels["line_amplitude_SNR_cut"] = line_amplitude_SNR_cut
+df_spaxels["flux_fraction_cut"] = flux_fraction_cut
+df_spaxels["stekin_cut"] = stekin_cut
+df_spaxels["log(U) (const.)"] = logU
+
+df_spaxels_extcorr["Extinction correction applied"] = True
+df_spaxels_extcorr["line_flux_SNR_cut"] = line_flux_SNR_cut
+df_spaxels_extcorr["eline_SNR_min"] = eline_SNR_min
+df_spaxels_extcorr["sigma_gas_SNR_min"] = sigma_gas_SNR_min
+df_spaxels_extcorr["vgrad_cut"] = vgrad_cut
+df_spaxels_extcorr["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
+df_spaxels_extcorr["sigma_gas_SNR_min"] = sigma_gas_SNR_min
+df_spaxels_extcorr["line_amplitude_SNR_cut"] = line_amplitude_SNR_cut
+df_spaxels_extcorr["flux_fraction_cut"] = flux_fraction_cut
+df_spaxels_extcorr["stekin_cut"] = stekin_cut
+df_spaxels_extcorr["log(U) (const.)"] = logU
 
 ###############################################################################
 # Save to .hd5 & .csv

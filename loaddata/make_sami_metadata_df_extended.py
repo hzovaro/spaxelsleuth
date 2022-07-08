@@ -1,3 +1,50 @@
+"""
+File:       make_sami_metadata_df_extended.py
+Author:     Henry Zovaro
+Email:      henry.zovaro@anu.edu.au
+
+DESCRIPTION
+------------------------------------------------------------------------------
+This script is used to create an extended version of the DataFrame containing 
+metadata for each galaxy. 
+
+Additional quantities computed in this script include 
+- compute continuum S/N values in both blue & red SAMI cubes in a variety of 
+  different apertures, making it simpler to select high-S/N targets for your
+  science case;
+- total SFRs computed from the SFR maps provided in SAMI DR3;
+- galaxy inclinations 
+- the maximum number of components fitted in any spaxel in each galaxy.
+
+The extended metadata DataFrame is saved to 
+SAMI_DR/sami_dr3_metadata_extended.hd5.
+
+When run the first time, an additional DataFrame is created ("aperture_snrs.hd5")
+to store the SNR measurements. Additional runs of this script will load 
+this DataFrame if it exists rather than re-computing the SNRs.
+
+USAGE
+------------------------------------------------------------------------------
+Run from the command line as follows:
+
+    >>> python make_sami_metadata_df_extended.py 
+
+OUTPUTS
+------------------------------------------------------------------------------
+The DataFrame is saved to 
+
+    SAMI_DIR/sami_dr3_metadata_extended.hd5
+
+PREREQUISITES
+------------------------------------------------------------------------------
+Both make_sami_metadata_df.py and make_df_sami.py must be run 
+first, as this script requires both the metadata DataFrame (located at 
+SAMI_DIR/sami_dr3_metadata.hd5) and the DataFrame containing spaxel-by-spaxel
+information for every SAMI galaxy.
+
+------------------------------------------------------------------------------
+Copyright (C) 2022 Henry Zovaro
+"""
 import os, sys
 from astropy.io import fits
 import numpy as np
@@ -14,30 +61,11 @@ plt.close()
 from IPython.core.debugger import Tracer
 
 ###############################################################################
-"""
-This script is used to compute continuum S/N values in both blue & red SAMI
-cubes in a variety of different apertures, making it simpler to select high-
-S/N targets for your science case. 
-
-The output DataFrame is essentially an extended version of the "metadata"
-DataFrame created using the script make_sami_metadata_df.py, where the 
-additional columns include 
-- median S/N values in the blue and red data cubes, computed within a few 
-  different apertures
-- total SFRs for each galaxy (calculated after making DQ and S/N cuts in 
-  individual spaxels)
-- maximum number of components fitted in each galaxy
-
-The "extended" metadata DataFrame is saved to "sami_dr3_metadata_extended.hd5".
-
-When run the first time, an additional DataFrame is created ("aperture_snrs.hd5")
-to store the SNR measurements. Additional runs of this script will load 
-this DataFrame if it exists rather than re-computing the SNRs.
-"""
-###############################################################################
 # Paths
-sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
+sami_data_path = os.environ["SAMI_DIR"]
+assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/ifs/"
+assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
 
 ###############################################################################
 # User options
@@ -55,8 +83,8 @@ gals = df_metadata[df_metadata["Good?"] == True].index.values
 # For multithreading
 def compute_snr(gal, plotit=False):
     # Load the red & blue data cubes.
-    hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"{gal}/{gal}_A_cube_red.fits.gz"))
-    hdulist_B_cube = fits.open(os.path.join(sami_datacube_path, f"{gal}/{gal}_A_cube_blue.fits.gz"))
+    hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
+    hdulist_B_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
     data_cube_B = hdulist_B_cube[0].data
     var_cube_B = hdulist_B_cube[1].data
     data_cube_R = hdulist_R_cube[0].data
@@ -188,12 +216,9 @@ else:
 ###############################################################################
 # Merge with the metadata DataFrame
 ###############################################################################
-common_cols = [c for c in df_snr.columns if c not in df_metadata.columns]
-
-df_snr = df_snr.merge(df_metadata[common_cols].drop("catid", axis=1), on="catid")
+common_cols = [c for c in df_metadata.columns if c not in df_snr.columns]
 df_snr = df_snr.set_index("catid")
-
-Tracer()()
+df_snr = pd.concat([df_snr, df_metadata], axis=1)
 
 ###############################################################################
 # Plot: histograms showing the S/N distributions within different apertures
@@ -224,11 +249,9 @@ if plotit:
 df_sami = load_sami_galaxies(ncomponents="recom",
                              bin_type="default",
                              eline_SNR_min=5, 
-                             vgrad_cut=False,
-                             correct_extinction=False,
-                             sigma_gas_SNR_cut=True)
+                             correct_extinction=True)
 
-for gal in df_sami.catid.unique():
+for gal in tqdm(df_sami.catid.unique()):
 
     ###########################################################################
     # Compute total SFRs from HALPHA emission
@@ -236,7 +259,7 @@ for gal in df_sami.catid.unique():
     df_gal = df_sami[df_sami["catid"] == gal]
     sfr_comp0 = df_gal["SFR (component 0)"].sum()
     df_snr.loc[gal, "SFR (component 0)"] = sfr_comp0 if sfr_comp0 > 0 else np.nan
-    sfr_tot = df_gal["SFR"].sum()
+    sfr_tot = df_gal["SFR (total)"].sum()
     df_snr.loc[gal, "SFR (total)"] = sfr_tot if sfr_tot > 0 else np.nan
 
     ###########################################################################

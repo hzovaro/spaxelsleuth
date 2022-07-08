@@ -1,12 +1,10 @@
-import os
-import numpy as np
-import pandas as pd
-from astropy.io import fits
-from cosmocalc import get_dist
-
-from IPython.core.debugger import Tracer
-
 """
+File:       make_sami_metadata_df.py
+Author:     Henry Zovaro
+Email:      henry.zovaro@anu.edu.au
+
+DESCRIPTION
+------------------------------------------------------------------------------
 This script is used to create a DataFrame containing "metadata", including
 stellar masses, spectroscopic redshifts, morphologies and other information
 for each galaxy in SAMI. In addition to the provided values in the input
@@ -19,9 +17,58 @@ is used there.
 The information used here is from the catalogues are available at 
 https://datacentral.org.au/. 
 
-The DataFrame is saved to "SAMI_DIR/sami_dr3_metadata.hd5".
+USAGE
+------------------------------------------------------------------------------
+Run from the command line as follows:
 
+    >>> python make_sami_metadata_df.py 
+
+OUTPUTS
+------------------------------------------------------------------------------
+The DataFrame is saved to 
+
+    SAMI_DIR/sami_dr3_metadata.hd5
+
+PREREQUISITES
+------------------------------------------------------------------------------
+Tables containing metadata for SAMI galaxies are required for this script. 
+These tables be downloaded in CSV format from 
+    
+    https://datacentral.org.au/services/schema/
+    
+where they can be found under the following tabs:
+
+    --> SAMI
+        --> Data Release 3
+            --> Catalogues 
+                --> SAMI 
+                    --> CubeObs:
+                        - sami_CubeObs
+                    --> Other
+                        - InputCatGAMADR3
+                        - InputCatClustersDR3
+                        - InputCatFiller
+                        - VisualMorphologyDR3
+
+ and stored at SAMI_DIR/ using the naming convention
+
+    sami_InputCatGAMADR3.csv
+    sami_InputCatClustersDR3.csv
+    sami_InputCatFiller.csv
+    sami_VisualMorphologyDR3.csv
+    sami_CubeObs.csv.
+
+------------------------------------------------------------------------------
+Copyright (C) 2022 Henry Zovaro
 """
+###############################################################################
+import os
+import numpy as np
+import pandas as pd
+from astropy.io import fits
+from cosmocalc import get_dist
+
+from IPython.core.debugger import Tracer
 
 ###############################################################################
 # Paths
@@ -31,10 +78,6 @@ assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 ###############################################################################
 # Filenames
 df_fname = f"sami_dr3_metadata.hd5"
-
-# .csv files containing metadata 
-# These correspond to the tables of the same name at 
-# https://datacentral.org.au/ 
 gama_metadata_fname = "sami_InputCatGAMADR3.csv"
 cluster_metadata_fname = "sami_InputCatClustersDR3.csv"
 filler_metadata_fname = "sami_InputCatFiller.csv"
