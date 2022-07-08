@@ -31,6 +31,8 @@ The DataFrame is saved to
 
 PREREQUISITES
 ------------------------------------------------------------------------------
+SAMI_DIR must be defined as an environment variable.
+
 Tables containing metadata for SAMI galaxies are required for this script. 
 These tables be downloaded in CSV format from 
     
