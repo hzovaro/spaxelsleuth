@@ -491,6 +491,9 @@ fname_dict = {
 # Helper functions to return colourmaps, min/max values and labels
 ###############################################################################
 def cmap_fn(col):
+    """
+    Helper function to return the colourmap corresponding to column col. 
+    """
     if " (component" in col:
         col = col.split(" (component")[0]
     elif "(total)" in col:
@@ -503,6 +506,10 @@ def cmap_fn(col):
 
 ###############################################################################
 def vmin_fn(col):
+    """
+    Helper function to return the minimum range of parameter corresponding to
+    column col. Useful in plotting. 
+    """
     if " (component" in col:
         col = col.split(" (component")[0]
     elif "(total)" in col:
@@ -515,6 +522,10 @@ def vmin_fn(col):
 
 ###############################################################################
 def vmax_fn(col):
+    """
+    Helper function to return the maximum range of parameter corresponding to
+    column col. Useful in plotting. 
+    """
     if " (component" in col:
         col = col.split(" (component")[0]
     elif "(total)" in col:
@@ -527,6 +538,10 @@ def vmax_fn(col):
 
 ###############################################################################
 def label_fn(col):
+    """
+    Helper function to return a pretty LaTeX label corresponding to column
+    col to use for plotting axis labels, titles, etc. 
+    """
     if " (component" in col:
         col = col.split(" (component")[0]
     elif "(total)" in col:
@@ -539,6 +554,10 @@ def label_fn(col):
 
 ###############################################################################
 def fname_fn(col):
+    """
+    Helper function to return a system-safe filename corresponding to column
+    col to use for saving figures and other data to file. 
+    """
     if " (component" in col:
         col = col.split(" (component")[0]
     elif "(total)" in col:
@@ -565,7 +584,11 @@ def mode(data):
 def histhelper(df, col_x, col_y, col_z, nbins, ax, cmap,
                 xmin, xmax, ymin, ymax, vmin, vmax,
                 log_z=False, alpha=1.0):
-
+    """
+    Helper function used to plot 2D histograms. This function is used in 
+    plotgalaxies.plo2dhist() which is in turn used in 
+    plotgalaxies.plot2dhistcontours().
+    """
     # Determine bin edges for the x & y-axis line ratio 
     # Messy hack to include that final bin...
     ybins = np.linspace(ymin, ymax, nbins)
@@ -603,11 +626,7 @@ def histhelper(df, col_x, col_y, col_z, nbins, ax, cmap,
         df_binned = gb_binned.agg({col_z: func})
 
     # Pull out arrays to plot
-    # try:
     count_map = df_binned[col_z].values.reshape((nbins, nbins))
-    # except ValueError as e:
-        # print(f"ERROR: df_binned[col_z] cannot be reshaped as it has size {df_binned[col_z].shape[0]:d}")
-        # return None
 
     # Plot.
     if log_z:
@@ -633,7 +652,11 @@ def histhelper(df, col_x, col_y, col_z, nbins, ax, cmap,
 def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False,
                            axs=None, figsize=None):
     """
-    Plot Baldwin, Philips & Terlevich (1986) optical line ratio diagrams.
+    Create a figure containing empty axes for the N2, S2 and O1 Baldwin, 
+    Philips & Terlevich (1986) optical line ratio diagrams, with the 
+    demarcation lines of Kewley et al. (2001), Kewley et al. (2006) and 
+    Kauffman et al. (2003) over-plotted. Optionally, also include the 1-sigma 
+    and 3-sigma kinematic demarcation lines of Law et al. (2021).
     """
     # Make axes
     if figsize is not None:
@@ -719,8 +742,9 @@ def plot_empty_BPT_diagram(colorbar=False, nrows=1, include_Law2021=False,
 def plot_BPT_lines(ax, col_x, include_Law2021=False,
                    color="gray", linewidth=1, zorder=1):
     """
-    Over-plot demarcation lines of Kewley+2001, Kauffman+2003, Kewley+2006
-    and Law+2021 on the provided axis.
+    Over-plot demarcation lines of Kewley et al. (2001), Kauffman et al. 
+    (2003), Kewley et al. (2006) and Law et al. (2021) on the provided axis
+    where the y-axis is O3 and the x-axis is specified by col_x.
     """
     assert col_x in ["log N2", "log S2", "log O1"],\
         "col_x must be one of log N2, log S2 or log O1!"
@@ -764,7 +788,10 @@ def plot_compass(PA_deg=0, flipped=True,
                  fontsize=10,
                  ax=None,
                  zorder=999999):
-    # Display North and East-pointing arrows on a plot.
+    """
+    Display North and East-pointing arrows on a plot corresponding to the 
+    position angle given by PA_deg.
+    """
     PA_rad = np.deg2rad(PA_deg) 
     if not ax:
         ax = plt.gca()
@@ -847,7 +874,10 @@ def plot_scale_bar(as_per_px, kpc_per_as,
                    zorder=999999):
     """
     Plots a nice little bar in the lower-right-hand corner of a plot indicating
-    the scale of the image in kiloparsecs.
+    the scale of the image in kiloparsecs corresponding to the plate scale of 
+    the image in arcseconds per pixel (specified by as_per_px) and the 
+    physical scale of the object in kiloparsecs per arcsecond (specified by 
+    kpc_per_as).
     """
     if not ax:
         ax = plt.gca()
