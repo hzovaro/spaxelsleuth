@@ -185,7 +185,7 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     elif survey == "s7":
         col_z_map = np.full((38, 25), np.nan)
     
-    if bin_type == "adaptive":
+    if bin_type == "adaptive" or bin_type == "sectors":
         hdulist = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
         bin_map = hdulist[2].data.astype("float")
         bin_map[bin_map==0] = np.nan
@@ -232,7 +232,7 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
             assert col_z_contours in df_gal.columns, f"{col_z_contours} not found in df_gal!"
             # Reconstruct 2D arrays from the rows in the data frame.
             col_z_contour_map = np.full((50, 50), np.nan) if survey == "sami" else np.full((38, 25), np.nan)
-            if bin_type == "adaptive":
+            if bin_type == "adaptive" or bin_type == "sectors":
                 hdulist = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
                 bin_map = hdulist[2].data.astype("float")
                 bin_map[bin_map==0] = np.nan
