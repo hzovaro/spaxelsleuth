@@ -292,8 +292,9 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
     """
     if col_z is None:
         assert hist is False, "in plot_full_sample: if hist is True then col_z must be specified!"
-    assert df[col_z].dtype != "O",\
-        f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
+    else:
+        assert df[col_z].dtype != "O",\
+            f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
     assert cax_orientation == "horizontal" or cax_orientation == "vertical", "cax_orientation must be either 'horizontal' or 'vertical'!"
 
     # If no axis is specified then create a new one with a vertical colorbar.
@@ -517,8 +518,8 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
     if col_z is not None:
         for col in [col_x, col_y, col_z]:
             assert (col in df.columns) or (f"{col} (component 0)" in df.columns) or (f"{col} (total)" in df.columns), f"{col} is not a valid column!"            
-    assert df[col_z].dtype != "O",\
-        f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
+        assert df[col_z].dtype != "O",\
+            f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
     assert cax_orientation == "horizontal" or cax_orientation == "vertical", "cax_orientation must be either 'horizontal' or 'vertical'!"
     if col_z is None and plot_colorbar == True:
         print("WARNING: not plotting colourbar because col_z is not specified!")
