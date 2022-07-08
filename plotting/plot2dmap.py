@@ -30,14 +30,103 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
               ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical",
               figsize=(5, 5)):
     """
-    Show a 2D map of the galaxy, where sectors/bins/spaxels are coloured by
-    the desired quantities.
+    Show a reconstructed 2D map of the quantity specified by col_z in a single 
+    galaxy.
+    ---------------------------------------------------------------------------
+    df_gal:         pandas DataFrame
+        DataFrame containing spaxel-by-spaxel data for a single galaxy.
+
+    col_z:              str
+        Quantity used to colour the image. Must be a column in df.
+        NOTE: if you want to plot discrete quantities, such as BPT category,
+        then you must specify the numeric option for these, i.e. set 
+        col_z = "BPT (numeric)" rather than "BPT".
+    
+    bin_type:           str 
+        The binning scheme (if any) that was used to derive the quantities in
+        df_gal. Must be one of 'adaptive' or 'default' or 'sectors'.
+    
+    survey:             str
+        The survey from which the data was derived. This must be specified 
+        due to the different formats of the FITS files that are used in this 
+        routine to plot continuum contours and to derive the WCS. Must be 
+        either 'sami' or 's7'.
+
+    PA_deg:             float 
+        Position angle of the observations on which the data in df_gal is 
+        based.
+
+    show_title:         bool
+        If True, adds a title to the axes showing the galaxy's ID.
+
+    axis_labels:        bool
+        Whether to apply axis labels as returned by label_fn(col_<x/y>) in 
+        plottools.py.        
+
+    vmin:               float
+        Minimum value of col_z to use in the colour scale for the image. 
+        Defaults to vmin_fn(col_z) in plottools.py.
+    
+    vmax:               float
+        Maximum value of col_z to use in the colour scale for the image. 
+        Defaults to vmax_fn(col_z) in plottools.py.
+    
+    cmap:               str
+        Matplotlib colourmap to use. Defaults cmap_fn(col_z) in plottools.py.
+
+    contours:           bool
+        If True, overlays contours corresponding to the quantity col_z_contours 
+        on top of the image.
+
+    col_z_contours:     str
+        Quantity . Must either be "continuum", in which case the mean B-band
+        image extracted from the original data cube is used, which is obtained
+        by computing the mean of the datacube in the rest-frame wavelength range 
+        4000Å - 5000Å.
+
+    levels:             Numpy array
+        Contour levels.
+
+    linewidths:         float 
+        Contour linewidths.
+
+    colors:             str
+        Contour colours.
+
+    ax:                 matplotlib.axis
+        Axis in which to plot colourbar if plot_colorbar is True. Note that 
+        because axis projections cannot be changed after an axis is created, 
+        the original axis is removed and replaced with one of the same size with
+        the correct WCS projection. As a result, the order of the axis in 
+        fig.get_axes() may change! 
+
+    plot_colorbar:      bool
+        Whether to plot a colourbar.
+    
+    cax:                matplotlib.axis
+        Axis in which to plot colourbar if plot_colorbar is True. If no axis 
+        is specified, a new colourbar axis is created to the side of the 
+        main figure axis.
+    
+    cax_orientation:    str
+        Colourbar orientation. May be "vertical" (default) or "horizontal".
+
+    figsize:            tuple (width, height)
+        Figure size in inches.
+
+    ---------------------------------------------------------------------------
+    Returns:
+        Tuple containing the matplotlib figure object that is the parent of 
+        the main axis and the main axis.
+
     """
     ###########################################################################
     # Input verification
     ###########################################################################
     assert col_z in df_gal.columns,\
         f"{col_z} is not a valid column!"
+    assert df_gal[col_z].dtype != "O",\
+        f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' format of this column instead!"
     assert cax_orientation == "horizontal" or cax_orientation == "vertical",\
         "cax_orientation must be either 'horizontal' or 'vertical'!"
     assert len(df_gal.catid.unique()) == 1,\
@@ -46,8 +135,8 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     assert survey in ["sami", "s7"],\
         "survey must be either SAMI or S7!"
     if survey == "sami":
-        assert bin_type in ["adaptive", "default"],\
-        "bin_type must be either 'adaptive' or 'default'!"
+        assert bin_type in ["adaptive", "default", "sectors"],\
+        "bin_type must be either 'adaptive' or 'default' or 'sectors'!"
         as_per_px = 0.5
     elif survey == "s7":
         assert bin_type == "default",\

@@ -76,6 +76,8 @@ def plot2dhist(df, col_x, col_y, col_z, ax, log_z=False,
     if col_z.startswith("BPT (numeric)") or col_z.startswith("WHAV* (numeric)"):
         df_classified = df[df[col_z] > -1]
         df_unclassified = df[df[col_z] == -1]
+        if type(cmap) == str:
+                cmap = plt.cm.get_cmap(cmap)
         cmap.set_bad("white", alpha=0.0)
         if df_unclassified.shape[0] > 0 and np.any(~np.isnan(df_unclassified[col_x])) and np.any(~np.isnan(df_unclassified[col_y])):
             histhelper(df=df_unclassified, col_x=col_x, col_y=col_y, col_z=col_z,
@@ -185,18 +187,113 @@ def plot2dcontours(df, col_x, col_y, ax,
 def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
                        vmin=None, vmax=None,
                        xmin=None, xmax=None, ymin=None, ymax=None,
-                       nbins=100, ax=None, axis_labels=True, plot_colorbar=True,
+                       nbins=100, ax=None, axis_labels=True, 
+                       cmap=None, plot_colorbar=True,
                        cax=None, cax_orientation="vertical", alpha=1.0,
                        hist=True, contours=True, levels=None, linewidths=0.5, 
-                       colors="k", cmap=None,
+                       colors="k", 
                        figsize=(9, 7)):
     """
-    Plot a 2D histogram of the SAMI galaxies.
-    Optionally, over-plot spaxels from a SAMI galaxy (as specified by gal) or 
-    from a given Pandas DataFrame df_gal.
+    Plot a 2D histogram of the data in columns col_x and col_y in a pandas 
+    DataFrame df. Optionally, overlay contours showing the corresponding 
+    number distribution.
+    --------------------------------------------------------------------------
+    df:                 pandas DataFrame
+        DataFrame that has been created using make_df_sami.py or has a similar
+        format.
+    
+    col_x:              str
+        X-coordinate quantity. Must be a column in df.
+    
+    col_y:              str
+        Y-coordinate quantity. Must be a column in df.
+    
+    col_z:              str
+        Quantity used to colour the points. Must be a column in df. If not 
+        specified, the points are all given the same colour specified by 
+        markerfacecolor.
+        NOTE: if you want to plot discrete quantities, such as BPT category,
+        then you must specify the numeric option for these, i.e. set 
+        col_z = "BPT (numeric)" rather than "BPT".
+
+    log_z:              bool
+        Whether to scale the z-axis colour of the histogram logarithmically.
+    
+    vmin:               float
+        Minimum value to use for marker colour if col_z is set.
+    
+    vmax:               float
+        Maximum value to use for marker colour if col_z is set.
+    
+    xmin:               float
+        Minimum x-axis value. Defaults to vmin_fn(col_x) in plottools.py.
+    
+    xmax:               float
+        Maximum x-axis value. Defaults to vmax_fn(col_x) in plottools.py.
+    
+    ymin:               float
+        Minimum y-axis value. Defaults to vmin_fn(col_y) in plottools.py.
+    
+    ymax:               float
+        Maximum y-axis value. Defaults to vmax_fn(col_y) in plottools.py.
+    
+    nbins:              int
+        Number of bins in x and y to use when drawing the 2D histogram.
+
+    ax:                 matplotlib.axis 
+        Axis on which to plot. If unspecified, a new figure is created.    
+    
+    axis_labels:        bool
+        Whether to apply axis labels as returned by label_fn(col_<x/y>) in 
+        plottools.py.
+    
+    cmap:               str
+        Matplotlib colourmap to use. Defaults cmap_fn(col_z) in plottools.py.
+    
+    plot_colorbar:      bool
+        Whether to plot a colourbar.
+    
+    cax:                matplotlib.axis
+        Axis in which to plot colourbar if plot_colorbar is True. If no axis 
+        is specified, a new colourbar axis is created to the side of the 
+        main figure axis.
+    
+    cax_orientation:    str
+        Colourbar orientation. May be "vertical" (default) or "horizontal".
+    
+    alpha:              float
+        Transparency of histogram.
+    
+    zorder:             int
+        Z-order of histogram.
+    
+    hist:               bool
+        If True, plot the 2D histogram.
+
+    contours:           bool
+        If True, overlay contours showing the density distribution in the 
+        histrogram. 
+
+    levels:             Numpy array
+        Contour levels.
+
+    linewidths:         float 
+        Contour linewidths.
+
+    colors:             str
+        Contour colours.
+    
+    figsize:            tuple (width, height)
+        Figure size in inches.
+
+    ---------------------------------------------------------------------------
+    Returns:
+        matplotlib figure object that is the parent of the main axis.
     """
     if col_z is None:
         assert hist is False, "in plot_full_sample: if hist is True then col_z must be specified!"
+    assert df[col_z].dtype != "O",\
+        f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
     assert cax_orientation == "horizontal" or cax_orientation == "vertical", "cax_orientation must be either 'horizontal' or 'vertical'!"
 
     # If no axis is specified then create a new one with a vertical colorbar.
@@ -323,13 +420,105 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
                   plot_colorbar=True, cax=None, cax_orientation="vertical", alpha=1.0, zorder=2,
                   errorbars=True, markeredgecolor="k", markerfacecolor="k", marker="o", markersize=20, figsize=(9, 7)):
     """
-    Plot a 2D histogram of spaxels from a SAMI galaxy (as specified by gal) 
-    or from a given Pandas DataFrame df_gal.
+    Make a scatter plot comprising spaxels or individual line components stored 
+    in a given Pandas DataFrame.
+    ---------------------------------------------------------------------------
+    df:                 pandas DataFrame
+        DataFrame that has been created using make_df_sami.py or has a similar
+        format.
+    
+    col_x:              str
+        X-coordinate quantity. Must be a column in df.
+    
+    col_y:              str
+        Y-coordinate quantity. Must be a column in df.
+    
+    col_z:              str
+        Quantity used to colour the points. Must be a column in df. If not 
+        specified, the points are all given the same colour specified by 
+        markerfacecolor. 
+        NOTE: if you want to plot discrete quantities, such as BPT category,
+        then you must specify the numeric option for these, i.e. set 
+        col_z = "BPT (numeric)" rather than "BPT".
+    
+    vmin:               float
+        Minimum value to use for marker colour if col_z is set. Defaults to 
+        vmin_fn(col_z) in plottools.py.
+    
+    vmax:               float
+        Maximum value to use for marker colour if col_z is set. Defaults to 
+        vmax_fn(col_z) in plottools.py.
+    
+    xmin:               float
+        Minimum x-axis value. Defaults to vmin_fn(col_x) in plottools.py.
+    
+    xmax:               float
+        Maximum x-axis value. Defaults to vmax_fn(col_x) in plottools.py.
+    
+    ymin:               float
+        Minimum y-axis value. Defaults to vmin_fn(col_y) in plottools.py.
+    
+    ymax:               float
+        Maximum y-axis value. Defaults to vmax_fn(col_y) in plottools.py.
+    
+    ax:                 matplotlib.axis 
+        Axis on which to plot. If unspecified, a new figure is created.    
+    
+    axis_labels:        bool
+        Whether to apply axis labels as returned by label_fn(col_<x/y>) in 
+        plottools.py.
+    
+    cmap:               str
+        Matplotlib colourmap to use. Defaults cmap_fn(col_z) in plottools.py.
+    
+    plot_colorbar:      bool
+        Whether to plot a colourbar. Defaults to True if col_z is specified,
+        otherwise False. 
+    
+    cax:                matplotlib.axis
+        Axis in which to plot colourbar if plot_colorbar is True. If no axis 
+        is specified, a new colourbar axis is created to the side of the 
+        main figure axis.
+    
+    cax_orientation:    str
+        Colourbar orientation. May be "vertical" (default) or "horizontal".
+    
+    alpha:              float
+        Transparency of scatter points.
+    
+    zorder:             int
+        Z-order of scatter points.
+    
+    errorbars:          bool
+        If True, plot 1-sigma error bars associated with the x- and y-axis 
+        quantities.
+    
+    markeredgecolor:    str
+        Marker edge colour. Defaults to black.
+    
+    markerfacecolor:    str
+        Marker face colour. Defaults to black.
+    
+    marker:             str
+        Marker shape, e.g. 'o' or 'x'.
+    
+    markersize:         float
+        Marker size in pt.
+    
+    figsize:            tuple (width, height)
+        Figure size in inches.
+
+    ---------------------------------------------------------------------------
+    Returns:
+        matplotlib figure object that is the parent of the main axis.
+
     """
     assert col_z != "count", f"{col_z} cannot be 'count' in a scatter plot!"
     if col_z is not None:
         for col in [col_x, col_y, col_z]:
             assert (col in df.columns) or (f"{col} (component 0)" in df.columns) or (f"{col} (total)" in df.columns), f"{col} is not a valid column!"            
+    assert df[col_z].dtype != "O",\
+        f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
     assert cax_orientation == "horizontal" or cax_orientation == "vertical", "cax_orientation must be either 'horizontal' or 'vertical'!"
     if col_z is None and plot_colorbar == True:
         print("WARNING: not plotting colourbar because col_z is not specified!")
@@ -342,7 +531,7 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
 
     # If the user wants to plot a colorbar but the colorbar axis is not specified,
     # then create a new one.
-    if plot_colorbar and cax is None:
+    if plot_colorbar and cax is None and col_z is not None:
         bbox = ax.get_position()
         # Shrink axis first
         if cax_orientation == "vertical":
