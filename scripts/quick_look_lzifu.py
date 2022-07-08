@@ -30,13 +30,15 @@ plt.ion()
 plt.close("all")
 
 ###########################################################################
-sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
+assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
+sami_data_path = os.environ["SAMI_DIR"]
+assert "LZIFU_DATA_PATH" in os.environ, "Environment variable LZIFU_DATA_PATH is not defined!"
+lzifu_data_path = os.environ["LZIFU_DATA_PATH"]
 
 ###########################################################################
 # Options
 ###########################################################################
 fig_path = "/priv/meggs3/u5708159/SAMI/figs/paper/individual_galaxies/"
-lzifu_data_path = "/priv/meggs3/u5708159/LZIFU/products"
 savefigs = True
 bin_type = "default"    # Options: "default" or "adaptive" for Voronoi binning
 ncomponents = "recom"   # Options: "1" or "recom"

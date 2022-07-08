@@ -1,3 +1,53 @@
+"""
+File:       make_df_sami.py
+Author:     Henry Zovaro
+Email:      henry.zovaro@anu.edu.au
+
+DESCRIPTION
+------------------------------------------------------------------------------
+This script stores emission line fluxes & other measurements from LZIFU in a 
+DataFrame. This essentially produces the same output as make_df_sami.py, 
+except where we use our own LZIFU fits rather than those in the official
+data release so that we can obtain emission line fluxes for individual 
+emission line components for lines other than Halpha.
+
+USAGE
+------------------------------------------------------------------------------
+Specific galaxies can be specified in command line arguments, e.g.,
+
+    >>> python make_dfs_lzifu 572402 209807
+
+If no input arguments are specified, this script will create DataFrames for 
+ALL LZIFU galaxies that meet the minimum red S/N requiremnt of
+
+    Median SNR (R, 2R_e) >= 10.0
+
+OUTPUTS
+------------------------------------------------------------------------------
+Separate DataFrames will be saved for each individual galaxy, following the
+name format 
+
+    f"lzifu_<gal>_<bin_type>_<ncomponents>-comp_minSNR=<eline_SNR_min>.hd5"
+and f"lzifu_{gal}_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5"
+
+in the directory specified by lzifu_data_path. If no galaxies are specified in
+the input arguments, then a single DataFrame containing all galaxies in the 
+subsample is created.
+
+PREREQUISITES
+------------------------------------------------------------------------------
+SAMI_DIR, SAMI_DATACUBE_DIR must be defined as an environment variable.
+
+LZIFU must have been run for all galaxies specified. 
+
+If you want to run this script on all LZIFU galaxies, then 
+make_sami_metadata_df_extended.py must also have been run first in order to 
+obtain continuum S/N values used in deciding which targets are included in
+the high-S/N sample.
+
+------------------------------------------------------------------------------
+Copyright (C) 2022 Henry Zovaro 
+"""
 import os, sys
 import numpy as np
 from itertools import product
@@ -7,6 +57,7 @@ from scipy import constants
 from tqdm import tqdm
 
 from spaxelsleuth.loaddata.sami import load_sami_galaxies
+from spaxelsleuth.loaddata import dqcut, linefns, metallicity, extcorr
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -19,43 +70,50 @@ warnings.filterwarnings(action="ignore", message="Mean of empty slice")
 warnings.filterwarnings(action="ignore", message="invalid value encountered in sqrt")
 
 ###############################################################################
-"""
-This script stores emission line fluxes & other measurements from LZIFU in a 
-DataFrame.
-
-Specific galaxies can be specified in command line arguments, e.g.,
-
-    %run make_dfs_lzifu 572402 209807
-
-Separate DataFrames will be saved for each individual galaxy, following the
-name format 
-
-    <SAMI ID>_lzifu.hd5
-
-in the directory specified by lzifu_data_path.
-
-If no input arguments are specified, this script will create DataFrames for 
-ALL LZIFU galaxies that meet the minimum red S/N requiremnt of
-
-    Median SNR (R, 2R_e) >= 10.0
-
-As above, separate DataFrames for each galaxy will be stored in lzifu_data_path, 
-plus a single DataFrame containing all galaxies in the subsample.
-"""
-###############################################################################
 # Paths
-sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
-sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
-lzifu_data_path = "/priv/meggs3/u5708159/LZIFU/products/"
+assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
+sami_data_path = os.environ["SAMI_DIR"]
+assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
+sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
+assert "LZIFU_DATA_PATH" in os.environ, "Environment variable LZIFU_DATA_PATH is not defined!"
+lzifu_data_path = os.environ["LZIFU_DATA_PATH"]
 
 ###############################################################################
 # User options
+
+#//////////////////////////////////////////////////////////////////////////////
+# Parameters you may want to change
+eline_SNR_min = 5               # Minimum flux S/N to accept
+met_diagnostic_list = ["Dopita+2016"]  # Which metallicity diagnostics to use 
+logU = -3.0                     # Constant ionisation parameter to assume in metallicity calculation
+nthreads_max = 20               # Maximum number of threds to use 
+
+# If run in debug mode, the script will only be run for 10 galaxies. Useful
+# to check if things are working properly, as running the script normally
+# takes some time.
+debug = False 
 plotit = False
+
+#//////////////////////////////////////////////////////////////////////////////
+# Parameters you probably don't want to mess with
+bin_type = "default"            # Fixed because we've only run LZIFU on the unbinned data so far 
+ncomponents = "recom"           # Same as above
+line_flux_SNR_cut = True        # Bit of a no-brainer, really...
+vgrad_cut = False               # Set to False b/c it tends to remove nuclear spaxels which may be of interest to your science case, & because it doesn't reliably remove spaxels with quite large beam smearing components
+sigma_gas_SNR_cut = True        # Set to True b/c it's a robust way to account for emission line widths < instrumental
+sigma_gas_SNR_min = 3
+line_amplitude_SNR_cut = True   # Set to True b/c this removes components which are most likely due to errors in the stellar continuum fit
+flux_fraction_cut = False       # Set to False b/c it's unclear whether we need this yet 
+stekin_cut = True               # No reason not to do this
+eline_list = ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]  # Default SAMI emission lines - don't change this!
+
+# For printing to stdout
+status_str = f"In sami.make_df_lzifu() [eline_SNR_min={eline_SNR_min}]"
 
 ###############################################################################
 # READ IN THE METADATA
 ###############################################################################
-df_metadata_fname = "sami_dr3_metadata_extended.hd5"
+df_metadata_fname = "sami_dr3_metadata.hd5"
 df_metadata = pd.read_hdf(os.path.join(sami_data_path, df_metadata_fname))
 df_metadata["Good?"] = df_metadata["Good?"].astype("float")
 
@@ -111,10 +169,12 @@ else:
 # Save a separate data frame for each galaxy      
 if make_master_df:
     df_all = None  # "big" DF to store all LZIFU galaxies
+    df_all_extcorr = None  # "big" DF to store all LZIFU galaxies
 
 for gal in tqdm(gals):
     # Filenames
-    df_fname = f"lzifu_{gal}.hd5"
+    df_fname = f"lzifu_{gal}_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5"
+    df_fname_extcorr = f"lzifu_{gal}_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5"
 
     ###############################################################################
     # STORING IFS DATA
@@ -188,6 +248,7 @@ for gal in tqdm(gals):
     start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 6500))
     stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 6540))
     cont_map = np.nanmean(data_cube_R[start_idx:stop_idx], axis=0)
+    cont_map_std = np.nanstd(data_cube_R[start_idx:stop_idx], axis=0)
     cont_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_R[start_idx:stop_idx], axis=0))
     hdulist_R_cube.close() 
 
@@ -405,15 +466,22 @@ for gal in tqdm(gals):
     #######################################################################
     # Do the same but with the continuum intensity for calculating the HALPHA EW
     thisrow = np.full_like(x_c_list, np.nan, dtype="float")
+    thisrow_std = np.full_like(x_c_list, np.nan, dtype="float")
     thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
     for jj, coords in enumerate(zip(x_c_list, y_c_list)):
         x_c, y_c = coords
         y, x = (int(np.round(y_c)), int(np.round(x_c)))
+        if x > 49 or y > 49:
+            x = min([x, 49])
+            y = min([y, 49])
         thisrow[jj] = cont_map[y, x]
+        thisrow_std[jj] = cont_map_std[y, x]
         thisrow_err[jj] = cont_map_err[y, x]
     rows_list.append(thisrow)
+    rows_list.append(thisrow_std)
     rows_list.append(thisrow_err)
     colnames.append("HALPHA continuum")
+    colnames.append("HALPHA continuum std. dev.")
     colnames.append("HALPHA continuum error")        
 
     #######################################################################
@@ -522,6 +590,18 @@ for gal in tqdm(gals):
     df_spaxels = df_spaxels.rename(columns=rename_dict)
 
     ###############################################################################
+    # Compute the ORIGINAL number of components
+    ###############################################################################
+    if ncomponents == "recom":
+        df_spaxels["Number of components (original)"] =\
+            (~df_spaxels["sigma_gas (component 0)"].isna()).astype(int) +\
+            (~df_spaxels["sigma_gas (component 1)"].isna()).astype(int) +\
+            (~df_spaxels["sigma_gas (component 2)"].isna()).astype(int)
+    elif ncomponents == "1":
+        df_spaxels["Number of components (original)"] =\
+            (~df_spaxels["sigma_gas (component 0)"].isna()).astype(int)
+
+    ###############################################################################
     # Calculate equivalent widths
     ###############################################################################
     df_spaxels.loc[df_spaxels["HALPHA continuum"] < 0, "HALPHA continuum"] = 0
@@ -536,6 +616,37 @@ for gal in tqdm(gals):
         df_spaxels[f"HALPHA EW error (component {nn})"] = df_spaxels[f"HALPHA EW (component {nn})"] *\
             np.sqrt((df_spaxels[f"HALPHA error (component {nn})"] / df_spaxels[f"HALPHA (component {nn})"])**2 +\
                     (df_spaxels[f"HALPHA continuum error"] / df_spaxels[f"HALPHA continuum"])**2) 
+
+        # If the continuum level <= 0, then the EW is undefined, so set to NaN.
+        df_spaxels.loc[df_spaxels["HALPHA continuum"] <= 0, 
+                   [f"HALPHA EW (component {nn})", 
+                    f"HALPHA EW error (component {nn})"]] = np.nan  
+
+    # Calculate total EWs
+    df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {ii})"] for ii in range(3 if ncomponents == "recom" else 1)], axis=0)
+    df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {ii})"]**2 for ii in range(3 if ncomponents == "recom" else 1)], axis=0))
+
+    # If all HALPHA EWs are NaN, then make the total HALPHA EW NaN too
+    if ncomponents == "recom":
+        df_spaxels.loc[df_spaxels["HALPHA EW (component 0)"].isna() &\
+                       df_spaxels["HALPHA EW (component 1)"].isna() &\
+                       df_spaxels["HALPHA EW (component 2)"].isna(), 
+                       ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
+    elif ncomponents == "1":
+        df_spaxels.loc[df_spaxels["HALPHA EW (component 0)"].isna(),
+                       ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
+    
+    ######################################################################
+    # SFR and SFR surface density
+    ######################################################################
+    # Rename SFR (compnent 0) to SFR (total)
+    rename_dict = {}
+    rename_dict["SFR (component 0)"] = "SFR (total)"
+    rename_dict["SFR error (component 0)"] = "SFR error (total)"
+    rename_dict["SFR surface density (component 0)"] = "SFR surface density (total)"
+    rename_dict["SFR surface density error (component 0)"] = "SFR surface density error (total)"
+
+    df_spaxels = df_spaxels.rename(columns=rename_dict)
 
     ######################################################################
     # Add radius-derived value columns
@@ -563,25 +674,117 @@ for gal in tqdm(gals):
         df_spaxels[f"{eline} S/N (total)"] = df_spaxels[f"{eline} (total)"] / df_spaxels[f"{eline} error (total)"]
 
     ######################################################################
-    # Calculate the TOTAL HALPHA EW
-    ######################################################################
-    df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {ii})"] for ii in range(3)], axis=0)
-    df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {ii})"]**2 for ii in range(3)], axis=0))
-
+    # Fix SFR columns
     ######################################################################
     # Compute the SFR and SFR surface density from the 0th component ONLY
-    ######################################################################
     df_spaxels["SFR surface density (component 0)"] = df_spaxels["SFR surface density (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
     df_spaxels["SFR surface density error (component 0)"] = df_spaxels["SFR surface density error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
     df_spaxels["SFR (component 0)"] = df_spaxels["SFR (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
     df_spaxels["SFR error (component 0)"] = df_spaxels["SFR error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
+
+    # NaN the SFR surface density if the inclination is undefined
+    cond_NaN_inclination = np.isnan(df_spaxels["Inclination i (degrees)"])
+    cols = [c for c in df_spaxels.columns if "SFR surface density" in c]
+    df_spaxels.loc[cond_NaN_inclination, cols] = np.nan
+
+    # NaN the SFR if the SFR == 0
+    # Note: I'm not entirely sure why there are spaxels with SFR == 0
+    # in the first place.
+    cond_zero_SFR = df_spaxels["SFR (total)"]  == 0
+    cols = [c for c in df_spaxels.columns if "SFR" in c]
+    df_spaxels.loc[cond_zero_SFR, cols] = np.nan
+
+    ######################################################################
+    # DQ and S/N CUTS
+    ######################################################################
+    df_spaxels = dqcut.dqcut(df=df_spaxels, 
+                  ncomponents=3 if ncomponents == "recom" else 1,
+                  line_flux_SNR_cut=line_flux_SNR_cut,
+                  eline_SNR_min=eline_SNR_min, eline_list=eline_list,
+                  sigma_gas_SNR_cut=sigma_gas_SNR_cut,
+                  sigma_gas_SNR_min=sigma_gas_SNR_min,
+                  sigma_inst_kms=29.6,
+                  vgrad_cut=vgrad_cut,
+                  line_amplitude_SNR_cut=line_amplitude_SNR_cut,
+                  flux_fraction_cut=flux_fraction_cut,
+                  stekin_cut=stekin_cut)
+
+    ######################################################################
+    # Make a copy of the DataFrame with EXTINCTION CORRECTION
+    # Correct emission line fluxes (but not EWs!)
+    # NOTE: extinction.fm07 assumes R_V = 3.1 so do not change R_V from 
+    # this value!!!
+    ######################################################################
+    print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
+    df_spaxels_extcorr = df_spaxels.copy()
+    df_spaxels_extcorr = extcorr.extinction_corr_fn(df_spaxels_extcorr, 
+                                    eline_list=eline_list,
+                                    reddening_curve="fm07", 
+                                    balmer_SNR_min=5, nthreads=nthreads_max,
+                                    s=f" (total)")
+    df_spaxels_extcorr["Corrected for extinction?"] = True
+    df_spaxels["Corrected for extinction?"] = False
+
+    # Sort so that both DataFrames have the same order
+    df_spaxels_extcorr = df_spaxels_extcorr.sort_index()
+    df_spaxels = df_spaxels.sort_index()
+
+    ######################################################################
+    # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
+    ######################################################################
+    df_spaxels = linefns.ratio_fn(df_spaxels, s=f" (total)")
+    df_spaxels = linefns.bpt_fn(df_spaxels, s=f" (total)")
+    df_spaxels_extcorr = linefns.ratio_fn(df_spaxels_extcorr, s=f" (total)")
+    df_spaxels_extcorr = linefns.bpt_fn(df_spaxels_extcorr, s=f" (total)")
+
+    ######################################################################
+    # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
+    ######################################################################
+    df_spaxels = dqcut.compute_extra_columns(df_spaxels, ncomponents=3 if ncomponents=="recom" else 1)
+    df_spaxels_extcorr = dqcut.compute_extra_columns(df_spaxels_extcorr, ncomponents=3 if ncomponents=="recom" else 1)
+
+    ######################################################################
+    # EVALUATE METALLICITY
+    ######################################################################
+    for met_diagnostic in met_diagnostic_list:
+        df_spaxels = metallicity.metallicity_fn(df_spaxels, met_diagnostic, logU, s=" (total)")
+        df_spaxels_extcorr = metallicity.metallicity_fn(df_spaxels_extcorr, met_diagnostic, logU, s=" (total)")
+
+    ###############################################################################
+    # Save input flags to the DataFrame so that we can keep track
+    ###############################################################################
+    df_spaxels["Extinction correction applied"] = False
+    df_spaxels["line_flux_SNR_cut"] = line_flux_SNR_cut
+    df_spaxels["eline_SNR_min"] = eline_SNR_min
+    df_spaxels["sigma_gas_SNR_min"] = sigma_gas_SNR_min
+    df_spaxels["vgrad_cut"] = vgrad_cut
+    df_spaxels["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
+    df_spaxels["sigma_gas_SNR_min"] = sigma_gas_SNR_min
+    df_spaxels["line_amplitude_SNR_cut"] = line_amplitude_SNR_cut
+    df_spaxels["flux_fraction_cut"] = flux_fraction_cut
+    df_spaxels["stekin_cut"] = stekin_cut
+    df_spaxels["log(U) (const.)"] = logU
+
+    df_spaxels_extcorr["Extinction correction applied"] = True
+    df_spaxels_extcorr["line_flux_SNR_cut"] = line_flux_SNR_cut
+    df_spaxels_extcorr["eline_SNR_min"] = eline_SNR_min
+    df_spaxels_extcorr["sigma_gas_SNR_min"] = sigma_gas_SNR_min
+    df_spaxels_extcorr["vgrad_cut"] = vgrad_cut
+    df_spaxels_extcorr["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
+    df_spaxels_extcorr["sigma_gas_SNR_min"] = sigma_gas_SNR_min
+    df_spaxels_extcorr["line_amplitude_SNR_cut"] = line_amplitude_SNR_cut
+    df_spaxels_extcorr["flux_fraction_cut"] = flux_fraction_cut
+    df_spaxels_extcorr["stekin_cut"] = stekin_cut
+    df_spaxels_extcorr["log(U) (const.)"] = logU
 
     ######################################################################
     # Save to .hd5
     ######################################################################
     # Add catid column
     df_spaxels["catid"] = gal
+    df_spaxels_extcorr["catid"] = gal
     df_spaxels.to_hdf(os.path.join(sami_data_path, df_fname), key=f"LZIFU")
+    df_spaxels_extcorr.to_hdf(os.path.join(sami_data_path, df_fname_extcorr), key=f"LZIFU")
 
     ######################################################################
     # Concatenate 
@@ -589,8 +792,10 @@ for gal in tqdm(gals):
     if make_master_df:
         if df_all is not None:
             df_all = pd.concat([df_all, df_spaxels], ignore_index=True)
+            df_all_extcorr = pd.concat([df_all_extcorr, df_spaxels_extcorr], ignore_index=True)
         else:
             df_all = df_spaxels
+            df_all_extcorr = df_spaxels_extcorr
 
 ######################################################################
 # Tack on the 1 and 0-component galaxies to the master DataFrame
