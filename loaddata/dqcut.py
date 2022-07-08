@@ -225,7 +225,7 @@ def dqcut(df, ncomponents,
     ######################################################################
     print("////////////////////////////////////////////////////////////////////")
     if line_flux_SNR_cut:
-        print("In dqcut.dqcut(): NaNing out: Components that don't meet the S/N requirements")
+        print("In dqcut.dqcut(): Masking components that don't meet the S/N requirements")
         for eline in eline_list:
             if f"{eline} (component 0)" in df:
                 # Individual fluxes
@@ -251,7 +251,7 @@ def dqcut(df, ncomponents,
                 df.loc[cond_low_SN, cols_low_SN] = np.nan
 
     if line_amplitude_SNR_cut:
-        print("In dqcut.dqcut(): NaNing out: Components that don't meet the amplitude requirements")
+        print("In dqcut.dqcut(): Masking components that don't meet the amplitude requirements")
         for eline in eline_list:
             if f"{eline} (component 0)" in df:
                 for ii in range(ncomponents):
@@ -276,7 +276,7 @@ def dqcut(df, ncomponents,
                 df.loc[cond_low_amp, cols_low_amp] = np.nan
 
     if flux_fraction_cut:
-        print("In dqcut.dqcut(): NaNing out: Components 1, 2 where the flux ratio of this component:component 0 < 0.05")
+        print("In dqcut.dqcut(): Masking components 1, 2 where the flux ratio of this component:component 0 < 0.05")
         if ncomponents > 1:
             for ii in range(1, ncomponents):
                 for eline in eline_list:
@@ -291,7 +291,7 @@ def dqcut(df, ncomponents,
                         df.loc[cond_low_flux_fraction, cols_low_flux_fraction] = np.nan
 
     if vgrad_cut:
-        print("In dqcut.dqcut(): NaNing out: Components that don't meet the beam smearing requirement")
+        print("In dqcut.dqcut(): Masking components that don't meet the beam smearing requirement")
         for ii in range(ncomponents):
             cond_beam_smearing = df[f"Beam smearing flag (component {ii})"]
 
@@ -301,7 +301,7 @@ def dqcut(df, ncomponents,
             df.loc[cond_beam_smearing, cols_beam_smearing] = np.nan
 
     if sigma_gas_SNR_cut:
-        print("In dqcut.dqcut(): NaNing out: Components with insufficient S/N in sigma_gas")
+        print("In dqcut.dqcut(): Masking components with insufficient S/N in sigma_gas")
         for ii in range(ncomponents):
             cond_bad_sigma = df[f"Low sigma_gas S/N flag (component {ii})"]
             
@@ -311,7 +311,7 @@ def dqcut(df, ncomponents,
             df.loc[cond_bad_sigma, cols_sigma_gas_SNR_cut] = np.nan
 
     if stekin_cut:
-        print("In dqcut.dqcut(): NaNing out: Spaxels with unreliable stellar kinematics")
+        print("In dqcut.dqcut(): Masking spaxels with unreliable stellar kinematics")
         cond_bad_stekin = df["Bad stellar kinematics"]
 
         # Cells to NaN
