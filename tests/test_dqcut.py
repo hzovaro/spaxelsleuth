@@ -9,11 +9,6 @@ from spaxelsleuth.loaddata.sami import load_sami_galaxies
 from IPython.core.debugger import Tracer
 
 ###########################################################################
-# Paths
-assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
-sami_data_path = os.environ["SAMI_DIR"]
-
-###########################################################################
 # Options
 ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3])]
 

@@ -3,72 +3,38 @@ import sys
 import os 
 import numpy as np
 import pandas as pd
-from astropy.visualization import hist
-from astropy.io import fits
-from tqdm import tqdm
-from scipy import constants
-from scipy.stats import ks_2samp, anderson_ksamp, spearmanr
 
-from spaxelsleuth.loaddata.lzifu import load_lzifu_galaxies
 from spaxelsleuth.loaddata.sami import load_sami_galaxies
-from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram
-from spaxelsleuth.plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn, fname_fn
-from spaxelsleuth.plotting.plottools import bpt_colours, bpt_labels, whav_colors, whav_labels
-from spaxelsleuth.plotting.plottools import morph_labels, morph_ticks
-from spaxelsleuth.plotting.plottools import ncomponents_labels, ncomponents_colours
-from spaxelsleuth.plotting.plottools import component_labels, component_colours
-from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours, plot2dscatter, plot2dcontours
-from spaxelsleuth.plotting.plot2dmap import plot2dmap
-from spaxelsleuth.plotting.sdssimg import plot_sdss_image
 from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
+from spaxelsleuth.plotting.plotgalaxies import plot2dscatter, plot2dhistcontours
+
+from IPython.core.debugger import Tracer
 
 import matplotlib
 from matplotlib import rc, rcParams
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 
-from IPython.core.debugger import Tracer
-
-rc("text", usetex=False)
-rc("font",**{"family": "serif", "size": 11})
-rcParams["savefig.bbox"] = "tight"
-rcParams["savefig.format"] = "pdf"
 plt.ion()
 plt.close("all")
 
 ###########################################################################
-# Paths
-sami_data_path = os.environ["SAMI_DIR"]
-assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
-sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
-assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
-sami_fig_path = os.environ["SAMI_FIG_DIR"]
-assert "SAMI_FIG_DIR" in os.environ, "Environment variable SAMI_FIG_DIR is not defined!"
-
-###########################################################################
 # Options
-eline_SNR_min = 5       # Minimum S/N of emission lines to accept
+ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3])]
 
 ###########################################################################
 # Load the data
 ###########################################################################
 # Load the ubinned data 
 df_extcorr = load_sami_galaxies(ncomponents=ncomponents,
-                        bin_type="default",
+                        bin_type=bin_type,
                         eline_SNR_min=eline_SNR_min, 
-                        vgrad_cut=False,
-                        line_amplitude_SNR_cut=True,
                         correct_extinction=True,
-                        sigma_gas_SNR_cut=True,
                         debug=True)
 
 df_noextcorr = load_sami_galaxies(ncomponents=ncomponents,
-                        bin_type="default",
+                        bin_type=bin_type,
                         eline_SNR_min=eline_SNR_min, 
-                        vgrad_cut=False,
-                        line_amplitude_SNR_cut=True,
                         correct_extinction=False,
-                        sigma_gas_SNR_cut=True,
                         debug=True)
 
 ###########################################################################
@@ -163,78 +129,4 @@ cond_low_SN = df_extcorr["HALPHA S/N (total)"] < 5
 cond_low_SN |= df_extcorr["HBETA S/N (total)"] < 5
 assert np.all(df_extcorr.loc[cond_low_SN, "A_V (total)"].isna())
 assert np.all(df_extcorr.loc[cond_low_SN, "A_V error (total)"].isna())
-
-###########################################################################
-# Check how long it takes to extinction-correct the full sample
-###########################################################################
-Tracer()()
-plt.close("all")
-df_extcorr = load_sami_galaxies(ncomponents=ncomponents,
-                        bin_type="default",
-                        eline_SNR_min=eline_SNR_min, 
-                        vgrad_cut=False,
-                        line_amplitude_SNR_cut=True,
-                        correct_extinction=True,
-                        sigma_gas_SNR_cut=True,
-                        debug=False)
-
-df_noextcorr = load_sami_galaxies(ncomponents=ncomponents,
-                        bin_type="default",
-                        eline_SNR_min=eline_SNR_min, 
-                        vgrad_cut=False,
-                        line_amplitude_SNR_cut=True,
-                        correct_extinction=False,
-                        sigma_gas_SNR_cut=True,
-                        debug=False)
-
-###########################################################################
-# BPT before/after 
-###########################################################################
-fig, axs_bpt = plot_empty_BPT_diagram(nrows=3)
-axs_bpt = [axs_bpt[:3], axs_bpt[3:6], axs_bpt[6:]]
-col_y = "log O3"
-for cc, col_x in enumerate(["log N2", "log S2", "log O1"]):
-    # Add BPT functions
-    plot_BPT_lines(ax=axs_bpt[0][cc], col_x=col_x)    
-    plot_BPT_lines(ax=axs_bpt[1][cc], col_x=col_x)    
-    plot_BPT_lines(ax=axs_bpt[2][cc], col_x=col_x)    
-
-    # Plot measurements for this galaxy
-    plot2dhistcontours(df=df_noextcorr,
-                  col_x=f"{col_x} (total)",
-                  col_y=f"{col_y} (total)",
-                  col_z="HALPHA (total)",
-                  ax=axs_bpt[0][cc], 
-                  cax=None, vmin=0, vmax=10,
-                  plot_colorbar=False)
-    
-
-    # Plot measurements for this galaxy
-    plot2dhistcontours(df=df_extcorr,
-                  col_x=f"{col_x} (total)",
-                  col_y=f"{col_y} (total)",
-                  col_z="HALPHA (total)",
-                  ax=axs_bpt[1][cc], 
-                  cax=None, vmin=0, vmax=10,
-                  plot_colorbar=False)
-    
-
-    # Plot measurements for this galaxy
-    plot2dhistcontours(df=df_extcorr,
-                  col_x=f"{col_x} (total)",
-                  col_y=f"{col_y} (total)",
-                  col_z="A_V (total)",
-                  ax=axs_bpt[2][cc], 
-                  cax=None, vmin=0, vmax=3,
-                  plot_colorbar=False)
-
-axs_bpt[0][0].text(s="Before extinction correction (HALPHA flux)",
-                       x=0.05, y=0.95,
-                       transform=axs_bpt[0][0].transAxes)
-axs_bpt[1][0].text(s="After extinction correction (HALPHA flux)",
-                       x=0.05, y=0.95,
-                       transform=axs_bpt[1][0].transAxes)
-axs_bpt[2][0].text(s="After extinction correction (A_V)",
-                   x=0.05, y=0.95,
-                   transform=axs_bpt[2][0].transAxes)
 
