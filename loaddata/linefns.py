@@ -1,19 +1,59 @@
+"""
+File:       linefns.py
+Author:     Henry Zovaro
+Email:      henry.zovaro@anu.edu.au
+
+DESCRIPTION
+------------------------------------------------------------------------------
+This script contains utility functions for computing emission line ratios.
+
+The following functions are included:
+
+Kewley2001():
+    Returns the "maximum starburst" demarcation lines of Kewley et al. (2001)
+    for the N2, S2 and O1 BPT diagrams.
+
+Kauffman2003():
+    Returns the empirically derived star-forming/AGN demarcation line of 
+    Kauffman et al. (2003) for the N2 BPT diagram.
+
+Kewley2006():
+    Returns the Seyfert/LINER separation lines of Kewley et al. (2006) for the 
+    S2 and O1 BPT diagrams.
+
+Law2021_1sigma():
+    Returns the 1-sigma demarcation line based on the kinematic classification
+    scheme of Law et al. (2021) for the N2, S2 and O1 BPT diagrams.
+
+Law2021_3sigma():
+    Returns the 3-sigma demarcation line based on the kinematic classification
+    scheme of Law et al. (2021) for the N2, S2 and O1 BPT diagrams.
+
+Proxauf2014():
+    Returns the electron density based on the [SII] ratio using the method 
+    of Proxauf (2014).
+
+bpt_fn():
+    Given an input DataFrame containing emission line fluxes, computes the 
+    BPT classification ("SF", "Seyfert", "LINER", "Composite", "Ambiguous"
+    or "Not Classified") and corresponding numerical labels (used when 
+    plotting). New columns with the classifications are added to the DataFrame.
+
+ratio_fn():
+    Given an input DataFrame containing emission line fluxes, computes emission 
+    line ratios, e.g. N2 and S2, and adds additional columns containing the 
+    sums of emission line doublets - e.g., if the DataFrame contains OIII5007
+    but not OIII4959, the OIII4959 flux is computed based on the OIII5007 flux
+    using the expected ratio predicted by QM and added to the DataFrame. 
+    The column OIII4959+OIII5007 will also be added (and similar for other 
+    emission lines, e.g. SIII9531 and SIII9051, NII6548 and NII6583).
+
+------------------------------------------------------------------------------
+Copyright (C) 2022 Henry Zovaro
+"""
+###############################################################################
 import numpy as np
 from IPython.core.debugger import Tracer
-
-"""
-LINEFNS.PY
-
-Functions for: 
-- computing emission line ratios
-- computing the electron density using the [SII] calibration of Proxauf+2014
-- spectral categorisation of spaxels based on their emission line ratios using 
-  the standard BPT diagrams
-- kinematic classification of spaxels based on their velocity dispersion
-- returning the corresponding dividing lines on the BPT diagram for the
-  above classification schemes
-
-"""
 
 ###############################################################################
 # Reference lines from literature
