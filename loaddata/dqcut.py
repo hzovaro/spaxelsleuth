@@ -1,3 +1,43 @@
+"""
+File:       dqcut.py
+Author:     Henry Zovaro
+Email:      henry.zovaro@anu.edu.au
+
+DESCRIPTION
+------------------------------------------------------------------------------
+This script contains utility functions useful for manipulating the DataFrames
+created using make_df_sami.py.
+
+The following functions are included:
+
+get_wavelength_from_velocity()
+    Convenience function for computing a Doppler-shifted wavelength given a 
+    velocity and a rest-frame wavelength.
+
+dqcut()
+    A function for making data quality & S/N cuts on rows of a given DataFrame.
+
+compute_log_columns()
+    Compute log quantities + errors for Halpha EW, sigma_gas, SFRs and [SII]
+    ratios (for computing electron densities).
+
+compute_gas_stellar_offsets()
+    Compute the kinematic offsets between gas and stellar velocities and 
+    velocity dispersions.
+
+compute_component_offsets()
+    Compute offsets in various quantities between successive kinematic 
+    components - e.g. the difference in EW between components 1 and 2.
+
+compute_extra_columns()
+    Calls compute_log_columns(), compute_gas_stellar_offsets() and 
+    compute_component_offsets(), plus computes emission line FWHMs and HALPHA
+    emission line and continuum luminosities.
+
+------------------------------------------------------------------------------
+Copyright (C) 2022 Henry Zovaro
+"""
+###############################################################################
 import numpy as np
 from scipy import constants
 from IPython.core.debugger import Tracer
@@ -336,6 +376,23 @@ def dqcut(df, ncomponents,
     NOTE: for datasets other than SAMI, this criterion may pose a problem
     if e.g. there is a spaxel in which, say, [NII] is not NaN in component 0,
     but HALPHA is. 
+
+    NOTE 2: The "Number of components" column really records the number of 
+    *reliable* components ONLY IF they are in the right order, for lack of a 
+    better phrase - take, for example, a spaxel that originally has 2 components.
+    Say that component 1 (the narrowest component) has a low S/N in the gas 
+    velocity dispersion, so sigma_gas (component 1) is masked out, but 
+    HALPHA (component 1) is not, and that component 2 (the broad component)
+    passes all DQ and S/N cuts. In this case, the spaxel will NOT be recorded
+    as having "Number of components" = 1 or 2 because it fails cond_has_1 and
+    cond_has_2 below. It will therefore have an undefined "Number of 
+    components" and will be set to NaN. 
+
+    Spaxels that still retain their original number of components after making 
+    all DQ and S/N cuts can be selected as follows:
+
+        df_good_quality_components = df[~df["Missing components flag"]]
+
     """
     if ncomponents == 3:
         cond_has_3 = ~np.isnan(df["HALPHA (component 0)"]) & ~np.isnan(df["sigma_gas (component 0)"]) &\
