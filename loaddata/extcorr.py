@@ -1,3 +1,26 @@
+"""
+File:       extcorr.py
+Author:     Henry Zovaro
+Email:      henry.zovaro@anu.edu.au
+
+DESCRIPTION
+------------------------------------------------------------------------------
+Functions for correcting emission line fluxes for extinction.
+
+The following functions are included:
+
+extcorr_helper_fn()
+    A helper function used for multithreading the extinction correction 
+    computation.
+
+extinction_corr_fn()
+    Given a DataFrame, compute A_V based on the Balmer decrement and correct 
+    the emission line fluxes (and errors) for extinction.
+
+------------------------------------------------------------------------------
+Copyright (C) 2022 Henry Zovaro
+"""
+###############################################################################
 import numpy as np
 import extinction
 import pandas as pd
@@ -54,7 +77,7 @@ def extcorr_helper_fn(args):
             # Apply correction
             df_row[f"{eline}"] *= 10**(0.4 * A_line)
             df_row[f"{eline} error"] *= 10**(0.4 * A_line)
-    # print(f"Finished processing row {rr}")
+
     return df_row
 
 ################################################################################
@@ -65,6 +88,8 @@ def extinction_corr_fn(df, eline_list,
                        s=None):
     """
     Correct emission line fluxes (and errors) for extinction.
+
+    INPUTS
     ------------------------------------------------------------------------
     eline_list:         list of str
         Emission line fluxes to correct.
@@ -83,6 +108,11 @@ def extinction_corr_fn(df, eline_list,
     nthreads:           int
         Number of threads on which to concurrently compute extinction correction
         factors. 
+
+    RETURNS
+    ------------------------------------------------------------------------
+    The input DataFrame with new columns added containing the Balmer decrement,
+    A_V, and corresponding errors.
 
     """
     #//////////////////////////////////////////////////////////////////////////
