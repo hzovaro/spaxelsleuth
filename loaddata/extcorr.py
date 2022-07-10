@@ -185,6 +185,10 @@ def extinction_corr_fn(df, eline_list,
     df_extcorr = df[cond_extcorr]
     df_noextcorr = df[~cond_extcorr]
 
+    # If there are no spaxels in which A_V can be computed, return
+    if df_extcorr.shape[0] == 0:
+        return df
+
     #//////////////////////////////////////////////////////////////////////////
     # Correct emission line fluxes in cells where A_V > 0
     #//////////////////////////////////////////////////////////////////////////
