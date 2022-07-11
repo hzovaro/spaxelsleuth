@@ -2,13 +2,11 @@
 
 import numpy as np
 
-from loaddata.lzifu import load_lzifu_galaxies
-from plotting.sdssimg import plot_sdss_image
-from plotting.plotgalaxies import plot2dscatter, plot2dhist, plot2dcontours, plot2dhistcontours
-from plotting.plottools import label_fn, bpt_labels, vmin_fn, vmax_fn, label_fn, component_labels
-from plotting.plot2dmap import plot2dmap
-
-import seaborn as sns
+from spaxelsleuth.loaddata.lzifu import make_lzifu_df, load_lzifu_df
+from spaxelsleuth.plotting.sdssimg import plot_sdss_image
+from spaxelsleuth.plotting.plotgalaxies import plot2dscatter, plot2dhist, plot2dcontours, plot2dhistcontours
+from spaxelsleuth.plotting.plottools import label_fn, bpt_labels, vmin_fn, vmax_fn, label_fn, component_labels
+from spaxelsleuth.plotting.plot2dmap import plot2dmap
 
 import matplotlib.pyplot as plt
 plt.close("all")
@@ -17,18 +15,33 @@ plt.ion()
 from IPython.core.debugger import Tracer
 
 ##############################################################################
-# Load a dataset
+# Options
 ##############################################################################
 ncomponents = "recom"
 bin_type = "default"
 eline_SNR_min = 5
 
-gal = 572402
-df_gal = load_lzifu_galaxies(gal=gal, 
-                            ncomponents=ncomponents, 
-                            bin_type=bin_type,
-                            eline_SNR_min=eline_SNR_min,
-                            correct_extinction=True)
+##############################################################################
+# Create the DataFrame
+##############################################################################
+# Test: 1 galaxy
+make_lzifu_df(gals=572402, bin_type=bin_type,
+              ncomponents=ncomponents, 
+              eline_SNR_min=eline_SNR_min)
+
+# Test: 2 galaxies
+make_lzifu_df(gals=[572402, 491956], bin_type=bin_type,
+              ncomponents=ncomponents, 
+              eline_SNR_min=eline_SNR_min)
+
+##############################################################################
+# Load a dataset
+##############################################################################
+df_gal = load_lzifu_df(gal=491956, 
+                       ncomponents=ncomponents, 
+                       bin_type=bin_type,
+                       eline_SNR_min=eline_SNR_min,
+                       correct_extinction=True)
 
 ##############################################################################
 # Test: SDSS image
@@ -75,6 +88,6 @@ plot2dhistcontours(df_gal, col_x="log sigma_gas (component 0)", col_y="log HALPH
 ##############################################################################
 # Test: 2D map plots
 ##############################################################################
-plot2dmap(df_gal, survey="sami", bin_type=bin_type, col_z="HALPHA (total)")
+plot2dmap(df_gal, survey="sami", bin_type=bin_type, col_z="HALPHA (total)", vmax=15)
 
 
