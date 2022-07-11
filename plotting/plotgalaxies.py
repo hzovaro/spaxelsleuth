@@ -209,7 +209,7 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
         Y-coordinate quantity. Must be a column in df.
     
     col_z:              str
-        Quantity used to colour the points. Must be a column in df. If not 
+        Quantity used to colour the histogram. Must be a column in df. If not 
         specified, the points are all given the same colour specified by 
         markerfacecolor.
         NOTE: if you want to plot discrete quantities, such as BPT category,
@@ -293,8 +293,9 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
     if col_z is None:
         assert hist is False, "in plot_full_sample: if hist is True then col_z must be specified!"
     else:
-        assert df[col_z].dtype != "O",\
-            f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
+        if col_z is not "count":
+            assert df[col_z].dtype != "O",\
+                f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
     assert cax_orientation == "horizontal" or cax_orientation == "vertical", "cax_orientation must be either 'horizontal' or 'vertical'!"
 
     # If no axis is specified then create a new one with a vertical colorbar.
