@@ -26,7 +26,7 @@ import numpy as np
 from urllib.request import urlretrieve
 from astropy.wcs import WCS
 
-from cosmocalc import get_dist
+from astropy.cosmology import FlatLambdaCDM
 from plotting_fns import plot_scale_bar
 
 import matplotlib.pyplot as plt
@@ -184,7 +184,8 @@ def plot_sdss_image(df_gal, axis_labels=True,
     ax.add_patch(c)
 
     # Include scale bar
-    D_A_Mpc, D_L_Mpc = get_dist(z=df_gal["z_spec"].unique()[0], H0=70.0, WM=0.3)
+    cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
+    D_A_Mpc = cosmo.angular_diameter_distance(df_gal["z_spec"].unique()[0])
     kpc_per_as = D_A_Mpc * 1e3 * np.pi / 180.0 / 3600.0
     plot_scale_bar(as_per_px=0.1, loffset=0.25, kpc_per_as=kpc_per_as, ax=ax, l=10, units="arcsec", fontsize=10)
 
