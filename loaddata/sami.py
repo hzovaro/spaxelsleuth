@@ -6,6 +6,20 @@ Email:      henry.zovaro@anu.edu.au
 DESCRIPTION
 ------------------------------------------------------------------------------
 This script contains the following functions:
+
+    make_sami_metadata_df():
+        This function is used to create a DataFrame containing "metadata", including
+        stellar masses, spectroscopic redshifts, morphologies and other information
+        for each galaxy in SAMI. In addition to the provided values in the input
+        catalogues, the angular scale (in kpc per arcsecond) and inclination are 
+        computed for each galaxy. 
+
+        This script must be run before make_sami_df() as the resulting DataFrame
+        is used there.
+
+        The information used is from the catalogues are available at 
+        https://datacentral.org.au/. See the function docstring for details
+        on which catalogues are needed.
     
     make_sami_df():     
         This function is used to create a Pandas DataFrame containing emission line 
@@ -42,6 +56,7 @@ from astropy.io import fits
 import pandas as pd
 from scipy import constants
 from tqdm import tqdm
+from cosmocalc import get_dist
 import multiprocessing
 
 from spaxelsleuth.loaddata import linefns, dqcut, metallicity, extcorr
@@ -63,71 +78,191 @@ assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
 assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
 
-###############################################################################
-def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
-                       debug=False):
 
+###############################################################################
+def make_sami_metadata_df():
     """
-    Load and return the Pandas DataFrame containing spaxel-by-spaxel 
-    information for all SAMI galaxies which was created using make_sami_df().
+    DESCRIPTION
+    ---------------------------------------------------------------------------
+    This function is used to create a DataFrame containing "metadata", including
+    stellar masses, spectroscopic redshifts, morphologies and other information
+    for each galaxy in SAMI. In addition to the provided values in the input
+    catalogues, the angular scale (in kpc per arcsecond) and inclination are 
+    computed for each galaxy.
+
+    This script must be run before make_sami_df() as the resulting DataFrame
+    is used there.
+
+    The information used here is from the catalogues are available at 
+    https://datacentral.org.au/. 
+
+    USAGE
+    ---------------------------------------------------------------------------
+            
+            >>> from spaxelsleuth.loaddata.sami import make_sami_metadata_df
+            >>> make_sami_metadata_df()
 
     INPUTS
-    ------------------------------------------------------------------------------
-    ncomponents:        str
-        Number of components; may either be "1" (corresponding to the 
-        1-component Gaussian fits) or "recom" (corresponding to the multi-
-        component Gaussian fits).
-
-    bin_type:           str
-        Binning scheme used. Must be one of 'default' or 'adaptive' or 
-        'sectors'.
-
-    correct_extinction: bool
-        If True, load the DataFrame in which the emission line fluxes (but not 
-        EWs) have been corrected for intrinsic extinction.
-
-    eline_SNR_min:      int 
-        Minimum flux S/N to accept. Fluxes below the threshold (plus associated
-        data products) are set to NaN.
-    
-    USAGE
-    ------------------------------------------------------------------------------
-    load_sami_df() is called as follows:
-
-        >>> from spaxelsleuth.loaddata.sami import load_sami_galaxies
-        >>> df = load_sami_df(ncomponents, bin_type, correct_extinction, 
-                                    eline_SNR_min, debug)
+    ---------------------------------------------------------------------------
+    None.
 
     OUTPUTS
-    ------------------------------------------------------------------------------
-    The Dataframe.
+    ---------------------------------------------------------------------------
+    The DataFrame is saved to 
+
+        SAMI_DIR/sami_dr3_metadata.hd5
+
+    PREREQUISITES
+    ---------------------------------------------------------------------------
+    SAMI_DIR must be defined as an environment variable.
+
+    Tables containing metadata for SAMI galaxies are required for this script. 
+    These tables be downloaded in CSV format from 
+        
+        https://datacentral.org.au/services/schema/
+        
+    where they can be found under the following tabs:
+
+        --> SAMI
+            --> Data Release 3
+                --> Catalogues 
+                    --> SAMI 
+                        --> CubeObs:
+                            - sami_CubeObs
+                        --> Other
+                            - InputCatGAMADR3
+                            - InputCatClustersDR3
+                            - InputCatFiller
+                            - VisualMorphologyDR3
+
+     and stored at SAMI_DIR/ using the naming convention
+
+        sami_InputCatGAMADR3.csv
+        sami_InputCatClustersDR3.csv
+        sami_InputCatFiller.csv
+        sami_VisualMorphologyDR3.csv
+        sami_CubeObs.csv.
 
     """
-    #######################################################################
-    # INPUT CHECKING
-    #######################################################################
-    assert (ncomponents == "recom") | (ncomponents == "1"), "ncomponents must be 'recom' or '1'!!"
-    assert bin_type in ["default", "adaptive", "sectors"], "bin_type must be 'default' or 'adaptive' or 'sectors'!!"
+    print("In make_sami_metadata_df(): Creating metadata DataFrame...")
+    ###########################################################################
+    # Filenames
+    df_fname = f"sami_dr3_metadata.hd5"
+    gama_metadata_fname = "sami_InputCatGAMADR3.csv"
+    cluster_metadata_fname = "sami_InputCatClustersDR3.csv"
+    filler_metadata_fname = "sami_InputCatFiller.csv"
+    morphologies_fname = "sami_VisualMorphologyDR3.csv"
+    flag_metadata_fname = "sami_CubeObs.csv"
+    for fname in [gama_metadata_fname, cluster_metadata_fname, 
+                  filler_metadata_fname, morphologies_fname, 
+                  flag_metadata_fname]:
+        assert os.path.exists(os.path.join("../data/", fname)),\
+            f"File {os.path.join('../data/', fname)} not found!"
 
-    # Input file name 
-    df_fname = f"sami_{bin_type}_{ncomponents}-comp"
-    if correct_extinction:
-        df_fname += "_extcorr"
-    df_fname += f"_minSNR={eline_SNR_min}"
-    if debug:
-        df_fname += "_DEBUG"
-    df_fname += ".hd5"
+    ###########################################################################
+    # Read in galaxy metadata
+    ###########################################################################
+    df_metadata_gama = pd.read_csv(os.path.join("../data/", gama_metadata_fname))  # ALL possible GAMA targets
+    df_metadata_cluster = pd.read_csv(os.path.join("../data/", cluster_metadata_fname))  # ALL possible cluster targets
+    df_metadata_filler = pd.read_csv(os.path.join("../data/", filler_metadata_fname))  # ALL possible filler targets
+    df_metadata = pd.concat([df_metadata_gama, df_metadata_cluster, df_metadata_filler]).drop(["Unnamed: 0"], axis=1)
 
-    assert os.path.exists(os.path.join(sami_data_path, df_fname)),\
-        f"File {os.path.join(sami_data_path, df_fname)} does does not exist!"
+    gal_ids_metadata = list(np.sort(list(df_metadata["catid"])))
 
-    # Load the data frame
-    df = pd.read_hdf(os.path.join(sami_data_path, df_fname))
+    ###########################################################################
+    # Append morphology data
+    ###########################################################################
+    df_morphologies = pd.read_csv(os.path.join("../data/", morphologies_fname)).drop(["Unnamed: 0"], axis=1)
+    df_morphologies = df_morphologies.rename(columns={"type": "Morphology (numeric)"})
 
-    # Return
-    return df.sort_index()
+    # Morphologies (numeric) - merge "?" and "no agreement" into a single category.
+    df_morphologies.loc[df_morphologies["Morphology (numeric)"] == 5.0, "Morphology (numeric)"] = -0.5
+    df_morphologies.loc[df_morphologies["Morphology (numeric)"] == -9.0, "Morphology (numeric)"] = -0.5
+    df_morphologies.loc[df_morphologies["Morphology (numeric)"] == np.nan, "Morphology (numeric)"] = -0.5
 
-################################################################################
+    # Key: Morphological Type
+    morph_dict = {
+        "0.0": "E",
+        "0.5": "E/S0",
+        "1.0": "S0",
+        "1.5": "S0/Early-spiral",
+        "2.0": "Early-spiral",
+        "2.5": "Early/Late spiral",
+        "3.0": "Late spiral",
+        "5.0": "?",
+        "-9.0": "no agreement",
+        "-0.5": "Unknown"
+    }
+    df_morphologies["Morphology"] = [morph_dict[str(m)] for m in df_morphologies["Morphology (numeric)"]]
+
+    # merge with metadata, but do NOT include the morphology column as it 
+    # causes all data to be cast to "object" type which is extremely slow!!!
+    df_metadata = df_metadata.merge(df_morphologies[["catid", "Morphology (numeric)", "Morphology"]], on="catid")
+
+    ###########################################################################
+    # Read in flag metadata
+    ###########################################################################
+    df_flags = pd.read_csv(os.path.join("../data/", flag_metadata_fname)).drop(["Unnamed: 0"], axis=1)
+    df_flags = df_flags.astype({col: "int64" for col in df_flags.columns if col.startswith("warn")})
+    df_flags = df_flags.astype({"isbest": bool})
+
+    # Get rid of rows failing the following data quality criteria
+    cond = df_flags["isbest"] == True
+    cond &= df_flags["warnstar"] == 0
+    # cond &= df_flags["warnz"] == 0
+    cond &= df_flags["warnmult"] < 2  # multiple objects overlapping with galaxy area
+    # cond &= df_flags["warnare"] == 0  # absent Re aperture spectra
+    cond &= df_flags["warnfcal"] == 0  # flux calibration issues
+    cond &= df_flags["warnfcbr"] == 0  # flux calibration issues
+    cond &= df_flags["warnskyb"] == 0  # bad sky subtraction residuals
+    cond &= df_flags["warnskyr"] == 0  # bad sky subtraction residuals
+    cond &= df_flags["warnre"] == 0  # significant difference between standard & MGE Re
+    df_flags_cut = df_flags[cond]
+
+    for gal in df_flags_cut.catid:
+        if df_flags_cut[df_flags_cut.catid == gal].shape[0] > 1:
+            # If there are two "best" observations, drop the second one.
+            drop_idxs = df_flags_cut.index[df_flags_cut.catid == gal][1:]
+            df_flags_cut = df_flags_cut.drop(drop_idxs)
+
+    if df_flags_cut.shape[0] != len(df_flags_cut.catid.unique()):
+        Tracer()() 
+
+    # Convert to int
+    df_metadata["catid"] = df_metadata["catid"].astype(int) 
+    df_flags_cut["catid"] = df_flags_cut["catid"].astype(int)
+    gal_ids_dq_cut = list(df_flags_cut["catid"])
+
+    # Remove 9008500001 since it's a duplicate!
+    gal_ids_dq_cut.pop(gal_ids_dq_cut.index(9008500001))
+
+    # Add DQ cut column
+    df_metadata["Good?"] = False
+    df_metadata.loc[df_metadata["catid"].isin(gal_ids_dq_cut), "Good?"] = True
+
+    # Reset index
+    df_metadata = df_metadata.set_index(df_metadata["catid"])
+
+    ###########################################################################
+    # Add angular scale info
+    ###########################################################################
+    for gal in gal_ids_dq_cut:
+        D_A_Mpc, D_L_Mpc = get_dist(z=df_metadata.loc[gal, "z_spec"])
+        df_metadata.loc[gal, "D_A (Mpc)"] = D_A_Mpc
+        df_metadata.loc[gal, "D_L (Mpc)"] = D_L_Mpc
+    df_metadata["kpc per arcsec"] = df_metadata["D_A (Mpc)"] * 1e3 * np.pi / 180.0 / 3600.0
+    df_metadata["R_e (kpc)"] = df_metadata["r_e"] * df_metadata["kpc per arcsec"]
+    df_metadata["log(M/R_e)"] = df_metadata["mstar"] - np.log10(df_metadata["R_e (kpc)"])
+
+    ###########################################################################
+    # Save to file
+    ###########################################################################
+    print("In make_sami_metadata_df(): Saving metadata DataFrame to file...")
+    df_metadata.to_hdf(os.path.join(sami_data_path, df_fname), key="metadata")
+
+    return
+
+###############################################################################
 def _process_gals(args):
     """
     DESCRIPTION
@@ -526,7 +661,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                  nthreads_max=20, debug=False):
     """
     DESCRIPTION
-    ------------------------------------------------------------------------------
+    ---------------------------------------------------------------------------
     This function is used to create a Pandas DataFrame containing emission line 
     fluxes & kinematics, stellar kinematics, extinction, star formation rates, 
     and other quantities for individual spaxels in SAMI galaxies as taken from 
@@ -535,8 +670,29 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     The output is stored in HDF format as a Pandas DataFrame in which each row 
     corresponds to a given spaxel (or Voronoi bin) for every galaxy. 
 
+    USAGE
+    ---------------------------------------------------------------------------
+    
+        >>> from spaxelsleuth.loaddata.sami import make_sami_df()
+        >>> make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5)
+
+    will create a DataFrame comprising the 1-component Gaussian fits to the 
+    unbinned datacubes, and will use a minimum S/N threshold of 5 to mask out 
+    unreliable emission line fluxes and associated quantities.
+
+    Other input arguments may be set in the script to control other aspects
+    of the data quality and S/N cuts made, however the default values can be
+    left as-is.
+
+    Running this function on the full sample takes some time (~10-20 minutes 
+    when threaded across 20 threads). Execution time can be sped up by tweaking 
+    the NTHREADS_MAX parameter. 
+
+    If you wish to run in debug mode, set the DEBUG flag to True: this will run 
+    the script on a subset (by default 10) galaxies to speed up execution. 
+
     INPUTS
-    ------------------------------------------------------------------------------
+    ---------------------------------------------------------------------------
     ncomponents:        str
         Which number of Gaussian components to assume. Options are "recom" (the
         recommended multi-component fits) or "1" (1-component fits)
@@ -604,29 +760,8 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         tweaking S/N and DQ cuts since running the function on the entire 
         sample is quite slow.
 
-    USAGE
-    ------------------------------------------------------------------------------
-    
-        >>> from spaxelsleuth.loaddata.sami import make_sami_df()
-        >>> make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5)
-
-    will create a DataFrame comprising the 1-component Gaussian fits to the 
-    unbinned datacubes, and will use a minimum S/N threshold of 5 to mask out 
-    unreliable emission line fluxes and associated quantities.
-
-    Other input arguments may be set in the script to control other aspects
-    of the data quality and S/N cuts made, however the default values can be
-    left as-is.
-
-    Running this function on the full sample takes some time (~10-20 minutes 
-    when threaded across 20 threads). Execution time can be sped up by tweaking 
-    the NTHREADS_MAX parameter. 
-
-    If you wish to run in debug mode, set the DEBUG flag to True: this will run 
-    the script on a subset (by default 10) galaxies to speed up execution. 
-
     OUTPUTS
-    ------------------------------------------------------------------------------
+    ---------------------------------------------------------------------------
     Each time the function is run, TWO DataFrames are produced - with and without 
     extinction correction applied to the emission line fluxes. 
 
@@ -644,7 +779,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     over-estimate the true EW.
 
     PREREQUISITES
-    ------------------------------------------------------------------------------
+    ---------------------------------------------------------------------------
     SAMI_DIR and SAMI_DATACUBE_DIR must be defined as an environment variable.
 
     make_sami_metadata_df.py must be run first.
@@ -1040,3 +1175,279 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         print(f"{status_str}: Unable to save to HDF file... sigh...")
 
     return
+
+###############################################################################
+def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
+                       debug=False):
+
+    """
+    Load and return the Pandas DataFrame containing spaxel-by-spaxel 
+    information for all SAMI galaxies which was created using make_sami_df().
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    ncomponents:        str
+        Number of components; may either be "1" (corresponding to the 
+        1-component Gaussian fits) or "recom" (corresponding to the multi-
+        component Gaussian fits).
+
+    bin_type:           str
+        Binning scheme used. Must be one of 'default' or 'adaptive' or 
+        'sectors'.
+
+    correct_extinction: bool
+        If True, load the DataFrame in which the emission line fluxes (but not 
+        EWs) have been corrected for intrinsic extinction.
+
+    eline_SNR_min:      int 
+        Minimum flux S/N to accept. Fluxes below the threshold (plus associated
+        data products) are set to NaN.
+    
+    USAGE
+    ---------------------------------------------------------------------------
+    load_sami_df() is called as follows:
+
+        >>> from spaxelsleuth.loaddata.sami import load_sami_df
+        >>> df = load_sami_df(ncomponents, bin_type, correct_extinction, 
+                              eline_SNR_min, debug)
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    The Dataframe.
+
+    """
+    #######################################################################
+    # INPUT CHECKING
+    #######################################################################
+    assert (ncomponents == "recom") | (ncomponents == "1"), "ncomponents must be 'recom' or '1'!!"
+    assert bin_type in ["default", "adaptive", "sectors"], "bin_type must be 'default' or 'adaptive' or 'sectors'!!"
+
+    # Input file name 
+    df_fname = f"sami_{bin_type}_{ncomponents}-comp"
+    if correct_extinction:
+        df_fname += "_extcorr"
+    df_fname += f"_minSNR={eline_SNR_min}"
+    if debug:
+        df_fname += "_DEBUG"
+    df_fname += ".hd5"
+
+    assert os.path.exists(os.path.join(sami_data_path, df_fname)),\
+        f"File {os.path.join(sami_data_path, df_fname)} does does not exist!"
+
+    # Load the data frame
+    df = pd.read_hdf(os.path.join(sami_data_path, df_fname))
+
+    # Return
+    return df.sort_index()
+
+###############################################################################
+def make_sami_metadata_df_extended():
+    """
+    DESCRIPTION
+    ---------------------------------------------------------------------------
+    This funxtion is used to create an extended version of the metadata 
+    DataFrame created using make_sami_metadata_df().
+
+    Additional quantities computed include 
+    - compute continuum S/N values in both blue & red SAMI cubes in a variety of 
+      different apertures, making it simpler to select high-S/N targets for your
+      science case;
+    - total SFRs computed from the SFR maps provided in SAMI DR3;
+    - galaxy inclinations 
+    - the maximum number of components fitted in any spaxel in each galaxy.
+
+    The extended metadata DataFrame is saved to 
+    SAMI_DR/sami_dr3_metadata_extended.hd5.
+
+    When run the first time, an additional DataFrame is created ("aperture_snrs.hd5")
+    to store the SNR measurements. Additional runs of this script will load 
+    this DataFrame if it exists rather than re-computing the SNRs.
+
+    USAGE
+    ---------------------------------------------------------------------------
+            
+            >>> from spaxelsleuth.loaddata.sami import make_sami_metadata_df_extended
+            >>> make_sami_metadata_df_extended()
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    None.
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    The DataFrame is saved to 
+
+        SAMI_DIR/sami_dr3_metadata_extended.hd5
+
+    PREREQUISITES
+    ---------------------------------------------------------------------------
+    Both make_sami_metadata_df() and make_sami_df() must be run first, as this 
+    script requires both the metadata DataFrame (located at 
+    SAMI_DIR/sami_dr3_metadata.hd5) and the DataFrame containing spaxel-by-
+    spaxel information for every SAMI galaxy.
+
+    """
+    print("In make_sami_metadata_df_extended(): Creating extended metadata DataFrame...")
+    ###############################################################################
+    # Load the metadata
+    assert os.path.exists(os.path.join(sami_data_path, "sami_dr3_metadata.hd5")),\
+        f"File {os.path.join(sami_data_path, 'sami_dr3_metadata.hd5')} not found!"
+    df_metadata = pd.read_hdf(os.path.join(sami_data_path, "sami_dr3_metadata.hd5"), key="metadata")
+    df_fname = "sami_dr3_metadata_extended.hd5"
+
+    # Obtain list of galaxies
+    gals = df_metadata[df_metadata["Good?"] == True].index.values
+
+    ###############################################################################
+    # For multithreading
+    def compute_snr(gal, plotit=False):
+        # Load the red & blue data cubes.
+        hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
+        hdulist_B_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
+        data_cube_B = hdulist_B_cube[0].data
+        var_cube_B = hdulist_B_cube[1].data
+        data_cube_R = hdulist_R_cube[0].data
+        var_cube_R = hdulist_R_cube[1].data
+        hdulist_R_cube.close()
+        hdulist_B_cube.close()
+
+        # Compute an image showing the median S/N in each spaxel.
+        im_SNR_B = np.nanmedian(data_cube_B / np.sqrt(var_cube_B), axis=0)
+        im_SNR_R = np.nanmedian(data_cube_R / np.sqrt(var_cube_R), axis=0)
+
+        #######################################################################
+        # Use R_e to compute the median S/N within 1, 1.5, 2 R_e. 
+        # Transform coordinates into the galaxy plane
+        e = df_metadata.loc[gal, "ellip"]
+        PA = df_metadata.loc[gal, "pa"]
+        beta_rad = np.deg2rad(PA - 90)
+        b_over_a = 1 - e
+        q0 = 0.2
+        i_rad = np.arccos(np.sqrt((b_over_a**2 - q0**2) / (1 - q0**2)))  # Want to store this!
+        i_rad = 0 if np.isnan(i_rad) else i_rad
+
+        # De-project the centroids to the coordinate system of the galaxy plane
+        x0_px = 25.5
+        y0_px = 25.5
+        as_per_px = 0.5
+        ys, xs = np.meshgrid(np.arange(50), np.arange(50), indexing="ij")
+        x_cc = xs - x0_px  # pixels
+        y_cc = ys - y0_px  # pixels
+        x_prime = x_cc * np.cos(beta_rad) + y_cc * np.sin(beta_rad)
+        y_prime_projec = (- x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad))
+        y_prime = (- x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad)) / np.cos(i_rad)
+        r_prime = np.sqrt(x_prime**2 + y_prime**2)
+
+        # Convert to arcsec
+        r_prime_as = r_prime * as_per_px
+
+        # Masks enclosing differen multiples of R_e 
+        mask_1Re = r_prime_as < df_metadata.loc[gal, "r_e"]
+        mask_15Re = r_prime_as < 1.5 * df_metadata.loc[gal, "r_e"]
+        mask_2Re = r_prime_as < 2 * df_metadata.loc[gal, "r_e"]
+
+        # Compute median SNR within 1, 1.5, 2R_e
+        SNR_full_B = np.nanmedian(im_SNR_B)
+        SNR_full_R = np.nanmedian(im_SNR_R)
+        SNR_1Re_B = np.nanmedian(im_SNR_B[mask_1Re])
+        SNR_1Re_R = np.nanmedian(im_SNR_R[mask_1Re])
+        SNR_15Re_B = np.nanmedian(im_SNR_B[mask_15Re])
+        SNR_15Re_R = np.nanmedian(im_SNR_R[mask_15Re])
+        SNR_2Re_B = np.nanmedian(im_SNR_B[mask_2Re])
+        SNR_2Re_R = np.nanmedian(im_SNR_R[mask_2Re])
+
+        #######################################################################
+        # End
+        print(f"In make_sami_metadata_df_extended(): Finished processing {gal}")
+        return [gal, SNR_full_B, SNR_full_R, 
+                     SNR_1Re_B, SNR_1Re_R, 
+                     SNR_15Re_B, SNR_15Re_R, 
+                     SNR_2Re_B, SNR_2Re_R]
+
+    ###############################################################################
+    # Compute SNRs
+    ###############################################################################
+    print("In make_sami_metadata_df_extended(): Computing continuum SNRs...")
+    if os.path.exists(os.path.join(sami_data_path, "sami_dr3_aperture_snrs.hd5")):
+        print(f"In make_sami_metadata_df_extended(): WARNING: file {os.path.join(sami_data_path, 'sami_dr3_aperture_snrs.hd5')} found; loading SNRs from existing DataFrame...")
+        df_snr = pd.read_hdf(os.path.join(sami_data_path, "sami_dr3_aperture_snrs.hd5"), key="SNR")
+    else:
+        nthreads = 20
+        print(f"In make_sami_metadata_df_extended(): WARNING: file {os.path.join(sami_data_path, 'sami_dr3_aperture_snrs.hd5')} not found; computing continuum SNRs on {nthreads} threads...")
+        print("In make_sami_metadata_df_extended(): Beginning pool...")
+        args_list = gals
+        pool = multiprocessing.Pool(nthreads)
+        res_list = np.array((pool.map(compute_snr, args_list)))
+        pool.close()
+        pool.join()
+
+        ###########################################################################
+        # Create DataFrame from results
+        ###############################################################################
+        df_snr = pd.DataFrame(np.vstack(res_list), columns=["catid",
+                                                            "Median SNR (B, full field)",
+                                                            "Median SNR (R, full field)",
+                                                            "Median SNR (B, 1R_e)",
+                                                            "Median SNR (R, 1R_e)",
+                                                            "Median SNR (B, 1.5R_e)",
+                                                            "Median SNR (R, 1.5R_e)",
+                                                            "Median SNR (B, 2R_e)",
+                                                            "Median SNR (R, 2R_e)"])
+        df_snr["catid"] = df_snr["catid"].astype(int)
+        df_snr.set_index("catid")
+
+        # Save 
+        print("In make_sami_metadata_df_extended(): Saving aperture SNR DataFrame to file...")
+        df_snr.to_hdf(os.path.join(sami_data_path, "sami_dr3_aperture_snrs.hd5"), key="SNR")
+
+    ###############################################################################
+    # Merge with the metadata DataFrame
+    ###############################################################################
+    common_cols = [c for c in df_metadata.columns if c not in df_snr.columns]
+    df_snr = df_snr.set_index("catid")
+    df_snr = pd.concat([df_snr, df_metadata], axis=1)
+
+    ###############################################################################
+    # Load the SAMI sample
+    ###############################################################################
+    print("In make_sami_metadata_df_extended(): Loading SAMI DataFrame...")
+    df_sami = load_sami_df(ncomponents="recom",
+                                 bin_type="default",
+                                 eline_SNR_min=5, 
+                                 correct_extinction=True)
+
+    print("In make_sami_metadata_df_extended(): Appending total SFRs, max. number of components and inclinations to DataFrame...")
+    for gal in tqdm(df_sami.catid.unique()):
+
+        ###########################################################################
+        # Compute total SFRs from HALPHA emission
+        ###########################################################################
+        df_gal = df_sami[df_sami["catid"] == gal]
+        sfr_comp0 = df_gal["SFR (component 0)"].sum()
+        df_snr.loc[gal, "SFR (component 0)"] = sfr_comp0 if sfr_comp0 > 0 else np.nan
+        sfr_tot = df_gal["SFR (total)"].sum()
+        df_snr.loc[gal, "SFR (total)"] = sfr_tot if sfr_tot > 0 else np.nan
+
+        ###########################################################################
+        # Compute maximum number of components fitted in each galaxy
+        ###########################################################################
+        df_snr.loc[gal, "Maximum number of components"] = np.nanmax(df_gal["Number of components"])
+
+        ###########################################################################
+        # Compute inclination
+        ###########################################################################
+        e = df_metadata.loc[gal, "ellip"]
+        PA = df_metadata.loc[gal, "pa"]
+        beta_rad = np.deg2rad(PA - 90)
+        b_over_a = 1 - e
+        q0 = 0.2
+        i_rad = np.arccos(np.sqrt((b_over_a**2 - q0**2) / (1 - q0**2)))  # Want to store this!
+        df_snr.loc[gal, "Inclination i (degrees)"] = np.rad2deg(i_rad)
+
+    ###############################################################################
+    # Save to .csv 
+    ###############################################################################
+    print("In make_sami_metadata_df_extended(): Saving extnded metadata DataFrame to file...")
+    df_snr.to_hdf(os.path.join(sami_data_path, df_fname), key="Extended metadata")
+
+    return 
