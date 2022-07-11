@@ -25,7 +25,7 @@ eline_SNR_min = 5
 vgrad_cut = False
 stekin_cut = True
 
-df = load_sami_galaxies(ncomponents="recom", bin_type="default",
+df = load_sami_df(ncomponents="recom", bin_type="default",
                         eline_SNR_min=eline_SNR_min, vgrad_cut=vgrad_cut,
                         debug=True)
 
