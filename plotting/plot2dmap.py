@@ -7,7 +7,7 @@ DESCRIPTION
 ------------------------------------------------------------------------------
 Contains the following functions:
 
- plot2dmap():
+    plot2dmap():
         Plot a reconstructed 2D map of the quantity specified by col_z in a 
         single galaxy, e.g. gas velocity dispersion.
 
@@ -32,12 +32,12 @@ from IPython.core.debugger import Tracer
 
 ###############################################################################
 # Paths
-sami_data_path = os.environ["SAMI_DIR"]
 assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
-sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
+sami_data_path = os.environ["SAMI_DIR"]
 assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
-s7_data_path = os.environ["S7_DIR"]
+sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
 assert "S7_DIR" in os.environ, "Environment variable S7_DIR is not defined!"
+s7_data_path = os.environ["S7_DIR"]
 
 ###############################################################################
 def plot2dmap(df_gal, col_z, bin_type, survey,
