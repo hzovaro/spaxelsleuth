@@ -1,3 +1,33 @@
+"""
+File:       plotgalaxies.py
+Author:     Henry Zovaro
+Email:      henry.zovaro@anu.edu.au
+
+DESCRIPTION
+------------------------------------------------------------------------------
+A series of functions used to plot 2D histograms, contours and scatter plots.
+
+Contains the following functions:
+
+    plot2dhist():
+        Used in plot2dhistcontours().
+
+    plot2dcontours():
+        Used in plot2dhistcontours().
+
+    plot2dhistcontours():
+        Plot a 2D histogram of the data in columns col_x and col_y in a 
+        provided DataFrame. Optionally, overlay contours showing the 
+        corresponding number distribution.
+
+    plot2dscatter():
+        Make a 2D scatter plot based on two columns in the provided DataFrame.
+
+------------------------------------------------------------------------------
+Copyright (C) 2022 Henry Zovaro 
+"""
+################################################################################
+# Imports
 import pandas as pd
 import numpy as np
 
@@ -197,6 +227,8 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
     Plot a 2D histogram of the data in columns col_x and col_y in a pandas 
     DataFrame df. Optionally, overlay contours showing the corresponding 
     number distribution.
+
+    INPUTS
     --------------------------------------------------------------------------
     df:                 pandas DataFrame
         DataFrame that has been created using make_df_sami.py or has a similar
@@ -424,6 +456,8 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
     """
     Make a scatter plot comprising spaxels or individual line components stored 
     in a given Pandas DataFrame.
+
+    INPUTS
     ---------------------------------------------------------------------------
     df:                 pandas DataFrame
         DataFrame that has been created using make_df_sami.py or has a similar
@@ -510,9 +544,10 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
     figsize:            tuple (width, height)
         Figure size in inches.
 
+
+    OUTPUTS
     ---------------------------------------------------------------------------
-    Returns:
-        matplotlib figure object that is the parent of the main axis.
+    matplotlib figure object that is the parent of the main axis.
 
     """
     assert col_z != "count", f"{col_z} cannot be 'count' in a scatter plot!"
