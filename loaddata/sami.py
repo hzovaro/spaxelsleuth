@@ -38,6 +38,12 @@ This script contains the following functions:
         load a DataFrame containing emission line fluxes, etc. that was created 
         using make_sami_df().
 
+    make_sami_metadata_df_extended():
+        Make an "extended" version of the metadata DataFrame created using
+        make_sami_metadata_df() that includes continuum S/N measurements and
+        other useful quantities for selecting subsamples of the full SAMI
+        survey.        
+
 PREREQUISITES
 ------------------------------------------------------------------------------
 SAMI_DIR and SAMI_DATACUBE_DIR must be defined as an environment variable.
@@ -50,16 +56,16 @@ Copyright (C) 2022 Henry Zovaro
 ###############################################################################
 # Imports
 import os, sys
+import pandas as pd
 import numpy as np
 from itertools import product
-from astropy.io import fits
-import pandas as pd
 from scipy import constants
-from tqdm import tqdm
 from cosmocalc import get_dist
+from astropy.io import fits
+from tqdm import tqdm
 import multiprocessing
 
-from spaxelsleuth.loaddata import linefns, dqcut, metallicity, extcorr
+from spaxelsleuth.utils import dqcut, linefns, metallicity, extcorr
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -117,7 +123,9 @@ def make_sami_metadata_df():
     SAMI_DIR must be defined as an environment variable.
 
     Tables containing metadata for SAMI galaxies are required for this script. 
-    These tables be downloaded in CSV format from 
+    These have been included in the ../data/ directory. 
+
+    These tables were downloaded in CSV format from 
         
         https://datacentral.org.au/services/schema/
         
@@ -135,7 +143,7 @@ def make_sami_metadata_df():
                             - InputCatFiller
                             - VisualMorphologyDR3
 
-     and stored at SAMI_DIR/ using the naming convention
+     and stored at ../data/ using the naming convention
 
         sami_InputCatGAMADR3.csv
         sami_InputCatClustersDR3.csv
@@ -674,7 +682,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ---------------------------------------------------------------------------
     
         >>> from spaxelsleuth.loaddata.sami import make_sami_df()
-        >>> make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5)
+        >>> make_sami_df(ncomponents="1", bin_type="default", eline_SNR_min=5)
 
     will create a DataFrame comprising the 1-component Gaussian fits to the 
     unbinned datacubes, and will use a minimum S/N threshold of 5 to mask out 
@@ -782,7 +790,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ---------------------------------------------------------------------------
     SAMI_DIR and SAMI_DATACUBE_DIR must be defined as an environment variable.
 
-    make_sami_metadata_df.py must be run first.
+    make_sami_metadata_df() must be run first.
 
     SAMI data products must be downloaded from DataCentral
 
@@ -837,7 +845,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     #######################################################################
     df_metadata_fname = "sami_dr3_metadata.hd5"
 
-    # Output file name 
+    # Output file names
     df_fname = f"sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}"
     df_fname_extcorr = f"sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}"
     if debug:
@@ -1181,6 +1189,8 @@ def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
                        debug=False):
 
     """
+    DESCRIPTION
+    ---------------------------------------------------------------------------
     Load and return the Pandas DataFrame containing spaxel-by-spaxel 
     information for all SAMI galaxies which was created using make_sami_df().
 
@@ -1202,6 +1212,10 @@ def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
     eline_SNR_min:      int 
         Minimum flux S/N to accept. Fluxes below the threshold (plus associated
         data products) are set to NaN.
+
+    debug:              bool
+        If True, load the "debug" version of the DataFrame created when 
+        running make_sami_df() with debug=True.
     
     USAGE
     ---------------------------------------------------------------------------

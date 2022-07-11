@@ -1,5 +1,5 @@
 """
-File:       make_dfs_lzifu.py
+File:       lzifu.py
 Author:     Henry Zovaro
 Email:      henry.zovaro@anu.edu.au
 
@@ -7,6 +7,10 @@ DESCRIPTION
 ------------------------------------------------------------------------------
 This script contains the following functions:
     
+    merge_datacubes():
+        Merge the results from my own LZIFU with the SAMI component maps to 
+        determine the optimal number of components in each spaxel.
+
     make_lzifu_df():     
         stores emission line fluxes & other measurements from LZIFU in
         DataFrames for individual SAMI galaxies that were re-processed using
@@ -14,10 +18,6 @@ This script contains the following functions:
         except where we use our own LZIFU fits rather than those in the 
         official data release so that we can obtain emission line fluxes 
         for individual emission line components for lines other than Halpha.
-
-    merge_datacubes():
-        Merge the results from my own LZIFU with the SAMI component maps to 
-        determine the optimal number of components in each spaxel.
 
     load_lzifu_df():
         load a DataFrame containing emission line fluxes, etc. for a galaxy 
@@ -32,6 +32,8 @@ the location of the files output by LZIFU (e.g., <gal>_1_comp.fits).
 
 LZIFU must have been run for all galaxies specified.
 
+See function docstrings for specific prerequisites.
+
 ------------------------------------------------------------------------------
 Copyright (C) 2022 Henry Zovaro 
 """
@@ -43,8 +45,8 @@ import pandas as pd
 from scipy import constants
 from tqdm import tqdm
 
-from spaxelsleuth.loaddata.sami import load_sami_galaxies
-from spaxelsleuth.loaddata import dqcut, linefns, metallicity, extcorr
+from spaxelsleuth.loaddata.sami import load_sami_df
+from spaxelsleuth.utils import dqcut, linefns, metallicity, extcorr
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -104,7 +106,7 @@ def merge_datacubes(gal=None, plotit=False):
         # should be in each spaxel.
         ###############################################################################
         # Open the SAMI data.
-        hdulist_sami = fits.open(os.path.join(sami_data_path, f"{gal}/{gal}_A_Halpha_default_recom-comp.fits"))
+        hdulist_sami = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_Halpha_default_recom-comp.fits"))
         halpha_map = np.copy(hdulist_sami[0].data[1:])
 
         # Figure out how many components there are in each spaxel.
@@ -236,80 +238,6 @@ def merge_datacubes(gal=None, plotit=False):
 
     return
 
-#######################################################################
-def load_lzifu_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
-                        gal=None):
-    """
-    load a DataFrame containing emission line fluxes, etc. for a galaxy 
-    (or galaxies) re-processed using LZIFU.
-
-    INPUTS
-    ---------------------------------------------------------------------------
-    ncomponents:        str
-        Number of components; may either be "1" (corresponding to the 
-        1-component Gaussian fits) or "recom" (corresponding to the multi-
-        component Gaussian fits).
-
-    bin_type:           str
-        Binning scheme used. Must be one of 'default' or 'adaptive' or 
-        'sectors'.
-
-    correct_extinction: bool
-        If True, load the DataFrame in which the emission line fluxes (but not 
-        EWs) have been corrected for intrinsic extinction.
-
-    eline_SNR_min:      int 
-        Minimum flux S/N to accept. Fluxes below the threshold (plus associated
-        data products) are set to NaN.
-
-    gal:                int
-        GAMA ID of the galaxy to load. If not specified, the DataFrame 
-        containing all galaxies meeting the S/N criterion in make_dfs_lzifu.py 
-        is returned.
-
-    USAGE
-    ---------------------------------------------------------------------------
-    load_lzifu_df() is called as follows:
-
-        >>> from spaxelsleuth.loaddata.lzifu import load_lzifu_df
-        >>> df = load_lzifu_df(ncomponents, bin_type, correct_extinction, 
-                                     eline_SNR_min, gal)
-
-    If gal is not specified then the DataFrame containing the subset of "high-S/N"
-    galaxies as defined in make_dfs_lzifu.py are returned.
-
-    OUTPUTS
-    ---------------------------------------------------------------------------
-    The Dataframe.
-
-    """
-    #######################################################################
-    # INPUT CHECKING
-    #######################################################################
-    assert (ncomponents == "recom") | (ncomponents == "1"), "ncomponents must be 'recom' or '1'!!"
-    assert bin_type in ["default", "adaptive", "sectors"], "bin_type must be 'default' or 'adaptive' or 'sectors'!!"
-
-    # Input file name
-    if gal is None:
-        print(f"Loading LZIFU DataFrame for all galaxies in the LZIFU subsample...")
-        df_fname = f"lzifu_subsample_{bin_type}_{ncomponents}-comp"
-    else:
-        print(f"Loading LZIFU DataFrame for galaxy {gal}...")
-        df_fname = f"lzifu_{gal}_{bin_type}_{ncomponents}-comp"
-    if correct_extinction:
-        df_fname += "_extcorr"
-    df_fname += f"_minSNR={eline_SNR_min}"
-    df_fname += ".hd5"
-
-    assert os.path.exists(os.path.join(lzifu_data_path, df_fname)),\
-        f"File {os.path.join(lzifu_data_path, df_fname)} does does not exist!"
-    
-    #######################################################################
-    # LOAD THE DATAFRAME FROM MEMORY
-    #######################################################################
-    df = pd.read_hdf(os.path.join(lzifu_data_path, df_fname))
-
-    return df
 
 ###############################################################################
 def make_lzifu_df(gals=None, make_master_df=False,
@@ -322,14 +250,18 @@ def make_lzifu_df(gals=None, make_master_df=False,
                   stekin_cut=True,
                   met_diagnostic_list=["Dopita+2016"], logU = -3.0,
                   eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
-                  nthreads_max=20, plotit=False,):
+                  nthreads_max=20, plotit=False):
     """
     DESCRIPTION
     ---------------------------------------------------------------------------
     This function stores emission line fluxes & other measurements from LZIFU 
-    in a DataFrame. This essentially produces the same output as make_df_sami.py, except where we use our own LZIFU fits rather than 
-    those in the official data release so that we can obtain emission line fluxes 
-    for individual emission line components for lines other than Halpha.
+    in a DataFrame. This essentially produces the same output as make_sami_df(), 
+    except where we use our own LZIFU fits rather than those in the official 
+    data release so that we can obtain emission line fluxes for individual 
+    emission line components for lines other than Halpha.
+
+    For each individual galaxy, the output is stored in HDF format as a Pandas 
+    DataFrame in which each row corresponds to a given spaxel (or Voronoi bin).
 
     INPUTS
     ---------------------------------------------------------------------------
@@ -1167,4 +1099,80 @@ def make_lzifu_df(gals=None, make_master_df=False,
         df_all_extcorr.to_hdf(os.path.join(lzifu_data_path, f"lzifu_subsample_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5"), key="LZIFU")
 
     return
+
+#######################################################################
+def load_lzifu_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
+                        gal=None):
+    """
+    load a DataFrame containing emission line fluxes, etc. for a galaxy 
+    (or galaxies) re-processed using LZIFU.
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    ncomponents:        str
+        Number of components; may either be "1" (corresponding to the 
+        1-component Gaussian fits) or "recom" (corresponding to the multi-
+        component Gaussian fits).
+
+    bin_type:           str
+        Binning scheme used. Must be one of 'default' or 'adaptive' or 
+        'sectors'.
+
+    correct_extinction: bool
+        If True, load the DataFrame in which the emission line fluxes (but not 
+        EWs) have been corrected for intrinsic extinction.
+
+    eline_SNR_min:      int 
+        Minimum flux S/N to accept. Fluxes below the threshold (plus associated
+        data products) are set to NaN.
+
+    gal:                int
+        GAMA ID of the galaxy to load. If not specified, the DataFrame 
+        containing all galaxies meeting the S/N criterion in make_dfs_lzifu.py 
+        is returned.
+
+    USAGE
+    ---------------------------------------------------------------------------
+    load_lzifu_df() is called as follows:
+
+        >>> from spaxelsleuth.loaddata.lzifu import load_lzifu_df
+        >>> df = load_lzifu_df(ncomponents, bin_type, correct_extinction, 
+                                     eline_SNR_min, gal)
+
+    If gal is not specified then the DataFrame containing the subset of "high-S/N"
+    galaxies as defined in make_dfs_lzifu.py are returned.
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    The Dataframe.
+
+    """
+    #######################################################################
+    # INPUT CHECKING
+    #######################################################################
+    assert (ncomponents == "recom") | (ncomponents == "1"), "ncomponents must be 'recom' or '1'!!"
+    assert bin_type in ["default", "adaptive", "sectors"], "bin_type must be 'default' or 'adaptive' or 'sectors'!!"
+
+    # Input file name
+    if gal is None:
+        print(f"Loading LZIFU DataFrame for all galaxies in the LZIFU subsample...")
+        df_fname = f"lzifu_subsample_{bin_type}_{ncomponents}-comp"
+    else:
+        print(f"Loading LZIFU DataFrame for galaxy {gal}...")
+        df_fname = f"lzifu_{gal}_{bin_type}_{ncomponents}-comp"
+    if correct_extinction:
+        df_fname += "_extcorr"
+    df_fname += f"_minSNR={eline_SNR_min}"
+    df_fname += ".hd5"
+
+    assert os.path.exists(os.path.join(lzifu_data_path, df_fname)),\
+        f"File {os.path.join(lzifu_data_path, df_fname)} does does not exist!"
+    
+    #######################################################################
+    # LOAD THE DATAFRAME FROM MEMORY
+    #######################################################################
+    df = pd.read_hdf(os.path.join(lzifu_data_path, df_fname))
+
+    return df
+
 
