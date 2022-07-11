@@ -46,7 +46,7 @@ import pandas as pd
 import numpy as np
 from itertools import product
 from scipy import constants
-from cosmocalc import get_dist
+from astropy.cosmology import FlatLambdaCDM
 from astropy.io import fits
 from astropy import units as u
 from astropy.coordinates import SkyCoord
@@ -152,8 +152,10 @@ def make_s7_metadata_df():
     ###############################################################################
     # Add angular scale info
     ###############################################################################
+    cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
     for gal in gals:
-        D_A_Mpc, D_L_Mpc = get_dist(z=df_metadata.loc[gal, "z_spec"])
+        D_A_Mpc = cosmo.angular_diameter_distance(df_metadata.loc[gal, "z_spec"])
+        D_L_Mpc = cosmo.luminosity_distance(df_metadata.loc[gal, "z_spec"])
         df_metadata.loc[gal, "D_A (Mpc)"] = D_A_Mpc
         df_metadata.loc[gal, "D_L (Mpc)"] = D_L_Mpc
     df_metadata["kpc per arcsec"] = df_metadata["D_A (Mpc)"] * 1e3 * np.pi / 180.0 / 3600.0
