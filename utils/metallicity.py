@@ -1,16 +1,67 @@
+"""
+File:       metallicity.py
+Author:     Henry Zovaro
+Email:      henry.zovaro@anu.edu.au
+
+DESCRIPTION
+------------------------------------------------------------------------------
+A collection of functions used to compute metallicities and ionisation 
+parameters using strong-line diagnostics.
+
+The following functions are included:
+
+    met_line_ratio_fn():
+        Helper function to quickly compute emission line ratios for metallicity 
+        diagnostics.     
+    
+    ion_line_ratio_fn():
+        Helper function to quickly compute emission line ratios for ionisation
+        parameter diagnostics. 
+
+    get_metallicity():
+        Estimate the metallicity given an ionisation parameter using
+        emission line ratios via the diagnostics given in Kewley (2019)
+        (i.e., the ARAA paper)
+
+    get_ionisation_parameter():
+        Estimate the ionisation parameter given the metallicity using
+        emission line ratios via the diagnostics given in Kewley (2019)
+        (i.e., the ARAA paper)
+
+    iter_met_helper_fn():
+        Helper function used in iter_metallicity_fn().
+
+    iter_metallicity_fn():
+        Use the iterative method described in Kewley & Dopita (2002) to estimate 
+        the metallicity and ionisation parameter using emission line ratios via 
+        the diagnostics given in Kewley (2019).
+
+    met_helper_fn():
+        Helper function used in metallicity_fn().
+
+    metallicity_fn():
+        Estimate the metallicity assuming a fixed ionisation parameter.
+
+------------------------------------------------------------------------------
+Copyright (C) 2022 Henry Zovaro 
+"""
+################################################################################
+# Imports
 import numpy as np
 import extinction
 import pandas as pd
 import multiprocessing
 from tqdm import tqdm
 
-from spaxelsleuth.loaddata.linefns import ratio_fn
+from spaxelsleuth.utils.linefns import ratio_fn
 
 from IPython.core.debugger import Tracer
 
 ################################################################################
-# Coefficients used in metallicity calculations
-################################################################################
+# Coefficients used in metallicity and ionisation parameter diagnostics
+# These have all been taken from the relevant tables in Kewley (2019), except
+# for Dopita et al. (2016).
+
 # Valid for log(P/k) = 5.0
 ion_coeffs = {
     "O3O2" : {
@@ -244,19 +295,27 @@ def ion_line_ratio_fn(ion_diagnostic, df_row):
 ################################################################################
 def get_metallicity(met_diagnostic, logR_met, logU):
     """
-        Estimate the metallicity given an ionisation parameter using
-        emission line ratios via the diagnostics given in Lisa"s ARAA paper.
-        ------------------------------------------------------------------------
-        met_diagnostic: str
-            "R23"  = ([OIII] + [OII])/Hbeta
+    Estimate the metallicity given an ionisation parameter using
+    emission line ratios via the diagnostics given in Lisa"s ARAA paper.
+
+    INPUTS
+    ------------------------------------------------------------------------
+    met_diagnostic: str
+        For example,
+            "R23" : ([OIII] + [OII])/Hbeta
             "N2O2" : [NII]/[OII]
             "O2S2" : [OII]/[SII]
 
-        logR_met:       float  
-            Log of the ratio corresponding to the metallicity diagnostic.       
+    logR_met:       float  
+        Log of the ratio corresponding to the metallicity diagnostic.       
 
-        logU:           float
-            log base 10 of the ionisation parameter.
+    logU:           float
+        log base 10 of the assumed ionisation parameter.
+
+    OUTPUTS
+    ------------------------------------------------------------------------
+    log(O/H) + 12 corresponding to the chosen diagnostic, ionisation 
+    parameter and emission line ratio.
 
     """
     # Make sure met_diagnostic is in keys
@@ -288,17 +347,25 @@ def get_metallicity(met_diagnostic, logR_met, logU):
 ################################################################################
 def get_ionisation_parameter(ion_diagnostic, logR_ion, logOH12):
     """
-        Estimate the ionisation parameter given a metallicity using
-        emission line ratios via the diagnostics given in Lisa"s ARAA paper.
-        ------------------------------------------------------------------------
-        ion_diagnostic:   string
-            "O3O2"  = [OIII]/[OII]
+    Estimate the ionisation parameter given a metallicity using
+    emission line ratios via the diagnostics given in Lisa"s ARAA paper.
+    
+    INPUTS
+    ------------------------------------------------------------------------
+    ion_diagnostic:   string
+        Must be "O3O2" (= [OIII]/[OII])
 
-        logR_ion:            float
-            Log ratio corresponding to the ionisation parameter diagnostic
+    logR_ion:            float
+        Log of the emission line ratio corresponding to the ionisation 
+        parameter diagnostic.
 
-        logOH12:        float
-            metallicity log_10(O/H) + 12
+    logOH12:        float
+        Assumed metallicity (log(O/H) + 12).
+    
+    OUTPUTS
+    ------------------------------------------------------------------------
+    log(U) corresponding to the chosen diagnostic, metallicity and emission 
+    line ratio.
 
     """
     # Make sure ion_diagnostic is in keys
@@ -412,20 +479,73 @@ def iter_met_helper_fn(args):
 
 ################################################################################
 def iter_metallicity_fn(df, met_diagnostic, ion_diagnostic, 
-                   niters=100, nthreads=20,
-                   s=None):
+                        compute_errors=True, niters=100, nthreads=20,
+                        s=None):
     """
-        Use the iterative method described in Kewley & Dopita (2002) to estimate 
-        the metallicity and ionisation parameter using emission line ratios via 
-        the diagnostics given in Lisa"s ARAA paper.
-        ------------------------------------------------------------------------
-        met_diagnostic: 
-            "R23"  = ([OIII] + [OII])/Hbeta
-            "N2O2" : [NII]/[OII]
-            "O2S2" : [OII]/[SII]
+    Use the iterative method described in Kewley & Dopita (2002) to estimate 
+    the metallicity and ionisation parameter using strong-line diagnostics.
 
-        ion_diagnostic: 
-            "O3O2" : [OIII]/[OII]
+    INPUTS
+    -----------------------------------------------------------------------
+    df:                 str
+        Pandas DataFrame containing emission line fluxes.
+
+    met_diagnostic:     str
+        Strong-line metallicity diagnostic to use. Must be one of 
+        "N2O2", "R23", "O3N2", or "Dopita+2016".
+
+    ion_diagnostic:     str
+        Strong-line ionisation parameter diagnostic to use. Must be "O3O2" for 
+        now.
+
+    niters:             int 
+        Number of MC iterations. 1000 is recommended.
+
+    compute_errors:      bool
+        If True, estimate 1-sigma errors on log(O/H) + 12 and log(U) using a 
+        Monte Carlo approach, in which the 1-sigma uncertainties on the 
+        emission line fluxes are used generate a distribution in log(O/H) + 12 
+        values, the mean and standard deviation of which are used to 
+        evaluate the metallicity and corresponding uncertainty.
+
+    nthreads:           int
+        Number of threads to use when computing errors.
+
+    s:                  str 
+        Column suffix to trim before carrying out computation - e.g. if 
+        you want to compute metallicities for "total" fluxes, and the 
+        columns of the DataFrame look like 
+
+            "HALPHA (total)", "HALPHA error (total)", etc.,
+
+        then setting s=" (total)" will mean that this function "sees"
+
+            "HALPHA", "HALPHA error".
+
+        Useful for running this function on different emission line 
+        components. The suffix is added back to the columns (and appended
+        to any new columns that are added) before being returned. For 
+        example, using the above example, the new added columns will be 
+
+            "log(O/H) + 12 (N2O2) (total)", "log(O/H) + 12 error (N2O2) (total)"
+
+    OUTPUTS
+    -----------------------------------------------------------------------
+    The original DataFrame with the following columns added:
+
+        log(O/H) + 12 (<met_diagnostic>)
+            Metallicity corresponding to the diagnostic chosen in each
+            spaxel or component.
+
+        log(O/H) + 12 error (<met_diagnostic>)
+            Corresponding 1-sigma error, if compute_errors is True.
+
+        log(U) (<ion_diagnostic>)
+            Ionisation parameter corresponding to the diagnostic chosen in each
+            spaxel or component.
+
+        log(U) error (<ion_diagnostic>)
+            Corresponding 1-sigma error, if compute_errors is True.
         
     """
     #//////////////////////////////////////////////////////////////////////////
@@ -442,6 +562,10 @@ def iter_metallicity_fn(df, met_diagnostic, ion_diagnostic,
     df[f"log(U) ({ion_diagnostic})" + s] = np.nan
     df[f"log(O/H) + 12 error ({met_diagnostic})" + s] = np.nan
     df[f"log(U) error ({ion_diagnostic})" + s] = np.nan
+
+    # Deal with case where 
+    if not compute_errors:
+        niters = 1
 
     #//////////////////////////////////////////////////////////////////////////
     # Remove suffixes on columns
@@ -567,15 +691,68 @@ def met_helper_fn(args):
 
 ################################################################################
 def metallicity_fn(df, met_diagnostic, logU=-3.0, 
-                   niters=100, nthreads=20, compute_errors=False,
+                   compute_errors=False, niters=1000, nthreads=20, 
                    s=None):
     """
-        Estimate the metallicity assuming a fixed ionisation parameter.
-        ------------------------------------------------------------------------
-        met_diagnostic: 
-            "R23"  = ([OIII] + [OII])/Hbeta
-            "N2O2" : [NII]/[OII]
-            "O2S2" : [OII]/[SII]
+    Estimate the metallicity using a strong-line diagnostic assuming a 
+    fixed ionisation parameter.
+
+    INPUTS
+    -----------------------------------------------------------------------
+    df:                 str
+        Pandas DataFrame containing emission line fluxes.
+
+    met_diagnostic:     str
+        Strong-line metallicity diagnostic to use. Must be one of 
+        "N2O2", "R23", "O3N2", or "Dopita+2016".
+
+    logU:               float
+        Log Ionisation parameter (assumed to be fixed).
+
+    compute_errors:      bool
+        If True, estimate 1-sigma errors on log(O/H) + 12 using a Monte
+        Carlo approach, in which the 1-sigma uncertainties on the emission
+        line fluxes are used generate a distribution in log(O/H) + 12 
+        values, the mean and standard deviation of which are used to 
+        evaluate the metallicity and corresponding uncertainty.
+
+    niters:             int 
+        Number of MC iterations. 1000 is recommended.
+
+    nthreads:           int
+        Number of threads to use when computing errors 
+
+    s:                  str 
+        Column suffix to trim before carrying out computation - e.g. if 
+        you want to compute metallicities for "total" fluxes, and the 
+        columns of the DataFrame look like 
+
+            "HALPHA (total)", "HALPHA error (total)", etc.,
+
+        then setting s=" (total)" will mean that this function "sees"
+
+            "HALPHA", "HALPHA error".
+
+        Useful for running this function on different emission line 
+        components. The suffix is added back to the columns (and appended
+        to any new columns that are added) before being returned. For 
+        example, using the above example, the new added columns will be 
+
+            "log(O/H) + 12 (N2O2) (total)", "log(O/H) + 12 error (N2O2) (total)"
+
+    OUTPUTS
+    -----------------------------------------------------------------------
+    The original DataFrame with the following columns added:
+
+        log(O/H) + 12 (<met_diagnostic>)
+            Metallicity corresponding to the diagnostic chosen in each
+            spaxel or component.
+
+        log(O/H) + 12 error (<met_diagnostic>)
+            Corresponding 1-sigma error, if compute_errors is True.
+
+        log(U) (const.)
+            Ionisation parameter assumed.
 
     """
 
