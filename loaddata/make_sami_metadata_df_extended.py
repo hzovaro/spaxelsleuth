@@ -246,7 +246,7 @@ if plotit:
 ###############################################################################
 # Load the SAMI sample
 ###############################################################################
-df_sami = load_sami_galaxies(ncomponents="recom",
+df_sami = load_sami_df(ncomponents="recom",
                              bin_type="default",
                              eline_SNR_min=5, 
                              correct_extinction=True)
