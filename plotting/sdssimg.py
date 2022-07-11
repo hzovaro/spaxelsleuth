@@ -1,3 +1,26 @@
+"""
+File:       sdssimg.py
+Author:     Henry Zovaro
+Email:      henry.zovaro@anu.edu.au
+
+DESCRIPTION
+------------------------------------------------------------------------------
+Contains the following functions:
+
+    get_sdss_image():
+        Download an SDSS cutout image. Used in plot_sdss_image().
+
+    plot_sdss_image():
+        Download and plot the SDSS image of a galaxy with RA and Dec in the 
+        supplied pandas DataFrame. The images are stored in environment 
+        variable SDSS_IM_PATH. Note that if the galaxy is outside the SDSS 
+        footprint, no image is plotted.
+
+------------------------------------------------------------------------------
+Copyright (C) 2022 Henry Zovaro 
+"""
+################################################################################
+# Imports
 import os
 import numpy as np
 from urllib.request import urlretrieve
@@ -13,10 +36,17 @@ from matplotlib.patches import Circle
 from IPython.core.debugger import Tracer
 
 ###############################################################################
+# Paths
+assert "SDSS_IM_PATH" in os.environ, "Environment variable SDSS_IM_PATH is not defined!"
+sdss_im_path = os.environ["SDSS_IM_PATH"]
+
+###############################################################################
 def get_sdss_image(gal, ra_deg, dec_deg,
                    as_per_px=0.1, width_px=500, height_px=500):
     """
     Download an SDSS cutout image.
+    
+    INPUTS
     --------------------------------------------------------------------------
     gal:            str
         Name of galaxy. Note that this is not used in actually retrieving 
@@ -38,13 +68,10 @@ def get_sdss_image(gal, ra_deg, dec_deg,
     height_px:      int
         height of image to download.
 
+    OUTPUTS
     --------------------------------------------------------------------------
-    Returns:
-        True if the image was successfully received; False otherwise.
+    Returns True if the image was successfully received; False otherwise.
     """
-    sdss_im_path = os.environ["SDSS_IM_PATH"]
-    assert "SDSS_IM_PATH" in os.environ, "Environment variable SDSS_IM_PATH is not defined!"
-
     # Determine the URL
     url = f"http://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/getjpeg?TaskName=Skyserver.Explore.Image&ra={ra_deg}&dec={dec_deg}&scale={as_per_px:.1f}&width={width_px}&height={height_px}&opt=G"
     
@@ -70,6 +97,8 @@ def plot_sdss_image(df_gal, axis_labels=True,
     pandas DataFrame. The images are stored in environment variable 
     SDSS_IM_PATH. Note that if the galaxy is outside the SDSS footprint, 
     no image is plotted.
+    
+    INPUTS
     --------------------------------------------------------------------------
     df_gal:         pandas DataFrame
         DataFrame containing spaxel-by-spaxel data for a single galaxy.
@@ -101,14 +130,11 @@ def plot_sdss_image(df_gal, axis_labels=True,
         Only used if axis is not specified, in which case a new figure is 
         created with figure size figsize.
 
+    OUTPUTS
     --------------------------------------------------------------------------
-    Returns:
-        the axis containing the plotted image.
+    The axis containing the plotted image.
 
     """
-    sdss_im_path = os.environ["SDSS_IM_PATH"]
-    assert "SDSS_IM_PATH" in os.environ, "Environment variable SDSS_IM_PATH is not defined!"
-
     # Input checking
     assert len(df_gal["catid"].unique()) == 1, "df_gal must only contain one galaxy!!"
 
