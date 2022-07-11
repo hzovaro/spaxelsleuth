@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from spaxelsleuth.loaddata.lzifu import make_lzifu_df, load_lzifu_df
+from spaxelsleuth.loaddata.lzifu import merge_datacubes, make_lzifu_df, load_lzifu_df
 from spaxelsleuth.plotting.sdssimg import plot_sdss_image
 from spaxelsleuth.plotting.plotgalaxies import plot2dscatter, plot2dhist, plot2dcontours, plot2dhistcontours
 from spaxelsleuth.plotting.plottools import label_fn, bpt_labels, vmin_fn, vmax_fn, label_fn, component_labels
@@ -22,7 +22,12 @@ bin_type = "default"
 eline_SNR_min = 5
 
 ##############################################################################
-# Create the DataFrame
+# Test merge_datacubes()
+##############################################################################
+merge_datacubes([572402, 491956] plotit=True)
+
+##############################################################################
+# Test make_lzifu_df()
 ##############################################################################
 # Test: 1 galaxy
 make_lzifu_df(gals=572402, bin_type=bin_type,
@@ -31,6 +36,11 @@ make_lzifu_df(gals=572402, bin_type=bin_type,
 
 # Test: 2 galaxies
 make_lzifu_df(gals=[572402, 491956], bin_type=bin_type,
+              ncomponents=ncomponents, 
+              eline_SNR_min=eline_SNR_min)
+
+# Test: all galaxies
+make_lzifu_df(make_master_df=True, bin_type=bin_type,
               ncomponents=ncomponents, 
               eline_SNR_min=eline_SNR_min)
 
