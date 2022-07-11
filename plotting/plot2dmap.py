@@ -1,3 +1,21 @@
+"""
+File:       plot2dmap.py
+Author:     Henry Zovaro
+Email:      henry.zovaro@anu.edu.au
+
+DESCRIPTION
+------------------------------------------------------------------------------
+Contains the following functions:
+
+ plot2dmap():
+        Plot a reconstructed 2D map of the quantity specified by col_z in a 
+        single galaxy, e.g. gas velocity dispersion.
+
+------------------------------------------------------------------------------
+Copyright (C) 2022 Henry Zovaro 
+"""
+################################################################################
+# Imports
 import os
 import numpy as np
 from astropy.io import fits
@@ -32,6 +50,8 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     """
     Show a reconstructed 2D map of the quantity specified by col_z in a single 
     galaxy.
+
+    INPUTS
     ---------------------------------------------------------------------------
     df_gal:         pandas DataFrame
         DataFrame containing spaxel-by-spaxel data for a single galaxy.
@@ -114,10 +134,10 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     figsize:            tuple (width, height)
         Figure size in inches.
 
+    OUTPUTS
     ---------------------------------------------------------------------------
-    Returns:
-        Tuple containing the matplotlib figure object that is the parent of 
-        the main axis and the main axis.
+    Returns a tuple containing the matplotlib figure object that is the parent of 
+    the main axis and the main axis.
 
     """
     ###########################################################################
