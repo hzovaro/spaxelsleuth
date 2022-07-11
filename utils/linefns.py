@@ -58,6 +58,27 @@ from IPython.core.debugger import Tracer
 ###############################################################################
 # Reference lines from literature
 def Kewley2001(ratio_x, ratio_x_vals, log=True):
+    """
+    Returns the "maximum starburst" demarcation lines of Kewley et al. (2001)
+    for the N2, S2 and O1 BPT diagrams.
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    ratio_x         str
+        x-axis ratio. Must be one of log N2, log S2 or log O1.
+
+    ratio_x_vals    Numpy array
+        x-axis values for which to compute the demarcation line.
+
+    log             bool
+        If True, return the log of the computed O3 values.
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    O3 (or log O3) ratio values corresponding to the demarcation line and the 
+    input x-axis ratio and values.
+
+    """
     ratio_x_vals = np.copy(ratio_x_vals)
     if not log:
         ratio_y_vals = np.log10(ratio_y_vals)
@@ -76,6 +97,27 @@ def Kewley2001(ratio_x, ratio_x_vals, log=True):
         return 0.73 / (ratio_x_vals + 0.59) + 1.33
 
 def Kauffman2003(ratio_x, ratio_x_vals, log=True):
+    """
+    Returns the empirically derived star-forming/AGN demarcation line of 
+    Kauffman et al. (2003) for the N2 BPT diagram.
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    ratio_x         str
+        x-axis ratio. Must be one of log N2, log S2 or log O1.
+
+    ratio_x_vals    Numpy array
+        x-axis values for which to compute the demarcation line.
+
+    log             bool
+        If True, return the log of the computed O3 values.
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    O3 (or log O3) ratio values corresponding to the demarcation line and the 
+    input x-axis ratio and values.
+
+    """
     ratio_x_vals = np.copy(ratio_x_vals)
     if not log:
         ratio_y_vals = np.log10(ratio_y_vals)
@@ -88,6 +130,27 @@ def Kauffman2003(ratio_x, ratio_x_vals, log=True):
         return 0.61 / (ratio_x_vals - 0.05) + 1.3
 
 def Kewley2006(ratio_x, ratio_x_vals, log=True):
+    """
+    Returns the Seyfert/LINER separation lines of Kewley et al. (2006) for the 
+    S2 and O1 BPT diagrams.
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    ratio_x         str
+        x-axis ratio. Must be one of log N2, log S2 or log O1.
+
+    ratio_x_vals    Numpy array
+        x-axis values for which to compute the demarcation line.
+
+    log             bool
+        If True, return the log of the computed O3 values.
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    O3 (or log O3) ratio values corresponding to the demarcation line and the 
+    input x-axis ratio and values.
+
+    """
     ratio_x_vals = np.copy(ratio_x_vals)
     if not log:
         ratio_y_vals = np.log10(ratio_y_vals)
@@ -103,6 +166,27 @@ def Kewley2006(ratio_x, ratio_x_vals, log=True):
         return 1.18 * ratio_x_vals + 1.30
 
 def Law2021_1sigma(ratio_x, ratio_x_vals, log=True):
+    """
+    Returns the 1-sigma demarcation line based on the kinematic classification
+    scheme of Law et al. (2021) for the N2, S2 and O1 BPT diagrams.
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    ratio_x         str
+        x-axis ratio. Must be one of log N2, log S2 or log O1.
+
+    ratio_x_vals    Numpy array
+        x-axis values for which to compute the demarcation line.
+
+    log             bool
+        If True, return the log of the computed O3 values.
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    O3 (or log O3) ratio values corresponding to the demarcation line and the 
+    input x-axis ratio and values.
+
+    """
     ratio_x_vals = np.copy(ratio_x_vals)
     if not log:
         ratio_y_vals = np.log10(ratio_y_vals)
@@ -119,6 +203,27 @@ def Law2021_1sigma(ratio_x, ratio_x_vals, log=True):
         return 0.612 / (ratio_x_vals + 0.360) + 1.179
 
 def Law2021_3sigma(ratio_x, ratio_y_vals, log=True):
+    """
+    Returns the 3-sigma demarcation line based on the kinematic classification
+    scheme of Law et al. (2021) for the N2, S2 and O1 BPT diagrams.
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    ratio_x         str
+        x-axis ratio. Must be one of log N2, log S2 or log O1.
+
+    ratio_x_vals    Numpy array
+        x-axis values for which to compute the demarcation line.
+
+    log             bool
+        If True, return the log of the computed O3 values.
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    O3 (or log O3) ratio values corresponding to the demarcation line and the 
+    input x-axis ratio and values.
+
+    """
     ratio_y_vals = np.copy(ratio_y_vals)
     if not log:
         ratio_y_vals = np.log10(ratio_y_vals)
@@ -137,10 +242,18 @@ def Law2021_3sigma(ratio_x, ratio_y_vals, log=True):
 ###############################################################################
 def Proxauf2014(R):
     """
-    Electron density computation from eqn. 3 Proxauf+2014.
-    The calculation assumes an electron temperature of 10^4 K.
-    Input: 
-        R = F([SII]6716) / F([SII]6731)
+    Electron density computation from eqn. 3 of Proxauf (2014), which assumes 
+    an electron temperature of 10^4 K.
+
+    INPUT
+    --------------------------------------------------------------------------
+    R       float or Numpy array
+        Flux ratio F([SII]6716) / F([SII]6731).
+
+    OUTPUT
+    --------------------------------------------------------------------------
+    n_e (in cm^-3) computed using eqn. 3 of Proxauf (2014).
+
     """
     log_n_e = 0.0543 * np.tan(-3.0553 * R + 2.8506)\
              + 6.98 - 10.6905 * R\
@@ -166,6 +279,46 @@ def bpt_fn(df, s=None):
     """
     Make new columns in the given DataFrame corresponding to their BPT 
     classification.
+
+    INPUTS
+    --------------------------------------------------------------------------
+    df:     pandas DataFrame
+        DataFrame in which to compute 
+
+    s:      str 
+        Column suffix to trim before carrying out computation - e.g. if 
+        you want to compute metallicities for "total" fluxes, and the 
+        columns of the DataFrame look like 
+
+            "HALPHA (total)", "HALPHA error (total)", etc.,
+
+        then setting s=" (total)" will mean that this function "sees"
+
+            "HALPHA", "HALPHA error".
+
+        Useful for running this function on different emission line 
+        components. The suffix is added back to the columns (and appended
+        to any new columns that are added) before being returned. For 
+        example, using the above example, the new added columns will be 
+
+            "BPT (total)", "BPT (numeric) (total)"
+
+    OUTPUTS
+    -----------------------------------------------------------------------
+    The original DataFrame with the following columns added:
+
+        BPT             str
+            BPT classification.
+
+        BPT (numeric)   int
+            Integer code corresponding to the BPT classification. Useful 
+            in plotting.
+
+    PREREQUISITES 
+    -----------------------------------------------------------------------
+    BPT classification requires the emission line ratios log O3, log N2 and 
+    log S2 to be defined. These can be computed using ratio_fn().
+
     """
     # Remove suffixes on columns
     if s is not None:
@@ -452,7 +605,46 @@ def whav_fn(df, ncomponents):
 def law2021_fn(df, s=None):
     """
     Make new columns in the given DataFrame corresponding to their kinematic 
-    classification from Law+2021.
+    classification from Law et al. (2021).
+
+    INPUTS
+    --------------------------------------------------------------------------
+    df:     pandas DataFrame
+        DataFrame in which to compute 
+
+    s:      str 
+        Column suffix to trim before carrying out computation - e.g. if 
+        you want to compute metallicities for "total" fluxes, and the 
+        columns of the DataFrame look like 
+
+            "HALPHA (total)", "HALPHA error (total)", etc.,
+
+        then setting s=" (total)" will mean that this function "sees"
+
+            "HALPHA", "HALPHA error".
+
+        Useful for running this function on different emission line 
+        components. The suffix is added back to the columns (and appended
+        to any new columns that are added) before being returned. For 
+        example, using the above example, the new added columns will be 
+
+            "Law+2021 (total)", "Law+2021 (numeric) (total)"
+
+    OUTPUTS
+    -----------------------------------------------------------------------
+    The original DataFrame with the following columns added:
+
+        Law+2021             str
+            Law et al. (2021) classification.
+
+        Law+2021 (numeric)   int
+            Integer code corresponding to the Law et al. classification. Useful 
+            in plotting.
+
+    PREREQUISITES 
+    -----------------------------------------------------------------------
+    Law et al. (2021) classification requires the emission line ratios log O3, 
+    log N2 and log S2 to be defined. These can be computed using ratio_fn().
     """
     # Remove suffixes on columns
     if s is not None:
@@ -540,7 +732,42 @@ def law2021_fn(df, s=None):
 ###############################################################################
 def ratio_fn(df, s=None):
     """
-    Make new columns in the given DataFrame corresponding to certain line ratios.
+    Given an input DataFrame containing emission line fluxes, computes emission 
+    line ratios, e.g. N2 and S2, and adds additional columns containing the 
+    sums of emission line doublets - e.g., if the DataFrame contains OIII5007
+    but not OIII4959, the OIII4959 flux is computed based on the OIII5007 flux
+    using the expected ratio predicted by QM and added to the DataFrame. 
+    The column OIII4959+OIII5007 will also be added (and similar for other 
+    emission lines, e.g. SIII9531 and SIII9051, NII6548 and NII6583).
+
+    INPUTS
+    --------------------------------------------------------------------------
+    df:     pandas DataFrame
+        DataFrame in which to compute 
+
+    s:      str 
+        Column suffix to trim before carrying out computation - e.g. if 
+        you want to compute metallicities for "total" fluxes, and the 
+        columns of the DataFrame look like 
+
+            "HALPHA (total)", "HALPHA error (total)", etc.,
+
+        then setting s=" (total)" will mean that this function "sees"
+
+            "HALPHA", "HALPHA error".
+
+        Useful for running this function on different emission line 
+        components. The suffix is added back to the columns (and appended
+        to any new columns that are added) before being returned. For 
+        example, using the above example, the new added columns will be 
+
+            "log N2 (total)", "log N2 error (lower) (total)", 
+            "log N2 error (upper) (total)"
+
+    OUTPUTS
+    -----------------------------------------------------------------------
+    The original DataFrame with new columns added.
+
     """
     # Remove suffixes on columns
     if s is not None:
