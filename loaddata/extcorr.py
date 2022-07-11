@@ -86,6 +86,7 @@ def extinction_corr_fn(df, eline_list,
                        balmer_SNR_min=5,
                        nthreads=20,
                        s=None):
+    
     """
     Correct emission line fluxes (and errors) for extinction.
 
@@ -187,6 +188,14 @@ def extinction_corr_fn(df, eline_list,
 
     # If there are no spaxels in which A_V can be computed, return
     if df_extcorr.shape[0] == 0:
+        if s is not None:
+            # Get list of new columns that have been added
+            added_cols = [c for c in df.columns if c not in old_cols]
+            suffix_added_cols = [f"{c}{s}" for c in added_cols]
+            # Rename the new columns
+            df = df.rename(columns=dict(zip(added_cols, suffix_added_cols)))
+            # Replace the suffix in the column names
+            df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
         return df
 
     #//////////////////////////////////////////////////////////////////////////
