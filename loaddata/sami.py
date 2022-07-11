@@ -5,21 +5,9 @@ Email:      henry.zovaro@anu.edu.au
 
 DESCRIPTION
 ------------------------------------------------------------------------------
-This script contains the function load_sami_galaxies() which returns the Pandas 
+This script contains the function load_sami_df() which returns the Pandas 
 DataFrame containing spaxel-by-spaxel information for all SAMI galaxies that 
 was created in make_df_sami.py.
-
-USAGE
-------------------------------------------------------------------------------
-Run from the command line as follows:
-
-    >>> from spaxelsleuth.loaddata.sami import load_sami_galaxies
-    >>> df = load_sami_galaxies(ncomponents, bin_type, correct_extinction, 
-                                eline_SNR_min, debug)
-
-OUTPUTS
-------------------------------------------------------------------------------
-The Dataframe.
 
 PREREQUISITES
 ------------------------------------------------------------------------------
@@ -40,9 +28,45 @@ assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 sami_data_path = os.environ["SAMI_DIR"]
 
 ###############################################################################
-def load_sami_galaxies(ncomponents, bin_type, correct_extinction, eline_SNR_min,
+def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
                        debug=False):
 
+    """
+    Load and return the Pandas DataFrame containing spaxel-by-spaxel 
+    information for all SAMI galaxies which was created in make_df_sami.py.
+
+    INPUTS
+    ------------------------------------------------------------------------------
+    ncomponents:        str
+        Number of components; may either be "1" (corresponding to the 
+        1-component Gaussian fits) or "recom" (corresponding to the multi-
+        component Gaussian fits).
+
+    bin_type:           str
+        Binning scheme used. Must be one of 'default' or 'adaptive' or 
+        'sectors'.
+
+    correct_extinction: bool
+        If True, load the DataFrame in which the emission line fluxes (but not 
+        EWs) have been corrected for intrinsic extinction.
+
+    eline_SNR_min:      int 
+        Minimum flux S/N to accept. Fluxes below the threshold (plus associated
+        data products) are set to NaN.
+    
+    USAGE
+    ------------------------------------------------------------------------------
+    load_sami_df() is called as follows:
+
+        >>> from spaxelsleuth.loaddata.sami import load_sami_galaxies
+        >>> df = load_sami_df(ncomponents, bin_type, correct_extinction, 
+                                    eline_SNR_min, debug)
+
+    OUTPUTS
+    ------------------------------------------------------------------------------
+    The Dataframe.
+
+    """
     #######################################################################
     # INPUT CHECKING
     #######################################################################
