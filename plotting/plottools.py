@@ -2,7 +2,7 @@ import numpy as np
 import copy
 import pandas as pd
 
-from spaxelsleuth.loaddata.linefns import Kewley2001, Kewley2006, Kauffman2003, Law2021_1sigma, Law2021_3sigma
+from spaxelsleuth.utils.linefns import Kewley2001, Kewley2006, Kauffman2003, Law2021_1sigma, Law2021_3sigma
 
 from matplotlib.colors import ListedColormap, to_rgba, LogNorm
 import matplotlib.patheffects as PathEffects
