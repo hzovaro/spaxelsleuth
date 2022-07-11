@@ -45,7 +45,78 @@ def plot2dhist(df, col_x, col_y, col_z, ax, log_z=False,
                xmin=None, xmax=None,
                ymin=None, ymax=None,
                nbins=100, alpha=1.0, cmap=None):
+    """
+    Plot a 2D histogram corresponding to col_x and col_y in DataFrame df,
+    optionally coloured by the median value of a third parameter col_z in 
+    each histogram cell. 
 
+    INPUTS
+    --------------------------------------------------------------------------
+    df:                 pandas DataFrame
+        DataFrame that has been created using make_df_sami.py or has a similar
+        format.
+    
+    col_x:              str
+        X-coordinate quantity. Must be a column in df. col_x can correspond to
+        a specific column (e.g. "sigma_gas (component 0)"); alternatively,
+        it can be left unspecified (i.e. "sigma_gas") in which case data in 
+        all components (i.e., component 0, 1 and 2 if ncomponnets == "recom")
+        is plotted together.
+    
+    col_y:              str
+        Y-coordinate quantity. Must be a column in df. col_y can correspond to
+        a specific column (e.g. "sigma_gas (component 0)"); alternatively,
+        it can be left unspecified (i.e. "sigma_gas") in which case data in 
+        all components (i.e., component 0, 1 and 2 if ncomponnets == "recom")
+        is plotted together.
+    
+    col_z:              str
+        Quantity used to colour the histogram. Must be a column in df or "count".
+        NOTE: if you want to plot discrete quantities, such as BPT category,
+        then you must specify the numeric option for these, i.e. set 
+        col_z = "BPT (numeric)" rather than "BPT".
+
+    ax:                 matplotlib.axis 
+        Axis on which to plot.
+
+    log_z:              bool
+        Whether to scale the z-axis colour of the histogram logarithmically.
+    
+    vmin:               float
+        Minimum value to use for marker colour if col_z is set.
+    
+    vmax:               float
+        Maximum value to use for marker colour if col_z is set.
+    
+    xmin:               float
+        Minimum x-axis value. Defaults to vmin_fn(col_x) in plottools.py.
+    
+    xmax:               float
+        Maximum x-axis value. Defaults to vmax_fn(col_x) in plottools.py.
+    
+    ymin:               float
+        Minimum y-axis value. Defaults to vmin_fn(col_y) in plottools.py.
+    
+    ymax:               float
+        Maximum y-axis value. Defaults to vmax_fn(col_y) in plottools.py.
+    
+    nbins:              int
+        Number of bins in x and y to use when drawing the 2D histogram.
+    
+    alpha:              float
+        Transparency of histogram.
+    
+    cmap:               str or Matplotlib colourmap instance
+        Colourmap used to plot the z-axis quantity. Defaults to cmap_fn(col_y) 
+        in plottools.py.
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    The "mappable" object returned by histhelper() that can be passed to 
+    plt.colorbar() to create a colourbar.
+
+    """
+    
     # Figure out how many components were fitted.
     ncomponents = "recom" if any([c.endswith("(component 2)") for c in df.columns]) else "1"
 
@@ -141,8 +212,63 @@ def plot2dcontours(df, col_x, col_y, ax,
                    linewidths=0.5, colors="k"):
 
     """
-    For columns in which there are multiple kinematic components, include 
-    ALL of them (e.g., HALPHA EW).
+    Plot a 2D histogram corresponding to col_x and col_y in DataFrame df,
+    optionally coloured by the median value of a third parameter col_z in 
+    each histogram cell. 
+
+    INPUTS
+    --------------------------------------------------------------------------
+    df:                 pandas DataFrame
+        DataFrame that has been created using make_df_sami.py or has a similar
+        format.
+    
+    col_x:              str
+        X-coordinate quantity. Must be a column in df. col_x can correspond to
+        a specific column (e.g. "sigma_gas (component 0)"); alternatively,
+        it can be left unspecified (i.e. "sigma_gas") in which case data in 
+        all components (i.e., component 0, 1 and 2 if ncomponnets == "recom")
+        is plotted together.
+    
+    col_y:              str
+        Y-coordinate quantity. Must be a column in df. col_y can correspond to
+        a specific column (e.g. "sigma_gas (component 0)"); alternatively,
+        it can be left unspecified (i.e. "sigma_gas") in which case data in 
+        all components (i.e., component 0, 1 and 2 if ncomponnets == "recom")
+        is plotted together.
+
+    ax:                 matplotlib.axis 
+        Axis on which to plot.
+
+    nbins:              int
+        Number of bins in x and y to use when drawing the 2D histogram on which
+        the contours are based.
+
+    alpha:              float
+        Contour transparency.
+    
+    xmin:               float
+        Minimum x-axis value. Defaults to vmin_fn(col_x) in plottools.py.
+    
+    xmax:               float
+        Maximum x-axis value. Defaults to vmax_fn(col_x) in plottools.py.
+    
+    ymin:               float
+        Minimum y-axis value. Defaults to vmin_fn(col_y) in plottools.py.
+    
+    ymax:               float
+        Maximum y-axis value. Defaults to vmax_fn(col_y) in plottools.py.
+    
+    linewidths:         float
+        Contour linewidths.
+
+    colors:             str
+        Contour colours.
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    The "mappable" object returned by plt.contour() that can be passed to 
+    plt.colorbar() to create a colourbar.
+
     """
     # Figure out how many components were fitted.
     ncomponents = "recom" if any([c.endswith("(component 2)") for c in df.columns]) else "1"
@@ -235,15 +361,26 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
         format.
     
     col_x:              str
-        X-coordinate quantity. Must be a column in df.
+        X-coordinate quantity. Must be a column in df. col_x can correspond to
+        a specific column (e.g. "sigma_gas (component 0)"); alternatively,
+        it can be left unspecified (i.e. "sigma_gas") in which case data in 
+        all components (i.e., component 0, 1 and 2 if ncomponnets == "recom")
+        is plotted together.
     
     col_y:              str
-        Y-coordinate quantity. Must be a column in df.
+        Y-coordinate quantity. Must be a column in df. col_y can correspond to
+        a specific column (e.g. "sigma_gas (component 0)"); alternatively,
+        it can be left unspecified (i.e. "sigma_gas") in which case data in 
+        all components (i.e., component 0, 1 and 2 if ncomponnets == "recom")
+        is plotted together.
     
     col_z:              str
-        Quantity used to colour the histogram. Must be a column in df. If not 
-        specified, the points are all given the same colour specified by 
-        markerfacecolor.
+        Quantity used to colour the histogram. Must be a column in df. col_z 
+        can correspond to a specific column (e.g. "sigma_gas (component 0)"); 
+        alternatively, it can be left unspecified (i.e. "sigma_gas") in which 
+        case data in all components (i.e., component 0, 1 and 2 if 
+        ncomponnets == "recom") is plotted together.
+    
         NOTE: if you want to plot discrete quantities, such as BPT category,
         then you must specify the numeric option for these, i.e. set 
         col_z = "BPT (numeric)" rather than "BPT".
