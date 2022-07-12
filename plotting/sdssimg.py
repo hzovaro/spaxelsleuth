@@ -26,7 +26,6 @@ import numpy as np
 from urllib.request import urlretrieve
 from astropy.wcs import WCS
 
-from astropy.cosmology import FlatLambdaCDM
 from plotting_fns import plot_scale_bar
 
 import matplotlib.pyplot as plt
@@ -90,7 +89,7 @@ def get_sdss_image(gal, ra_deg, dec_deg,
 ###############################################################################
 def plot_sdss_image(df_gal, axis_labels=True,
                     as_per_px=0.1, width_px=500, height_px=500,
-                    ax=None, figsize=(9, 7)):    
+                    ax=None, figsize=(5, 5)):    
 
     """
     Download and plot the SDSS image of a galaxy with RA and Dec in the supplied 
@@ -184,9 +183,7 @@ def plot_sdss_image(df_gal, axis_labels=True,
     ax.add_patch(c)
 
     # Include scale bar
-    cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
-    D_A_Mpc = cosmo.angular_diameter_distance(df_gal["z_spec"].unique()[0])
-    kpc_per_as = D_A_Mpc * 1e3 * np.pi / 180.0 / 3600.0
+    kpc_per_as = df_gal["kpc per arcsec"].unique()[0]
     plot_scale_bar(as_per_px=0.1, loffset=0.25, kpc_per_as=kpc_per_as, ax=ax, l=10, units="arcsec", fontsize=10)
 
     # Axis labels
