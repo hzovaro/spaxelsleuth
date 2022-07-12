@@ -33,8 +33,10 @@ plt.close("all")
 """
 Make a nice figure for the WiFeS proposal.
 """
-sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
-sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
+sami_data_path = os.environ["SAMI_DIR"]
+assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
+sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
+assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
 
 ###########################################################################
 # Options
@@ -48,7 +50,7 @@ eline_SNR_min = 5       # Minimum S/N of emission lines to accept
 ###########################################################################
 # Load the SAMI sample
 ###########################################################################
-df_sami = load_sami_galaxies(ncomponents="recom",
+df_sami = load_sami_df(ncomponents="recom",
                              bin_type="default",
                              eline_SNR_min=eline_SNR_min, 
                              vgrad_cut=False,
@@ -156,7 +158,7 @@ for gal in gals:
     ###########################################################################
     # Extract the spectrum from the red data cube 
     ###########################################################################
-    hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
+    hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"{gal}/{gal}_A_cube_red.fits.gz"))
     header = hdulist_R_cube[0].header
     data_cube_R = hdulist_R_cube[0].data
     var_cube_R = hdulist_R_cube[1].data
