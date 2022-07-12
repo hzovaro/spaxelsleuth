@@ -55,7 +55,7 @@ Copyright (C) 2022 Henry Zovaro
 """
 ###############################################################################
 # Imports
-import os, sys
+import os, inspect
 import pandas as pd
 import numpy as np
 from itertools import product
@@ -161,18 +161,21 @@ def make_sami_metadata_df():
     filler_metadata_fname = "sami_InputCatFiller.csv"
     morphologies_fname = "sami_VisualMorphologyDR3.csv"
     flag_metadata_fname = "sami_CubeObs.csv"
+
+    # Get the data path
+    data_path = os.path.join(__file__.split("loaddata")[0], "data")
     for fname in [gama_metadata_fname, cluster_metadata_fname, 
                   filler_metadata_fname, morphologies_fname, 
                   flag_metadata_fname]:
-        assert os.path.exists(os.path.join("../data/", fname)),\
-            f"File {os.path.join('../data/', fname)} not found!"
+        assert os.path.exists(os.path.join(data_path, fname)),\
+            f"File {os.path.join(data_path, fname)} not found!"
 
     ###########################################################################
     # Read in galaxy metadata
     ###########################################################################
-    df_metadata_gama = pd.read_csv(os.path.join("../data/", gama_metadata_fname))  # ALL possible GAMA targets
-    df_metadata_cluster = pd.read_csv(os.path.join("../data/", cluster_metadata_fname))  # ALL possible cluster targets
-    df_metadata_filler = pd.read_csv(os.path.join("../data/", filler_metadata_fname))  # ALL possible filler targets
+    df_metadata_gama = pd.read_csv(os.path.join(data_path, gama_metadata_fname))  # ALL possible GAMA targets
+    df_metadata_cluster = pd.read_csv(os.path.join(data_path, cluster_metadata_fname))  # ALL possible cluster targets
+    df_metadata_filler = pd.read_csv(os.path.join(data_path, filler_metadata_fname))  # ALL possible filler targets
     df_metadata = pd.concat([df_metadata_gama, df_metadata_cluster, df_metadata_filler]).drop(["Unnamed: 0"], axis=1)
 
     gal_ids_metadata = list(np.sort(list(df_metadata["catid"])))
@@ -180,7 +183,7 @@ def make_sami_metadata_df():
     ###########################################################################
     # Append morphology data
     ###########################################################################
-    df_morphologies = pd.read_csv(os.path.join("../data/", morphologies_fname)).drop(["Unnamed: 0"], axis=1)
+    df_morphologies = pd.read_csv(os.path.join(data_path, morphologies_fname)).drop(["Unnamed: 0"], axis=1)
     df_morphologies = df_morphologies.rename(columns={"type": "Morphology (numeric)"})
 
     # Morphologies (numeric) - merge "?" and "no agreement" into a single category.
@@ -210,7 +213,7 @@ def make_sami_metadata_df():
     ###########################################################################
     # Read in flag metadata
     ###########################################################################
-    df_flags = pd.read_csv(os.path.join("../data/", flag_metadata_fname)).drop(["Unnamed: 0"], axis=1)
+    df_flags = pd.read_csv(os.path.join(data_path, flag_metadata_fname)).drop(["Unnamed: 0"], axis=1)
     df_flags = df_flags.astype({col: "int64" for col in df_flags.columns if col.startswith("warn")})
     df_flags = df_flags.astype({"isbest": bool})
 
