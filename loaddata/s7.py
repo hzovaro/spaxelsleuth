@@ -41,7 +41,7 @@ Copyright (C) 2022 Henry Zovaro
 """
 ###############################################################################
 # Imports
-import os
+import os, inspect
 import pandas as pd
 import numpy as np
 from itertools import product
@@ -110,7 +110,10 @@ def make_s7_metadata_df():
     ###############################################################################
     # READ IN THE METADATA
     ###############################################################################
-    df_metadata = pd.read_csv(os.path.join("../data", df_metadata_fname), skiprows=58)
+    data_path = os.path.join(__file__.split("loaddata")[0], "data")
+    assert os.path.exists(os.path.join(data_path, df_metadata_fname)),\
+        f"File {os.path.join(data_path, df_metadata_fname)} not found!"
+    df_metadata = pd.read_csv(os.path.join(data_path, df_metadata_fname), skiprows=58)
     gals = df_metadata["S7_Name"].values
 
     ###############################################################################
@@ -155,8 +158,8 @@ def make_s7_metadata_df():
     print(f"In make_s7_metadata_df(): Computing distances...")
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
     for gal in gals:
-        D_A_Mpc = cosmo.angular_diameter_distance(df_metadata.loc[gal, "z_spec"])
-        D_L_Mpc = cosmo.luminosity_distance(df_metadata.loc[gal, "z_spec"])
+        D_A_Mpc = cosmo.angular_diameter_distance(df_metadata.loc[gal, "z_spec"]).value
+        D_L_Mpc = cosmo.luminosity_distance(df_metadata.loc[gal, "z_spec"]).value
         df_metadata.loc[gal, "D_A (Mpc)"] = D_A_Mpc
         df_metadata.loc[gal, "D_L (Mpc)"] = D_L_Mpc
     df_metadata["kpc per arcsec"] = df_metadata["D_A (Mpc)"] * 1e3 * np.pi / 180.0 / 3600.0
