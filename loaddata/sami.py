@@ -870,7 +870,13 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     except FileNotFoundError:
         print(f"ERROR: metadata DataFrame file not found ({os.path.join(sami_data_path, df_metadata_fname)}). Please run make_sami_metadata_df.py first!")
 
+    # Only include galaxies flagged as "good"
     gal_ids_dq_cut = df_metadata[df_metadata["Good?"] == True].index.values
+    
+    # Only include galaxies for which we have data 
+    gal_ids_dq_cut = [g for g in gal_ids_dq_cut if os.path.exists(os.path.join(sami_data_path, f"ifs/{g}/"))]
+
+    # If running in DEBUG mode, run on a subset to speed up execution time
     if debug: 
         gal_ids_dq_cut = gal_ids_dq_cut[:10]
     df_metadata["Good?"] = df_metadata["Good?"].astype("float")
