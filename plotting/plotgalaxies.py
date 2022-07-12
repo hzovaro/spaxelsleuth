@@ -58,16 +58,16 @@ def plot2dhist(df, col_x, col_y, col_z, ax, log_z=False,
     
     col_x:              str
         X-coordinate quantity. Must be a column in df. col_x can correspond to
-        a specific column (e.g. "sigma_gas (component 0)"); alternatively,
+        a specific column (e.g. "sigma_gas (component 1)"); alternatively,
         it can be left unspecified (i.e. "sigma_gas") in which case data in 
-        all components (i.e., component 0, 1 and 2 if ncomponnets == "recom")
+        all components (i.e., component 1, 2 and 3 if ncomponnets == "recom")
         is plotted together.
     
     col_y:              str
         Y-coordinate quantity. Must be a column in df. col_y can correspond to
-        a specific column (e.g. "sigma_gas (component 0)"); alternatively,
+        a specific column (e.g. "sigma_gas (component 1)"); alternatively,
         it can be left unspecified (i.e. "sigma_gas") in which case data in 
-        all components (i.e., component 0, 1 and 2 if ncomponnets == "recom")
+        all components (i.e., component 1, 2 and 3 if ncomponnets == "recom")
         is plotted together.
     
     col_z:              str
@@ -118,19 +118,19 @@ def plot2dhist(df, col_x, col_y, col_z, ax, log_z=False,
     """
     
     # Figure out how many components were fitted.
-    ncomponents = "recom" if any([c.endswith("(component 2)") for c in df.columns]) else "1"
+    ncomponents = "recom" if any([c.endswith("(component 3)") for c in df.columns]) else "1"
 
     # If either column are present as multiple components, then make a new 
     # data frame containing all of them.
-    if f"{col_x} (component 0)" in df.columns:
-        if f"{col_y} (component 0)" in df.columns:
-            data_x = np.concatenate((df[f"{col_x} (component 0)"].values, df[f"{col_x} (component 1)"].values, df[f"{col_x} (component 2)"].values)) if ncomponents == "recom" else df[f"{col_x} (component 0)"].values
-            data_y = np.concatenate((df[f"{col_y} (component 0)"].values, df[f"{col_y} (component 1)"].values, df[f"{col_y} (component 2)"].values)) if ncomponents == "recom" else df[f"{col_y} (component 0)"].values
+    if f"{col_x} (component 1)" in df.columns:
+        if f"{col_y} (component 1)" in df.columns:
+            data_x = np.concatenate((df[f"{col_x} (component 1)"].values, df[f"{col_x} (component 2)"].values, df[f"{col_x} (component 3)"].values)) if ncomponents == "recom" else df[f"{col_x} (component 1)"].values
+            data_y = np.concatenate((df[f"{col_y} (component 1)"].values, df[f"{col_y} (component 2)"].values, df[f"{col_y} (component 3)"].values)) if ncomponents == "recom" else df[f"{col_y} (component 1)"].values
         else:
             data_x = df[f"{col_x} (total)"] if f"{col_x} (total)" in df.columns else df[f"{col_x}"]
             data_y = df[col_y].values
     else:
-        if f"{col_y} (component 0)" in df.columns:
+        if f"{col_y} (component 1)" in df.columns:
             data_y = df[f"{col_y} (total)"] if f"{col_y} (total)" in df.columns else df[f"{col_y}"]
             data_x = df[col_x].values
         else:
@@ -141,17 +141,17 @@ def plot2dhist(df, col_x, col_y, col_z, ax, log_z=False,
         df = pd.DataFrame({col_x: data_x, col_y: data_y})
     else:
         # If col_z has individual measurements for each component...
-        if f"{col_z} (component 0)" in df.columns:
+        if f"{col_z} (component 1)" in df.columns:
             # If x and y also have individual measurements for each component, then use all 3 for x, y and z.
-            if f"{col_x} (component 0)" in df.columns and f"{col_y} (component 0)" in df.columns:
-                data_z = np.concatenate((df[f"{col_z} (component 0)"].values, df[f"{col_z} (component 1)"].values, df[f"{col_z} (component 2)"].values)) if ncomponents == "recom" else df[f"{col_z} (component 0)"].values
+            if f"{col_x} (component 1)" in df.columns and f"{col_y} (component 1)" in df.columns:
+                data_z = np.concatenate((df[f"{col_z} (component 1)"].values, df[f"{col_z} (component 2)"].values, df[f"{col_z} (component 3)"].values)) if ncomponents == "recom" else df[f"{col_z} (component 1)"].values
             # Otherwise, just use the "total" measurement.
             else: 
                 data_z = df[f"{col_z} (total)"] if f"{col_z} (total)" in df.columns else df[f"{col_z}"]
         # Otherwise, just use the column as-is.
         else:
             # If x and y are measured for each component, but z isn't, then repeat the z data for each component
-            if f"{col_x} (component 0)" in df.columns and f"{col_y} (component 0)" in df.columns:
+            if f"{col_x} (component 1)" in df.columns and f"{col_y} (component 1)" in df.columns:
                 data_z = np.concatenate((df[col_z].values, df[col_z].values, df[col_z].values)) if ncomponents == "recom" else df[col_z].values
             else:
                 data_z = df[col_z]
@@ -224,16 +224,16 @@ def plot2dcontours(df, col_x, col_y, ax,
     
     col_x:              str
         X-coordinate quantity. Must be a column in df. col_x can correspond to
-        a specific column (e.g. "sigma_gas (component 0)"); alternatively,
+        a specific column (e.g. "sigma_gas (component 1)"); alternatively,
         it can be left unspecified (i.e. "sigma_gas") in which case data in 
-        all components (i.e., component 0, 1 and 2 if ncomponnets == "recom")
+        all components (i.e., component 1, 2 and 3 if ncomponnets == "recom")
         is plotted together.
     
     col_y:              str
         Y-coordinate quantity. Must be a column in df. col_y can correspond to
-        a specific column (e.g. "sigma_gas (component 0)"); alternatively,
+        a specific column (e.g. "sigma_gas (component 1)"); alternatively,
         it can be left unspecified (i.e. "sigma_gas") in which case data in 
-        all components (i.e., component 0, 1 and 2 if ncomponnets == "recom")
+        all components (i.e., component 1, 2 and 3 if ncomponnets == "recom")
         is plotted together.
 
     ax:                 matplotlib.axis 
@@ -271,19 +271,19 @@ def plot2dcontours(df, col_x, col_y, ax,
 
     """
     # Figure out how many components were fitted.
-    ncomponents = "recom" if any([c.endswith("(component 2)") for c in df.columns]) else "1"
+    ncomponents = "recom" if any([c.endswith("(component 3)") for c in df.columns]) else "1"
 
     # If either column are present as multiple components, then make a new 
     # data frame containing all of them.
-    if f"{col_x} (component 0)" in df.columns:
-        if f"{col_y} (component 0)" in df.columns:
-            data_x = np.concatenate((df[f"{col_x} (component 0)"].values, df[f"{col_x} (component 1)"].values, df[f"{col_x} (component 2)"].values)) if ncomponents == "recom" else df[f"{col_x} (component 0)"].values
-            data_y = np.concatenate((df[f"{col_y} (component 0)"].values, df[f"{col_y} (component 1)"].values, df[f"{col_y} (component 2)"].values)) if ncomponents == "recom" else df[f"{col_y} (component 0)"].values
+    if f"{col_x} (component 1)" in df.columns:
+        if f"{col_y} (component 1)" in df.columns:
+            data_x = np.concatenate((df[f"{col_x} (component 1)"].values, df[f"{col_x} (component 2)"].values, df[f"{col_x} (component 3)"].values)) if ncomponents == "recom" else df[f"{col_x} (component 1)"].values
+            data_y = np.concatenate((df[f"{col_y} (component 1)"].values, df[f"{col_y} (component 2)"].values, df[f"{col_y} (component 3)"].values)) if ncomponents == "recom" else df[f"{col_y} (component 1)"].values
         else:
             data_x = df[f"{col_x} (total)"] if f"{col_x} (total)" in df.columns else df[f"{col_x}"]
             data_y = df[col_y].values
     else:
-        if f"{col_y} (component 0)" in df.columns:
+        if f"{col_y} (component 1)" in df.columns:
             data_y = df[f"{col_y} (total)"] if f"{col_y} (total)" in df.columns else df[f"{col_y}"]
             data_x = df[col_x].values
         else:
@@ -348,7 +348,7 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
                        cax=None, cax_orientation="vertical", alpha=1.0,
                        hist=True, contours=True, levels=None, linewidths=0.5, 
                        colors="k", 
-                       figsize=(9, 7)):
+                       figsize=(9, 6)):
     """
     Plot a 2D histogram of the data in columns col_x and col_y in a pandas 
     DataFrame df. Optionally, overlay contours showing the corresponding 
@@ -362,23 +362,23 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
     
     col_x:              str
         X-coordinate quantity. Must be a column in df. col_x can correspond to
-        a specific column (e.g. "sigma_gas (component 0)"); alternatively,
+        a specific column (e.g. "sigma_gas (component 1)"); alternatively,
         it can be left unspecified (i.e. "sigma_gas") in which case data in 
-        all components (i.e., component 0, 1 and 2 if ncomponnets == "recom")
+        all components (i.e., component 1, 2 and 3 if ncomponnets == "recom")
         is plotted together.
     
     col_y:              str
         Y-coordinate quantity. Must be a column in df. col_y can correspond to
-        a specific column (e.g. "sigma_gas (component 0)"); alternatively,
+        a specific column (e.g. "sigma_gas (component 1)"); alternatively,
         it can be left unspecified (i.e. "sigma_gas") in which case data in 
-        all components (i.e., component 0, 1 and 2 if ncomponnets == "recom")
+        all components (i.e., component 1, 2 and 3 if ncomponnets == "recom")
         is plotted together.
     
     col_z:              str
         Quantity used to colour the histogram. Must be a column in df. col_z 
-        can correspond to a specific column (e.g. "sigma_gas (component 0)"); 
+        can correspond to a specific column (e.g. "sigma_gas (component 1)"); 
         alternatively, it can be left unspecified (i.e. "sigma_gas") in which 
-        case data in all components (i.e., component 0, 1 and 2 if 
+        case data in all components (i.e., component 1, 2 and 3 if 
         ncomponnets == "recom") is plotted together.
     
         NOTE: if you want to plot discrete quantities, such as BPT category,
@@ -469,7 +469,8 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
 
     # If no axis is specified then create a new one with a vertical colorbar.
     if ax is None:
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize)
+        fig = plt.figure(figsize=figsize)
+        ax = fig.add_axes([0.1, 0.1, 0.6, 0.8])
     else:
         fig = ax.get_figure()
 
@@ -581,6 +582,10 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
     elif col_y.startswith("sigma_gas - sigma_*"):
         # Vertical line at 0
         ax.axhline(0, linestyle="-", linewidth=1, color="k")
+
+    # Re-set axis limits 
+    ax.set_xlim([xmin, xmax])
+    ax.set_ylim([ymin, ymax])
         
     return fig
 
@@ -690,7 +695,7 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
     assert col_z != "count", f"{col_z} cannot be 'count' in a scatter plot!"
     if col_z is not None:
         for col in [col_x, col_y, col_z]:
-            assert (col in df.columns) or (f"{col} (component 0)" in df.columns) or (f"{col} (total)" in df.columns), f"{col} is not a valid column!"            
+            assert (col in df.columns) or (f"{col} (component 1)" in df.columns) or (f"{col} (total)" in df.columns), f"{col} is not a valid column!"            
         assert df[col_z].dtype != "O",\
             f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
     assert cax_orientation == "horizontal" or cax_orientation == "vertical", "cax_orientation must be either 'horizontal' or 'vertical'!"
@@ -699,7 +704,8 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
 
     # If no axis is specified then create a new one with a vertical colorbar.
     if ax is None:
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize)
+        fig = plt.figure(figsize=figsize)
+        ax = fig.add_axes([0.1, 0.1, 0.6, 0.8])
     else:
         fig = ax.get_figure()
 
@@ -895,5 +901,9 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
     elif col_y.startswith("sigma_gas - sigma_*"):
         # Vertical line at 0
         ax.axhline(0, linestyle="-", linewidth=1, color="k")
+
+    # Re-set axis limits 
+    ax.set_xlim([xmin, xmax])
+    ax.set_ylim([ymin, ymax])
 
     return fig

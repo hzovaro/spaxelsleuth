@@ -221,7 +221,9 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
 
     # If no axis is specified then create a new one with a vertical colorbar.
     if ax is None:
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize, subplot_kw={"projection": wcs})
+        # fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize, subplot_kw={"projection": wcs})
+        fig = plt.figure(figsize=figsize)
+        ax = fig.add_axes([0.1, 0.1, 0.6, 0.8], projection=wcs)
     else:
         # Sneaky... replace the provided axis with one that has the correct projection
         fig = ax.get_figure()
