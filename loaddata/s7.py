@@ -101,7 +101,7 @@ def make_s7_metadata_df():
         https://miocene.anu.edu.au/S7/Data_release_2/S7_DR2_Table_2_Catalogue.csv
     
     """
-
+    print("In make_s7_metadata_df(): Creating metadata DataFrame...")
     ###############################################################################
     # Filenames
     df_metadata_fname = "S7_DR2_Table_2_Catalogue.csv"
@@ -152,6 +152,7 @@ def make_s7_metadata_df():
     ###############################################################################
     # Add angular scale info
     ###############################################################################
+    print(f"In make_s7_metadata_df(): Computing distances...")
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
     for gal in gals:
         D_A_Mpc = cosmo.angular_diameter_distance(df_metadata.loc[gal, "z_spec"])
@@ -169,6 +170,7 @@ def make_s7_metadata_df():
     ###############################################################################
     # Save to file
     ###############################################################################
+    print(f"In make_s7_metadata_df(): Saving metadata DataFrame to file {os.path.join(s7_data_path, df_fname)}...")
     df_metadata.to_hdf(os.path.join(s7_data_path, df_fname), key="metadata")
 
     return
@@ -511,7 +513,7 @@ def make_s7_df(bin_type="default", ncomponents="recom",
             # thisrow[f"A_V error (total)"] = A_V_map_err[yy, xx]
             # thisrow[f"A_V error (total)"] = A_V_map_err[yy, xx]
 
-            for nn, component_str in enumerate(["total", "component 0", "component 1", "component 2"]):
+            for nn, component_str in enumerate(["total", "component 1", "component 2", "component 3"]):
 
                 # Add OII doublet flux 
                 for eline in ["OII3726", "OII3729"]:
@@ -582,9 +584,9 @@ def make_s7_df(bin_type="default", ncomponents="recom",
     # Compute the ORIGINAL number of components
     ###############################################################################
     df_spaxels["Number of components (original)"] =\
-        (~df_spaxels["sigma_gas (component 0)"].isna()).astype(int) +\
         (~df_spaxels["sigma_gas (component 1)"].isna()).astype(int) +\
-        (~df_spaxels["sigma_gas (component 2)"].isna()).astype(int)
+        (~df_spaxels["sigma_gas (component 2)"].isna()).astype(int) +\
+        (~df_spaxels["sigma_gas (component 3)"].isna()).astype(int)
 
     ###############################################################################
     # Calculate equivalent widths
@@ -595,23 +597,23 @@ def make_s7_df(bin_type="default", ncomponents="recom",
     df_spaxels.loc[df_spaxels["HALPHA continuum"] < 0, "HALPHA continuum"] = 0
     for nn in range(3):
         # Cast to float
-        df_spaxels[f"HALPHA (component {nn})"] = pd.to_numeric(df_spaxels[f"HALPHA (component {nn})"])
-        df_spaxels[f"HALPHA error (component {nn})"] = pd.to_numeric(df_spaxels[f"HALPHA error (component {nn})"])
+        df_spaxels[f"HALPHA (component {nn + 1})"] = pd.to_numeric(df_spaxels[f"HALPHA (component {nn + 1})"])
+        df_spaxels[f"HALPHA error (component {nn + 1})"] = pd.to_numeric(df_spaxels[f"HALPHA error (component {nn + 1})"])
         # Compute EWs
-        df_spaxels[f"HALPHA EW (component {nn})"] = df_spaxels[f"HALPHA (component {nn})"] / df_spaxels["HALPHA continuum"]
-        df_spaxels.loc[np.isinf(df_spaxels[f"HALPHA EW (component {nn})"].astype(float)), f"HALPHA EW (component {nn})"] = np.nan  # If the continuum level == 0, then the EW is undefined, so set to NaN.
-        df_spaxels[f"HALPHA EW error (component {nn})"] = df_spaxels[f"HALPHA EW (component {nn})"] *\
-            np.sqrt((df_spaxels[f"HALPHA error (component {nn})"] / df_spaxels[f"HALPHA (component {nn})"])**2 +\
+        df_spaxels[f"HALPHA EW (component {nn + 1})"] = df_spaxels[f"HALPHA (component {nn + 1})"] / df_spaxels["HALPHA continuum"]
+        df_spaxels.loc[np.isinf(df_spaxels[f"HALPHA EW (component {nn + 1})"].astype(float)), f"HALPHA EW (component {nn + 1})"] = np.nan  # If the continuum level == 0, then the EW is undefined, so set to NaN.
+        df_spaxels[f"HALPHA EW error (component {nn + 1})"] = df_spaxels[f"HALPHA EW (component {nn + 1})"] *\
+            np.sqrt((df_spaxels[f"HALPHA error (component {nn + 1})"] / df_spaxels[f"HALPHA (component {nn + 1})"])**2 +\
                     (df_spaxels[f"HALPHA continuum error"] / df_spaxels[f"HALPHA continuum"])**2) 
 
     # Calculate total EWs
-    df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {ii})"] for ii in range(3)], axis=0)
-    df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {ii})"]**2 for ii in range(3)], axis=0))
+    df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {nn + 1})"] for nn in range(3)], axis=0)
+    df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {nn + 1})"]**2 for nn in range(3)], axis=0))
 
     # If all HALPHA EWs are NaN, then make the total HALPHA EW NaN too
-    df_spaxels.loc[df_spaxels["HALPHA EW (component 0)"].isna() &\
-                   df_spaxels["HALPHA EW (component 1)"].isna() &\
-                   df_spaxels["HALPHA EW (component 2)"].isna(), 
+    df_spaxels.loc[df_spaxels["HALPHA EW (component 1)"].isna() &\
+                   df_spaxels["HALPHA EW (component 2)"].isna() &\
+                   df_spaxels["HALPHA EW (component 3)"].isna(), 
                    ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
 
     ######################################################################
@@ -634,14 +636,14 @@ def make_s7_df(bin_type="default", ncomponents="recom",
     ######################################################################
     for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726", "OII3729", "OIII5007", "SII6716", "SII6731"]:
         # Compute S/N 
-        for ii in range(3):
-            if f"{eline} (component {ii})" in df_spaxels.columns:
-                df_spaxels[f"{eline} S/N (component {ii})"] = df_spaxels[f"{eline} (component {ii})"] / df_spaxels[f"{eline} error (component {ii})"]
+        for nn in range(3):
+            if f"{eline} (component {nn + 1})" in df_spaxels.columns:
+                df_spaxels[f"{eline} S/N (component {nn + 1})"] = df_spaxels[f"{eline} (component {nn + 1})"] / df_spaxels[f"{eline} error (component {nn + 1})"]
         
         # Compute total line fluxes, if the total fluxes are not given
         if f"{eline} (total)" not in df_spaxels.columns:
-            df_spaxels[f"{eline} (total)"] = np.nansum([df_spaxels[f"{eline} (component {ii})"] for ii in range(3)], axis=0)
-            df_spaxels[f"{eline} error (total)"] = np.sqrt(np.nansum([df_spaxels[f"{eline} error (component {ii})"]**2 for ii in range(3)], axis=0))
+            df_spaxels[f"{eline} (total)"] = np.nansum([df_spaxels[f"{eline} (component {nn + 1})"] for nn in range(3)], axis=0)
+            df_spaxels[f"{eline} error (total)"] = np.sqrt(np.nansum([df_spaxels[f"{eline} error (component {nn + 1})"]**2 for nn in range(3)], axis=0))
 
         # Compute the S/N in the TOTAL line flux
         df_spaxels[f"{eline} S/N (total)"] = df_spaxels[f"{eline} (total)"] / df_spaxels[f"{eline} error (total)"]

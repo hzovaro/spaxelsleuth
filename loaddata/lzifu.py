@@ -228,11 +228,11 @@ def merge_datacubes(gal=None, plotit=False):
                 assert np.all(np.isnan(hdulist_merged[f"{ext}_ERR"].data[ncomponents + 1:, mask]))
 
                 # Check that the right data has been added 
-                for ii in range(ncomponents):
-                    diff = np.abs((hdulist_merged[ext].data[ii + 1, mask] - hdulist[ext].data[ii + 1, mask]) /hdulist_merged[ext].data[ii + 1, mask])
+                for nn in range(ncomponents):
+                    diff = np.abs((hdulist_merged[ext].data[nn + 1, mask] - hdulist[ext].data[nn + 1, mask]) /hdulist_merged[ext].data[nn + 1, mask])
                     diff[np.isnan(diff)] = 0
                     assert np.all(diff < 1e-6)
-                    diff = np.abs((hdulist_merged[f"{ext}_ERR"].data[ii + 1, mask] - hdulist[f"{ext}_ERR"].data[ii + 1, mask]) / hdulist_merged[f"{ext}_ERR"].data[ii + 1, mask])
+                    diff = np.abs((hdulist_merged[f"{ext}_ERR"].data[nn + 1, mask] - hdulist[f"{ext}_ERR"].data[nn + 1, mask]) / hdulist_merged[f"{ext}_ERR"].data[nn + 1, mask])
                     diff[np.isnan(diff)] = 0
                     assert np.all(diff < 1e-6)
 
@@ -624,8 +624,8 @@ def make_lzifu_df(gals=None, make_master_df=False,
                     thisrow_err[jj] = data_err[nn, y, x]
                 rows_list.append(thisrow)
                 rows_list.append(thisrow_err)
-                colnames.append(f"{ext} (component {nn})")
-                colnames.append(f"{ext}_ERR (component {nn})")
+                colnames.append(f"{ext} (component {nn + 1})")
+                colnames.append(f"{ext}_ERR (component {nn + 1})")
 
         hdulist_lzifu.close()
 
@@ -732,7 +732,7 @@ def make_lzifu_df(gals=None, make_master_df=False,
                 y, x = (int(np.round(y_c)), int(np.round(x_c)))
                 thisrow[jj] = v_grad[nn, y, x]
             rows_list.append(thisrow)
-            colnames.append(f"v_grad (component {nn})")       
+            colnames.append(f"v_grad (component {nn + 1})")       
 
         #######################################################################
         # Do the same but with the continuum intensity for calculating the HALPHA EW
@@ -845,14 +845,14 @@ def make_lzifu_df(gals=None, make_master_df=False,
         ###############################################################################
         rename_dict = {}
         for eline in eline_list:
-            for ii in range(3):
-                rename_dict[f"{eline}_ERR (component {ii})"] = f"{eline} error (component {ii})"
-        for ii in range(3):
-            rename_dict[f"V (component {ii})"] = f"v_gas (component {ii})"
-            rename_dict[f"V_ERR (component {ii})"] = f"v_gas error (component {ii})"
-        for ii in range(3):
-            rename_dict[f"VDISP (component {ii})"] = f"sigma_gas (component {ii})"
-            rename_dict[f"VDISP_ERR (component {ii})"] = f"sigma_gas error (component {ii})"
+            for nn in range(3):
+                rename_dict[f"{eline}_ERR (component {nn + 1})"] = f"{eline} error (component {nn + 1})"
+        for nn in range(3):
+            rename_dict[f"V (component {nn + 1})"] = f"v_gas (component {nn + 1})"
+            rename_dict[f"V_ERR (component {nn + 1})"] = f"v_gas error (component {nn + 1})"
+        for nn in range(3):
+            rename_dict[f"VDISP (component {nn + 1})"] = f"sigma_gas (component {nn + 1})"
+            rename_dict[f"VDISP_ERR (component {nn + 1})"] = f"sigma_gas error (component {nn + 1})"
 
         # R_e
         rename_dict["r_e"] = "R_e (arcsec)"
@@ -865,12 +865,12 @@ def make_lzifu_df(gals=None, make_master_df=False,
         ###############################################################################
         if ncomponents == "recom":
             df_spaxels["Number of components (original)"] =\
-                (~df_spaxels["sigma_gas (component 0)"].isna()).astype(int) +\
                 (~df_spaxels["sigma_gas (component 1)"].isna()).astype(int) +\
-                (~df_spaxels["sigma_gas (component 2)"].isna()).astype(int)
+                (~df_spaxels["sigma_gas (component 2)"].isna()).astype(int) +\
+                (~df_spaxels["sigma_gas (component 3)"].isna()).astype(int)
         elif ncomponents == "1":
             df_spaxels["Number of components (original)"] =\
-                (~df_spaxels["sigma_gas (component 0)"].isna()).astype(int)
+                (~df_spaxels["sigma_gas (component 1)"].isna()).astype(int)
 
         ###############################################################################
         # Calculate equivalent widths
@@ -878,33 +878,33 @@ def make_lzifu_df(gals=None, make_master_df=False,
         df_spaxels.loc[df_spaxels["HALPHA continuum"] < 0, "HALPHA continuum"] = 0
         for nn in range(3):
             # Cast to float
-            df_spaxels[f"HALPHA (component {nn})"] = pd.to_numeric(df_spaxels[f"HALPHA (component {nn})"])
-            df_spaxels[f"HALPHA error (component {nn})"] = pd.to_numeric(df_spaxels[f"HALPHA error (component {nn})"])
+            df_spaxels[f"HALPHA (component {nn + 1})"] = pd.to_numeric(df_spaxels[f"HALPHA (component {nn + 1})"])
+            df_spaxels[f"HALPHA error (component {nn + 1})"] = pd.to_numeric(df_spaxels[f"HALPHA error (component {nn + 1})"])
 
             # Compute EWs
-            df_spaxels[f"HALPHA EW (component {nn})"] = df_spaxels[f"HALPHA (component {nn})"] / df_spaxels["HALPHA continuum"]
-            df_spaxels.loc[np.isinf(df_spaxels[f"HALPHA EW (component {nn})"].astype(float)), f"HALPHA EW (component {nn})"] = np.nan  # If the continuum level == 0, then the EW is undefined, so set to NaN.
-            df_spaxels[f"HALPHA EW error (component {nn})"] = df_spaxels[f"HALPHA EW (component {nn})"] *\
-                np.sqrt((df_spaxels[f"HALPHA error (component {nn})"] / df_spaxels[f"HALPHA (component {nn})"])**2 +\
+            df_spaxels[f"HALPHA EW (component {nn + 1})"] = df_spaxels[f"HALPHA (component {nn + 1})"] / df_spaxels["HALPHA continuum"]
+            df_spaxels.loc[np.isinf(df_spaxels[f"HALPHA EW (component {nn + 1})"].astype(float)), f"HALPHA EW (component {nn + 1})"] = np.nan  # If the continuum level == 0, then the EW is undefined, so set to NaN.
+            df_spaxels[f"HALPHA EW error (component {nn + 1})"] = df_spaxels[f"HALPHA EW (component {nn + 1})"] *\
+                np.sqrt((df_spaxels[f"HALPHA error (component {nn + 1})"] / df_spaxels[f"HALPHA (component {nn + 1})"])**2 +\
                         (df_spaxels[f"HALPHA continuum error"] / df_spaxels[f"HALPHA continuum"])**2) 
 
             # If the continuum level <= 0, then the EW is undefined, so set to NaN.
             df_spaxels.loc[df_spaxels["HALPHA continuum"] <= 0, 
-                       [f"HALPHA EW (component {nn})", 
-                        f"HALPHA EW error (component {nn})"]] = np.nan  
+                       [f"HALPHA EW (component {nn + 1})", 
+                        f"HALPHA EW error (component {nn + 1})"]] = np.nan  
 
         # Calculate total EWs
-        df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {ii})"] for ii in range(3 if ncomponents == "recom" else 1)], axis=0)
-        df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {ii})"]**2 for ii in range(3 if ncomponents == "recom" else 1)], axis=0))
+        df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {nn + 1})"] for nn in range(3 if ncomponents == "recom" else 1)], axis=0)
+        df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {nn + 1})"]**2 for nn in range(3 if ncomponents == "recom" else 1)], axis=0))
 
         # If all HALPHA EWs are NaN, then make the total HALPHA EW NaN too
         if ncomponents == "recom":
-            df_spaxels.loc[df_spaxels["HALPHA EW (component 0)"].isna() &\
-                           df_spaxels["HALPHA EW (component 1)"].isna() &\
-                           df_spaxels["HALPHA EW (component 2)"].isna(), 
+            df_spaxels.loc[df_spaxels["HALPHA EW (component 1)"].isna() &\
+                           df_spaxels["HALPHA EW (component 2)"].isna() &\
+                           df_spaxels["HALPHA EW (component 3)"].isna(), 
                            ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
         elif ncomponents == "1":
-            df_spaxels.loc[df_spaxels["HALPHA EW (component 0)"].isna(),
+            df_spaxels.loc[df_spaxels["HALPHA EW (component 1)"].isna(),
                            ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
         
         ######################################################################
@@ -912,10 +912,10 @@ def make_lzifu_df(gals=None, make_master_df=False,
         ######################################################################
         # Rename SFR (compnent 0) to SFR (total)
         rename_dict = {}
-        rename_dict["SFR (component 0)"] = "SFR (total)"
-        rename_dict["SFR error (component 0)"] = "SFR error (total)"
-        rename_dict["SFR surface density (component 0)"] = "SFR surface density (total)"
-        rename_dict["SFR surface density error (component 0)"] = "SFR surface density error (total)"
+        rename_dict["SFR (component 1)"] = "SFR (total)"
+        rename_dict["SFR error (component 1)"] = "SFR error (total)"
+        rename_dict["SFR surface density (component 1)"] = "SFR surface density (total)"
+        rename_dict["SFR surface density error (component 1)"] = "SFR surface density error (total)"
 
         df_spaxels = df_spaxels.rename(columns=rename_dict)
 
@@ -932,14 +932,14 @@ def make_lzifu_df(gals=None, make_master_df=False,
         ######################################################################
         for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OIII5007", "SII6716", "SII6731"]:
             # Compute S/N 
-            for ii in range(3):
-                if f"{eline} (component {ii})" in df_spaxels.columns:
-                    df_spaxels[f"{eline} S/N (component {ii})"] = df_spaxels[f"{eline} (component {ii})"] / df_spaxels[f"{eline} error (component {ii})"]
+            for nn in range(3):
+                if f"{eline} (component {nn + 1})" in df_spaxels.columns:
+                    df_spaxels[f"{eline} S/N (component {nn + 1})"] = df_spaxels[f"{eline} (component {nn + 1})"] / df_spaxels[f"{eline} error (component {nn + 1})"]
             
             # Compute total line fluxes, if the total fluxes are not given
             if f"{eline} (total)" not in df_spaxels.columns:
-                df_spaxels[f"{eline} (total)"] = np.nansum([df_spaxels[f"{eline} (component {ii})"] for ii in range(3)], axis=0)
-                df_spaxels[f"{eline} error (total)"] = np.sqrt(np.nansum([df_spaxels[f"{eline} error (component {ii})"]**2 for ii in range(3)], axis=0))
+                df_spaxels[f"{eline} (total)"] = np.nansum([df_spaxels[f"{eline} (component {nn + 1})"] for nn in range(3)], axis=0)
+                df_spaxels[f"{eline} error (total)"] = np.sqrt(np.nansum([df_spaxels[f"{eline} error (component {nn + 1})"]**2 for nn in range(3)], axis=0))
 
             # Compute the S/N in the TOTAL line flux
             df_spaxels[f"{eline} S/N (total)"] = df_spaxels[f"{eline} (total)"] / df_spaxels[f"{eline} error (total)"]
@@ -948,10 +948,10 @@ def make_lzifu_df(gals=None, make_master_df=False,
         # Fix SFR columns
         ######################################################################
         # Compute the SFR and SFR surface density from the 0th component ONLY
-        df_spaxels["SFR surface density (component 0)"] = df_spaxels["SFR surface density (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
-        df_spaxels["SFR surface density error (component 0)"] = df_spaxels["SFR surface density error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
-        df_spaxels["SFR (component 0)"] = df_spaxels["SFR (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
-        df_spaxels["SFR error (component 0)"] = df_spaxels["SFR error (total)"] * df_spaxels["HALPHA (component 0)"] / df_spaxels["HALPHA (total)"]
+        df_spaxels["SFR surface density (component 1)"] = df_spaxels["SFR surface density (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
+        df_spaxels["SFR surface density error (component 1)"] = df_spaxels["SFR surface density error (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
+        df_spaxels["SFR (component 1)"] = df_spaxels["SFR (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
+        df_spaxels["SFR error (component 1)"] = df_spaxels["SFR error (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
 
         # NaN the SFR surface density if the inclination is undefined
         cond_NaN_inclination = np.isnan(df_spaxels["Inclination i (degrees)"])
