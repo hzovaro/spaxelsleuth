@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from spaxelsleuth.loaddata.sami import load_sami_galaxies
+from spaxelsleuth.loaddata.sami import make_sami_df, load_sami_df
 from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
 from spaxelsleuth.plotting.plotgalaxies import plot2dscatter, plot2dhistcontours
 
@@ -25,13 +25,13 @@ ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3
 # Load the data
 ###########################################################################
 # Load the ubinned data 
-df_extcorr = load_sami_galaxies(ncomponents=ncomponents,
+df_extcorr = load_sami_df(ncomponents=ncomponents,
                         bin_type=bin_type,
                         eline_SNR_min=eline_SNR_min, 
                         correct_extinction=True,
                         debug=True)
 
-df_noextcorr = load_sami_galaxies(ncomponents=ncomponents,
+df_noextcorr = load_sami_df(ncomponents=ncomponents,
                         bin_type=bin_type,
                         eline_SNR_min=eline_SNR_min, 
                         correct_extinction=False,

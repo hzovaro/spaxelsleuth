@@ -1464,7 +1464,7 @@ def make_sami_metadata_df_extended():
     ###############################################################################
     # Save to .csv 
     ###############################################################################
-    print("In make_sami_metadata_df_extended(): Saving extnded metadata DataFrame to file...")
+    print(f"In make_sami_metadata_df_extended(): Saving extnded metadata DataFrame to file {os.path.join(sami_data_path, df_fname)}...")
     df_snr.to_hdf(os.path.join(sami_data_path, df_fname), key="Extended metadata")
 
     return 

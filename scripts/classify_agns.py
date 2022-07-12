@@ -34,7 +34,8 @@ TODO:
 - count how many sources have both upper limits for S_1.4 AND IRAS fluxes
 
 """
-sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
+sami_data_path = os.environ["SAMI_DIR"]
+assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 
 ###############################################################################
 # LOAD SAMI DATA

@@ -3,17 +3,8 @@ import sys
 import os 
 import numpy as np
 import pandas as pd
-from astropy.visualization import hist
-from astropy.io import fits
-from tqdm import tqdm
-from scipy import constants
-from scipy.stats import ks_2samp, anderson_ksamp, spearmanr
 
-from spaxelsleuth.loaddata.lzifu import load_lzifu_galaxies
-from spaxelsleuth.loaddata.sami import load_sami_galaxies
-from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram
-from spaxelsleuth.plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn, fname_fn
-from spaxelsleuth.plotting.plottools import bpt_colours, bpt_labels, whav_colors, whav_labels
+from spaxelsleuth.loaddata.sami import load_sami_df
 from spaxelsleuth.plotting.plottools import morph_labels, morph_ticks
 from spaxelsleuth.plotting.plottools import ncomponents_labels, ncomponents_colours
 from spaxelsleuth.plotting.plottools import component_labels, component_colours
@@ -21,8 +12,6 @@ from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours, plot2dscatter
 from spaxelsleuth.plotting.plot2dmap import plot2dmap
 from spaxelsleuth.plotting.sdssimg import plot_sdss_image
 from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
-
-from spaxelsleuth.loaddata import linefns, metallicity
 
 import matplotlib
 from matplotlib import rc, rcParams
@@ -53,11 +42,11 @@ ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3
 # Load the data
 ###########################################################################
 # Load the ubinned data 
-df = load_sami_galaxies(ncomponents=ncomponents,
-                        bin_type=bin_type,
-                        eline_SNR_min=eline_SNR_min,
-                        correct_extinction=True,
-                        debug=True)
+df = load_sami_df(ncomponents=ncomponents,
+                  bin_type=bin_type,
+                  eline_SNR_min=eline_SNR_min,
+                  correct_extinction=True,
+                  debug=False)
 
 ###########################################################################
 # Checking plotting functions work

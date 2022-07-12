@@ -3,14 +3,8 @@ import sys
 import os 
 import numpy as np
 import pandas as pd
-from astropy.visualization import hist
-from astropy.io import fits
-from tqdm import tqdm
-from scipy import constants
-from scipy.stats import ks_2samp, anderson_ksamp, spearmanr
 
-from spaxelsleuth.loaddata.lzifu import load_lzifu_galaxies
-from spaxelsleuth.loaddata.sami import load_sami_galaxies
+from spaxelsleuth.loaddata.sami import load_sami_df
 from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram
 from spaxelsleuth.plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn, fname_fn
 from spaxelsleuth.plotting.plottools import bpt_colours, bpt_labels, whav_colors, whav_labels
@@ -37,32 +31,21 @@ plt.ion()
 plt.close("all")
 
 ###########################################################################
-# Paths
-sami_data_path = os.environ["SAMI_DIR"]
-assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
-sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
-assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
-sami_fig_path = os.environ["SAMI_FIG_DIR"]
-assert "SAMI_FIG_DIR" in os.environ, "Environment variable SAMI_FIG_DIR is not defined!"
-sami_fig_path = os.environ["SAMI_FIG_DIR"]
-assert "SAMI_FIG_DIR" in os.environ, "Environment variable SAMI_FIG_DIR is not defined!"
-
-###########################################################################
 # Options
-eline_SNR_min = 5       # Minimum S/N of emission lines to accept
+ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3])]
 
 ###########################################################################
 # Load the data
 ###########################################################################
 # Load the ubinned data 
-df_unbinned = load_sami_galaxies(ncomponents="recom",
+df_unbinned = load_sami_df(ncomponents="recom",
                                  bin_type="default",
                                  eline_SNR_min=eline_SNR_min,
                                  correct_extinction=True,
                                  debug=True)
 
 # Load the binned data 
-df_binned = load_sami_galaxies(ncomponents="recom",
+df_binned = load_sami_df(ncomponents="recom",
                                bin_type="adaptive",
                                eline_SNR_min=eline_SNR_min,
                                correct_extinction=True,
@@ -149,16 +132,16 @@ lat = ax.coords[1]
 lat.set_ticklabel_visible(False)
 
 # v_gas
-for ii in range(3):
+for nn in range(3):
     _, ax = plot2dmap(df_gal=df_gal_unbinned, bin_type="default", survey="sami",
               PA_deg=0,
-              col_z=f"v_gas (component {ii})",
-              ax=axs[1][ii], 
-              plot_colorbar=True if ii == 2 else False, cax=None, cax_orientation="vertical", 
+              col_z=f"v_gas (component {nn + 1})",
+              ax=axs[1][nn], 
+              plot_colorbar=True if nn == 2 else False, cax=None, cax_orientation="vertical", 
               vmin=-200, vmax=+200,
               show_title=False)
-    ax.text(s=f"Component {ii + 1}", x=0.05, y=0.95, transform=axs[1][ii].transAxes, verticalalignment="top")
-    if ii > 0:
+    ax.text(s=f"Component {nn + 1}", x=0.05, y=0.95, transform=axs[1][nn].transAxes, verticalalignment="top")
+    if nn > 0:
         lat = ax.coords[1]
         lat.set_ticklabel_visible(False)
     lon = ax.coords[0]
@@ -166,31 +149,31 @@ for ii in range(3):
 
 
 # delta sigma 
-for ii in range(3):
+for nn in range(3):
     _, ax = plot2dmap(df_gal=df_gal_unbinned, bin_type="default", survey="sami",
               PA_deg=0,
-              col_z=f"sigma_gas - sigma_* (component {ii})",
-              ax=axs[2][ii], 
-              plot_colorbar=True if ii == 2 else False, cax=None, cax_orientation="vertical", 
+              col_z=f"sigma_gas - sigma_* (component {nn + 1})",
+              ax=axs[2][nn], 
+              plot_colorbar=True if nn == 2 else False, cax=None, cax_orientation="vertical", 
               vmin=-200, vmax=+200,
               show_title=False)
-    ax.text(s=f"Component {ii + 1}", x=0.05, y=0.95, transform=axs[1][ii].transAxes, verticalalignment="top")
-    if ii > 0:
+    ax.text(s=f"Component {nn + 1}", x=0.05, y=0.95, transform=axs[1][nn].transAxes, verticalalignment="top")
+    if nn > 0:
         lat = ax.coords[1]
         lat.set_ticklabel_visible(False)
     lon = ax.coords[0]
     lon.set_ticklabel_visible(False)
 
 # EW 
-for ii in range(3):
+for nn in range(3):
     _, ax = plot2dmap(df_gal=df_gal_unbinned, bin_type="default", survey="sami",
               PA_deg=0,
-              col_z=f"HALPHA EW (component {ii})",
-              ax=axs[3][ii], 
-              plot_colorbar=True if ii == 2 else False, cax=None, cax_orientation="vertical", 
+              col_z=f"HALPHA EW (component {nn + 1})",
+              ax=axs[3][nn], 
+              plot_colorbar=True if nn == 2 else False, cax=None, cax_orientation="vertical", 
               show_title=False)
-    ax.text(s=f"Component {ii + 1}", x=0.05, y=0.95, transform=axs[2][ii].transAxes, verticalalignment="top")
-    if ii > 0:
+    ax.text(s=f"Component {nn + 1}", x=0.05, y=0.95, transform=axs[2][nn].transAxes, verticalalignment="top")
+    if nn > 0:
         lat = ax.coords[1]
         lat.set_ticklabel_visible(False)
         
@@ -233,16 +216,16 @@ lat = ax.coords[1]
 lat.set_ticklabel_visible(False)
 
 # v_gas
-for ii in range(3):
+for nn in range(3):
     _, ax = plot2dmap(df_gal=df_gal_binned, bin_type="adaptive", survey="sami",
               PA_deg=0,
-              col_z=f"v_gas (component {ii})",
-              ax=axs[1][ii], 
-              plot_colorbar=True if ii == 2 else False, cax=None, cax_orientation="vertical", 
+              col_z=f"v_gas (component {nn + 1})",
+              ax=axs[1][nn], 
+              plot_colorbar=True if nn == 2 else False, cax=None, cax_orientation="vertical", 
               vmin=-200, vmax=+200,
               show_title=False)
-    ax.text(s=f"Component {ii + 1}", x=0.05, y=0.95, transform=axs[1][ii].transAxes, verticalalignment="top")
-    if ii > 0:
+    ax.text(s=f"Component {nn + 1}", x=0.05, y=0.95, transform=axs[1][nn].transAxes, verticalalignment="top")
+    if nn > 0:
         lat = ax.coords[1]
         lat.set_ticklabel_visible(False)
     lon = ax.coords[0]
@@ -250,31 +233,31 @@ for ii in range(3):
 
 
 # delta sigma 
-for ii in range(3):
+for nn in range(3):
     _, ax = plot2dmap(df_gal=df_gal_binned, bin_type="adaptive", survey="sami",
               PA_deg=0,
-              col_z=f"sigma_gas - sigma_* (component {ii})",
-              ax=axs[2][ii], 
-              plot_colorbar=True if ii == 2 else False, cax=None, cax_orientation="vertical", 
+              col_z=f"sigma_gas - sigma_* (component {nn + 1})",
+              ax=axs[2][nn], 
+              plot_colorbar=True if nn == 2 else False, cax=None, cax_orientation="vertical", 
               vmin=-200, vmax=+200,
               show_title=False)
-    ax.text(s=f"Component {ii + 1}", x=0.05, y=0.95, transform=axs[1][ii].transAxes, verticalalignment="top")
-    if ii > 0:
+    ax.text(s=f"Component {nn + 1}", x=0.05, y=0.95, transform=axs[1][nn].transAxes, verticalalignment="top")
+    if nn > 0:
         lat = ax.coords[1]
         lat.set_ticklabel_visible(False)
     lon = ax.coords[0]
     lon.set_ticklabel_visible(False)
 
 # EW 
-for ii in range(3):
+for nn in range(3):
     _, ax = plot2dmap(df_gal=df_gal_binned, bin_type="adaptive", survey="sami",
               PA_deg=0,
-              col_z=f"HALPHA EW (component {ii})",
-              ax=axs[3][ii], 
-              plot_colorbar=True if ii == 2 else False, cax=None, cax_orientation="vertical", 
+              col_z=f"HALPHA EW (component {nn + 1})",
+              ax=axs[3][nn], 
+              plot_colorbar=True if nn == 2 else False, cax=None, cax_orientation="vertical", 
               show_title=False)
-    ax.text(s=f"Component {ii + 1}", x=0.05, y=0.95, transform=axs[2][ii].transAxes, verticalalignment="top")
-    if ii > 0:
+    ax.text(s=f"Component {nn + 1}", x=0.05, y=0.95, transform=axs[2][nn].transAxes, verticalalignment="top")
+    if nn > 0:
         lat = ax.coords[1]
         lat.set_ticklabel_visible(False)
         
@@ -316,7 +299,7 @@ plot2dmap(df_gal=df_gal_unbinned, bin_type="default", survey="sami",
           ax=ax_im, cax=cax_im, cax_orientation="horizontal", show_title=False)
 
 # Text string showing basic info
-sfr = df_snr.loc[gal, 'SFR (component 0)']
+sfr = df_snr.loc[gal, 'SFR (component 1)']
 mstar = df_gal_unbinned["mstar"].unique()[0]
 if np.isnan(sfr):
     sfr = "n/a"
@@ -393,15 +376,15 @@ plot2dscatter(df=df_gal_unbinned,
 # Kinematics 
 for cc, col_x in enumerate(["sigma_gas - sigma_*", "v_gas - v_*"]):
     # Plot the data for this galaxy
-    for ii in range(3):
+    for nn in range(3):
         plot2dscatter(df=df_gal_unbinned,
-                      col_x=f"{col_x} (component {ii})",
-                      col_y=f"log HALPHA EW (component {ii})",
+                      col_x=f"{col_x} (component {nn + 1})",
+                      col_y=f"log HALPHA EW (component {nn + 1})",
                       col_z=None if col_z == "Number of components" else col_z,
-                      marker=markers[ii], ax=axs_whav[cc + 1], 
+                      marker=markers[nn], ax=axs_whav[cc + 1], 
                       cax=None,
                       markersize=20, 
-                      markerfacecolor=component_colours[ii] if col_z == "Number of components" else None, 
+                      markerfacecolor=component_colours[nn] if col_z == "Number of components" else None, 
                       markeredgecolor="black",
                       plot_colorbar=False)
 
@@ -415,10 +398,10 @@ for ax in axs_whav:
     _ = [c.set_rasterized(True) for c in ax.collections]
 
 # Legend
-legend_elements = [Line2D([0], [0], marker=markers[ii], 
+legend_elements = [Line2D([0], [0], marker=markers[nn], 
                           color="none", markeredgecolor="black",
-                          label=f"Component {ii}",
-                          markerfacecolor=component_colours[ii], markersize=5) for ii in range(3)]
+                          label=f"Component {nn}",
+                          markerfacecolor=component_colours[nn], markersize=5) for nn in range(3)]
 axs_bpt[-1].legend(handles=legend_elements, fontsize="x-small", loc="upper right")
 
 ###########################################################################
@@ -467,7 +450,7 @@ plot2dmap(df_gal=df_gal_binned, bin_type="adaptive", survey="sami",
           ax=ax_im, cax=cax_im, cax_orientation="horizontal", show_title=False)
 
 # Text string showing basic info
-sfr = df_snr.loc[gal, 'SFR (component 0)']
+sfr = df_snr.loc[gal, 'SFR (component 1)']
 mstar = df_gal_binned["mstar"].unique()[0]
 if np.isnan(sfr):
     sfr = "n/a"
@@ -544,15 +527,15 @@ plot2dscatter(df=df_gal_binned,
 # Kinematics 
 for cc, col_x in enumerate(["sigma_gas - sigma_*", "v_gas - v_*"]):
     # Plot the data for this galaxy
-    for ii in range(3):
+    for nn in range(3):
         plot2dscatter(df=df_gal_binned,
-                      col_x=f"{col_x} (component {ii})",
-                      col_y=f"log HALPHA EW (component {ii})",
+                      col_x=f"{col_x} (component {nn + 1})",
+                      col_y=f"log HALPHA EW (component {nn + 1})",
                       col_z=None if col_z == "Number of components" else col_z,
-                      marker=markers[ii], ax=axs_whav[cc + 1], 
+                      marker=markers[nn], ax=axs_whav[cc + 1], 
                       cax=None,
                       markersize=20, 
-                      markerfacecolor=component_colours[ii] if col_z == "Number of components" else None, 
+                      markerfacecolor=component_colours[nn] if col_z == "Number of components" else None, 
                       markeredgecolor="black",
                       plot_colorbar=False)
 
@@ -566,10 +549,10 @@ for ax in axs_whav:
     _ = [c.set_rasterized(True) for c in ax.collections]
 
 # Legend
-legend_elements = [Line2D([0], [0], marker=markers[ii], 
+legend_elements = [Line2D([0], [0], marker=markers[nn], 
                           color="none", markeredgecolor="black",
-                          label=f"Component {ii}",
-                          markerfacecolor=component_colours[ii], markersize=5) for ii in range(3)]
+                          label=f"Component {nn}",
+                          markerfacecolor=component_colours[nn], markersize=5) for nn in range(3)]
 axs_bpt[-1].legend(handles=legend_elements, fontsize="x-small", loc="upper right")
 
 

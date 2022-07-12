@@ -3,63 +3,44 @@ import sys
 import os 
 import numpy as np
 import pandas as pd
-from astropy.visualization import hist
-from astropy.io import fits
-from tqdm import tqdm
-from scipy import constants
-from scipy.stats import ks_2samp, anderson_ksamp, spearmanr
 
-from spaxelsleuth.loaddata.lzifu import load_lzifu_galaxies
 from spaxelsleuth.loaddata.sami import load_sami_galaxies
-from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram
-from spaxelsleuth.plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn, fname_fn
-from spaxelsleuth.plotting.plottools import bpt_colours, bpt_labels, whav_colors, whav_labels
-from spaxelsleuth.plotting.plottools import morph_labels, morph_ticks
-from spaxelsleuth.plotting.plottools import ncomponents_labels, ncomponents_colours
-from spaxelsleuth.plotting.plottools import component_labels, component_colours
-from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours, plot2dscatter, plot2dcontours
-from spaxelsleuth.plotting.plot2dmap import plot2dmap
-from spaxelsleuth.plotting.sdssimg import plot_sdss_image
-from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
-
 from spaxelsleuth.loaddata import linefns, metallicity
-
-import matplotlib
-from matplotlib import rc, rcParams
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
+from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours, plot2dscatter, plot2dcontours
+from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
 
 from IPython.core.debugger import Tracer
 
-rc("text", usetex=False)
-rc("font",**{"family": "serif", "size": 11})
-rcParams["savefig.bbox"] = "tight"
-rcParams["savefig.format"] = "pdf"
+import matplotlib.pyplot as plt
 plt.ion()
 plt.close("all")
 
 ###########################################################################
-# Paths
-sami_data_path = os.environ["SAMI_DIR"]
-assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
-sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
-assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
-sami_fig_path = os.environ["SAMI_FIG_DIR"]
-assert "SAMI_FIG_DIR" in os.environ, "Environment variable SAMI_FIG_DIR is not defined!"
-
-###########################################################################
 # Options
-eline_SNR_min = 5       # Minimum S/N of emission lines to accept
+ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3])]
 
 ###########################################################################
 # Load the data
 ###########################################################################
 # Load the ubinned data 
-df = load_sami_galaxies(ncomponents="1",
-                        bin_type="default",
+df = load_sami_df(ncomponents=ncomponents,
+                        bin_type=bin_type,
                         eline_SNR_min=eline_SNR_min,
                         correct_extinction=True,
                         debug=True)
+
+###########################################################################
+# Assertion checks
+###########################################################################
+# TEST: check no spaxels with non-SF BPT classifications have metallicities
+met_diagnostic = "N2O2"
+cond_no_met = df["BPT (total)"] != "SF"
+assert all(df.loc[cond_no_met, f"log(O/H) + 12 ({met_diagnostic}) (total)"].isna())
+
+# TEST: check no spaxels with no S/N in relevant emission lines have metallicities 
+cond_low_SN = df["OII3726+OII3729 S/N (total)"] < eline_SNR_min
+cond_low_SN |= df["NII6583 S/N (total)"] < eline_SNR_min
+assert all(df.loc[cond_low_SN, f"log(O/H) + 12 ({met_diagnostic}) (total)"].isna())
 
 ###########################################################################
 # Check metallicity function
@@ -85,7 +66,7 @@ df_has_met = df[cond_has_met]
 # Plot
 ax.scatter(x=df_has_met["log(O/H) + 12 (N2O2) (total)"],
            y=df_has_met["N2O2 (total)"], s=5, c="k")
-sys.exit()
+
 ###########################################################################
 # Check metallicity computation (iterative method)
 ###########################################################################
@@ -129,15 +110,11 @@ df_has_met = df_with_met_iter[cond_has_met]
 # Check how long it takes to compute metallicities in the full sample
 ###########################################################################
 plt.close("all")
-df = load_sami_galaxies(ncomponents=ncomponents,
+df = load_sami_df(ncomponents="1",
                         bin_type="default",
-                        eline_SNR_min=eline_SNR_min, 
-                        vgrad_cut=False,
-                        line_amplitude_SNR_cut=True,
+                        eline_SNR_min=eline_SNR_min,
                         correct_extinction=True,
-                        sigma_gas_SNR_cut=True,
                         debug=False)
-
 
 fig, axs_bpt = plot_empty_BPT_diagram(nrows=1)
 col_y = "log O3"
