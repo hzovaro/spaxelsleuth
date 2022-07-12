@@ -239,6 +239,9 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     if cmap is None:
         cmap = cmap_fn(col_z)
         cmap.set_bad("#b3b3b3")
+    elif type(cmap) == str:
+        cmap = plt.cm.get_cmap(cmap)
+        cmap.set_bad("#b3b3b3")
     m = ax.imshow(col_z_map, cmap=cmap, vmin=vmin, vmax=vmax)
 
     ###########################################################################
