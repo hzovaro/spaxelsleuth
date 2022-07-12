@@ -4,8 +4,8 @@ import os
 import numpy as np
 import pandas as pd
 
-from spaxelsleuth.loaddata.sami import load_sami_galaxies
-from spaxelsleuth.loaddata import linefns, metallicity
+from spaxelsleuth.loaddata.sami import load_sami_df
+from spaxelsleuth.utils import linefns, metallicity
 from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours, plot2dscatter, plot2dcontours
 from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
 
@@ -70,6 +70,7 @@ ax.scatter(x=df_has_met["log(O/H) + 12 (N2O2) (total)"],
 ###########################################################################
 # Check metallicity computation (iterative method)
 ###########################################################################
+"""
 met_diagnostic = "N2O2"
 ion_diagnostic = "O3O2"
 df_with_met_iter = metallicity.iter_metallicity_fn(df, 
@@ -131,6 +132,7 @@ for cc, col_x in enumerate(["log N2", "log S2", "log O1"]):
                   cax=None,
                   plot_colorbar=True if cc==2 else False)
 
+"""
 ###########################################################################
 # Assertion checks
 ###########################################################################
