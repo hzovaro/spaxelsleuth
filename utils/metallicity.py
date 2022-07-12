@@ -533,18 +533,18 @@ def iter_metallicity_fn(df, met_diagnostic, ion_diagnostic,
     -----------------------------------------------------------------------
     The original DataFrame with the following columns added:
 
-        log(O/H) + 12 (<met_diagnostic>)
+        log(O/H) + 12 (<met_diagnostic>)        float
             Metallicity corresponding to the diagnostic chosen in each
             spaxel or component.
 
-        log(O/H) + 12 error (<met_diagnostic>)
+        log(O/H) + 12 error (<met_diagnostic>)  float
             Corresponding 1-sigma error, if compute_errors is True.
 
-        log(U) (<ion_diagnostic>)
+        log(U) (<ion_diagnostic>)               float
             Ionisation parameter corresponding to the diagnostic chosen in each
             spaxel or component.
 
-        log(U) error (<ion_diagnostic>)
+        log(U) error (<ion_diagnostic>)         float
             Corresponding 1-sigma error, if compute_errors is True.
         
     """
