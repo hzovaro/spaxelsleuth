@@ -4,7 +4,6 @@ A `python` package for analysing data from large IFU surveys, such as SAMI and S
 `spaxelsleuth` is currently under development - download at your own risk! Stay tuned for stable releases.
 
 ## Prerequisites 
-----
 
 **Packages**:
 * numpy, scipy, pandas
@@ -15,7 +14,6 @@ A `python` package for analysing data from large IFU surveys, such as SAMI and S
 
 
 ## Prerequisites
-----
 
 ### Environment variables 
 
@@ -148,16 +146,16 @@ Which, when downloaded, have the following naming convention:
 
 These files must be stored as follows:
 
-    `SAMI_DIR/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits`
+`SAMI_DIR/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits`
 
 and the data cubes must be stored at:
 
-    `SAMI_DATACUBE_DIR/ifs/<gal>/<gal>_A_cube_<blue/red>.fits.gz`
+`SAMI_DATACUBE_DIR/ifs/<gal>/<gal>_A_cube_<blue/red>.fits.gz`
 
 
 This is essentially the default file structure when data products are downloaded from DataCentral and unzipped:
 
-    `sami/dr3/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits`
+`sami/dr3/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits`
 
 **SAMI galaxy metadata**, such as galaxy redshifts and stellar masses, is also required. This data is provided in data/, but may be downloaded in CSV format from the (DataCentral Schema)[https://datacentral.org.au/services/schema/] where they can be found under the following tabs:
 
@@ -175,14 +173,13 @@ This is essentially the default file structure when data products are downloaded
 
  and stored in data/ using the naming convention
 
-    * `sami_InputCatGAMADR3.csv`
-    * `sami_InputCatClustersDR3.csv`
-    * `sami_InputCatFiller.csv`
-    * `sami_VisualMorphologyDR3.csv`
-    * `sami_CubeObs.csv`.
+* `sami_InputCatGAMADR3.csv`
+* `sami_InputCatClustersDR3.csv`
+* `sami_InputCatFiller.csv`
+* `sami_VisualMorphologyDR3.csv`
+* `sami_CubeObs.csv`.
 
 ## Usage 
-----
 The most basic way to use `spaxelsleuth` is as follows:
 
 1. Create the metadata DataFrame, which containts redshifts, stellar masses, and other "global" galaxy properties for each SAMI galaxy by running `loaddata.sami.make_sami_metadata_df()`.
@@ -193,7 +190,6 @@ A Jupyter notebook showing you how to get up and running with `spaxelsleuth` is 
 
 
 ## Citing this work
-----
 Please contact me at `henry.zovaro@anu.edu.au` if you decide to use `spaxelsleuth` for your science or are interested in adding new features!
 
 
