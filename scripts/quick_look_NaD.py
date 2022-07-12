@@ -33,8 +33,10 @@ plt.close("all")
 """
 Take a quick look at SAMI galaxies.
 """
-sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
-sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
+sami_data_path = os.environ["SAMI_DIR"]
+assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
+sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
+assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
 
 ###########################################################################
 # Options
@@ -48,7 +50,7 @@ eline_SNR_min = 5       # Minimum S/N of emission lines to accept
 ###########################################################################
 # Load the SAMI sample
 ###########################################################################
-df_sami = load_sami_galaxies(ncomponents="recom",
+df_sami = load_sami_df(ncomponents="recom",
                              bin_type="default",
                              eline_SNR_min=eline_SNR_min, 
                              vgrad_cut=False,
@@ -155,7 +157,7 @@ for gal in gals:
 
     # Plot BPT diagram
     col_y = "log O3"
-    t = axs_bpt[0].text(s=f"{gal}, {df_snr.loc[gal, 'Morphology']}, SFR = {df_snr.loc[gal, 'SFR (component 0)']:.3f}" + r" $\rm M_\odot\,yr^{-1}$" + f", SNR = {df_snr.loc[gal, 'Median SNR (R, 2R_e)']:.2f}", 
+    t = axs_bpt[0].text(s=f"{gal}, {df_snr.loc[gal, 'Morphology']}, SFR = {df_snr.loc[gal, 'SFR (component 1)']:.3f}" + r" $\rm M_\odot\,yr^{-1}$" + f", SNR = {df_snr.loc[gal, 'Median SNR (R, 2R_e)']:.2f}", 
         x=0.0, y=1.02, transform=axs_bpt[0].transAxes)
     for cc, col_x in enumerate(["log N2", "log S2", "log O1"]):
         # Plot full SAMI sample
@@ -217,15 +219,15 @@ for gal in gals:
     # Kinematics 
     for cc, col_x in enumerate(["sigma_gas - sigma_*", "v_gas - v_*"]):
         # Plot the data for this galaxy
-        for ii in range(3):
+        for nn in range(3):
             plot2dscatter(df=df_gal,
-                          col_x=f"{col_x} (component {ii})",
-                          col_y=f"log HALPHA EW (component {ii})",
+                          col_x=f"{col_x} (component {nn + 1})",
+                          col_y=f"log HALPHA EW (component {nn + 1})",
                           col_z=None if col_z == "Number of components" else col_z,
-                          marker=markers[ii], ax=axs_whav[cc + 1], 
+                          marker=markers[nn], ax=axs_whav[cc + 1], 
                           cax=None,
                           markersize=20, 
-                          markerfacecolor=component_colours[ii] if col_z == "Number of components" else None, 
+                          markerfacecolor=component_colours[nn] if col_z == "Number of components" else None, 
                           markeredgecolor="black",
                           plot_colorbar=False)
 
@@ -239,10 +241,10 @@ for gal in gals:
         _ = [c.set_rasterized(True) for c in ax.collections]
     
     # Legend
-    legend_elements = [Line2D([0], [0], marker=markers[ii], 
+    legend_elements = [Line2D([0], [0], marker=markers[nn], 
                               color="none", markeredgecolor="black",
-                              label=f"Component {ii}",
-                              markerfacecolor=component_colours[ii], markersize=5) for ii in range(3)]
+                              label=f"Component {nn}",
+                              markerfacecolor=component_colours[nn], markersize=5) for nn in range(3)]
     axs_bpt[-1].legend(handles=legend_elements, fontsize="x-small", loc="upper right")
 
     ###########################################################################

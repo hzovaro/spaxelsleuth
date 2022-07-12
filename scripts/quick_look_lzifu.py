@@ -48,7 +48,7 @@ debug = False
 ###########################################################################
 # Load the SAMI sample
 ###########################################################################
-df_sami = load_sami_galaxies(ncomponents="recom",
+df_sami = load_sami_df(ncomponents="recom",
                              bin_type="default",
                              eline_SNR_min=eline_SNR_min, 
                              vgrad_cut=False,
@@ -142,7 +142,7 @@ for gal in tqdm(gals):
             # Plot the number of components fitted.
             plot2dmap(df_gal=df_gal, bin_type="default", survey="sami",
                       PA_deg=0,
-                      col_z="Number of components" if f"{col_z} (component 0)" in df_gal.columns else col_z,
+                      col_z="Number of components" if f"{col_z} (component 1)" in df_gal.columns else col_z,
                       ax=ax_im, 
                       plot_colorbar=False if col_z == "WHAV* (numeric)" else True, cax=cax_im, cax_orientation="horizontal", 
                       show_title=False)
@@ -162,44 +162,44 @@ for gal in tqdm(gals):
                 plot_BPT_lines(ax=axs_bpt[cc], col_x=col_x)    
 
                 # Plot LZIFU measurements
-                for ii in range(3):
+                for nn in range(3):
                     if col_z == "Number of components":
                         colz = None
                     elif col_z in df_gal.columns:
                         colz = col_z 
-                    elif f"{col_z} (component 0)" in df_gal.columns:
-                        colz = f"{col_z} (component {ii})"
+                    elif f"{col_z} (component 1)" in df_gal.columns:
+                        colz = f"{col_z} (component {nn + 1})"
                     plot2dscatter(df=df_gal,
-                                  col_x=f"{col_x} (component {ii})",
-                                  col_y=f"{col_y} (component {ii})",
+                                  col_x=f"{col_x} (component {nn + 1})",
+                                  col_y=f"{col_y} (component {nn + 1})",
                                   col_z=colz,
-                                  marker=markers[ii], ax=axs_bpt[cc], 
+                                  marker=markers[nn], ax=axs_bpt[cc], 
                                   cax=cax_bpt,
                                   markersize=20, 
-                                  markerfacecolor=component_colours[ii] if col_z == "Number of components" else None, 
+                                  markerfacecolor=component_colours[nn] if col_z == "Number of components" else None, 
                                   markeredgecolor="black",
-                                  plot_colorbar=True if (ii == 0) and (col_z != "Number of components") else False)
+                                  plot_colorbar=True if (nn == 0) and (col_z != "Number of components") else False)
 
                 # axis limits
                 axs_bpt[cc].set_xlim(
                     [np.nanmin([vmin_fn(col_x), 
-                               np.nanmin([df_gal[f"{col_x} (component 0)"].min(), 
-                                          df_gal[f"{col_x} (component 1)"].min(), 
-                                          df_gal[f"{col_x} (component 2)"].min()]) - 0.1]),
+                               np.nanmin([df_gal[f"{col_x} (component 1)"].min(), 
+                                          df_gal[f"{col_x} (component 2)"].min(), 
+                                          df_gal[f"{col_x} (component 3)"].min()]) - 0.1]),
                      np.nanmax([vmax_fn(col_x), 
-                               np.nanmax([df_gal[f"{col_x} (component 0)"].max(), 
-                                          df_gal[f"{col_x} (component 1)"].max(), 
-                                          df_gal[f"{col_x} (component 2)"].max()]) + 0.1])])
+                               np.nanmax([df_gal[f"{col_x} (component 1)"].max(), 
+                                          df_gal[f"{col_x} (component 2)"].max(), 
+                                          df_gal[f"{col_x} (component 3)"].max()]) + 0.1])])
                 # axis limits
                 axs_bpt[cc].set_ylim(
                     [np.nanmin([vmin_fn(col_y), 
-                               np.nanmin([df_gal[f"{col_y} (component 0)"].min(), 
-                                          df_gal[f"{col_y} (component 1)"].min(), 
-                                          df_gal[f"{col_y} (component 2)"].min()]) - 0.1]),
+                               np.nanmin([df_gal[f"{col_y} (component 1)"].min(), 
+                                          df_gal[f"{col_y} (component 2)"].min(), 
+                                          df_gal[f"{col_y} (component 3)"].min()]) - 0.1]),
                      np.nanmax([vmax_fn(col_y), 
-                               np.nanmax([df_gal[f"{col_y} (component 0)"].max(), 
-                                          df_gal[f"{col_y} (component 1)"].max(), 
-                                          df_gal[f"{col_y} (component 2)"].max()]) + 0.1])])
+                               np.nanmax([df_gal[f"{col_y} (component 1)"].max(), 
+                                          df_gal[f"{col_y} (component 2)"].max(), 
+                                          df_gal[f"{col_y} (component 3)"].max()]) + 0.1])])
 
             # Decorations
             [ax.grid() for ax in axs_bpt]
@@ -221,22 +221,22 @@ for gal in tqdm(gals):
                                    alpha=0.5, cmap="gray_r", ax=axs_whav[cc],
                                    plot_colorbar=False)
                 # Plot the S7 data
-                for ii in range(3):
+                for nn in range(3):
                     if col_z == "Number of components":
                         colz = None
                     elif col_z in df_gal.columns:
                         colz = col_z 
-                    elif f"{col_z} (component 0)" in df_gal.columns:
-                        colz = f"{col_z} (component {ii})"
+                    elif f"{col_z} (component 1)" in df_gal.columns:
+                        colz = f"{col_z} (component {nn + 1})"
                     plot2dscatter(df=df_gal,
-                                  col_x=f"{col_x} (component {ii})",
-                                  col_y=f"{col_y} (component {ii})",
+                                  col_x=f"{col_x} (component {nn + 1})",
+                                  col_y=f"{col_y} (component {nn + 1})",
                                   col_z=colz,
-                                  marker=markers[ii], ax=axs_whav[cc], 
+                                  marker=markers[nn], ax=axs_whav[cc], 
                                   cax=None,
                                   vmin=-0.5 if col_z == "log N2" else None, vmax=0.2 if col_z == "log N2" else None,
                                   markersize=20, 
-                                  markerfacecolor=component_colours[ii] if col_z == "Number of components" else None, 
+                                  markerfacecolor=component_colours[nn] if col_z == "Number of components" else None, 
                                   markeredgecolor="black",
                                   plot_colorbar=False)
 
@@ -250,37 +250,37 @@ for gal in tqdm(gals):
             # Axis limits
             axs_whav[0].set_xlim(
                 [np.nanmin([vmin_fn("log N2"),
-                            df_gal["log N2 (component 0)"].min(), 
                             df_gal["log N2 (component 1)"].min(), 
-                            df_gal["log N2 (component 2)"].min()]) - 0.1,
+                            df_gal["log N2 (component 2)"].min(), 
+                            df_gal["log N2 (component 3)"].min()]) - 0.1,
                  np.nanmax([vmax_fn("log N2"), 
-                            df_gal["log N2 (component 0)"].max(),
                             df_gal["log N2 (component 1)"].max(),
-                            df_gal["log N2 (component 2)"].max()]) + 0.1])
+                            df_gal["log N2 (component 2)"].max(),
+                            df_gal["log N2 (component 3)"].max()]) + 0.1])
             axs_whav[1].set_xlim(
                 [np.nanmin([vmin_fn("sigma_gas - sigma_*"), 
-                            df_gal["sigma_gas - sigma_* (component 0)"].min(), 
                             df_gal["sigma_gas - sigma_* (component 1)"].min(), 
-                            df_gal["sigma_gas - sigma_* (component 2)"].min()]) - 50,
+                            df_gal["sigma_gas - sigma_* (component 2)"].min(), 
+                            df_gal["sigma_gas - sigma_* (component 3)"].min()]) - 50,
                  np.nanmax([vmax_fn("sigma_gas - sigma_*"),
-                            df_gal["sigma_gas - sigma_* (component 0)"].max(),
                             df_gal["sigma_gas - sigma_* (component 1)"].max(),
-                            df_gal["sigma_gas - sigma_* (component 2)"].max()]) + 50])
+                            df_gal["sigma_gas - sigma_* (component 2)"].max(),
+                            df_gal["sigma_gas - sigma_* (component 3)"].max()]) + 50])
             axs_whav[2].set_xlim(
                 [np.nanmin([vmin_fn("v_gas - v_*"),
-                            df_gal["v_gas - v_* (component 0)"].min(), 
                             df_gal["v_gas - v_* (component 1)"].min(), 
-                            df_gal["v_gas - v_* (component 2)"].min()]) - 50,
+                            df_gal["v_gas - v_* (component 2)"].min(), 
+                            df_gal["v_gas - v_* (component 3)"].min()]) - 50,
                  np.nanmax([vmax_fn("v_gas - v_*"),
-                            df_gal["v_gas - v_* (component 0)"].max(),
                             df_gal["v_gas - v_* (component 1)"].max(),
-                            df_gal["v_gas - v_* (component 2)"].max()]) + 50])
+                            df_gal["v_gas - v_* (component 2)"].max(),
+                            df_gal["v_gas - v_* (component 3)"].max()]) + 50])
             
             # Legend
-            legend_elements = [Line2D([0], [0], marker=markers[ii], 
+            legend_elements = [Line2D([0], [0], marker=markers[nn], 
                                       color="none", markeredgecolor="black",
-                                      label=f"Component {ii + 1}",
-                                      markerfacecolor=component_colours[ii] if col_z == "Number of components" else "white", markersize=5) for ii in range(3)]
+                                      label=f"Component {nn + 1}",
+                                      markerfacecolor=component_colours[nn] if col_z == "Number of components" else "white", markersize=5) for nn in range(3)]
             axs_bpt[-1].legend(handles=legend_elements, fontsize="x-small", loc="upper right")
 
             if savefigs:
@@ -299,19 +299,19 @@ for gal in tqdm(gals):
         # log N2, S2, O1 vs. velocity dispersion
         # axs[0][0].text(s=f"{gal} ($i = {df_gal['Inclination i (degrees)'].unique()[0]:.2f}^\circ$)", x=0.1, y=0.9, transform=axs[0][0].transAxes)
         for rr, col_y in enumerate(col_y_list):
-            for ii in range(3):
+            for nn in range(3):
                 plot2dscatter(df=df_gal, 
-                              col_x=f"sigma_gas (component {ii})",
-                              col_y=f"{col_y} (component {ii})",
-                              col_z=f"BPT (numeric) (component {ii})",
-                              marker=markers[ii], markerfacecolor=component_colours[ii], markeredgecolor="black",
+                              col_x=f"sigma_gas (component {nn + 1})",
+                              col_y=f"{col_y} (component {nn + 1})",
+                              col_z=f"BPT (numeric) (component {nn + 1})",
+                              marker=markers[nn], markerfacecolor=component_colours[nn], markeredgecolor="black",
                               ax=axs[rr][0], plot_colorbar=False)
                 plot2dscatter(df=df_gal, 
-                              col_x=f"sigma_gas - sigma_* (component {ii})",
-                              col_y=f"{col_y} (component {ii})",
-                              col_z=f"BPT (numeric) (component {ii})",
-                              marker=markers[ii], markerfacecolor=component_colours[ii], markeredgecolor="black",
-                              ax=axs[rr][1], plot_colorbar=True if ii == 2 else False, cax_orientation="horizontal",
+                              col_x=f"sigma_gas - sigma_* (component {nn + 1})",
+                              col_y=f"{col_y} (component {nn + 1})",
+                              col_z=f"BPT (numeric) (component {nn + 1})",
+                              marker=markers[nn], markerfacecolor=component_colours[nn], markeredgecolor="black",
+                              ax=axs[rr][1], plot_colorbar=True if nn == 2 else False, cax_orientation="horizontal",
                               cax=cax) 
                 axs[rr][1].set_ylabel("")
         [ax.autoscale(axis="x", tight=True, enable=True) for ax in axs.flat]
@@ -336,14 +336,14 @@ for gal in tqdm(gals):
             else:
                 vmin, vmax = (None, None)
 
-            for ii in range(3):
+            for nn in range(3):
                 _, ax = plot2dmap(df_gal=df_gal, bin_type="default", survey="sami", 
-                                  col_z=f"{col_z} (component {ii})" if f"{col_z} (component {ii})" in df_gal else col_z,
+                                  col_z=f"{col_z} (component {nn + 1})" if f"{col_z} (component {nn + 1})" in df_gal else col_z,
                                   vmin=vmin, vmax=vmax,
-                                  ax=axs[cc][ii], show_title=False, plot_colorbar=True if ii == 2 else False, cax=cax)
+                                  ax=axs[cc][nn], show_title=False, plot_colorbar=True if nn == 2 else False, cax=cax)
                 
                 # Decorations
-                if ii > 0:
+                if nn > 0:
                     # Turn off axis labels
                     lat = plt.gca().coords[1]
                     lat.set_ticks_visible(False)
@@ -354,8 +354,8 @@ for gal in tqdm(gals):
                     lon = plt.gca().coords[0]
                     lon.set_ticks_visible(False)
                     lon.set_ticklabel_visible(False)
-        for ii in range(3):
-            fig_maps.get_axes()[1 + ii].set_title(f"Component {ii + 1}")
+        for nn in range(3):
+            fig_maps.get_axes()[1 + nn].set_title(f"Component {nn + 1}")
         fig_maps.suptitle(f"GAMA{gal}", y=0.92)
 
         # Save 
