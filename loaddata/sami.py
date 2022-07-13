@@ -895,16 +895,18 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     if len(gal_ids_dq_cut) == 1:
         res_list = [_process_gals(args_list[0])]
     else:
-        print(f"{status_str}: Beginning pool...")
-        pool = multiprocessing.Pool(min([nthreads_max, len(gal_ids_dq_cut)]))
-        res_list = np.array((pool.map(_process_gals, args_list)))
-        pool.close()
-        pool.join()
-
-    # res_list = []
-    # for args in args_list:
-    #     res = _process_gals(args)
-    #     res_list.append(res)
+        if nthreads_max > 1:
+            print(f"{status_str}: Beginning pool...")
+            pool = multiprocessing.Pool(min([nthreads_max, len(gal_ids_dq_cut)]))
+            res_list = np.array((pool.map(_process_gals, args_list)))
+            pool.close()
+            pool.join()
+        else:
+            print(f"{status_str}: Running sequentially...")
+            res_list = []
+            for args in args_list:
+                res = _process_gals(args)
+                res_list.append(res)
 
     ###############################################################################
     # Convert to a Pandas DataFrame
