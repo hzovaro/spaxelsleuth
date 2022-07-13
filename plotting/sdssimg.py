@@ -26,7 +26,7 @@ import numpy as np
 from urllib.request import urlretrieve
 from astropy.wcs import WCS
 
-from plotting_fns import plot_scale_bar
+from spaxelsleuth.plotting.plottools import plot_scale_bar
 
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
