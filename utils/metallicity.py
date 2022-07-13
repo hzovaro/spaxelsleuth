@@ -454,7 +454,7 @@ def iter_met_helper_fn(args):
                 break
             logU_old = logU
             logOH12_old = logOH12
-            logU = get_ionisation_parameter(ion_diagnostic, df_tmp[met_diagnostic], logOH12)
+            logU = get_ionisation_parameter(ion_diagnostic, df_tmp[ion_diagnostic], logOH12)
             logOH12 = get_metallicity(met_diagnostic, df_tmp[met_diagnostic], logU)
             iters += 1
 
@@ -472,10 +472,10 @@ def iter_met_helper_fn(args):
     # Add to DataFrame
     df_row[f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals)
     df_row[f"log(U) ({ion_diagnostic})"] = np.nanmean(logU_vals)
-    df_row[f"log(O/H) + 12 error (lower) ({met_diagnostic})"] = np.quantile(logOH12_vals, q=0.16)
-    df_row[f"log(O/H) + 12 error (upper) ({met_diagnostic})"] = np.quantile(logOH12_vals, q=0.84)
-    df_row[f"log(U) error (lower) ({ion_diagnostic})"] = np.quantile(logU_vals, q=0.16)
-    df_row[f"log(U) error (upper) ({ion_diagnostic})"] = np.quantile(logU_vals, q=0.84)
+    df_row[f"log(O/H) + 12 error (lower) ({met_diagnostic})"] = np.nanmean(logOH12_vals) - np.quantile(logOH12_vals, q=0.16)
+    df_row[f"log(O/H) + 12 error (upper) ({met_diagnostic})"] = np.quantile(logOH12_vals, q=0.84) - np.nanmean(logOH12_vals)
+    df_row[f"log(U) error (lower) ({ion_diagnostic})"] = np.nanmean(logU_vals) - np.quantile(logU_vals, q=0.16)
+    df_row[f"log(U) error (upper) ({ion_diagnostic})"] = np.quantile(logU_vals, q=0.84) - np.nanmean(logU_vals)
 
     return df_row
 
@@ -699,8 +699,8 @@ def met_helper_fn(args):
     # Add to DataFrame
     df_row[f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals)
     df_row[f"log(U) (const.)"] = logU
-    df_row[f"log(O/H) + 12 error (lower) ({met_diagnostic})"] = np.quantile(logOH12_vals, q=0.16)
-    df_row[f"log(O/H) + 12 error (upper) ({met_diagnostic})"] = np.quantile(logOH12_vals, q=0.84)
+    df_row[f"log(O/H) + 12 error (lower) ({met_diagnostic})"] = np.nanmean(logOH12_vals) - np.quantile(logOH12_vals, q=0.16)
+    df_row[f"log(O/H) + 12 error (upper) ({met_diagnostic})"] = np.quantile(logOH12_vals, q=0.84) - np.nanmean(logOH12_vals)
 
     return df_row
 
@@ -817,9 +817,10 @@ def metallicity_fn(df, met_diagnostic, logU=-3.0,
     df_nomet = df[~cond_met]
 
     # Store log(U)
-    pd.options.mode.chained_assignment = None
-    df_met[f"log(U) (const.)"] = logU
-    pd.options.mode.chained_assignment = "warn"
+    # pd.options.mode.chained_assignment = None
+    # df_met.loc[:, f"log(U) (const.)"] = logU
+    # pd.options.mode.chained_assignment = "warn"
+    # Tracer()()
 
     #//////////////////////////////////////////////////////////////////////////
     # Compute metallicities
@@ -842,14 +843,22 @@ def metallicity_fn(df, met_diagnostic, logU=-3.0,
 
         # Cast back to previous data types
         for col in df.columns:
-            df_results_met[col] = df_results_met[col].astype(df[col].dtype)
+            # Try statement for weird situation where there are duplicate columns...
+            try:
+                df_results_met[col] = df_results_met[col].astype(df[col].dtype)
+            except:
+                print(col)
+                Tracer()()
+                continue
         df_met = df_results_met
+        df_met[f"log(U) (const.)"] = logU
     
     else:
         # Compute metallicity based on line ratios only.
         df_met[f"log(O/H) + 12 ({met_diagnostic})"] = get_metallicity(met_diagnostic, df_met[met_diagnostic], logU)
         df_met[f"log(O/H) + 12 error (upper) ({met_diagnostic})"] = 0.0
         df_met[f"log(O/H) + 12 error (lower) ({met_diagnostic})"] = 0.0
+        df_met[f"log(U) (const.)"] = logU
 
     # Turn warning back on 
     pd.options.mode.chained_assignment = "warn"
