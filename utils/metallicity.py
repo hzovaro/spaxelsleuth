@@ -472,8 +472,10 @@ def iter_met_helper_fn(args):
     # Add to DataFrame
     df_row[f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals)
     df_row[f"log(U) ({ion_diagnostic})"] = np.nanmean(logU_vals)
-    df_row[f"log(O/H) + 12 error ({met_diagnostic})"] = np.nanstd(logOH12_vals)
-    df_row[f"log(U) error ({ion_diagnostic})"] = np.nanstd(logU_vals)
+    df_row[f"log(O/H) + 12 error (lower) ({met_diagnostic})"] = np.quantile(logOH12_vals, q=0.16)
+    df_row[f"log(O/H) + 12 error (upper) ({met_diagnostic})"] = np.quantile(logOH12_vals, q=0.84)
+    df_row[f"log(U) error (lower) ({ion_diagnostic})"] = np.quantile(logU_vals, q=0.16)
+    df_row[f"log(U) error (upper) ({ion_diagnostic})"] = np.quantile(logU_vals, q=0.84)
 
     return df_row
 
@@ -537,15 +539,25 @@ def iter_metallicity_fn(df, met_diagnostic, ion_diagnostic,
             Metallicity corresponding to the diagnostic chosen in each
             spaxel or component.
 
-        log(O/H) + 12 error (<met_diagnostic>)  float
-            Corresponding 1-sigma error, if compute_errors is True.
+        log(O/H) + 12 error (lower) (<met_diagnostic>)  float
+            Corresponding 16th percentile in the distribution of log(O/H) + 12
+            values computed in the MC simulation, if compute_errors is True.
+        
+        log(O/H) + 12 error (upper) (<met_diagnostic>)  float
+            Corresponding 84th percentile in the distribution of log(O/H) + 12
+            values computed in the MC simulation, if compute_errors is True.
 
         log(U) (<ion_diagnostic>)               float
             Ionisation parameter corresponding to the diagnostic chosen in each
             spaxel or component.
 
-        log(U) error (<ion_diagnostic>)         float
-            Corresponding 1-sigma error, if compute_errors is True.
+        log(U) error (lower) (<met_diagnostic>)  float
+            Corresponding 16th percentile in the distribution of log(U)
+            values computed in the MC simulation, if compute_errors is True.
+        
+        log(U) error (upper) (<met_diagnostic>)  float
+            Corresponding 84th percentile in the distribution of log(U)
+            values computed in the MC simulation, if compute_errors is True.
         
     """
     #//////////////////////////////////////////////////////////////////////////
@@ -560,8 +572,10 @@ def iter_metallicity_fn(df, met_diagnostic, ion_diagnostic,
     # Add new columns
     df[f"log(O/H) + 12 ({met_diagnostic})" + s] = np.nan
     df[f"log(U) ({ion_diagnostic})" + s] = np.nan
-    df[f"log(O/H) + 12 error ({met_diagnostic})" + s] = np.nan
-    df[f"log(U) error ({ion_diagnostic})" + s] = np.nan
+    df[f"log(O/H) + 12 error (lower) ({met_diagnostic})" + s] = np.nan
+    df[f"log(O/H) + 12 error (upper) ({met_diagnostic})" + s] = np.nan
+    df[f"log(U) error (lower) ({ion_diagnostic})" + s] = np.nan
+    df[f"log(U) error (upper) ({ion_diagnostic})" + s] = np.nan
 
     # Deal with case where 
     if not compute_errors:
@@ -685,7 +699,8 @@ def met_helper_fn(args):
     # Add to DataFrame
     df_row[f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals)
     df_row[f"log(U) (const.)"] = logU
-    df_row[f"log(O/H) + 12 error ({met_diagnostic})"] = np.nanstd(logOH12_vals)
+    df_row[f"log(O/H) + 12 error (lower) ({met_diagnostic})"] = np.quantile(logOH12_vals, q=0.16)
+    df_row[f"log(O/H) + 12 error (upper) ({met_diagnostic})"] = np.quantile(logOH12_vals, q=0.84)
 
     return df_row
 
@@ -748,8 +763,13 @@ def metallicity_fn(df, met_diagnostic, logU=-3.0,
             Metallicity corresponding to the diagnostic chosen in each
             spaxel or component.
 
-        log(O/H) + 12 error (<met_diagnostic>)
-            Corresponding 1-sigma error, if compute_errors is True.
+        log(O/H) + 12 error (lower) (<met_diagnostic>)  float
+            Corresponding 16th percentile in the distribution of log(O/H) + 12
+            values computed in the MC simulation, if compute_errors is True.
+        
+        log(O/H) + 12 error (upper) (<met_diagnostic>)  float
+            Corresponding 84th percentile in the distribution of log(O/H) + 12
+            values computed in the MC simulation, if compute_errors is True.
 
         log(U) (const.)
             Ionisation parameter assumed.
@@ -766,7 +786,8 @@ def metallicity_fn(df, met_diagnostic, logU=-3.0,
     # Add new columns
     df[f"log(O/H) + 12 ({met_diagnostic})" + s] = np.nan
     df[f"log(U) (const.)" + s] = np.nan
-    df[f"log(O/H) + 12 error ({met_diagnostic})" + s] = np.nan
+    df[f"log(O/H) + 12 error (lower) ({met_diagnostic})" + s] = np.nan
+    df[f"log(O/H) + 12 error (upper) ({met_diagnostic})" + s] = np.nan
 
     #//////////////////////////////////////////////////////////////////////////
     # Remove suffixes on columns
@@ -827,7 +848,8 @@ def metallicity_fn(df, met_diagnostic, logU=-3.0,
     else:
         # Compute metallicity based on line ratios only.
         df_met[f"log(O/H) + 12 ({met_diagnostic})"] = get_metallicity(met_diagnostic, df_met[met_diagnostic], logU)
-        df_met[f"log(O/H) + 12 error ({met_diagnostic})"] = 0.0
+        df_met[f"log(O/H) + 12 error (upper) ({met_diagnostic})"] = 0.0
+        df_met[f"log(O/H) + 12 error (lower) ({met_diagnostic})"] = 0.0
 
     # Turn warning back on 
     pd.options.mode.chained_assignment = "warn"
