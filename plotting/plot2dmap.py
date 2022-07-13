@@ -31,15 +31,6 @@ plt.ion()
 from IPython.core.debugger import Tracer
 
 ###############################################################################
-# Paths
-assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
-sami_data_path = os.environ["SAMI_DIR"]
-assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
-sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
-assert "S7_DIR" in os.environ, "Environment variable S7_DIR is not defined!"
-s7_data_path = os.environ["S7_DIR"]
-
-###############################################################################
 def plot2dmap(df_gal, col_z, bin_type, survey,
               PA_deg=0,
               show_title=True, axis_labels=True,
@@ -151,14 +142,21 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
         "cax_orientation must be either 'horizontal' or 'vertical'!"
     assert len(df_gal.catid.unique()) == 1,\
         "df_gal contains must only contain one galaxy!"
+    
     survey = survey.lower()
     assert survey in ["sami", "s7"],\
         "survey must be either SAMI or S7!"
     if survey == "sami":
+        assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
+        sami_data_path = os.environ["SAMI_DIR"]
+        assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
+        sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
         assert bin_type in ["adaptive", "default", "sectors"],\
         "bin_type must be either 'adaptive' or 'default' or 'sectors'!"
         as_per_px = 0.5
     elif survey == "s7":
+        assert "S7_DIR" in os.environ, "Environment variable S7_DIR is not defined!"
+        s7_data_path = os.environ["S7_DIR"]
         assert bin_type == "default",\
         "if survey is S7 then bin_type must be 'default'!"
         as_per_px = 1.0

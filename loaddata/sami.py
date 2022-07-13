@@ -84,7 +84,6 @@ assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
 assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
 
-
 ###############################################################################
 def make_sami_metadata_df():
     """
@@ -274,6 +273,7 @@ def make_sami_metadata_df():
     print(f"In make_sami_metadata_df(): Saving metadata DataFrame to file {os.path.join(sami_data_path, df_fname)}...")
     df_metadata.to_hdf(os.path.join(sami_data_path, df_fname), key="metadata")
 
+    print(f"In make_sami_metadata_df(): Finished!")
     return
 
 ###############################################################################
@@ -1196,6 +1196,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     except:
         print(f"{status_str}: Unable to save to HDF file... sigh...")
 
+    print(f"{status_str}: Finished!")
     return
 
 ###############################################################################
@@ -1478,4 +1479,5 @@ def make_sami_metadata_df_extended():
     print(f"In make_sami_metadata_df_extended(): Saving extnded metadata DataFrame to file {os.path.join(sami_data_path, df_fname)}...")
     df_snr.to_hdf(os.path.join(sami_data_path, df_fname), key="Extended metadata")
 
+    print(f"In make_sami_metadata_df_extended(): Finished!")
     return 

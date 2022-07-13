@@ -176,6 +176,7 @@ def make_s7_metadata_df():
     print(f"In make_s7_metadata_df(): Saving metadata DataFrame to file {os.path.join(s7_data_path, df_fname)}...")
     df_metadata.to_hdf(os.path.join(s7_data_path, df_fname), key="metadata")
 
+    print(f"In make_s7_metadata_df(): Finished!")
     return
 
 ###############################################################################
@@ -759,6 +760,7 @@ def make_s7_df(bin_type="default", ncomponents="recom",
     except:
         print(f"{status_str}: Unable to save to HDF file... sigh...")
 
+    print(f"{status_str}: Finished!")
     return
 
 ###############################################################################
