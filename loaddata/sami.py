@@ -1245,6 +1245,7 @@ def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
     The Dataframe.
 
     """
+
     #######################################################################
     # INPUT CHECKING
     #######################################################################
@@ -1264,9 +1265,11 @@ def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
         f"File {os.path.join(sami_data_path, df_fname)} does does not exist!"
 
     # Load the data frame
+    print("In load_sami_df(): Loading DataFrame...")
     df = pd.read_hdf(os.path.join(sami_data_path, df_fname))
 
     # Return
+    print("In load_sami_df(): Finished!")
     return df.sort_index()
 
 ###############################################################################

@@ -826,8 +826,10 @@ def load_s7_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
         f"File {os.path.join(s7_data_path, df_fname)} does does not exist!"
 
     # Load the data frame
+    print("In load_s7_df(): Loading DataFrame...")
     df = pd.read_hdf(os.path.join(s7_data_path, df_fname))
 
     # Return
+    print("In load_s7_df(): Finished!")
     return df.sort_index()
     
