@@ -631,17 +631,17 @@ def histhelper(df, col_x, col_y, col_z, nbins, ax, cmap,
     # Plot.
     if log_z:
         m = ax.pcolormesh(xbins[:-1], ybins[:-1], count_map.T, cmap=cmap,
-            edgecolors="none", vmin=vmin, vmax=vmax,
+            edgecolors="none", vmin=vmin, vmax=vmax, shading="auto",
             norm=LogNorm(vmin=vmin, vmax=vmax))
     else:
         m = ax.pcolormesh(xbins[:-1], ybins[:-1], count_map.T, cmap=cmap,
-            edgecolors="none", vmin=vmin, vmax=vmax)
+            edgecolors="none", vmin=vmin, vmax=vmax, shading="auto")
     m.set_rasterized(True)
 
     # Dodgy...
     if alpha < 1:
         overlay = np.full_like(count_map.T, 1.0)
-        mo = ax.pcolormesh(xbins[:-1], ybins[:-1], overlay, alpha=1 - alpha, cmap="gray", vmin=0, vmax=1)
+        mo = ax.pcolormesh(xbins[:-1], ybins[:-1], overlay, alpha=1 - alpha, cmap="gray", vmin=0, vmax=1, shading="auto")
         mo.set_rasterized(True)
 
     return m
