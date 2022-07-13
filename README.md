@@ -128,21 +128,21 @@ The following data products for each galaxy are required. Note that if you are o
 
 Which, when downloaded, have the following naming convention:
 
-* `Halpha_{bin_type}_{ncomponents}-comp.fits`
-* `Hbeta_{bin_type}_{ncomponents}-comp.fits`
-* `NII6583_{bin_type}_{ncomponents}-comp.fits`
-* `OI6300_{bin_type}_{ncomponents}-comp.fits`
-* `OII3728_{bin_type}_{ncomponents}-comp.fits`
-* `OIII5007_{bin_type}_{ncomponents}-comp.fits`
-* `SII6716_{bin_type}_{ncomponents}-comp.fits`
-* `SII6731_{bin_type}_{ncomponents}-comp.fits`
-* `gas-vdisp_{bin_type}_{ncomponents}-comp.fits`
-* `gas-velocity_{bin_type}_{ncomponents}-comp.fits`
-* `stellar-velocity-dispersion_{bin_type}_two-moment.fits`
-* `stellar-velocity_{bin_type}_two-moment.fits`
-* `extinct-corr_{bin_type}_{ncomponents}-comp.fits`
-* `sfr-dens_{bin_type}_{ncomponents}-comp.fits`
-* `sfr_{bin_type}_{ncomponents}-comp.fits`
+* `Halpha_<bin_type>_<ncomponents>-comp.fits`
+* `Hbeta_<bin_type>_<ncomponents>-comp.fits`
+* `NII6583_<bin_type>_<ncomponents>-comp.fits`
+* `OI6300_<bin_type>_<ncomponents>-comp.fits`
+* `OII3728_<bin_type>_<ncomponents>-comp.fits`
+* `OIII5007_<bin_type>_<ncomponents>-comp.fits`
+* `SII6716_<bin_type>_<ncomponents>-comp.fits`
+* `SII6731_<bin_type>_<ncomponents>-comp.fits`
+* `gas-vdisp_<bin_type>_<ncomponents>-comp.fits`
+* `gas-velocity_<bin_type>_<ncomponents>-comp.fits`
+* `stellar-velocity-dispersion_<bin_type>_two-moment.fits`
+* `stellar-velocity_<bin_type>_two-moment.fits`
+* `extinct-corr_<bin_type>_<ncomponents>-comp.fits`
+* `sfr-dens_<bin_type>_<ncomponents>-comp.fits`
+* `sfr_<bin_type>_<ncomponents>-comp.fits`
 
 These files must be stored as follows:
 
