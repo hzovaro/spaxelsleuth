@@ -21,6 +21,7 @@ The following environment variables must be defined:
 
 * `SAMI_DIR` - points to the location of the SAMI data products. Output DataFrames are also stored here.
 * `SAMI_DATACUBE_DIR` - points to the location of the SAMI data cubes. `SAMI_DATACUBE_DIR` can be the same as SAMI_DIR (I just have them differently in my setup due to storage space limitations).
+* `SDSS_IM_PATH` - points to the destination of downloaded SDSS images. Used in `plottools.sdssimg`.
 
 ### SAMI data
 
