@@ -18,6 +18,7 @@ Copyright (C) 2022 Henry Zovaro
 # Imports
 import os
 import numpy as np
+import pandas as pd
 from astropy.io import fits
 from astropy.wcs import WCS
 
@@ -212,7 +213,9 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
             col_z_map[bin_mask] = df_gal.loc[df_gal["Bin number"] == nn, col_z]
 
     elif bin_type == "default":
+        pd.options.mode.chained_assignment = None
         df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
+        pd.options.mode.chained_assignment = "warn"
         for rr in range(df_gal.shape[0]):
             xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
             col_z_map[yy, xx] = df_gal.iloc[rr][col_z]
