@@ -115,6 +115,15 @@ def dqcut(df, ncomponents,
         requirements listed in Croom+2021.
 
     """
+    def isdup(df):
+        if any(df.columns.duplicated()):
+            print("The following columns are duplicated:")
+            for col in [df.columns[df.columns.duplicated()]]:
+                print(col)
+        else:
+            print("No columns are duplicated")
+        return
+
     ######################################################################
     # INITIALISE FLAGS: these will get set below.
     ###################################################################### 
@@ -300,10 +309,11 @@ def dqcut(df, ncomponents,
                     cond_low_SN = df[f"Low flux S/N flag - {eline} (component {nn + 1})"]
 
                     # Cells to NaN
-                    cols_low_SN = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
                     if eline == "HALPHA":
                         # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
-                        cols_low_SN += [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
+                        cols_low_SN = [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
+                    else:
+                        cols_low_SN = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
                     df.loc[cond_low_SN, cols_low_SN] = np.nan
 
             if f"{eline} (total)" in df:
@@ -311,10 +321,11 @@ def dqcut(df, ncomponents,
                 cond_low_SN = df[f"Low flux S/N flag - {eline} (total)"]
 
                 # Cells to NaN
-                cols_low_SN = [c for c in df.columns if eline in c and f"(total)" in c and "flag" not in c]
                 if eline == "HALPHA":
                     # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
-                    cols_low_SN += [c for c in df.columns if f"(total)" in c and "flag" not in c]
+                    cols_low_SN = [c for c in df.columns if f"(total)" in c and "flag" not in c]
+                else:
+                    cols_low_SN = [c for c in df.columns if eline in c and f"(total)" in c and "flag" not in c]
                 df.loc[cond_low_SN, cols_low_SN] = np.nan
 
     if missing_fluxes_cut:
@@ -326,10 +337,11 @@ def dqcut(df, ncomponents,
                     cond_missing_flux = df[f"Missing flux flag - {eline} (component {nn + 1})"]
 
                     # Cells to NaN
-                    cols_missing_fluxes = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
                     if eline == "HALPHA":
                         # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
-                        cols_missing_fluxes += [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
+                        cols_missing_fluxes = [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
+                    else:
+                        cols_missing_fluxes = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
                     df.loc[cond_missing_flux, cols_missing_fluxes] = np.nan
 
             if f"{eline} (total)" in df:
@@ -337,10 +349,11 @@ def dqcut(df, ncomponents,
                 cond_missing_flux = df[f"Missing flux flag - {eline} (total)"]
 
                 # Cells to NaN
-                cols_missing_fluxes = [c for c in df.columns if eline in c and f"(total)" in c and "flag" not in c]
                 if eline == "HALPHA":
                     # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
-                    cols_missing_fluxes += [c for c in df.columns if f"(total)" in c and "flag" not in c]
+                    cols_missing_fluxes = [c for c in df.columns if f"(total)" in c and "flag" not in c]
+                else:
+                    cols_missing_fluxes = [c for c in df.columns if eline in c and f"(total)" in c and "flag" not in c]
                 df.loc[cond_missing_flux, cols_missing_fluxes] = np.nan
 
     if line_amplitude_SNR_cut:
@@ -351,10 +364,11 @@ def dqcut(df, ncomponents,
                     cond_low_amp = df[f"Low amplitude flag - {eline} (component {nn + 1})"]
 
                     # Cells to NaN
-                    cols_low_amp = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
                     if eline == "HALPHA":
                         # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
-                        cols_low_amp += [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
+                        cols_low_amp = [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
+                    else:
+                        cols_low_amp = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
                     df.loc[cond_low_amp, cols_low_amp] = np.nan
 
                 # If ALL components in the spaxel fail the amplitude requirement then NaN them as well
@@ -362,10 +376,11 @@ def dqcut(df, ncomponents,
                 cond_low_amp = df[f"Low amplitude flag - {eline} (total)"]
 
                 # Cells to NaN
-                cols_low_amp = [c for c in df.columns if eline in c and f"(total)" in c and "flag" not in c]
                 if eline == "HALPHA":
                     # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
-                    cols_low_amp += [c for c in df.columns if f"(total)" in c and "flag" not in c]
+                    cols_low_amp = [c for c in df.columns if f"(total)" in c and "flag" not in c]
+                else:
+                    cols_low_amp = [c for c in df.columns if eline in c and f"(total)" in c and "flag" not in c]
                 df.loc[cond_low_amp, cols_low_amp] = np.nan
 
     if flux_fraction_cut:
@@ -377,10 +392,11 @@ def dqcut(df, ncomponents,
                         cond_low_flux_fraction = df[f"Low flux fraction flag - {eline} (component {nn + 1})"]
 
                         # Cells to NaN
-                        cols_low_flux_fraction = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
                         if eline == "HALPHA":
                             # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
                             cols_low_flux_fraction += [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
+                        else:
+                            cols_low_flux_fraction = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
                         df.loc[cond_low_flux_fraction, cols_low_flux_fraction] = np.nan
 
     if vgrad_cut:
