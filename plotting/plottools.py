@@ -106,7 +106,6 @@ cmap_dict = {
     "log O3": copy.copy(plt.cm.get_cmap("viridis")),
     "log O1": copy.copy(plt.cm.get_cmap("viridis")),
     "log S2": copy.copy(plt.cm.get_cmap("viridis")),
-    "O3O2": copy.copy(plt.cm.get_cmap("viridis")),
     "log HALPHA EW": copy.copy(plt.cm.get_cmap("Spectral")),
     "log HALPHA EW (total)": copy.copy(plt.cm.get_cmap("Spectral")),
     "HALPHA EW": copy.copy(plt.cm.get_cmap("Spectral")),
@@ -148,6 +147,8 @@ cmap_dict = {
     "delta log S2 (2/1)": copy.copy(plt.cm.get_cmap("PiYG")),
     "delta log S2 (3/2)": copy.copy(plt.cm.get_cmap("PiYG")),
     "sigma_gas/sigma_*": copy.copy(plt.cm.get_cmap("RdYlBu_r")),
+    "log(U)": copy.copy(plt.cm.get_cmap("cubehelix")), 
+    "log(O/H) + 12": copy.copy(plt.cm.get_cmap("cividis")),
     "N2O2": copy.copy(plt.cm.get_cmap("cividis")),
     "R23": copy.copy(plt.cm.get_cmap("cividis")),
     "N2S2": copy.copy(plt.cm.get_cmap("cividis")),
@@ -164,6 +165,7 @@ cmap_dict = {
     "log(M/R_e)": copy.copy(plt.cm.get_cmap("gnuplot2_r")),
     "Inclination i (degrees)": copy.copy(plt.cm.get_cmap("Spectral_r")), 
     "Bin size (square kpc)": copy.copy(plt.cm.get_cmap("gnuplot2_r")),
+    "kpc per arcsec": copy.copy(plt.cm.get_cmap("gnuplot2_r")),
     "SFR": sfr_cmap,
     "SFR surface density": sfr_cmap,
     "log SFR": sfr_cmap,
@@ -187,7 +189,6 @@ vmin_dict = {
     "log O3": -1.5,
     "log O1": -2.2,
     "log S2": -1.3,
-    "O3O2": -2.5,
     "log HALPHA EW": -1,
     "log HALPHA EW (total)": -1,
     "HALPHA EW": 3,
@@ -229,6 +230,8 @@ vmin_dict = {
     "delta log S2 (2/1)": -0.5,
     "delta log S2 (3/2)": -0.5,
     "sigma_gas/sigma_*": 0,
+    "log(U)": -3.5, 
+    "log(O/H) + 12": 7.5,
     "N2O2": -1.5,
     "R23": -0.3,
     "N2S2": -1.3,
@@ -245,6 +248,7 @@ vmin_dict = {
     "log(M/R_e)": 6,
     "Inclination i (degrees)": 0, 
     "Bin size (square kpc)": 0,
+    "kpc per arcsec": 0,
     "SFR": 0,
     "SFR surface density": 0,
     "log SFR": -5.0,
@@ -263,7 +267,6 @@ vmax_dict = {
     "log O3": 1.2,
     "log O1": 0.2,
     "log S2": 0.5,
-    "O3O2": 0.5,
     "log HALPHA EW": 3.5,
     "log HALPHA EW (total)": 3.5,
     "HALPHA EW": 14,
@@ -305,6 +308,8 @@ vmax_dict = {
     "delta log S2 (2/1)": +0.5,
     "delta log S2 (3/2)": +0.5,
     "sigma_gas/sigma_*": 4,
+    "log(U)": -2.5, 
+    "log(O/H) + 12": 9.5,
     "N2O2": 0.5,
     "R23": 1.6,
     "N2S2": 0.9,
@@ -321,6 +326,7 @@ vmax_dict = {
     "log(M/R_e)": 12,
     "Inclination i (degrees)": 90, 
     "Bin size (square kpc)": 0.5,
+    "kpc per arcsec": 2,
     "SFR": 0.02,
     "SFR surface density": 0.05,
     "log SFR": -1.0,
@@ -339,7 +345,6 @@ label_dict = {
      "log O3": r"$\log_{10}$([O III]5007/H$\beta$)",
      "log O1": r"$\log_{10}$([O I]6300/H$\alpha$)",
      "log S2": r"$\log_{10}$([S II]6716,31/H$\alpha$)",
-     "O3O2": "O3O2",
      "log HALPHA EW": r"$\log_{10} \left(W_{\rm H\alpha}\,[{\rm \AA}]\right)$",
      "log HALPHA EW (total)": r"$\log_{10} \left(W_{\rm H\alpha}\,[{\rm \AA}]\right)$ (total)",
      "HALPHA EW": r"$W_{\rm H\alpha}\,\rm (\AA)$",
@@ -381,6 +386,8 @@ label_dict = {
      "delta log S2 (2/1)": r"$\Delta$ log S2 (2/1)",
      "delta log S2 (3/2)": r"$\Delta$ log S2 (3/2)",
      "sigma_gas/sigma_*": r"$\sigma_{\rm gas}/\sigma_*$",
+     "log(U)": r"$\log(U)$", 
+     "log(O/H) + 12": r"$\log{\rm (O/H)} + 12$",
      "N2O2": "N2O2",
      "R23": "R23",
      "N2S2": "N2S2",
@@ -399,6 +406,7 @@ label_dict = {
      "log(M/R_e)": r"$\log_{10}(M_* / R_e \,\rm [M_\odot \, kpc^{-1}])$",
      "Inclination i (degrees)": r"Inclination $i$ (degrees)",  
      "Bin size (square kpc)": r"Bin size (kpc$^2$)",
+     "kpc per arcsec": "kpc per arcsec",
      "SFR": r"$\rm SFR \, (M_\odot \, yr^{-1})$",
      "SFR surface density": r"$\rm \Sigma_{SFR} \, (M_\odot \, yr^{-1} \, kpc^{-2})$",
      "log SFR": r"$\log_{\rm 10} \rm (SFR \, [M_\odot \, yr^{-1}])$",
@@ -417,7 +425,6 @@ fname_dict = {
      "log O3": "logO3",
      "log O1": "logO1",
      "log S2": "logS2",
-     "O3O2": "O3O2",
      "log HALPHA EW": "logHaEW",
      "log HALPHA EW (total)": "logHaEWtot",
      "HALPHA EW": "HaEW",
@@ -459,6 +466,8 @@ fname_dict = {
      "delta log S2 (2/1)": "deltalogS2_21",
      "delta log S2 (3/2)": "deltalogS2_32",
      "sigma_gas/sigma_*": "sigma_gas_over_sigma_star",
+     "log(U)": "logU", 
+     "log(O/H) + 12": "logOH12",
      "N2O2": "N2O2",
      "R23": "R23",
      "N2S2": "N2S2",
@@ -475,6 +484,7 @@ fname_dict = {
      "log(M/R_e)": "log_M_over_Re",
      "Inclination i (degrees)": "inclination",
      "Bin size (square kpc)": "bin_size",
+     "kpc per arcsec": "kpc_per_arcsec",
      "SFR": "SFR",
      "SFR surface density": "SFR_surface_density",
      "log SFR": "logSFR",
@@ -500,6 +510,12 @@ def cmap_fn(col):
         col = col.split(" (total)")[0]
     if col in cmap_dict.keys():
         return cmap_dict[col]
+    # Special case for log(U) and log(O/H) + 12, since the column names will 
+    # include the diagnostic(s) used
+    elif col.startswith("log(U)"):
+        return cmap_dict["log(U)"]
+    elif col.startswith("log(O/H) + 12"):
+        return cmap_dict["log(O/H) + 12"]
     else:
         print("WARNING: in cmap_fn(): undefined column")
         return copy.copy(plt.cm.get_cmap("jet"))
@@ -516,6 +532,12 @@ def vmin_fn(col):
         col = col.split(" (total)")[0]
     if col in vmin_dict.keys():
         return vmin_dict[col]
+    # Special case for log(U) and log(O/H) + 12, since the column names will 
+    # include the diagnostic(s) used
+    elif col.startswith("log(U)"):
+        return vmin_dict["log(U)"]
+    elif col.startswith("log(O/H) + 12"):
+        return vmin_dict["log(O/H) + 12"]
     else:
         print("WARNING: in vmin_fn(): undefined column")
         return None
@@ -532,6 +554,12 @@ def vmax_fn(col):
         col = col.split(" (total)")[0]
     if col in vmax_dict.keys():
         return vmax_dict[col]
+    # Special case for log(U) and log(O/H) + 12, since the column names will 
+    # include the diagnostic(s) used
+    elif col.startswith("log(U)"):
+        return vmax_dict["log(U)"]
+    elif col.startswith("log(O/H) + 12"):
+        return vmax_dict["log(O/H) + 12"]
     else:
         print("WARNING: in vmax_fn(): undefined column")
         return None
@@ -548,6 +576,14 @@ def label_fn(col):
         col = col.split(" (total)")[0]
     if col in label_dict.keys():
         return label_dict[col]
+    # Special case for log(U) and log(O/H) + 12, since the column names will 
+    # include the diagnostic(s) used
+    elif col.startswith("log(U)"):
+        diags = col.split("log(U) ")[1].split(" ")[0]
+        return label_dict["log(U)"] + " " + diags
+    elif col.startswith("log(O/H) + 12"):
+        diags = col.split("log(O/H) + 12 ")[1].split(" ")[0]
+        return label_dict["log(O/H) + 12"] + " " + diags
     else:
         print("WARNING: in label_fn(): undefined column")
         return col
@@ -564,6 +600,14 @@ def fname_fn(col):
         col = col.split(" (total)")[0]
     if col in fname_dict.keys():
         return fname_dict[col]
+    # Special case for log(U) and log(O/H) + 12, since the column names will 
+    # include the diagnostic(s) used
+    elif col.startswith("log(U)"):
+        diags = col.split("log(U) ")[1].split(" ")[0]
+        return fname_dict["log(U)"] + "_" + diags.replace("(", "").replace(")", "").replace("/", "_")
+    elif col.startswith("log(O/H) + 12"):
+        diags = col.split("log(O/H) + 12 ")[1].split(" ")[0]
+        return fname_dict["log(O/H) + 12"] + "_" + diags.replace("(", "").replace(")", "").replace("/", "_")
     else:
         print("WARNING: in fname_fn(): undefined column")
         # Remove bad characters 
