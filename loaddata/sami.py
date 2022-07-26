@@ -1147,8 +1147,11 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     # EVALUATE METALLICITY
     ######################################################################
     for met_diagnostic in met_diagnostic_list:
-        df_spaxels = metallicity.metallicity_fn(df_spaxels, met_diagnostic, logU, s=" (total)")
-        df_spaxels_extcorr = metallicity.metallicity_fn(df_spaxels_extcorr, met_diagnostic, logU, s=" (total)")
+        df_spaxels = metallicity.metallicity_fn(df_spaxels, met_diagnostic, logU, compute_errors=True, s=" (total)")
+        df_spaxels_extcorr = metallicity.metallicity_fn(df_spaxels_extcorr, met_diagnostic, logU, compute_errors=True, s=" (total)")
+
+        df_spaxels = metallicity.iter_metallicity_fn(df_spaxels, met_diagnostic, ion_diagnostic="O3O2", compute_errors=True, s=" (total)")
+        df_spaxels_extcorr = metallicity.iter_metallicity_fn(df_spaxels_extcorr, met_diagnostic, ion_diagnostic="O3O2", compute_errors=True, s=" (total)")
 
     ###############################################################################
     # Save input flags to the DataFrame so that we can keep track
@@ -1484,3 +1487,336 @@ def make_sami_metadata_df_extended():
 
     print(f"In make_sami_metadata_df_extended(): Finished!")
     return 
+
+###############################################################################
+def make_sami_aperture_df(eline_SNR_min, 
+                          line_flux_SNR_cut=True,
+                          missing_fluxes_cut=True,
+                          sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
+                          met_diagnostic_list=["N2O2", "Dopita+2016"], logU=-3.0,
+                          nthreads_max=20):
+    """
+    This is a convenience function for extracting the data products obtained 
+    from the single-component emission line fits to the aperture spectra 
+    that is available through DataCentral in table "EmissionLine1compDR3". 
+    Various quantities are computed using the data products, such as A_V and 
+    emission line ratios. The data products and computed quantities are saved 
+    to a DataFrame. 
+
+    USAGE
+    ---------------------------------------------------------------------------
+            
+            >>> from spaxelsleuth.loaddata.sami import make_sami_aperture_df
+            >>> make_sami_aperture_df(eline_SNR_min=5)
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    eline_SNR_min:      int 
+        Minimum emission line flux S/N to assume.
+
+    line_flux_SNR_cut:          bool
+        If True, make a S/N cut on all emission line components and associated
+        quantities with flux S/N below eline_SNR_min.
+
+    missing_fluxes_cut:         bool
+        If True, mask out emission line fluxes and associated quantities when 
+        either the flux or the error on the flux are NaN.
+
+    sigma_gas_SNR_cut:          bool
+        If True, mask component velocity dispersions where the S/N on the 
+        velocity dispersion measurement is below sigma_gas_SNR_min. 
+        By default this is set to True b/c it's a robust way to account for 
+        emission line widths < instrumental.
+
+    sigma_gas_SNR_min:          int
+        Minimum velocity dipersion S/N to accept.
+
+    met_diagnostic_list:        list of str
+        Which metallicity diagnostics to compute. Good options are "Dopita+2016"
+        and "N2O2".
+
+    logU:                       float            
+        Constant ionisation parameter to assume in metallicity calculation.
+        Default value is -3.0.
+
+    nthreads_max:               int            
+        Maximum number of threds to use during extinction correction 
+        calculation.    
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    The DataFrames (one with extinction correction, and one withou) are saved 
+    to 
+
+        SAMI_DIR/sami_apertures_extcorr_minSNR={eline_SNR_min}.hd5
+    and SAMI_DIR/sami_apertures_minSNR={eline_SNR_min}.hd5
+
+    """
+    #######################################################################
+    # INPUT CHECKING
+    #######################################################################
+    # For printing to stdout
+    status_str = f"In sami.make_sami_aperture_df():"
+
+    ###############################################################################
+    # FILENAMES
+    #######################################################################
+    df_metadata_fname = "sami_dr3_metadata.hd5"
+
+    # Output file names
+    df_fname = f"sami_apertures_minSNR={eline_SNR_min}.hd5"
+    df_fname_extcorr = f"sami_apertures_extcorr_minSNR={eline_SNR_min}.hd5"
+
+    print(f"{status_str}: saving to files {df_fname} and {df_fname_extcorr}...")
+
+    ###########################################################################
+    # Open the .csv file containing the table 
+    ###########################################################################
+    data_path = os.path.join(__file__.split("loaddata")[0], "data")
+    df_ap = pd.read_csv(os.path.join(data_path, "sami_EmissionLine1compDR3.csv"))
+    df_ap = df_ap.set_index("catid").drop("Unnamed: 0", axis=1)
+
+    # Drop duplicate rows 
+    df_ap = df_ap[~df_ap.index.duplicated(keep="first")]
+
+    ###########################################################################
+    # Rename columns 
+    ###########################################################################
+    for ap in ["_1_4_arcsecond", "_2_arcsecond", "_3_arcsecond", "_4_arcsecond", "_re_mge", "_re", "_3kpc_round"]:
+        cols_ap = [col for col in df_ap.columns if ap in col]
+        rename_dict = {}
+        for old_col in cols_ap:
+            if old_col.endswith("_err"):
+                new_col = old_col.split(ap)[0].upper() + f" error ({ap.replace('_', ' ')[1:]})"
+            else:
+                new_col = old_col.split(ap)[0].upper() + f" ({ap.replace('_', ' ')[1:]})"
+            rename_dict[old_col] = new_col
+            print(f"{old_col} --> {new_col}")
+        df_ap = df_ap.rename(columns=rename_dict)
+
+    old_cols_v = [col for col in df_ap.columns if "V_GAS" in col]
+    new_cols_v = [col.replace("V_GAS", "v_gas") for col in old_cols_v]
+    old_cols_sigma = [col for col in df_ap.columns if "VDISP_GAS" in col]
+    new_cols_sigma = [col.replace("VDISP_GAS", "sigma_gas") for col in old_cols_sigma]
+    rename_dict = dict(zip(old_cols_v + old_cols_sigma, new_cols_v + new_cols_sigma))
+    df_ap = df_ap.rename(columns=rename_dict)
+
+    old_cols_re = [col for col in df_ap.columns if "(re)" in col]
+    new_cols_re = [col.replace("(re)", "(R_e)") for col in old_cols_re]
+    old_cols_mge = [col for col in df_ap.columns if "mge)" in col]
+    new_cols_mge = [col.replace("(re mge)", "(R_e MGE)") for col in old_cols_mge]
+    rename_dict = dict(zip(old_cols_re + old_cols_mge, new_cols_re + new_cols_mge))
+    df_ap = df_ap.rename(columns=rename_dict)
+
+    old_cols_14 = [col for col in df_ap.columns if "(1 4" in col]
+    new_cols_14 = [col.replace("(1 4", "(1.4") for col in old_cols_14]
+    rename_dict = dict(zip(old_cols_14, new_cols_14))
+    df_ap = df_ap.rename(columns=rename_dict)
+
+    ######################################################################
+    # Compute S/N for each emission line in each aperture
+    ######################################################################
+    aps = ["1.4 arcsecond", "2 arcsecond", "3 arcsecond", "4 arcsecond", "R_e", "R_e MGE", "3kpc round"]
+    eline_list = ["OII3726", "OII3729", "NEIII3869", "HEPSILON", "HDELTA", 
+                  "HGAMMA", "OIII4363", "HBETA", "OIII5007", "OI6300", 
+                  "HALPHA", "NII6583", "SII6716", "SII6731"]
+
+    for eline in eline_list:
+        # Compute S/N 
+        for ap in aps:
+            if f"{eline} ({ap})" in df_ap.columns:
+                df_ap[f"{eline} S/N ({ap})"] = df_ap[f"{eline} ({ap})"] / df_ap[f"{eline} error ({ap})"]
+    
+    ######################################################################
+    # Initialise DQ and S/N flags
+    ######################################################################
+    for ap in aps:
+        df_ap[f"Low sigma_gas S/N flag ({ap})"] = False
+        for eline in eline_list:
+            df_ap[f"Missing flux flag - {eline} ({ap})"] = False
+            df_ap[f"Low flux S/N flag - {eline} ({ap})"] = False
+
+    ######################################################################
+    # Fix SFR columns
+    ######################################################################
+    # NaN the SFR if the SFR == 0
+    for ap in aps:
+        cond_zero_SFR = df_ap[f"SFR ({ap})"]  == 0
+        cols = [c for c in df_ap.columns if "SFR" in c and f"({ap})" in c]
+        df_ap.loc[cond_zero_SFR, cols] = np.nan
+
+    ######################################################################
+    # DQ and S/N CUTS
+    ######################################################################
+    # Flag low S/N emission lines
+    ######################################################################
+    print(f"{status_str}: Flagging low S/N components and spaxels...")
+    for eline in eline_list:
+        # Fluxes in individual components
+        for ap in aps:
+            if f"{eline} ({ap})" in df_ap.columns:
+                cond_low_SN = df_ap[f"{eline} S/N ({ap})"] < eline_SNR_min
+                df_ap.loc[cond_low_SN, f"Low flux S/N flag - {eline} ({ap})"] = True
+
+    ######################################################################
+    # Flag emission lines with "missing" (i.e. NaN) fluxes in which the 
+    # ERROR on the flux is not NaN
+    ######################################################################
+    print(f"{status_str}: Flagging components and galaxies with NaN fluxes and finite errors...")
+    for eline in eline_list:
+        # Fluxes in individual components
+        for ap in aps:
+            if f"{eline} ({ap})" in df_ap.columns:
+                cond_missing_flux = df_ap[f"{eline} ({ap})"].isna() & ~df_ap[f"{eline} error ({ap})"].isna()
+                df_ap.loc[cond_missing_flux, f"Missing flux flag - {eline} ({ap})"] = True
+                print(f"{eline} ({ap}): {df_ap[cond_missing_flux].shape[0]:d} galaxies have missing fluxes in this component")
+
+    ######################################################################
+    # Flag rows with insufficient S/N in sigma_gas
+    ######################################################################
+    print(f"{status_str}: Flagging components with low sigma_gas S/N...")
+    sigma_inst_kms = 29.6  # for SAMI
+    sigma_gas_SNR_min = 3
+    # Gas kinematics: NaN out cells w/ sigma_gas S/N ratio < sigma_gas_SNR_min 
+    # (For SAMI, the red arm resolution is 29.6 km/s - see p6 of Croom+2021)
+    for ap in aps:
+        # 1. Define sigma_obs = sqrt(sigma_gas**2 + sigma_inst_kms**2).
+        df_ap[f"sigma_obs ({ap})"] = np.sqrt(df_ap[f"sigma_gas ({ap})"]**2 + sigma_inst_kms**2)
+
+        # 2. Define the S/N ratio of sigma_obs.
+        # NOTE: here we assume that sigma_gas error (as output by LZIFU) 
+        # really refers to the error on sigma_obs.
+        df_ap[f"sigma_obs S/N ({ap})"] = df_ap[f"sigma_obs ({ap})"] / df_ap[f"sigma_gas error ({ap})"]
+
+        # 3. Given our target SNR_gas, compute the target SNR_obs,
+        # using the method in section 2.2.2 of Zhou+2017.
+        df_ap[f"sigma_obs target S/N ({ap})"] = sigma_gas_SNR_min * (1 + sigma_inst_kms**2 / df_ap[f"sigma_gas ({ap})"]**2)
+        cond_bad_sigma = df_ap[f"sigma_obs S/N ({ap})"] < df_ap[f"sigma_obs target S/N ({ap})"]
+        df_ap.loc[cond_bad_sigma, f"Low sigma_gas S/N flag ({ap})"] = True
+
+    ######################################################################
+    # NaN out offending cells
+    ######################################################################
+    if line_flux_SNR_cut:
+        print(f"{status_str}: Masking components that don't meet the S/N requirements...")
+        for eline in eline_list:
+            # Individual fluxes
+            for ap in aps:
+                cond_low_SN = df_ap[f"Low flux S/N flag - {eline} ({ap})"]
+
+                # Cells to NaN
+                if eline == "HALPHA":
+                    # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
+                    cols_low_SN = [c for c in df_ap.columns if f"({ap})" in c and "flag" not in c]
+                else:
+                    cols_low_SN = [c for c in df_ap.columns if eline in c and f"({ap})" in c and "flag" not in c]
+                df_ap.loc[cond_low_SN, cols_low_SN] = np.nan
+
+
+    if missing_fluxes_cut:
+        print(f"{status_str}: Masking components with missing fluxes...")
+        for eline in eline_list:
+            # Individual fluxes
+            for ap in aps:
+                cond_missing_flux = df_ap[f"Missing flux flag - {eline} ({ap})"]
+
+                # Cells to NaN
+                if eline == "HALPHA":
+                    # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
+                    cols_missing_fluxes = [c for c in df_ap.columns if f"({ap})" in c and "flag" not in c]
+                else:
+                    cols_missing_fluxes = [c for c in df_ap.columns if eline in c and f"({ap})" in c and "flag" not in c]
+                df_ap.loc[cond_missing_flux, cols_missing_fluxes] = np.nan
+
+    if sigma_gas_SNR_cut:
+        print(f"{status_str}: Masking components with insufficient S/N in sigma_gas...")
+        for ap in aps:
+            cond_bad_sigma = df_ap[f"Low sigma_gas S/N flag ({ap})"]
+            
+            # Cells to NaN
+            cols_sigma_gas_SNR_cut = [c for c in df_ap.columns if f"({ap})" in c and "sigma_gas" in c and "flag" not in c]
+            cols_sigma_gas_SNR_cut += [c for c in df_ap.columns if "delta" in c and str(nn + 1) in c]
+            df_ap.loc[cond_bad_sigma, cols_sigma_gas_SNR_cut] = np.nan
+
+    ######################################################################
+    # Make a copy of the DataFrame with EXTINCTION CORRECTION
+    # Correct emission line fluxes (but not EWs!)
+    # NOTE: extinction.fm07 assumes R_V = 3.1 so do not change R_V from 
+    # this value!!!
+    ######################################################################
+    print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
+    df_ap_extcorr = df_ap.copy()
+    for ap in aps:
+        df_ap_extcorr = extcorr.extinction_corr_fn(df_ap_extcorr, 
+                                        eline_list=eline_list,
+                                        reddening_curve="fm07", 
+                                        balmer_SNR_min=5, nthreads=nthreads_max,
+                                        s=f" ({ap})")
+    df_ap_extcorr["Corrected for extinction?"] = True
+    df_ap["Corrected for extinction?"] = False
+
+    # Sort so that both DataFrames have the same order
+    df_ap_extcorr = df_ap_extcorr.sort_index()
+    df_ap = df_ap.sort_index()
+
+    ######################################################################
+    # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
+    ######################################################################
+    for ap in aps:
+        df_ap = linefns.ratio_fn(df_ap, s=f" ({ap})")
+        df_ap = linefns.bpt_fn(df_ap, s=f" ({ap})")
+        df_ap_extcorr = linefns.ratio_fn(df_ap_extcorr, s=f" ({ap})")
+        df_ap_extcorr = linefns.bpt_fn(df_ap_extcorr, s=f" ({ap})")
+
+    ######################################################################
+    # EVALUATE METALLICITY
+    ######################################################################
+    for ap in aps:
+        for met_diagnostic in met_diagnostic_list:
+            df_ap = metallicity.metallicity_fn(df_ap, met_diagnostic, logU, compute_errors=True, s=f" ({ap})")
+            df_ap_extcorr = metallicity.metallicity_fn(df_ap_extcorr, met_diagnostic, logU, compute_errors=True, s=f" ({ap})")
+
+            df_ap = metallicity.iter_metallicity_fn(df_ap, met_diagnostic, ion_diagnostic="O3O2", compute_errors=True, s=f" ({ap})")
+            df_ap_extcorr = metallicity.iter_metallicity_fn(df_ap_extcorr, met_diagnostic, ion_diagnostic="O3O2", compute_errors=True, s=f" ({ap})")
+
+    ###############################################################################
+    # Save input flags to the DataFrame so that we can keep track
+    ###############################################################################
+    df_ap["Extinction correction applied"] = False
+    df_ap["line_flux_SNR_cut"] = line_flux_SNR_cut
+    df_ap["eline_SNR_min"] = eline_SNR_min
+    df_ap["missing_fluxes_cut"] = missing_fluxes_cut
+    df_ap["sigma_gas_SNR_min"] = sigma_gas_SNR_min
+    df_ap["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
+    df_ap["log(U) (const.)"] = logU
+
+    df_ap_extcorr["Extinction correction applied"] = True
+    df_ap_extcorr["line_flux_SNR_cut"] = line_flux_SNR_cut
+    df_ap_extcorr["eline_SNR_min"] = eline_SNR_min
+    df_ap_extcorr["missing_fluxes_cut"] = missing_fluxes_cut
+    df_ap_extcorr["sigma_gas_SNR_min"] = sigma_gas_SNR_min
+    df_ap_extcorr["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
+    df_ap_extcorr["log(U) (const.)"] = logU
+
+    ###############################################################################
+    # Save to .hd5 & .csv
+    ###############################################################################
+    print(f"{status_str}: Saving to file...")
+
+    # No extinction correction
+    df_ap.to_csv(os.path.join(sami_data_path, df_fname.split("hd5")[0] + "csv"))
+    try:
+        df_ap.to_hdf(os.path.join(sami_data_path, df_fname), key=f"1-comp aperture fit")
+    except:
+        print(f"{status_str}: Unable to save to HDF file... sigh...")
+
+    # With extinction correction
+    df_ap_extcorr.to_csv(os.path.join(sami_data_path, df_fname_extcorr.split("hd5")[0] + "csv"))
+    try:
+        df_ap_extcorr.to_hdf(os.path.join(sami_data_path, df_fname_extcorr), key=f"1-comp aperture fit")
+    except:
+        print(f"{status_str}: Unable to save to HDF file... sigh...")
+
+    print(f"{status_str}: Finished!")
+    return
+
