@@ -414,6 +414,8 @@ def iter_met_helper_fn(args):
         eline_list = ["OIII4959+OIII5007", "OII3726+OII3729", "HBETA"]
     elif met_diagnostic == "N2S2":
         eline_list = ["NII6583", "SII6716+SII6731"]
+    elif met_diagnostic == "Dopita+2016":
+        eline_list = ["NII6583", "SII6716+SII6731", "HALPHA"]
     else:
         raise ValueError(f"In loaddata.metallicity.iter_met_helper_fn(): Metallicity diagnostic {met_diagnostic} not supported!")
 
@@ -451,6 +453,7 @@ def iter_met_helper_fn(args):
         max_iters = 1e3
         while np.abs((logOH12 - logOH12_old) / logOH12) > 0.001 and np.abs((logU - logU_old) / logU) > 0.001:
             if iters >= max_iters:
+                print("BREAK")
                 break
             logU_old = logU
             logOH12_old = logOH12
@@ -470,12 +473,12 @@ def iter_met_helper_fn(args):
             logU_vals[nn] = logU
 
     # Add to DataFrame
-    df_row[f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals)
-    df_row[f"log(U) ({ion_diagnostic})"] = np.nanmean(logU_vals)
-    df_row[f"log(O/H) + 12 error (lower) ({met_diagnostic})"] = np.nanmean(logOH12_vals) - np.quantile(logOH12_vals, q=0.16)
-    df_row[f"log(O/H) + 12 error (upper) ({met_diagnostic})"] = np.quantile(logOH12_vals, q=0.84) - np.nanmean(logOH12_vals)
-    df_row[f"log(U) error (lower) ({ion_diagnostic})"] = np.nanmean(logU_vals) - np.quantile(logU_vals, q=0.16)
-    df_row[f"log(U) error (upper) ({ion_diagnostic})"] = np.quantile(logU_vals, q=0.84) - np.nanmean(logU_vals)
+    df_row[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logOH12_vals)
+    df_row[f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logU_vals)
+    df_row[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals) - np.quantile(logOH12_vals, q=0.16)
+    df_row[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84) - np.nanmean(logOH12_vals)
+    df_row[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logU_vals) - np.quantile(logU_vals, q=0.16)
+    df_row[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logU_vals, q=0.84) - np.nanmean(logU_vals)
 
     return df_row
 
@@ -529,33 +532,33 @@ def iter_metallicity_fn(df, met_diagnostic, ion_diagnostic,
         to any new columns that are added) before being returned. For 
         example, using the above example, the new added columns will be 
 
-            "log(O/H) + 12 (N2O2) (total)", "log(O/H) + 12 error (N2O2) (total)"
+            "log(O/H) + 12 (N2O2) (total)", "log(O/H) + 12 (N2O2) error (total)"
 
     OUTPUTS
     -----------------------------------------------------------------------
     The original DataFrame with the following columns added:
 
-        log(O/H) + 12 (<met_diagnostic>)        float
+        log(O/H) + 12 (<met_diagnostic>/<ion_diagnostic>)        float
             Metallicity corresponding to the diagnostic chosen in each
             spaxel or component.
 
-        log(O/H) + 12 error (lower) (<met_diagnostic>)  float
+        log(O/H) + 12 (<met_diagnostic>/<ion_diagnostic>) error (lower)  float
             Corresponding 16th percentile in the distribution of log(O/H) + 12
             values computed in the MC simulation, if compute_errors is True.
         
-        log(O/H) + 12 error (upper) (<met_diagnostic>)  float
+        log(O/H) + 12 (<met_diagnostic>/<ion_diagnostic>) error (upper)  float
             Corresponding 84th percentile in the distribution of log(O/H) + 12
             values computed in the MC simulation, if compute_errors is True.
 
-        log(U) (<ion_diagnostic>)               float
+        log(U) (<met_diagnostic>/<ion_diagnostic>)               float
             Ionisation parameter corresponding to the diagnostic chosen in each
             spaxel or component.
 
-        log(U) error (lower) (<met_diagnostic>)  float
+        log(U) (<met_diagnostic>/<ion_diagnostic>) error (lower)  float
             Corresponding 16th percentile in the distribution of log(U)
             values computed in the MC simulation, if compute_errors is True.
         
-        log(U) error (upper) (<met_diagnostic>)  float
+        log(U) (<met_diagnostic>/<ion_diagnostic>) error (upper)  float
             Corresponding 84th percentile in the distribution of log(U)
             values computed in the MC simulation, if compute_errors is True.
         
@@ -564,18 +567,18 @@ def iter_metallicity_fn(df, met_diagnostic, ion_diagnostic,
     # Input checking
     #//////////////////////////////////////////////////////////////////////////
     # Check valid metallicity/ionisation parameter diagnostic
-    assert met_diagnostic in ["N2O2", "R23", "O3N2"],\
+    assert met_diagnostic in ["N2O2", "R23", "O3N2", "Dopita+2016"],\
         "met_diagnostic must be N2O2, R23 or O3N2!"
     assert ion_diagnostic in ["O3O2"],\
         "ion_diagnostic must be O3O2!"
 
     # Add new columns
-    df[f"log(O/H) + 12 ({met_diagnostic})" + s] = np.nan
-    df[f"log(U) ({ion_diagnostic})" + s] = np.nan
-    df[f"log(O/H) + 12 error (lower) ({met_diagnostic})" + s] = np.nan
-    df[f"log(O/H) + 12 error (upper) ({met_diagnostic})" + s] = np.nan
-    df[f"log(U) error (lower) ({ion_diagnostic})" + s] = np.nan
-    df[f"log(U) error (upper) ({ion_diagnostic})" + s] = np.nan
+    df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})" + s] = np.nan
+    df[f"log(U) ({met_diagnostic}/{ion_diagnostic})" + s] = np.nan
+    df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (lower)" + s] = np.nan
+    df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (upper)" + s] = np.nan
+    df[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (lower)" + s] = np.nan
+    df[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (upper)" + s] = np.nan
 
     # Deal with case where 
     if not compute_errors:
@@ -675,6 +678,8 @@ def met_helper_fn(args):
         eline_list = ["OIII4959+OIII5007", "OII3726+OII3729", "HBETA"]
     elif met_diagnostic == "N2S2":
         eline_list = ["NII6583", "SII6716+SII6731"]
+    elif met_diagnostic == "Dopita+2016":
+        eline_list = ["NII6583", "SII6716+SII6731", "HALPHA"]
     else:
         raise ValueError(f"In loaddata.metallicity.iter_met_helper_fn(): Metallicity diagnostic {met_diagnostic} not supported!")
 
@@ -699,8 +704,8 @@ def met_helper_fn(args):
     # Add to DataFrame
     df_row[f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals)
     df_row[f"log(U) (const.)"] = logU
-    df_row[f"log(O/H) + 12 error (lower) ({met_diagnostic})"] = np.nanmean(logOH12_vals) - np.quantile(logOH12_vals, q=0.16)
-    df_row[f"log(O/H) + 12 error (upper) ({met_diagnostic})"] = np.quantile(logOH12_vals, q=0.84) - np.nanmean(logOH12_vals)
+    df_row[f"log(O/H) + 12 ({met_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals) - np.quantile(logOH12_vals, q=0.16)
+    df_row[f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84) - np.nanmean(logOH12_vals)
 
     return df_row
 
@@ -763,11 +768,11 @@ def metallicity_fn(df, met_diagnostic, logU=-3.0,
             Metallicity corresponding to the diagnostic chosen in each
             spaxel or component.
 
-        log(O/H) + 12 error (lower) (<met_diagnostic>)  float
+        log(O/H) + 12 (<met_diagnostic>) error (lower)  float
             Corresponding 16th percentile in the distribution of log(O/H) + 12
             values computed in the MC simulation, if compute_errors is True.
         
-        log(O/H) + 12 error (upper) (<met_diagnostic>)  float
+        log(O/H) + 12 (<met_diagnostic>) error (upper)  float
             Corresponding 84th percentile in the distribution of log(O/H) + 12
             values computed in the MC simulation, if compute_errors is True.
 
@@ -786,8 +791,8 @@ def metallicity_fn(df, met_diagnostic, logU=-3.0,
     # Add new columns
     df[f"log(O/H) + 12 ({met_diagnostic})" + s] = np.nan
     df[f"log(U) (const.)" + s] = np.nan
-    df[f"log(O/H) + 12 error (lower) ({met_diagnostic})" + s] = np.nan
-    df[f"log(O/H) + 12 error (upper) ({met_diagnostic})" + s] = np.nan
+    df[f"log(O/H) + 12 ({met_diagnostic}) error (lower)" + s] = np.nan
+    df[f"log(O/H) + 12 ({met_diagnostic}) error (upper)" + s] = np.nan
 
     #//////////////////////////////////////////////////////////////////////////
     # Remove suffixes on columns
@@ -856,8 +861,8 @@ def metallicity_fn(df, met_diagnostic, logU=-3.0,
     else:
         # Compute metallicity based on line ratios only.
         df_met[f"log(O/H) + 12 ({met_diagnostic})"] = get_metallicity(met_diagnostic, df_met[met_diagnostic], logU)
-        df_met[f"log(O/H) + 12 error (upper) ({met_diagnostic})"] = 0.0
-        df_met[f"log(O/H) + 12 error (lower) ({met_diagnostic})"] = 0.0
+        df_met[f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = 0.0
+        df_met[f"log(O/H) + 12 ({met_diagnostic}) error (lower)"] = 0.0
         df_met[f"log(U) (const.)"] = logU
 
     # Turn warning back on 
