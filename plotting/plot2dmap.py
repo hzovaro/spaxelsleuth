@@ -235,8 +235,12 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     # Plot.
     if vmin is None:
         vmin = vmin_fn(col_z)
+    elif vmin == "auto":
+        vmin = np.nanmin(col_z_map)
     if vmax is None:
         vmax = vmax_fn(col_z)
+    elif vmax == "auto":
+        vmax = np.nanmax(col_z_map)
     if cmap is None:
         cmap = cmap_fn(col_z)
         cmap.set_bad("#b3b3b3")
