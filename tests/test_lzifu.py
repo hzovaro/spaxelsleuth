@@ -1,5 +1,5 @@
 # Test all functions.
-
+import sys
 import numpy as np
 
 from spaxelsleuth.loaddata.lzifu import merge_datacubes, make_lzifu_df, load_lzifu_df
@@ -21,7 +21,7 @@ ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3
 ##############################################################################
 # Test merge_datacubes()
 ##############################################################################
-merge_datacubes([572402, 491956] plotit=True)
+merge_datacubes([572402, 491956], plotit=True)
 
 ##############################################################################
 # Test make_lzifu_df()
