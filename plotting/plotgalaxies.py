@@ -480,10 +480,8 @@ def plot2dhistcontours(df, col_x, col_y, col_z=None, log_z=False,
         bbox = ax.get_position()
         # Shrink axis first
         if cax_orientation == "vertical":
-            # ax.set_position([bbox.x0, bbox.y0, bbox.width * .85, bbox.height])
             cax = fig.add_axes([bbox.x0 + bbox.width, bbox.y0, bbox.width * 0.1, bbox.height])
         elif cax_orientation == "horizontal":
-            # ax.set_position([bbox.x0, bbox.y0, bbox.width, bbox.height * 0.85])
             cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height, bbox.width, bbox.height * 0.1])
 
     # Plot the full sample
@@ -715,11 +713,9 @@ def plot2dscatter(df, col_x, col_y, col_z=None,
         bbox = ax.get_position()
         # Shrink axis first
         if cax_orientation == "vertical":
-            ax.set_position([bbox.x0, bbox.y0, bbox.width * .85, bbox.height])
-            cax = fig.add_axes([bbox.x0 + bbox.width * .85, bbox.y0, bbox.width * 0.1, bbox.height])
+            cax = fig.add_axes([bbox.x0 + bbox.width, bbox.y0, bbox.width * 0.1, bbox.height])
         elif cax_orientation == "horizontal":
-            ax.set_position([bbox.x0, bbox.y0, bbox.width, bbox.height * 0.85])
-            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height * 0.85, bbox.width, bbox.height * 0.1])
+            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height, bbox.width, bbox.height * 0.1])
 
     # Deal with annoying case where there are multiple components
     if "component" in col_x:
