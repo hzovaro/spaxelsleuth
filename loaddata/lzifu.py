@@ -393,7 +393,6 @@ def make_lzifu_df(gals=None, make_master_df=False,
         if type(gals) == int:
             gals = [gals]
         for gal in gals:
-            Tracer()()
             assert type(gal) == int, "gal must be an integer!"
             fname = os.path.join(lzifu_products_path, f"{gal}_merge_lzcomp.fits")
             assert os.path.exists(fname), f"File {fname} not found!"
@@ -432,8 +431,12 @@ def make_lzifu_df(gals=None, make_master_df=False,
 
         # List of galaxies WITHOUT LZIFU in our sample
         gals_good_missing_lzifu = [g for g in gals_subsample if (g not in gals_merge_lzcomp) and (g not in gals_good_1comp) and (g not in gals_good_0comp)]
-        assert len(gals_good_missing_lzifu) == 0,\
-            f"{len(gals_good_missing_lzifu)} are missing LZIFU data!"
+        if len(gals_good_missing_lzifu) > 0:
+            print("WARNING: the following galaxies are missing LZIFU data products:")
+            for gal in gals_good_missing_lzifu:
+                print(gal)
+        # assert len(gals_good_missing_lzifu) == 0,\
+            # f"{len(gals_good_missing_lzifu)} are missing LZIFU data!"
 
         # Want to run this script on the gals in the subsample that have LZIFU data.
         gals = gals_good_lzifu
@@ -988,6 +991,12 @@ def make_lzifu_df(gals=None, make_master_df=False,
         ######################################################################
         print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
         df_spaxels_extcorr = df_spaxels.copy()
+        for nn in range(1, 4):
+            df_spaxels_extcorr = extcorr.extinction_corr_fn(df_spaxels_extcorr, 
+                                        eline_list=eline_list,
+                                        reddening_curve="fm07", 
+                                        balmer_SNR_min=5, nthreads=nthreads_max,
+                                        s=f" (component {nn})")
         df_spaxels_extcorr = extcorr.extinction_corr_fn(df_spaxels_extcorr, 
                                         eline_list=eline_list,
                                         reddening_curve="fm07", 
@@ -1003,6 +1012,12 @@ def make_lzifu_df(gals=None, make_master_df=False,
         ######################################################################
         # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
         ######################################################################
+        for nn in range(1, 4):
+            df_spaxels = linefns.ratio_fn(df_spaxels, s=f" (component {nn})")
+            df_spaxels = linefns.bpt_fn(df_spaxels, s=f" (component {nn})")
+            df_spaxels_extcorr = linefns.ratio_fn(df_spaxels_extcorr, s=f" (component {nn})")
+            df_spaxels_extcorr = linefns.bpt_fn(df_spaxels_extcorr, s=f" (component {nn})")
+
         df_spaxels = linefns.ratio_fn(df_spaxels, s=f" (total)")
         df_spaxels = linefns.bpt_fn(df_spaxels, s=f" (total)")
         df_spaxels_extcorr = linefns.ratio_fn(df_spaxels_extcorr, s=f" (total)")
@@ -1018,6 +1033,9 @@ def make_lzifu_df(gals=None, make_master_df=False,
         # EVALUATE METALLICITY
         ######################################################################
         for met_diagnostic in met_diagnostic_list:
+            for nn in range(1, 4):
+                df_spaxels = metallicity.metallicity_fn(df_spaxels, met_diagnostic, logU, s=f" (component {nn})")
+                df_spaxels_extcorr = metallicity.metallicity_fn(df_spaxels_extcorr, met_diagnostic, logU, s=f" (component {nn})")
             df_spaxels = metallicity.metallicity_fn(df_spaxels, met_diagnostic, logU, s=" (total)")
             df_spaxels_extcorr = metallicity.metallicity_fn(df_spaxels_extcorr, met_diagnostic, logU, s=" (total)")
 
@@ -1155,10 +1173,10 @@ def load_lzifu_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
 
     # Input file name
     if gal is None:
-        print(f"Loading LZIFU DataFrame for all galaxies in the LZIFU subsample...")
+        print(f"In load_lzifu_df(): Loading LZIFU DataFrame for all galaxies in the LZIFU subsample...")
         df_fname = f"lzifu_subsample_{bin_type}_{ncomponents}-comp"
     else:
-        print(f"Loading LZIFU DataFrame for galaxy {gal}...")
+        print(f"In load_lzifu_df(): Loading LZIFU DataFrame for galaxy {gal}...")
         df_fname = f"lzifu_{gal}_{bin_type}_{ncomponents}-comp"
     if correct_extinction:
         df_fname += "_extcorr"
@@ -1173,6 +1191,7 @@ def load_lzifu_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
     #######################################################################
     df = pd.read_hdf(os.path.join(lzifu_data_path, df_fname))
 
+    print("In load_lzifu_df(): Finished!")
     return df
 
 
