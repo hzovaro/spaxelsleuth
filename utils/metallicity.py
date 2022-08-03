@@ -181,7 +181,7 @@ met_coeffs = {
         "Zmin" : 8.23,
         "Zmax" : 9.23,
     },
-    "OIIHB"     : {
+    "O2Hb"     : {
         "A" : 6.2084,
         "B" : -4.0513,
         "C" : -1.4847,
@@ -195,21 +195,6 @@ met_coeffs = {
         "RMS ERR" : 0.02,   # PERCENT
         "Zmin" : 8.53,
         "Zmax" : 9.23,
-    },
-    "OIIIHB"    : {
-        "A" : 12.489,
-        "B" : -3.2646,
-        "C" : 3.2581,
-        "D" : -2.0544,
-        "E" : 0.5282,
-        "F" : 1.0730,
-        "G" : -0.3445,
-        "H" : 0.2130,
-        "I" : -0.3047,
-        "J" : 0.1209,
-        "RMS ERR" : 2.52,   # PERCENT
-        "Zmin" : 8.23,
-        "Zmax" : 8.93,
     },
     "N2O2"  : {
     # Notes: "By far the most reliable" diagnostic in the optical. 
@@ -328,7 +313,7 @@ def get_metallicity(met_diagnostic, logR_met, logU):
     # x = log(R)
     # y = log(U)
     if met_diagnostic == "Dopita+2016":
-        return 8.77 + logR_met + 0.45 * (logR_met + 0.5)**5
+        return 8.77 + logR_met + 0.45 * (logR_met + 0.3)**5
     else:
         logOH12_func = lambda x, y : \
               met_coeffs[met_diagnostic]["A"] \
@@ -660,7 +645,7 @@ def iter_metallicity_fn(df, met_diagnostic, ion_diagnostic,
 ################################################################################
 def met_helper_fn(args):
     """
-    Function used to parallelise metallicity parameter computation in
+    Function used to parallelise metallicity computation in
     metallicity_fn().
     """
     rr, df, met_diagnostic, logU, niters = args
