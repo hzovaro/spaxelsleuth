@@ -415,33 +415,34 @@ def _compute_logOH12(met_diagnostic, df,
                 + ion_coeffs_K19[ion_diagnostic]["I"] * x**3  \
                 + ion_coeffs_K19[ion_diagnostic]["J"] * y**3
 
-            logOH12 = np.full(df.shape[0], np.nan)
-            logU = np.full(df.shape[0], np.nan)
-            nrows = df.shape[0]
-            for rr in range(nrows):
-                if np.isnan(logR_met[rr]) or np.isnan(logR_ion[rr]):
-                    logOH12[rr] = np.nan
-                    logU[rr] = np.nan
-                    continue
+            # Starting guesses
+            logOH12_old = 8.0
+            logU_old = -3.0
+            for n in range(max_niters):
+                # Recompute values
+                logU_new = logU_func(x=logR_ion, y=logOH12_old)
+                logOH12_new = logOH12_func(x=logR_met, y=logU_new)
+                
+                # Compute the consistency between this and the previous iteration
+                diff_logOH12 = np.abs(logOH12_new - logOH12_old)
+                diff_logU = np.abs(logU_new - logU_old)
+                # print(f"After {n} iterations: {len(diff_logOH12[diff_logOH12 >= 0.001])}/{len(diff_logOH12)} unconverged log(O/H) + 12 measurements, {len(diff_logU[diff_logU >= 0.001])}/{len(diff_logU)} unconverged log(U) measurements")
+                if all(diff_logU < 0.001) and all(diff_logOH12 < 0.001):
+                    break
 
-                # Starting guesses
-                logOH12_old = 8.0
-                logU_old = -3.0
+                # Update variables 
+                logOH12_old = logOH12_new
+                logU_old = logU_new
 
-                # Iteratively compute ionisation parameter & metallicity
-                for n in range(max_niters):
-                    logU_new = logU_func(x=logR_ion[rr], y=logOH12_old)
-                    logOH12_new = logOH12_func(x=logR_met[rr], y=logU_new)
+            # Final values
+            logOH12 = logOH12_new
+            logU = logU_new
 
-                    if np.abs(logOH12_new - logOH12_old) < 0.001 and np.abs(logU_new - logU_old) < 0.001:
-                        break
-                    else:
-                        logOH12_old = logOH12_new
-                        logU_old = logU_new
-                logOH12[rr] = logOH12_new
-                logU[rr] = logU_new
+            # Mask out values where the convergence test fails
+            good_pts = diff_logOH12 < 0.001
+            good_pts &= diff_logU < 0.001
 
-            # What about limits?
+            # Apply limits 
             good_pts = logOH12 > met_coeffs_K19[met_diagnostic]["Zmin"]     # log(O/H) + 12 - metallicity limits
             good_pts &= logOH12 < met_coeffs_K19[met_diagnostic]["Zmax"]    # log(O/H) + 12 - metallicity limits
             good_pts &= logOH12 < ion_coeffs_K19[ion_diagnostic]["Zmax"]    # log(U) - metallicity limits
@@ -457,7 +458,7 @@ def _compute_logOH12(met_diagnostic, df,
             # Assume a fixed ionisation parameter
             logOH12 = logOH12_func(x=logR, y=logU)
 
-            # What about limits?
+            # Apply limits 
             good_pts = logOH12 > met_coeffs_K19[met_diagnostic]["Zmin"]     # log(O/H) + 12 - metallicity limits
             good_pts &= logOH12 < met_coeffs_K19[met_diagnostic]["Zmax"]    # log(O/H) + 12 - metallicity limits
             logOH12[~good_pts] = np.nan
@@ -475,46 +476,60 @@ def _compute_logOH12(met_diagnostic, df,
         logOH12 = np.full(df.shape[0], np.nan)
 
         if compute_logU:
-            logU = np.full(df.shape[0], np.nan)
-            nrows = df.shape[0]
-            for rr in range(nrows):
-                if np.isnan(logN2O2[rr]) or np.isnan(logO3O2[rr]) or np.isnan(logR23[rr]):
-                    logOH12[rr] = np.nan
-                    logU[rr] = np.nan
-                    continue
+            # Compute a self-consistent ionisation parameter using the O3O2
+            # diagnostic
+            logOH12_old = np.full(df.shape[0], np.nan)
+            logOH12_new = np.full(df.shape[0], np.nan)
 
-                if logN2O2[rr] < -1.2:
-                    logOH12_old = 8.2
-                else:
-                    logOH12_old = 8.7
-                for n in range(max_niters):
-                    # Compute ionisation parameter
-                    # NOTE: there is a serious transcription error in the version of this eqn. that appears in the appendix of Poeotrodjojo+2021: refer to the eqn. in the original paper
-                    logq = (32.81 - 1.153 * logO3O2[rr]**2\
-                            + logOH12_old * (-3.396 - 0.025 * logO3O2[rr] + 0.1444 * logO3O2[rr]**2))\
-                           * (4.603 - 0.3119 * logO3O2[rr] - 0.163 * logO3O2[rr]**2 + logOH12_old * (-0.48 + 0.0271 * logO3O2[rr] + 0.02037 * logO3O2[rr]**2))**(-1)
+            # Starting guesses 
+            pts_lower = logN2O2 < -1.2
+            pts_upper = logN2O2 >= -1.2
+            logOH12_old[pts_lower] = 8.2
+            logOH12_old[pts_upper] = 8.7
+            logq_old = -99999  # Dummy value
 
-                    # Compute metallicity
-                    if logN2O2[rr] < -1.2:
-                        logOH12_new = 9.40 + 4.65 * logR23[rr] - 3.17 * logR23[rr]**2 - logq * (0.272 + 0.547 * logR23[rr] - 0.513 * logR23[rr]**2)
-                    else:
-                        logOH12_new = 9.72 - 0.777 * logR23[rr] - 0.951 * logR23[rr]**2 - 0.072 * logR23[rr]**3 - 0.811 * logR23[rr]**4 - logq * (0.0737 - 0.0713 * logR23[rr] - 0.141 * logR23[rr]**2 + 0.0373 * logR23[rr]**3 - 0.058 * logR23[rr]**4)
+            for n in range(max_niters):
 
-                    if np.abs(logOH12_new - logOH12_old) < 0.001:
-                        break
-                    else:
-                        logOH12_old = logOH12_new
-                logOH12[rr] = logOH12_new
-                logU[rr] = logq - np.log10(constants.c * 1e2)
+                # Recompute values 
+                # NOTE: there is a serious transcription error in the version of this eqn. that appears in the appendix of Poeotrodjojo+2021: refer to the eqn. in the original paper
+                logq_new = (32.81 - 1.153 * logO3O2**2\
+                        + logOH12_old * (-3.396 - 0.025 * logO3O2 + 0.1444 * logO3O2**2))\
+                       * (4.603 - 0.3119 * logO3O2 - 0.163 * logO3O2**2 + logOH12_old * (-0.48 + 0.0271 * logO3O2 + 0.02037 * logO3O2**2))**(-1)
+                
+                # Compute metallicity
+                pts_lower = logN2O2 < -1.2
+                pts_upper = logN2O2 >= -1.2
+                logOH12_new[pts_lower] = 9.40 + 4.65 * logR23[pts_lower] - 3.17 * logR23[pts_lower]**2 - logq_new[pts_lower] * (0.272 + 0.547 * logR23[pts_lower] - 0.513 * logR23[pts_lower]**2)
+                logOH12_new[pts_upper] = 9.72 - 0.777 * logR23[pts_upper] - 0.951 * logR23[pts_upper]**2 - 0.072 * logR23[pts_upper]**3 - 0.811 * logR23[pts_upper]**4 - logq_new[pts_upper] * (0.0737 - 0.0713 * logR23[pts_upper] - 0.141 * logR23[pts_upper]**2 + 0.0373 * logR23[pts_upper]**3 - 0.058 * logR23[pts_upper]**4)
 
-            # The diagnostic isn't defined for logR23 > 1.0, so remove these.
-            good_pts = logR23 < 1.0
+                # Compute the consistency between this and the previous iteration
+                diff_logOH12 = np.abs(logOH12_new - logOH12_old)
+                diff_logq = np.abs(logq_new - logq_old)
+                # print(f"After {n} iterations: {len(diff_logOH12[diff_logOH12 >= 0.001])}/{len(diff_logOH12)} unconverged log(O/H) + 12 measurements, {len(diff_logq[diff_logq >= 0.001])}/{len(diff_logq)} unconverged log(q) measurements")
+                if all(diff_logq < 0.001) and all(diff_logOH12 < 0.001):
+                    break
+
+                # Update variables 
+                logOH12_old = logOH12_new
+                logq_old = logq_new
+
+            # Final values
+            logOH12 = logOH12_new
+            logU = logq_new - np.log10(constants.c * 1e2)
+
+            # Mask out values where the convergence test fails
+            good_pts = diff_logOH12 < 0.001
+            good_pts &= diff_logq < 0.001            
+
+            # Limits 
+            good_pts &= logR23 < 1.0  # The diagnostic isn't defined for logR23 > 1.0, so remove these.
             logOH12[~good_pts] = np.nan
             logU[~good_pts] = np.nan
 
             return np.squeeze(logOH12), np.squeeze(logU)
 
         else:
+            # Assume a fixed ionisation parameter
             logq = logU + np.log10(constants.c * 1e2)
             pts_lower = logN2O2 < -1.2
             pts_upper = logN2O2 >= -1.2
@@ -544,7 +559,6 @@ def _compute_logOH12(met_diagnostic, df,
         logOH12 = 9.37 + 2.03 * logR + 1.26 * logR**2 + 0.32 * logR**3
         good_pts = (-2.5 < logR) & (logR < -0.3)
         logOH12[~good_pts] = np.nan
-        #TODO: test using .values instead of Series
         return np.squeeze(logOH12)
 
     elif met_diagnostic == "N2Ha_M13":
@@ -678,9 +692,13 @@ def _met_helper_fn(args):
         if compute_errors:
             for eline in line_list_dict[met_diagnostic]:
                 df_tmp[eline] += np.random.normal(scale=df_tmp[f"{eline} error"])
+                cond_neg = df_tmp[eline] < 0
+                df_tmp.loc[cond_neg, eline] = np.nan
             if compute_logU:
                 for eline in line_list_dict[ion_diagnostic]:
                     df_tmp[eline] += np.random.normal(scale=df_tmp[f"{eline} error"])
+                    cond_neg = df_tmp[eline] < 0
+                    df_tmp.loc[cond_neg, eline] = np.nan
 
         # Compute corresponding metallicity
         if compute_logU:
@@ -702,6 +720,7 @@ def _met_helper_fn(args):
             logOH12_vals[nn] = res
 
     # Add to DataFrame
+    pd.options.mode.chained_assignment = None
     if compute_logU:
         df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
         df[f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logU_vals, axis=0)
@@ -718,6 +737,7 @@ def _met_helper_fn(args):
             df[f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
         if logU is not None:
             df[f"log(U) ({met_diagnostic})"] = np.nanmean(logU_vals, axis=0)
+    pd.options.mode.chained_assignment = "warn"
 
     return df 
 
@@ -760,8 +780,10 @@ def _get_metallicity(met_diagnostic, df,
 
     # Add empty columns to stop Pandas from throwing an error at pd.concat
     new_cols = [c for c in df_met.columns if c not in df_nomet.columns]
+    pd.options.mode.chained_assignment = None
     for c in new_cols:
         df_nomet[c] = np.nan
+    pd.options.mode.chained_assignment = "warn"
 
     # Merge back with original DataFrame
     print(f"{status_str}: Concatenating DataFrames...")
