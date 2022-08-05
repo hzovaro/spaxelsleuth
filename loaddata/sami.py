@@ -670,7 +670,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                  line_amplitude_SNR_cut=True,
                  flux_fraction_cut=False,
                  stekin_cut=True,
-                 met_diagnostic_list=["Dopita+2016", "N2O2"], logU = -3.0,
+                 correct_extinction=True,
                  eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
                  nthreads_max=20, debug=False):
     """
@@ -750,20 +750,18 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         Set to False by default b/c it's unclear whether this is needed to 
         reject unreliable components.
 
-    stekin_cut:
+    stekin_cut:                 bool
         If True, mask stellar kinematic quantities that do not meet the DQ and 
         S/N requirements specified in Croom et al. (2021). True by default.
 
+    correct_extinction:         bool
+        If True, correct emission line fluxes for extinction. 
+        NOTE: metallicities are ONLY computed if correct_extinction is True,
+        due to the large spacing in wavelength between the emission lines 
+        used in some diagnostics.
+
     eline_list:                 list of str
         Default SAMI emission lines - don't change this!
-
-    met_diagnostic_list:        list of str
-        Which metallicity diagnostics to compute. Good options are "Dopita+2016"
-        and "N2O2".
-
-    logU:                       float            
-        Constant ionisation parameter to assume in metallicity calculation.
-        Default value is -3.0.
 
     nthreads_max:               int            
         Maximum number of threds to use. 
@@ -782,15 +780,18 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     The resulting DataFrame will be stored as 
 
         SAMI_DIR/sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5
-    and SAMI_DIR/sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5
 
-    The DataFrames will be stored in CSV format in case saving in HDF format fails
-    for any reason.
+    if correct_extinction is True, or else
 
-    Note that the Halpha equivalent widths are NOT corrected for extinction in 
-    either case. This is because stellar continuum extinction measurements are 
-    not available, and so applying the correction only to the Halpha fluxes may 
-    over-estimate the true EW.
+        SAMI_DIR/sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5
+
+    The DataFrame will be stored in CSV format in case saving in HDF format 
+    fails     for any reason.
+
+    Note that the Halpha equivalent widths are NOT corrected for extinction if 
+    correct_extinction is True. This is because stellar continuum extinction 
+    measurements are not available, and so applying the correction only to the 
+    Halpha fluxes may over-estimate the true EW.
 
     PREREQUISITES
     ---------------------------------------------------------------------------
@@ -852,15 +853,15 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     df_metadata_fname = "sami_dr3_metadata.hd5"
 
     # Output file names
-    df_fname = f"sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}"
-    df_fname_extcorr = f"sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}"
+    if correct_extinction:
+        df_fname = f"sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}"
+    else:
+        df_fname = f"sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}"
     if debug:
         df_fname += "_DEBUG"
-        df_fname_extcorr += "_DEBUG"
     df_fname += ".hd5"
-    df_fname_extcorr += ".hd5"
 
-    print(f"{status_str}: saving to files {df_fname} and {df_fname_extcorr}...")
+    print(f"{status_str}: saving to files {df_fname}...")
 
     ###############################################################################
     # READ IN THE METADATA
@@ -1115,18 +1116,16 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     # NOTE: extinction.fm07 assumes R_V = 3.1 so do not change R_V from 
     # this value!!!
     ######################################################################
-    print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
-    df_spaxels_extcorr = df_spaxels.copy()
-    df_spaxels_extcorr = extcorr.extinction_corr_fn(df_spaxels_extcorr, 
-                                    eline_list=eline_list,
-                                    reddening_curve="fm07", 
-                                    balmer_SNR_min=5, nthreads=nthreads_max,
-                                    s=f" (total)")
-    df_spaxels_extcorr["Corrected for extinction?"] = True
-    df_spaxels["Corrected for extinction?"] = False
-
-    # Sort so that both DataFrames have the same order
-    df_spaxels_extcorr = df_spaxels_extcorr.sort_index()
+    if correct_extinction:
+        print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
+        df_spaxels = extcorr.extinction_corr_fn(df_spaxels, 
+                                        eline_list=eline_list,
+                                        reddening_curve="fm07", 
+                                        balmer_SNR_min=5, nthreads=nthreads_max,
+                                        s=f" (total)")
+        df_spaxels["Corrected for extinction?"] = True
+    else:
+        df_spaxels["Corrected for extinction?"] = False
     df_spaxels = df_spaxels.sort_index()
 
     ######################################################################
@@ -1134,29 +1133,34 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ######################################################################
     df_spaxels = linefns.ratio_fn(df_spaxels, s=f" (total)")
     df_spaxels = linefns.bpt_fn(df_spaxels, s=f" (total)")
-    df_spaxels_extcorr = linefns.ratio_fn(df_spaxels_extcorr, s=f" (total)")
-    df_spaxels_extcorr = linefns.bpt_fn(df_spaxels_extcorr, s=f" (total)")
 
     ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
     ######################################################################
     df_spaxels = dqcut.compute_extra_columns(df_spaxels, ncomponents=3 if ncomponents=="recom" else 1)
-    df_spaxels_extcorr = dqcut.compute_extra_columns(df_spaxels_extcorr, ncomponents=3 if ncomponents=="recom" else 1)
 
     ######################################################################
-    # EVALUATE METALLICITY
+    # EVALUATE METALLICITY (only for spaxels with extinction correction)
     ######################################################################
-    for met_diagnostic in met_diagnostic_list:
-        df_spaxels = metallicity.metallicity_fn(df_spaxels, met_diagnostic, logU, compute_errors=True, s=" (total)")
-        df_spaxels_extcorr = metallicity.metallicity_fn(df_spaxels_extcorr, met_diagnostic, logU, compute_errors=True, s=" (total)")
-
-        df_spaxels = metallicity.iter_metallicity_fn(df_spaxels, met_diagnostic, ion_diagnostic="O3O2", compute_errors=True, s=" (total)")
-        df_spaxels_extcorr = metallicity.iter_metallicity_fn(df_spaxels_extcorr, met_diagnostic, ion_diagnostic="O3O2", compute_errors=True, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_PP04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_M13", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="O3N2_PP04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="O3N2_M13", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2S2Ha_D16", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2O2_KD02", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="Rcal_PG16", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="Scal_PG16", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="ON_P10", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="ONS_P10", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="O3N2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2O2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="R23_KK04", compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
 
     ###############################################################################
     # Save input flags to the DataFrame so that we can keep track
     ###############################################################################
-    df_spaxels["Extinction correction applied"] = False
+    df_spaxels["Extinction correction applied"] = correct_extinction
     df_spaxels["line_flux_SNR_cut"] = line_flux_SNR_cut
     df_spaxels["eline_SNR_min"] = eline_SNR_min
     df_spaxels["sigma_gas_SNR_min"] = sigma_gas_SNR_min
@@ -1166,19 +1170,6 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     df_spaxels["line_amplitude_SNR_cut"] = line_amplitude_SNR_cut
     df_spaxels["flux_fraction_cut"] = flux_fraction_cut
     df_spaxels["stekin_cut"] = stekin_cut
-    df_spaxels["log(U) (const.)"] = logU
-
-    df_spaxels_extcorr["Extinction correction applied"] = True
-    df_spaxels_extcorr["line_flux_SNR_cut"] = line_flux_SNR_cut
-    df_spaxels_extcorr["eline_SNR_min"] = eline_SNR_min
-    df_spaxels_extcorr["sigma_gas_SNR_min"] = sigma_gas_SNR_min
-    df_spaxels_extcorr["vgrad_cut"] = vgrad_cut
-    df_spaxels_extcorr["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
-    df_spaxels_extcorr["sigma_gas_SNR_min"] = sigma_gas_SNR_min
-    df_spaxels_extcorr["line_amplitude_SNR_cut"] = line_amplitude_SNR_cut
-    df_spaxels_extcorr["flux_fraction_cut"] = flux_fraction_cut
-    df_spaxels_extcorr["stekin_cut"] = stekin_cut
-    df_spaxels_extcorr["log(U) (const.)"] = logU
 
     ###############################################################################
     # Save to .hd5 & .csv
@@ -1192,14 +1183,6 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     except:
         print(f"{status_str}: Unable to save to HDF file... sigh...")
 
-    # With extinction correction
-    df_spaxels_extcorr.to_csv(os.path.join(sami_data_path, df_fname_extcorr.split("hd5")[0] + "csv"))
-    try:
-        df_spaxels_extcorr.to_hdf(os.path.join(sami_data_path, df_fname_extcorr), key=f"{bin_type}, {ncomponents}-comp")
-    except:
-        print(f"{status_str}: Unable to save to HDF file... sigh...")
-
-    print(f"{status_str}: Finished!")
     return
 
 ###############################################################################
@@ -1493,8 +1476,7 @@ def make_sami_aperture_df(eline_SNR_min,
                           line_flux_SNR_cut=True,
                           missing_fluxes_cut=True,
                           sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
-                          met_diagnostic_list=["N2O2", "Dopita+2016"], logU=-3.0,
-                          nthreads_max=20):
+                          nthreads_max=20, correct_extinction=True):
     """
     This is a convenience function for extracting the data products obtained 
     from the single-component emission line fits to the aperture spectra 
@@ -1531,13 +1513,9 @@ def make_sami_aperture_df(eline_SNR_min,
     sigma_gas_SNR_min:          int
         Minimum velocity dipersion S/N to accept.
 
-    met_diagnostic_list:        list of str
-        Which metallicity diagnostics to compute. Good options are "Dopita+2016"
-        and "N2O2".
-
-    logU:                       float            
-        Constant ionisation parameter to assume in metallicity calculation.
-        Default value is -3.0.
+    correct_extinction:         bool 
+        If True, correct emission line fluxes for extinction.
+        NOTE: if False, then metallicities are NOT computed. 
 
     nthreads_max:               int            
         Maximum number of threds to use during extinction correction 
@@ -1548,7 +1526,7 @@ def make_sami_aperture_df(eline_SNR_min,
     The DataFrames (one with extinction correction, and one withou) are saved 
     to 
 
-        SAMI_DIR/sami_apertures_extcorr_minSNR={eline_SNR_min}.hd5
+        SAMI_DIR/sami_apertures_minSNR={eline_SNR_min}.hd5
     and SAMI_DIR/sami_apertures_minSNR={eline_SNR_min}.hd5
 
     """
@@ -1564,10 +1542,11 @@ def make_sami_aperture_df(eline_SNR_min,
     df_metadata_fname = "sami_dr3_metadata.hd5"
 
     # Output file names
-    df_fname = f"sami_apertures_minSNR={eline_SNR_min}.hd5"
-    df_fname_extcorr = f"sami_apertures_extcorr_minSNR={eline_SNR_min}.hd5"
-
-    print(f"{status_str}: saving to files {df_fname} and {df_fname_extcorr}...")
+    if correct_extinction:
+        df_fname = f"sami_apertures_extcorr_minSNR={eline_SNR_min}.hd5"
+    else:
+        df_fname = f"sami_apertures_minSNR={eline_SNR_min}.hd5"
+    print(f"{status_str}: saving to files {df_fname}...")
 
     ###########################################################################
     # Open the .csv file containing the table 
@@ -1744,19 +1723,15 @@ def make_sami_aperture_df(eline_SNR_min,
     # NOTE: extinction.fm07 assumes R_V = 3.1 so do not change R_V from 
     # this value!!!
     ######################################################################
-    print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
-    df_ap_extcorr = df_ap.copy()
-    for ap in aps:
-        df_ap_extcorr = extcorr.extinction_corr_fn(df_ap_extcorr, 
-                                        eline_list=eline_list,
-                                        reddening_curve="fm07", 
-                                        balmer_SNR_min=5, nthreads=nthreads_max,
-                                        s=f" ({ap})")
-    df_ap_extcorr["Corrected for extinction?"] = True
-    df_ap["Corrected for extinction?"] = False
-
-    # Sort so that both DataFrames have the same order
-    df_ap_extcorr = df_ap_extcorr.sort_index()
+    if correct_extinction:
+        print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
+        for ap in aps:
+            df_ap = extcorr.extinction_corr_fn(df_ap, 
+                                            eline_list=eline_list,
+                                            reddening_curve="fm07", 
+                                            balmer_SNR_min=5, nthreads=nthreads_max,
+                                            s=f" ({ap})")
+    df_ap["Corrected for extinction?"] = correct_extinction
     df_ap = df_ap.sort_index()
 
     ######################################################################
@@ -1765,38 +1740,35 @@ def make_sami_aperture_df(eline_SNR_min,
     for ap in aps:
         df_ap = linefns.ratio_fn(df_ap, s=f" ({ap})")
         df_ap = linefns.bpt_fn(df_ap, s=f" ({ap})")
-        df_ap_extcorr = linefns.ratio_fn(df_ap_extcorr, s=f" ({ap})")
-        df_ap_extcorr = linefns.bpt_fn(df_ap_extcorr, s=f" ({ap})")
 
     ######################################################################
     # EVALUATE METALLICITY
     ######################################################################
     for ap in aps:
-        for met_diagnostic in met_diagnostic_list:
-            df_ap = metallicity.metallicity_fn(df_ap, met_diagnostic, logU, compute_errors=True, s=f" ({ap})")
-            df_ap_extcorr = metallicity.metallicity_fn(df_ap_extcorr, met_diagnostic, logU, compute_errors=True, s=f" ({ap})")
-
-            df_ap = metallicity.iter_metallicity_fn(df_ap, met_diagnostic, ion_diagnostic="O3O2", compute_errors=True, s=f" ({ap})")
-            df_ap_extcorr = metallicity.iter_metallicity_fn(df_ap_extcorr, met_diagnostic, ion_diagnostic="O3O2", compute_errors=True, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="N2Ha_PP04", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="N2Ha_M13", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="O3N2_PP04", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="O3N2_M13", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="N2S2Ha_D16", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="N2O2_KD02", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="Rcal_PG16", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="Scal_PG16", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="ON_P10", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="ONS_P10", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="O3N2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="N2O2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
+        df_ap = metallicity.calculate_metallicity(met_diagnostic="R23_KK04", compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df_ap, s=f" ({ap})")
 
     ###############################################################################
     # Save input flags to the DataFrame so that we can keep track
     ###############################################################################
-    df_ap["Extinction correction applied"] = False
+    df_ap["Extinction correction applied"] = correct_extinction
     df_ap["line_flux_SNR_cut"] = line_flux_SNR_cut
     df_ap["eline_SNR_min"] = eline_SNR_min
     df_ap["missing_fluxes_cut"] = missing_fluxes_cut
     df_ap["sigma_gas_SNR_min"] = sigma_gas_SNR_min
     df_ap["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
-    df_ap["log(U) (const.)"] = logU
-
-    df_ap_extcorr["Extinction correction applied"] = True
-    df_ap_extcorr["line_flux_SNR_cut"] = line_flux_SNR_cut
-    df_ap_extcorr["eline_SNR_min"] = eline_SNR_min
-    df_ap_extcorr["missing_fluxes_cut"] = missing_fluxes_cut
-    df_ap_extcorr["sigma_gas_SNR_min"] = sigma_gas_SNR_min
-    df_ap_extcorr["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
-    df_ap_extcorr["log(U) (const.)"] = logU
 
     ###############################################################################
     # Save to .hd5 & .csv
@@ -1809,14 +1781,6 @@ def make_sami_aperture_df(eline_SNR_min,
         df_ap.to_hdf(os.path.join(sami_data_path, df_fname), key=f"1-comp aperture fit")
     except:
         print(f"{status_str}: Unable to save to HDF file... sigh...")
-
-    # With extinction correction
-    df_ap_extcorr.to_csv(os.path.join(sami_data_path, df_fname_extcorr.split("hd5")[0] + "csv"))
-    try:
-        df_ap_extcorr.to_hdf(os.path.join(sami_data_path, df_fname_extcorr), key=f"1-comp aperture fit")
-    except:
-        print(f"{status_str}: Unable to save to HDF file... sigh...")
-
     print(f"{status_str}: Finished!")
     return
 
