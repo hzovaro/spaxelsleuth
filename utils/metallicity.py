@@ -36,18 +36,6 @@ The following functions are included:
         resulting distribution of metallcity (plus ionisation parameter)
         values, and upper and lower error bars are computed from the 16% and 
         84% quantiles of the distribution.
-        
-        This function MULTITHREADS the function _met_err_helper_fn() to compute 
-        the metallicity + errors (plus ionisation parameter + errors) in 
-        individual rows simultaneously.
-
-    _met_err_helper_fn()
-        This function computes the metallicity + errors (plus ionisation 
-        parameter + errors) using the MC approach described above for a 
-        SINGLE row in a DataFrame. It is designed to be multithreaded.
-
-        This function calls _get_metallicity() to compute the actual
-        metallicity (and ionisation parameter) in each MC iteration.
 
     calculate_metallicity()
 
@@ -56,7 +44,6 @@ The following functions are included:
 Copyright (C) 2022 Henry Zovaro 
 """
 ###############################################################################
-import multiprocessing
 import numpy as np
 import pandas as pd
 from scipy import constants
@@ -377,23 +364,23 @@ def _get_metallicity(met_diagnostic, df,
         
         # Compute the line ratio
         if met_diagnostic == "N2Ha_K19":
-            logR = np.log10(df["NII6583"] / df["HALPHA"])
+            logR = np.log10(df["NII6583"].values / df["HALPHA"].values)
         if met_diagnostic == "S2Ha_K19":
-            logR = np.log10((df["SII6716+SII6731"]) / df["HALPHA"])
+            logR = np.log10((df["SII6716+SII6731"].values) / df["HALPHA"].values)
         if met_diagnostic == "N2S2_K19":
-            logR = np.log10(df["NII6583"] / (df["SII6716+SII6731"]))
+            logR = np.log10(df["NII6583"].values / (df["SII6716+SII6731"].values))
         if met_diagnostic == "S23_K19": 
-            logR = np.log10((df["SII6716+SII6731"] + df["SIII9069"] + df["SIII9531"]) / df["HALPHA"])
+            logR = np.log10((df["SII6716+SII6731"].values + df["SIII9069"].values + df["SIII9531"].values) / df["HALPHA"].values)
         if met_diagnostic == "O3N2_K19":
-            logR = np.log10((df["OIII5007"] / df["HBETA"]) / (df["NII6583"] / df["HALPHA"]))
+            logR = np.log10((df["OIII5007"].values / df["HBETA"].values) / (df["NII6583"].values / df["HALPHA"].values))
         if met_diagnostic == "O2S2_K19":
-            logR = np.log10((df["OII3726+OII3729"]) / (df["SII6716+SII6731"]))
+            logR = np.log10((df["OII3726+OII3729"].values) / (df["SII6716+SII6731"].values))
         if met_diagnostic == "O2Hb_K19":
-            logR = np.log10((df["OII3726+OII3729"]) / df["HBETA"])
+            logR = np.log10((df["OII3726+OII3729"].values) / df["HBETA"].values)
         if met_diagnostic == "N2O2_K19":
-            logR = np.log10(df["NII6583"] / (df["OII3726+OII3729"]))
+            logR = np.log10(df["NII6583"].values / (df["OII3726+OII3729"].values))
         if met_diagnostic == "R23_K19": 
-            logR = np.log10((df["OIII4959+OIII5007"] + df["OII3726+OII3729"]) / df["HBETA"])
+            logR = np.log10((df["OIII4959+OIII5007"].values + df["OII3726+OII3729"].values) / df["HBETA"].values)
 
         # Compute metallicity
         logOH12_func = lambda x, y : \
@@ -413,9 +400,9 @@ def _get_metallicity(met_diagnostic, df,
             # diagnostic
             logR_met = np.array(logR)
             if ion_diagnostic == "O3O2_K19":
-                logR_ion = np.array(np.log10(df["OIII5007"] / df["OII3726+OII3729"]))
+                logR_ion = np.array(np.log10(df["OIII5007"].values / df["OII3726+OII3729"].values))
             if ion_diagnostic == "S23_K19":
-                logR_ion = np.array(np.log10((df["SIII9069"] + df["SIII9531"]) / df["SII6716+SII6731"]))
+                logR_ion = np.array(np.log10((df["SIII9069"].values + df["SIII9531"].values) / df["SII6716+SII6731"].values))
 
             # Ionisation parameter
             # x = log(R)
@@ -486,9 +473,9 @@ def _get_metallicity(met_diagnostic, df,
     #//////////////////////////////////////////////////////////////////////////
     elif met_diagnostic == "R23_KK04":
         # R23 - Kobulnicky & Kewley (2004)
-        logN2O2 = np.log10(df["NII6583"] / df["OII3726+OII3729"]).values
-        logO3O2 = np.log10(df["OIII4959+OIII5007"] / df["OII3726+OII3729"]).values
-        logR23 = np.log10((df["OII3726+OII3729"] + df["OIII4959+OIII5007"]) / df["HBETA"]).values
+        logN2O2 = np.log10(df["NII6583"].values / df["OII3726+OII3729"].values).values
+        logO3O2 = np.log10(df["OIII4959+OIII5007"].values / df["OII3726+OII3729"].values).values
+        logR23 = np.log10((df["OII3726+OII3729"].values + df["OIII4959+OIII5007"].values) / df["HBETA"].values).values
         logOH12 = np.full(df.shape[0], np.nan)
 
         if compute_logU:
@@ -549,7 +536,7 @@ def _get_metallicity(met_diagnostic, df,
     elif met_diagnostic == "N2O2_KD02":
         # N2O2 - Kewley & Dopita (2002)
         # Only reliable above Z > 0.5Zsun (log(O/H) + 12 > 8.6)
-        logR = np.log10(df["NII6583"] / (df["OII3726+OII3729"]))
+        logR = np.log10(df["NII6583"].values / (df["OII3726+OII3729"].values))
         logOH12 = np.log10(1.54020 + 1.26602 * logR + 0.167977 * logR**2 ) + 8.93
         good_pts = (logOH12 > 8.6) & (logOH12 < 9.4)  # upper limit eyeballed from their fig. 3
         logOH12[~good_pts] = np.nan
@@ -557,15 +544,16 @@ def _get_metallicity(met_diagnostic, df,
 
     elif met_diagnostic == "N2Ha_PP04":
         # N2Ha - Pettini & Pagel (2004)
-        logR = np.log10(df["NII6583"] / df["HALPHA"])
+        logR = np.log10(df["NII6583"].values / df["HALPHA"].values)
         logOH12 = 9.37 + 2.03 * logR + 1.26 * logR**2 + 0.32 * logR**3
         good_pts = (-2.5 < logR) & (logR < -0.3)
         logOH12[~good_pts] = np.nan
+        #TODO: test using .values instead of Series
         return np.squeeze(logOH12)
 
     elif met_diagnostic == "N2Ha_M13":
         # N2Ha - Marino (2013)
-        logR = np.log10(df["NII6583"] / df["HALPHA"])
+        logR = np.log10(df["NII6583"].values / df["HALPHA"].values)
         logOH12 = 8.743 + 0.462 * logR
         good_pts = (-1.6 < logR) & (logR < -0.2)
         logOH12[~good_pts] = np.nan
@@ -573,7 +561,7 @@ def _get_metallicity(met_diagnostic, df,
     
     if met_diagnostic == "O3N2_PP04":
         # O3N2 - Pettini & Pagel (2004)
-        logR = np.log10((df["OIII5007"] / df["HBETA"]) / (df["NII6583"] / df["HALPHA"]))
+        logR = np.log10((df["OIII5007"].values / df["HBETA"].values) / (df["NII6583"].values / df["HALPHA"].values))
         logOH12 = 8.73 - 0.32 * logR
         good_pts = (-1 < logR) & (logR < 1.9)
         logOH12[~good_pts] = np.nan
@@ -581,7 +569,7 @@ def _get_metallicity(met_diagnostic, df,
 
     elif met_diagnostic == "O3N2_M13":
         # O3N2 - Marino (2013)
-        logR = np.log10((df["OIII5007"] / df["HBETA"]) / (df["NII6583"] / df["HALPHA"]))
+        logR = np.log10((df["OIII5007"].values / df["HBETA"].values) / (df["NII6583"].values / df["HALPHA"].values))
         logOH12 = 8.533 - 0.214 * logR
         good_pts = (-1.1 < logR) & (logR < 1.7)
         logOH12[~good_pts] = np.nan
@@ -589,7 +577,7 @@ def _get_metallicity(met_diagnostic, df,
     
     if met_diagnostic == "N2S2Ha_D16":
         # N2S2Ha - Dopita et al. (2016)
-        logR = np.log10(df["NII6583"] / df["SII6716+SII6731"]) + 0.264 * np.log10(df["NII6583"] / df["HALPHA"])
+        logR = np.log10(df["NII6583"].values / df["SII6716+SII6731"].values) + 0.264 * np.log10(df["NII6583"].values / df["HALPHA"].values)
         logOH12 = 8.77 + logR + 0.45 * (logR + 0.3)**5
         good_pts = (-1.1 < logR) & (logR < 0.5)
         logOH12[~good_pts] = np.nan
@@ -597,12 +585,12 @@ def _get_metallicity(met_diagnostic, df,
 
     elif met_diagnostic == "ONS_P10":
         # ONS - Pilyugin et al. (2016)
-        logN2 = np.log10(df["NII6548+NII6583"] / df["HBETA"])
-        logS2 = np.log10(df["SII6716+SII6731"] / df["HBETA"])
-        logR3 = np.log10(df["OIII4959+OIII5007"] / df["HBETA"])
-        logR2 = np.log10(df["OII3726+OII3729"] / df["HBETA"])
-        R3 = df["OIII4959+OIII5007"] / df["HBETA"]
-        R2 = df["OII3726+OII3729"] / df["HBETA"]
+        logN2 = np.log10(df["NII6548+NII6583"].values / df["HBETA"].values)
+        logS2 = np.log10(df["SII6716+SII6731"].values / df["HBETA"].values)
+        logR3 = np.log10(df["OIII4959+OIII5007"].values / df["HBETA"].values)
+        logR2 = np.log10(df["OII3726+OII3729"].values / df["HBETA"].values)
+        R3 = df["OIII4959+OIII5007"].values / df["HBETA"].values
+        R2 = df["OII3726+OII3729"].values / df["HBETA"].values
         P = R3 / (R3 + R2)  # should this be a log?
 
         logOH12 = np.full(df.shape[0], np.nan)
@@ -620,10 +608,10 @@ def _get_metallicity(met_diagnostic, df,
 
     elif met_diagnostic == "ON_P10":
         # ON - Pilyugin et al. (2016)
-        logN2 = np.log10(df["NII6548+NII6583"] / df["HBETA"])
-        logS2 = np.log10(df["SII6716+SII6731"] / df["HBETA"])
-        logR3 = np.log10(df["OIII4959+OIII5007"] / df["HBETA"])
-        logR2 = np.log10(df["OII3726+OII3729"] / df["HBETA"])
+        logN2 = np.log10(df["NII6548+NII6583"].values / df["HBETA"].values)
+        logS2 = np.log10(df["SII6716+SII6731"].values / df["HBETA"].values)
+        logR3 = np.log10(df["OIII4959+OIII5007"].values / df["HBETA"].values)
+        logR2 = np.log10(df["OII3726+OII3729"].values / df["HBETA"].values)
 
         logOH12 = np.full(df.shape[0], np.nan)
         pts_cool = logN2 >= -0.1
@@ -639,9 +627,9 @@ def _get_metallicity(met_diagnostic, df,
 
     elif met_diagnostic == "Rcal_PG16":
         # Rcal - Pilyugin & Grebel (2016)
-        logO32 = np.log10((df["OIII4959+OIII5007"]) / (df["OII3726+OII3729"]))
-        logN2Hb = np.log10((df["NII6548+NII6583"]) / df["HBETA"])
-        logO2Hb = np.log10((df["OII3726+OII3729"]) / df["HBETA"])
+        logO32 = np.log10((df["OIII4959+OIII5007"].values) / (df["OII3726+OII3729"].values))
+        logN2Hb = np.log10((df["NII6548+NII6583"].values) / df["HBETA"].values)
+        logO2Hb = np.log10((df["OII3726+OII3729"].values) / df["HBETA"].values)
 
         # Decide which branch we're on
         logOH12 = np.full(df.shape[0], np.nan)
@@ -656,9 +644,9 @@ def _get_metallicity(met_diagnostic, df,
 
     elif met_diagnostic == "Scal_PG16":
         # Scal - Pilyugin & Grebel (2016)
-        logO3S2 = np.log10((df["OIII4959+OIII5007"]) / (df["SII6716+SII6731"]))
-        logN2Hb = np.log10((df["NII6548+NII6583"]) / df["HBETA"])
-        logS2Hb = np.log10((df["SII6716+SII6731"]) / df["HBETA"])
+        logO3S2 = np.log10((df["OIII4959+OIII5007"].values) / (df["SII6716+SII6731"].values))
+        logN2Hb = np.log10((df["NII6548+NII6583"].values) / df["HBETA"].values)
+        logS2Hb = np.log10((df["SII6716+SII6731"].values) / df["HBETA"].values)
 
         # Decide which branch we're on
         logOH12 = np.full_like(logO3S2, np.nan)
@@ -672,33 +660,39 @@ def _get_metallicity(met_diagnostic, df,
         return np.squeeze(logOH12)
 
 ###############################################################################
-def _met_err_helper_fn(args):
+def _get_metallicity_errs(met_diagnostic, df,
+                         logU=None, 
+                         compute_logU=False, ion_diagnostic=None,
+                         niters=1000):
     """
-    This function SERIALLY computes the metallicity WITH ERRORS on a SINGLE
-    row in a DataFrame. 
 
-    This is passed to _get_metallicity_errs() in which it is MULTITHREADED.
-
-    INPUTS
-    ---------------------------------------------------------------------------
-
-
-    OUTPUTS
-    ---------------------------------------------------------------------------
-
-    """
-    rr, df, met_diagnostic, logU, compute_logU, ion_diagnostic, niters = args
-    df_row = df.loc[[rr]]
-
-    logOH12_vals = np.full(niters, np.nan)
-    if (logU is not None) or compute_logU:
-        logU_vals = np.full(niters, np.nan)
     
+    INPUTS 
+    ---------------------------------------------------------------------------
+
+    OUTPUTS 
+    ---------------------------------------------------------------------------
+
+    """
+    status_str = "In _get_metallicity_errs()"
+
+
+    #//////////////////////////////////////////////////////////////////////////
+    # Old columns
+    old_cols = df.columns
+
+    #//////////////////////////////////////////////////////////////////////////
+    # Compute metallicities in ALL rows plus errors 
+    # df = _met_err_helper_fn([0, df, met_diagnostic, logU, compute_logU, ion_diagnostic, niters])
+    logOH12_vals = np.full((niters, df.shape[0]), np.nan)
+    if (logU is not None) or compute_logU:
+        logU_vals = np.full((niters, df.shape[0]), np.nan)
+
     # Evaluate log(O/H) + 12 (and log(U) if compute_logU is True) niters times 
     # with random noise added to the emission line fluxes each time
-    for nn in range(niters):
+    for nn in tqdm(range(niters)):
         # Make a copy of the row
-        df_tmp = df_row.copy()
+        df_tmp = df.copy()
         
         # Add random error 
         for eline in line_list_dict[met_diagnostic]:
@@ -721,94 +715,37 @@ def _met_err_helper_fn(args):
             logU_vals[nn] = res[1]
 
         else:
-            logOH12_vals[nn] = _get_metallicity(met_diagnostic=met_diagnostic, df=df_tmp, 
+            res = _get_metallicity(met_diagnostic=met_diagnostic, df=df_tmp, 
                                                 logU=None, compute_logU=False)
+            # logOH12_vals.append(res)
+            logOH12_vals[nn] = res
 
     # Add to DataFrame
     if compute_logU:
-        df_row[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logOH12_vals)
-        df_row[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals) - np.quantile(logOH12_vals, q=0.16)
-        df_row[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84) - np.nanmean(logOH12_vals)
-        df_row[f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logU_vals)
-        df_row[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logU_vals) - np.quantile(logU_vals, q=0.16)
-        df_row[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logU_vals, q=0.84) - np.nanmean(logU_vals)
+        df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
+        df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
+        df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
+        df[f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logU_vals, axis=0)
+        df[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logU_vals, axis=0) - np.quantile(logU_vals, q=0.16, axis=0)
+        df[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logU_vals, q=0.84, axis=0) - np.nanmean(logU_vals, axis=0)
     
     else:
-        df_row[f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals)
-        df_row[f"log(O/H) + 12 ({met_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals) - np.quantile(logOH12_vals, q=0.16)
-        df_row[f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84) - np.nanmean(logOH12_vals)
+        df[f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
+        df[f"log(O/H) + 12 ({met_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
+        df[f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
         if logU is not None:
             if not np.isnan(np.nanmean(logOH12_vals)):
-                df_row.loc[f"log(U) ({met_diagnostic})"] = logU
+                df.loc[f"log(U) ({met_diagnostic})"] = logU
             else:
-                df_row.loc[f"log(U) ({met_diagnostic})"] = logU
-
-    # Note that we need to return df_row.iloc[0], not just df_row, because we
-    # extract the row using df.loc[[rr]] instead of df.loc[rr].
-    return df_row.iloc[0]
-
-###############################################################################
-def _get_metallicity_errs(met_diagnostic, df,
-                         logU=None, 
-                         compute_logU=False, ion_diagnostic=None,
-                         niters=1000, nthreads=10,
-                         debug=False):
-    """
-
-    
-    INPUTS 
-    ---------------------------------------------------------------------------
-
-    OUTPUTS 
-    ---------------------------------------------------------------------------
-
-    """
-    status_str = "In _get_metallicity_errs()"
+                df.loc[f"log(U) ({met_diagnostic})"] = logU
 
     #//////////////////////////////////////////////////////////////////////////
-    # Split into SF and non-SF rows 
+    # New columns 
+    new_cols = [c for c in df.columns if c not in old_cols]
+
+    # NaN out new columns for rows that are NOT SF
     cond_met = df["BPT"] == "SF"
-
-    # Split into 2 DataFrames
-    df_met = df[cond_met]
-    df_nomet = df[~cond_met]
-
-    #//////////////////////////////////////////////////////////////////////////
-    # Compute metallicity WITH ERRORS using an MC approach with multithreading
-    pd.options.mode.chained_assignment = None
-    args_list = [[rr, df, met_diagnostic, logU, compute_logU, ion_diagnostic, niters] for rr in df_met.index.values]
-    if not debug:
-        # Multithreading 
-        print(f"{status_str}: Multithreading metallicity computation across {nthreads} threads...")
-        pool = multiprocessing.Pool(nthreads)
-        res_list = pool.map(_met_err_helper_fn, args_list)
-        pool.close()
-        pool.join()
-    else:
-        print(f"{status_str}: Executing metallicity computation sequentially...")
-        res_list = []
-        for args in tqdm(args_list):
-            res = _met_err_helper_fn(args)
-            res_list.append(res)
-
-    # Concatenate results
-    df_results_met = pd.concat(res_list, axis=1).T
-
-    # Cast back to previous data types
-    for col in df.columns:
-        # Try statement for weird situation where there are duplicate columns...
-        try:
-            df_results_met[col] = df_results_met[col].astype(df[col].dtype)
-        except:
-            print(col)
-            Tracer()()
-            continue
-    df_met = df_results_met
-
-    #//////////////////////////////////////////////////////////////////////////
-    # Merge back with original DataFrame
-    print(f"{status_str}: Concatenating DataFrames...")
-    df = pd.concat([df_nomet, df_met], sort=True)
+    df.loc[~cond_met, new_cols] = np.nan
 
     print(f"{status_str}: Done!")
     return df
@@ -829,36 +766,34 @@ def _get_metallicity_no_errs(met_diagnostic, df,
     """
     status_str = "In _get_metallicity_errs()"
 
-    #//////////////////////////////////////////////////////////////////////////
-    # Split into SF and non-SF rows 
-    cond_met = df["BPT"] == "SF"
-
-    # Split into 2 DataFrames
-    df_met = df[cond_met]
-    df_nomet = df[~cond_met]
+    # Old columns
+    old_cols = df.columns
 
     #//////////////////////////////////////////////////////////////////////////
     # Compute metallicity WITHOUT ERRORS
-    pd.options.mode.chained_assignment = None
+    # pd.options.mode.chained_assignment = None
     print(f"{status_str}: computing metallicity without errors...")
     if compute_logU:
-        res = _get_metallicity(met_diagnostic, df_met, compute_logU=True, ion_diagnostic=ion_diagnostic)
-        df_met[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = res[0]
-        df_met[f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = res[1]
+        res = _get_metallicity(met_diagnostic, df, compute_logU=True, ion_diagnostic=ion_diagnostic)
+        df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = res[0]
+        df[f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = res[1]
    
     elif logU is not None:
-        res = _get_metallicity(met_diagnostic, df_met, compute_logU=False, logU=logU)
-        df_met[f"log(O/H) + 12 ({met_diagnostic})"] = res[0]
-        df_met[f"log(U) ({met_diagnostic})"] = res[1]
+        res = _get_metallicity(met_diagnostic, df, compute_logU=False, logU=logU)
+        df[f"log(O/H) + 12 ({met_diagnostic})"] = res[0]
+        df[f"log(U) ({met_diagnostic})"] = res[1]
 
     else:
-        df_met[f"log(O/H) + 12 ({met_diagnostic})"] = _get_metallicity(met_diagnostic, df_met, compute_logU=False, logU=logU) 
+        df[f"log(O/H) + 12 ({met_diagnostic})"] = _get_metallicity(met_diagnostic, df, compute_logU=False, logU=logU) 
     pd.options.mode.chained_assignment = "warn"
 
     #//////////////////////////////////////////////////////////////////////////
-    # Merge back with original DataFrame
-    print(f"{status_str}: Concatenating DataFrames...")
-    df = pd.concat([df_nomet, df_met], sort=True)
+    # New columns 
+    new_cols = [c for c in df.columns if c not in old_cols]
+
+    # NaN out new columns for rows that are NOT SF
+    cond_met = df["BPT"] == "SF"
+    df.loc[~cond_met, new_cols] = np.nan
 
     print(f"{status_str}: Done!")
     return df
@@ -867,7 +802,7 @@ def _get_metallicity_no_errs(met_diagnostic, df,
 def calculate_metallicity(df, met_diagnostic, 
                           logU=None, 
                           compute_logU=False, ion_diagnostic=None,
-                          compute_errors=True, niters=1000, nthreads=10,
+                          compute_errors=True, niters=1000,
                           s=None):
     """
     Compute metallicities 
@@ -931,9 +866,6 @@ def calculate_metallicity(df, met_diagnostic,
     niters:              int
         Number of MC iterations. 1000 is recommended.
 
-    nthreads:            int 
-        Number of threads to use when computing errors.
-
     s:                   str 
         Column suffix to trim before carrying out computation - e.g. if 
         you want to compute metallicities using the "total" fluxes, and the 
@@ -963,7 +895,7 @@ def calculate_metallicity(df, met_diagnostic,
 
     """
     t = time()
-    status_str = f"In calculate_metallicity({met_diagnostic}, logU={logU}, compute_logU={compute_logU}, ion_diagnostic={ion_diagnostic}, compute_errors={compute_errors}, niters={niters}, nthreads={nthreads})"
+    status_str = f"In calculate_metallicity({met_diagnostic}, logU={logU}, compute_logU={compute_logU}, ion_diagnostic={ion_diagnostic}, compute_errors={compute_errors}, niters={niters})"
 
     #//////////////////////////////////////////////////////////////////////////
     # Input checks
@@ -1007,7 +939,7 @@ def calculate_metallicity(df, met_diagnostic,
     #//////////////////////////////////////////////////////////////////////////
     if compute_errors:
         print(f"{status_str}: Computing metallicities with errors...")
-        df = _get_metallicity_errs(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=niters, nthreads=nthreads)
+        df = _get_metallicity_errs(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=niters)
     else:
         print(f"{status_str}: Computing metallicities without errors...")
         df = _get_metallicity_no_errs(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic,)
