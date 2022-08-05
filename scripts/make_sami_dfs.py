@@ -11,6 +11,9 @@ When run, this script will
        combinations, with and without debug turned on, and 
     3) create the "metadata" DataFrame.
 
+Input parameters such as correct_extinction and eline_SNR_min can be 
+changed as required.
+
 USAGE 
 ------------------------------------------------------------------------------
     
@@ -18,7 +21,7 @@ USAGE
 
 """
 
-from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_metadata_df_extended, make_sami_df, load_sami_df
+from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_metadata_df_extended, make_sami_df, make_sami_aperture_df
 
 ###########################################################################
 # Create the metadata DataFrame
@@ -29,22 +32,31 @@ make_sami_metadata_df()
 # Create the DataFrames
 ###########################################################################
 # Make test data 
-make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, debug=True)
-make_sami_df(ncomponents="1", bin_type="default", eline_SNR_min=5, debug=True)
-make_sami_df(ncomponents="recom", bin_type="adaptive", eline_SNR_min=5, debug=True)
-make_sami_df(ncomponents="1", bin_type="adaptive", eline_SNR_min=5, debug=True)
-make_sami_df(ncomponents="recom", bin_type="sectors", eline_SNR_min=5, debug=True)
-make_sami_df(ncomponents="1", bin_type="sectors", eline_SNR_min=5, debug=True)
+make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=True)
+make_sami_df(ncomponents="1", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=True)
+make_sami_df(ncomponents="recom", bin_type="adaptive", eline_SNR_min=5, correct_extinction=True, debug=True)
+make_sami_df(ncomponents="1", bin_type="adaptive", eline_SNR_min=5, correct_extinction=True, debug=True)
+make_sami_df(ncomponents="recom", bin_type="sectors", eline_SNR_min=5, correct_extinction=True, debug=True)
+make_sami_df(ncomponents="1", bin_type="sectors", eline_SNR_min=5, correct_extinction=True, debug=True)
 
 # Make full data set
-make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, debug=False)
-make_sami_df(ncomponents="1", bin_type="default", eline_SNR_min=5, debug=False)
-make_sami_df(ncomponents="recom", bin_type="adaptive", eline_SNR_min=5, debug=False)
-make_sami_df(ncomponents="1", bin_type="adaptive", eline_SNR_min=5, debug=False)
-make_sami_df(ncomponents="recom", bin_type="sectors", eline_SNR_min=5, debug=False)
-make_sami_df(ncomponents="1", bin_type="sectors", eline_SNR_min=5, debug=False)
+make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=False)
+make_sami_df(ncomponents="1", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=False)
+make_sami_df(ncomponents="recom", bin_type="adaptive", eline_SNR_min=5, correct_extinction=True, debug=False)
+make_sami_df(ncomponents="1", bin_type="adaptive", eline_SNR_min=5, correct_extinction=True, debug=False)
+make_sami_df(ncomponents="recom", bin_type="sectors", eline_SNR_min=5, correct_extinction=True, debug=False)
+make_sami_df(ncomponents="1", bin_type="sectors", eline_SNR_min=5, correct_extinction=True, debug=False)
 
 ###########################################################################
 # Create the extended metadata DataFrame
 ###########################################################################
 make_sami_metadata_df_extended()
+
+###########################################################################
+# Create the aperture DataFrame
+###########################################################################
+make_sami_aperture_df(eline_SNR_min=5, 
+                      line_flux_SNR_cut=True,
+                      missing_fluxes_cut=True,
+                      sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
+                      nthreads_max=20, correct_extinction=True)
