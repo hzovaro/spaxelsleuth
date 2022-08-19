@@ -176,6 +176,7 @@ cmap_dict = {
     "v_grad": copy.copy(plt.cm.get_cmap("plasma")),
     "n_e (cm^-3)": copy.copy(plt.cm.get_cmap("cividis")),
     "log n_e (cm^-3)": copy.copy(plt.cm.get_cmap("cividis")),
+    "mu_within_1re": copy.copy(plt.cm.get_cmap("afmhot")),
 }
 
 for key in cmap_dict.keys():
@@ -259,6 +260,7 @@ vmin_dict = {
     "v_grad": 0,
     "n_e (cm^-3)": 40,
     "log n_e (cm^-3)": np.log10(40),
+    "mu_within_1re": 19,
 }
 
 vmax_dict = {
@@ -337,6 +339,7 @@ vmax_dict = {
     "v_grad": 50,
     "n_e (cm^-3)": 1e4,
     "log n_e (cm^-3)": 4,
+    "mu_within_1re": 25,
 }
 
 label_dict = {
@@ -417,6 +420,7 @@ label_dict = {
      "v_grad" : r"$v_{\rm grad}$",
      "n_e (cm^-3)": r"$n_e \,\rm (cm^{-3})$",
      "log n_e (cm^-3)": r"$\log_{10} n_e \,\rm (cm^{-3})$",
+     "mu_within_1re": r"$\mu_r\,({\rm mag\,arcsec^{-2}})\,(\leq 1\,R_e)$",
 }
 
 fname_dict = {
@@ -495,6 +499,7 @@ fname_dict = {
      "v_grad" : "v_grad" ,
      "n_e (cm^-3)": "ne",
      "log n_e (cm^-3)": "logne",
+     "mu_within_1re": "mu_within_1re",
 }
 
 ###############################################################################

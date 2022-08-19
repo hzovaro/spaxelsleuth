@@ -6,8 +6,8 @@ import pandas as pd
 from astropy.visualization import hist
 from tqdm import tqdm
 
-from spaxelsleuth.loaddata.lzifu import load_lzifu_galaxies
-from spaxelsleuth.loaddata.sami import load_sami_galaxies
+from spaxelsleuth.loaddata.lzifu import load_lzifu_df
+from spaxelsleuth.loaddata.sami import load_sami_df
 from spaxelsleuth.plotting.plot2dmap import plot2dmap
 from spaxelsleuth.plotting.sdssimg import plot_sdss_image
 from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
@@ -32,14 +32,14 @@ plt.close("all")
 ###########################################################################
 assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 sami_data_path = os.environ["SAMI_DIR"]
-assert "LZIFU_DATA_PATH" in os.environ, "Environment variable LZIFU_DATA_PATH is not defined!"
-lzifu_data_path = os.environ["LZIFU_DATA_PATH"]
+assert "LZIFU_PRODUCTS_PATH" in os.environ, "Environment variable LZIFU_PRODUCTS_PATH is not defined!"
+lzifu_products_path = os.environ["LZIFU_PRODUCTS_PATH"]
 
 ###########################################################################
 # Options
 ###########################################################################
 fig_path = "/priv/meggs3/u5708159/SAMI/figs/paper/individual_galaxies/"
-savefigs = True
+savefigs = False
 bin_type = "default"    # Options: "default" or "adaptive" for Voronoi binning
 ncomponents = "recom"   # Options: "1" or "recom"
 eline_SNR_min = 5       # Minimum S/N of emission lines to accept
@@ -49,11 +49,9 @@ debug = False
 # Load the SAMI sample
 ###########################################################################
 df_sami = load_sami_df(ncomponents="recom",
-                             bin_type="default",
-                             eline_SNR_min=eline_SNR_min, 
-                             vgrad_cut=False,
-                             correct_extinction=False,
-                             sigma_gas_SNR_cut=True)
+                       bin_type="default",
+                       eline_SNR_min=eline_SNR_min, 
+                       correct_extinction=True,)
 
 ###########################################################################
 # Make summary plots
@@ -62,10 +60,10 @@ if len(sys.argv) > 1:
     gals = sys.argv[1:]
     for gal in gals:
         assert gal.isdigit(), "each gal given must be an integer!"
-        assert os.path.exists(os.path.join(lzifu_data_path, f"{gal}_merge_lzcomp.fits"))
+        assert os.path.exists(os.path.join(lzifu_products_path, f"{gal}_merge_lzcomp.fits"))
     df_all = None
 else:
-    # gals = [int(f.split("_merge_lzcomp.fits")[0]) for f in os.listdir(lzifu_data_path) if f.endswith("merge_lzcomp.fits") and not f.startswith("._")]
+    # gals = [int(f.split("_merge_lzcomp.fits")[0]) for f in os.listdir(lzifu_products_path) if f.endswith("merge_lzcomp.fits") and not f.startswith("._")]
     # Load galaxies in the "good" sample
     # Load the DataFrame that gives us the continuum S/N, to define the subset
     # df_info = pd.read_hdf(os.path.join(sami_data_path, "sami_dr3_metadata_extended.hd5"))
@@ -75,11 +73,10 @@ else:
     # gals = [g for g in gals if df_info.loc[g, "Maximum number of components"] > 0]
 
     # Load the full sample
-    df_all = load_lzifu_galaxies(bin_type=bin_type, ncomponents=ncomponents,
+    df_all = load_lzifu_df(bin_type=bin_type, 
+                                 ncomponents=ncomponents,
                                  eline_SNR_min=eline_SNR_min,
-                                 sigma_gas_SNR_cut=True,
-                                 vgrad_cut=False,
-                                 stekin_cut=True)    
+                                 correct_extinction=True)    
     gals = df_all.catid.unique()
 
     if debug:
@@ -87,17 +84,16 @@ else:
 
 for gal in tqdm(gals):
 
-    try:
+    # try:
         # Load the DataFrame
         if df_all is not None:
             df_gal = df_all[df_all["catid"] == gal]
         else:
-            df_gal = load_lzifu_galaxies(gal=gal, 
-                                     bin_type=bin_type, ncomponents=ncomponents,
-                                     eline_SNR_min=eline_SNR_min,
-                                     sigma_gas_SNR_cut=True,
-                                     vgrad_cut=False,
-                                     stekin_cut=True)    
+            df_gal = load_lzifu_df(gal=gal, 
+                                         bin_type=bin_type, 
+                                         ncomponents=ncomponents,
+                                         eline_SNR_min=eline_SNR_min,
+                                         correct_extinction=True)    
 
         df_gal.loc[df_gal["Number of components"] == 0, "Number of components"] = np.nan
 

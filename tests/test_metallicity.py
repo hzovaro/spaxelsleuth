@@ -1,5 +1,6 @@
 # Imports
 import numpy as np
+from time import time
 
 from spaxelsleuth.loaddata.sami import load_sami_df
 from spaxelsleuth.utils.metallicity import calculate_metallicity, line_list_dict
@@ -8,6 +9,8 @@ from spaxelsleuth.plotting.plotgalaxies import plot2dscatter
 import matplotlib.pyplot as plt
 plt.ion()
 plt.close("all")
+
+from IPython.core.debugger import Tracer
 
 ##############################################################################
 # CHECK: only SF-like spaxels have nonzero metallicities.
@@ -39,12 +42,42 @@ def assertion_checks(df):
 
 ##############################################################################
 # Load DataFrame
-df = load_sami_df(ncomponents="recom", bin_type="default", correct_extinction=True, eline_SNR_min=5, debug=True)
+df = load_sami_df(ncomponents="recom", bin_type="default", correct_extinction=True, eline_SNR_min=5, debug=False)
+assertion_checks(df)
+
+Tracer()()
 
 # Remove prior metallicity calculation results 
 cols_to_remove = [c for c in df.columns if "log(O/H) + 12" in c]
 cols_to_remove += [c for c in df.columns if "log(U)" in c]
 df = df.drop(columns=cols_to_remove)
+
+##############################################################################
+# TIMING TEST: how long does it take to compute all metallicity diagnostics with errors?
+print("Testing log(O/H) + 12 computation w/o log(U) calculation...")
+t = time()
+df = calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df, s=" (total)")
+df = calculate_metallicity(met_diagnostic="O3N2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df, s=" (total)")
+df = calculate_metallicity(met_diagnostic="N2O2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df, s=" (total)")
+df = calculate_metallicity(met_diagnostic="R23_KK04", compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df, s=" (total)")
+
+df = calculate_metallicity(met_diagnostic="N2Ha_PP04", compute_errors=True, niters=1000, df=df, s=" (total)")
+df = calculate_metallicity(met_diagnostic="N2Ha_M13", compute_errors=True, niters=1000, df=df, s=" (total)")
+df = calculate_metallicity(met_diagnostic="O3N2_PP04", compute_errors=True, niters=1000, df=df, s=" (total)")
+df = calculate_metallicity(met_diagnostic="O3N2_M13", compute_errors=True, niters=1000, df=df, s=" (total)")
+df = calculate_metallicity(met_diagnostic="N2S2Ha_D16", compute_errors=True, niters=1000, df=df, s=" (total)")
+df = calculate_metallicity(met_diagnostic="N2O2_KD02", compute_errors=True, niters=1000, df=df, s=" (total)")
+df = calculate_metallicity(met_diagnostic="Rcal_PG16", compute_errors=True, niters=1000, df=df, s=" (total)")
+df = calculate_metallicity(met_diagnostic="Scal_PG16", compute_errors=True, niters=1000, df=df, s=" (total)")
+df = calculate_metallicity(met_diagnostic="ON_P10", compute_errors=True, niters=1000, df=df, s=" (total)")
+df = calculate_metallicity(met_diagnostic="ONS_P10", compute_errors=True, niters=1000, df=df, s=" (total)")
+
+dt = time() - t
+print(f"Total time elapsed: {dt / 60} minutes")
+
+assertion_checks(df)
+
+sys.exit()
 
 ##############################################################################
 # TEST: metallicity calculation w/o errors, w/o log(U) calculation
@@ -196,9 +229,10 @@ ax.grid()
 ##############################################################################
 # Make a big corner plot 
 from itertools import product
+from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours
 
 met_diagnostics = ["N2Ha_PP04", "N2Ha_M13", "O3N2_PP04", "O3N2_M13",
-                   "N2S2Ha_D16", "N2O2_KD02", "N2O2_K19"]
+                   "N2S2Ha_D16", "N2O2_KD02", "N2Ha_K19/O3O2_K19"]
 # met_diagnostics = ["R23_KK04/O3O2_KK04", "N2O2_KD02", "O3N2_PP04", "N2Ha_PP04", "Scal_PG16"]
 fig, axs = plt.subplots(nrows=len(met_diagnostics) - 1, ncols=len(met_diagnostics) - 1)
 fig.subplots_adjust(hspace=0, wspace=0)
@@ -206,9 +240,13 @@ cnt = len(met_diagnostics) - 1
 for rr, cc in product(range(cnt), range(cnt)):
     if rr >= cc:
         # print(f"In ax[{rr}][{cc}]: x = {met_diagnostics[cc]}, y = {met_diagnostics[rr + 1]}")
-        axs[rr][cc].scatter(df[f"log(O/H) + 12 ({met_diagnostics[cc]}) (total)"],
-                            df[f"log(O/H) + 12 ({met_diagnostics[rr + 1]}) (total)"],
-                            s=1, c="k")
+        plot2dhistcontours(df=df, 
+                           col_x=f"log(O/H) + 12 ({met_diagnostics[cc]}) (total)",
+                           col_y=f"log(O/H) + 12 ({met_diagnostics[rr + 1]}) (total)",
+                           col_z="count", log_z=True,
+                           nbins=50, cmap="cubehelix",
+                           vmin=10, vmax=1e4, plot_colorbar=False,
+                           ax=axs[rr][cc],)
         axs[rr][cc].plot([7.5, 9.3], [7.5, 9.3], color="grey")
         axs[rr][cc].grid()
         axs[rr][cc].autoscale(enable=True, tight=True)
@@ -218,8 +256,10 @@ for rr, cc in product(range(cnt), range(cnt)):
             axs[rr][cc].set_xlabel(f"{met_diagnostics[cc]}")
         if cc > 0:
             axs[rr][cc].set_yticklabels([""])
+            axs[rr][cc].set_ylabel("")
         if rr < len(met_diagnostics) - 2:
             axs[rr][cc].set_xticklabels([""])
+            axs[rr][cc].set_xlabel("")
     else:
         axs[rr][cc].set_visible(False)
 
