@@ -389,10 +389,31 @@ def _process_gals(args):
     # Compute continuum intensity
     start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 6500))
     stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 6540))
-    cont_map = np.nanmean(data_cube_R[start_idx:stop_idx], axis=0)
-    cont_map_std = np.nanstd(data_cube_R[start_idx:stop_idx], axis=0)
-    cont_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_R[start_idx:stop_idx], axis=0))
+    cont_HALPHA_map = np.nanmean(data_cube_R[start_idx:stop_idx], axis=0)
+    cont_HALPHA_map_std = np.nanstd(data_cube_R[start_idx:stop_idx], axis=0)
+    cont_HALPHA_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_R[start_idx:stop_idx], axis=0))
     hdulist_R_cube.close() 
+
+    #######################################################################
+    # Use the blue cube to calculate the approximate B-band continuum.
+    # Units of 10**(-16) erg /s /cm**2 /angstrom /pixel
+    header = hdulist_B_cube[0].header
+    data_cube_B = hdulist_B_cube[0].data 
+    var_cube_B = hdulist_B_cube[1].data  
+
+    # Wavelength values
+    lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
+    dlambda_A = header["CDELT3"]
+    N_lambda = header["NAXIS3"]
+    lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
+
+    # Compute continuum intensity
+    start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 4000))
+    stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 5000))
+    cont_B_map = np.nanmean(data_cube_B[start_idx:stop_idx], axis=0)
+    cont_B_map_std = np.nanstd(data_cube_B[start_idx:stop_idx], axis=0)
+    cont_B_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_B[start_idx:stop_idx], axis=0))
+    hdulist_B_cube.close() 
 
     #######################################################################
     # Compute v_grad using eqn. 1 of Zhou+2017
@@ -591,15 +612,36 @@ def _process_gals(args):
         if x > 49 or y > 49:
             x = min([x, 49])
             y = min([y, 49])
-        thisrow[jj] = cont_map[y, x]
-        thisrow_std[jj] = cont_map_std[y, x]
-        thisrow_err[jj] = cont_map_err[y, x]
+        thisrow[jj] = cont_HALPHA_map[y, x]
+        thisrow_std[jj] = cont_HALPHA_map_std[y, x]
+        thisrow_err[jj] = cont_HALPHA_map_err[y, x]
     rows_list.append(thisrow)
     rows_list.append(thisrow_std)
     rows_list.append(thisrow_err)
     colnames.append("HALPHA continuum")
     colnames.append("HALPHA continuum std. dev.")
     colnames.append("HALPHA continuum error")        
+
+    #######################################################################
+    # Do the same but with the continuum intensity for calculating the HALPHA EW
+    thisrow = np.full_like(x_c_list, np.nan, dtype="float")
+    thisrow_std = np.full_like(x_c_list, np.nan, dtype="float")
+    thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
+    for jj, coords in enumerate(zip(x_c_list, y_c_list)):
+        x_c, y_c = coords
+        y, x = (int(np.round(y_c)), int(np.round(x_c)))
+        if x > 49 or y > 49:
+            x = min([x, 49])
+            y = min([y, 49])
+        thisrow[jj] = cont_B_map[y, x]
+        thisrow_std[jj] = cont_B_map_std[y, x]
+        thisrow_err[jj] = cont_B_map_err[y, x]
+    rows_list.append(thisrow)
+    rows_list.append(thisrow_std)
+    rows_list.append(thisrow_err)
+    colnames.append("B-band continuum")
+    colnames.append("B-band continuum std. dev.")
+    colnames.append("B-band continuum error")        
 
     #######################################################################
     # Do the same but with the D4000Å break

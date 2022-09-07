@@ -406,10 +406,30 @@ def make_s7_df(bin_type="default", ncomponents="recom",
         stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + z) - 6540))
 
         # Make a 2D map of the continuum intensity
-        cont_map = np.nanmean(data_cube_R[start_idx:stop_idx], axis=0)
-        cont_map_std = np.nanstd(data_cube_R[start_idx:stop_idx], axis=0)
-        cont_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_R[start_idx:stop_idx], axis=0))
+        cont_HALPHA_map = np.nanmean(data_cube_R[start_idx:stop_idx], axis=0)
+        cont_HALPHA_map_std = np.nanstd(data_cube_R[start_idx:stop_idx], axis=0)
+        cont_HALPHA_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_R[start_idx:stop_idx], axis=0))
         hdulist_R_cube.close() 
+
+        #######################################################################
+        # Use the blue cube to calculate the approximate B-band continuum.
+        # Units of 10**(-16) erg /s /cm**2 /angstrom /pixel
+        header = hdulist_B_cube[0].header
+        data_cube_B = hdulist_B_cube[0].data 
+        var_cube_B = hdulist_B_cube[1].data  
+
+        # Wavelength values
+        lambda_vals_A = np.array(range(header["NAXIS3"])) * header["CDELT3"] + header["CRVAL3"] 
+
+        # Compute continuum intensity
+        start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + z) - 4000))
+        stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + z) - 5000))
+
+        # Make a 2D map of the continuum intensity
+        cont_B_map = np.nanmean(data_cube_B[start_idx:stop_idx], axis=0)
+        cont_B_map_std = np.nanstd(data_cube_B[start_idx:stop_idx], axis=0)
+        cont_B_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_B[start_idx:stop_idx], axis=0))
+        hdulist_B_cube.close() 
 
         #######################################################################
         # Compute the d4000 Angstrom break.
@@ -508,9 +528,12 @@ def make_s7_df(bin_type="default", ncomponents="recom",
             thisrow["x (projected, arcsec)"] = xx 
             thisrow["y (projected, arcsec)"] = yy
             thisrow["r (relative to galaxy centre, deprojected, arcsec)"] = radius_map[yy, xx]
-            thisrow["HALPHA continuum"] = cont_map[yy, xx] * 1e16
-            thisrow["HALPHA continuum std. dev."] = cont_map_std[yy, xx] * 1e16
-            thisrow["HALPHA continuum error"] = cont_map_err[yy, xx] * 1e16
+            thisrow["HALPHA continuum"] = cont_HALPHA_map[yy, xx] * 1e16
+            thisrow["HALPHA continuum std. dev."] = cont_HALPHA_map_std[yy, xx] * 1e16
+            thisrow["HALPHA continuum error"] = cont_HALPHA_map_err[yy, xx] * 1e16
+            thisrow["B-band continuum"] = cont_B_map[yy, xx] * 1e16
+            thisrow["B-band continuum std. dev."] = cont_B_map_std[yy, xx] * 1e16
+            thisrow["B-band continuum error"] = cont_B_map_err[yy, xx] * 1e16
             thisrow["D4000"] = d4000_map[yy, xx]
             thisrow["D4000 error"] = d4000_map_err[yy, xx]
             # thisrow[f"A_V (total)"] = A_V_map[yy, xx]
