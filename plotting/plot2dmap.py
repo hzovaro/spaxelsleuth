@@ -36,7 +36,7 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
               PA_deg=0,
               show_title=True, axis_labels=True,
               vmin=None, vmax=None, cmap=None,
-              contours=True, col_z_contours="continuum", levels=None, linewidths=0.5, colors="white",
+              contours=True, col_z_contours="HALPHA continuum", levels=None, linewidths=0.5, colors="white",
               ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical",
               figsize=(5, 5)):
     """
@@ -165,17 +165,20 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     ###########################################################################
     # Load the data cube to get the WCS and continuum image, if necessary
     ###########################################################################
-    # Load the non-binned data cube to get a continuum image
     gal = df_gal.catid.unique()[0]
-    if survey == "sami":
-        gal = int(gal)
-        hdulist = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
-    elif survey == "s7":
-        hdulist = fits.open(os.path.join(s7_data_path, f"0_Cubes/{gal}_B.fits"))
-
+    
     # Get the WCS
-    wcs = WCS(hdulist[0].header).dropaxis(2)
+    if survey == "sami":
+        # Manually construct the WCS, since it's slow to read in the FITS file
+        wcs = WCS(naxis=2)
+        wcs.wcs.crpix = [25.5, 25.5]
+        wcs.wcs.crval = [df_gal["ra_ifu"].values[0], df_gal["dec_ifu"].values[0]]
+        wcs.wcs.cdelt = [-0.5 / 3600, 0.5 / 3600]
+        wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
     if survey == "s7":
+        # Get the WCS from the FITS file since some observations have different PAs
+        hdulist = fits.open(os.path.join(s7_data_path, f"0_Cubes/{gal}_B.fits"))
+        wcs = WCS(hdulist[0].header).dropaxis(2)
         wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
 
     # Get the continuum inage if desired
@@ -189,11 +192,11 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
         
         lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
         start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z_spec"].unique()[0]) - 4000))
-        stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z_spec"].unique()[0]) - 5000))
+        stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z_spec"].unique()[0]) - 5500))
         im_B = np.nansum(data_cube[start_idx:stop_idx], axis=0)
         im_B[im_B == 0] = np.nan
 
-    hdulist.close()
+        hdulist.close()
 
     ###########################################################################
     # Reconstruct & plot the 2D map
@@ -261,7 +264,10 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
         else:
             assert col_z_contours in df_gal.columns, f"{col_z_contours} not found in df_gal!"
             # Reconstruct 2D arrays from the rows in the data frame.
-            col_z_contour_map = np.full((50, 50), np.nan) if survey == "sami" else np.full((38, 25), np.nan)
+            if survey == "sami":
+                col_z_contour_map = np.full((50, 50), np.nan) 
+            elif survey == "s7":
+                col_z_contour_map = np.full((38, 25), np.nan)
             if bin_type == "adaptive" or bin_type == "sectors":
                 hdulist = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
                 bin_map = hdulist[2].data.astype("float")
