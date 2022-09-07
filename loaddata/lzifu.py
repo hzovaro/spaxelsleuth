@@ -562,7 +562,7 @@ def make_lzifu_df(gals=None, make_master_df=False,
         #######################################################################
         # Create an image from the datacube to figure out where are "good" spaxels
         im = np.nansum(data_cube_B, axis=0)
-        if np.any(im.flatten() < 0): # NaN out -ve spaxels. Most galaxies seem to have *some* -ve pixels
+        if np.any(im.flatten() <= 0): # NaN out -ve spaxels. Most galaxies seem to have *some* -ve pixels
             im[im <= 0] = np.nan
 
         # Compute the coordinates of "good" spaxels, store in arrays
