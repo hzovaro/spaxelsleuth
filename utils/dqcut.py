@@ -256,8 +256,9 @@ def dqcut(df, ncomponents,
     print("In dqcut.dqcut(): Flagging components likely to be affected by beam smearing...")
     # Gas kinematics: beam semaring criteria of Federrath+2017 and Zhou+2017.
     for nn in range(ncomponents):
-        cond_beam_smearing = df[f"sigma_gas (component {nn + 1})"] < 2 * df[f"v_grad (component {nn + 1})"]
-        df.loc[cond_beam_smearing, f"Beam smearing flag (component {nn + 1})"] = True
+        if f"v_grad (component {nn + 1})" in df:
+            cond_beam_smearing = df[f"sigma_gas (component {nn + 1})"] < 2 * df[f"v_grad (component {nn + 1})"]
+            df.loc[cond_beam_smearing, f"Beam smearing flag (component {nn + 1})"] = True
 
     ######################################################################
     # Flag rows with insufficient S/N in sigma_gas
@@ -492,6 +493,27 @@ def dqcut(df, ncomponents,
         df.loc[cond_has_3, "Number of components"] = 3
         df.loc[cond_has_0, "Number of components"] = 0
 
+    elif ncomponents == 2:
+        cond_has_2 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
+                     ~np.isnan(df["HALPHA (component 2)"]) & ~np.isnan(df["sigma_gas (component 2)"])
+        cond_has_1 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
+                      (np.isnan(df["HALPHA (component 2)"]) | np.isnan(df["sigma_gas (component 2)"]))
+        cond_has_0 =  (np.isnan(df["HALPHA (component 1)"]) | np.isnan(df["sigma_gas (component 1)"])) &\
+                      (np.isnan(df["HALPHA (component 2)"]) | np.isnan(df["sigma_gas (component 2)"]))
+
+        cond_still_has_1 = cond_has_1 & (df["Number of components (original)"] == 1)
+        cond_still_has_2 = cond_has_2 & (df["Number of components (original)"] == 2)
+        cond_still_has_0 = cond_has_0 & (df["Number of components (original)"] == 0)
+
+        # TRUE if the number of components after making DQ cuts matches the "original" number of components
+        cond_has_original = cond_still_has_1 | cond_still_has_2 | cond_still_has_0
+        df.loc[~cond_has_original, "Missing components flag"] = True
+
+        # Reset the number of components
+        df.loc[cond_has_1, "Number of components"] = 1
+        df.loc[cond_has_2, "Number of components"] = 2
+        df.loc[cond_has_0, "Number of components"] = 0
+
     elif ncomponents == 1:
         cond_has_1 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"])
         cond_has_0 =  np.isnan(df["HALPHA (component 1)"]) | np.isnan(df["sigma_gas (component 1)"])
@@ -529,34 +551,19 @@ def dqcut(df, ncomponents,
 # Compute log quantities + errors for Halpha EW, sigma_gas and SFRs
 def compute_log_columns(df, ncomponents):
     # Halpha flux and EW for individual components
-    for nn in range(ncomponents):          
-        # log quantities
-        df[f"log HALPHA luminosity (component {nn + 1})"] = np.log10(df[f"HALPHA luminosity (component {nn + 1})"])
-        df[f"log HALPHA EW (component {nn + 1})"] = np.log10(df[f"HALPHA EW (component {nn + 1})"])
-        df[f"log sigma_gas (component {nn + 1})"] = np.log10(df[f"sigma_gas (component {nn + 1})"])
-
-        # Compute errors for log quantities
-        df[f"log HALPHA luminosity error (lower) (component {nn + 1})"] = df[f"log HALPHA luminosity (component {nn + 1})"] - np.log10(df[f"HALPHA luminosity (component {nn + 1})"] - df[f"HALPHA luminosity error (component {nn + 1})"])
-        df[f"log HALPHA luminosity error (upper) (component {nn + 1})"] = np.log10(df[f"HALPHA luminosity (component {nn + 1})"] + df[f"HALPHA luminosity error (component {nn + 1})"]) - df[f"log HALPHA luminosity (component {nn + 1})"]
-
-        df[f"log HALPHA EW error (lower) (component {nn + 1})"] = df[f"log HALPHA EW (component {nn + 1})"] - np.log10(df[f"HALPHA EW (component {nn + 1})"] - df[f"HALPHA EW error (component {nn + 1})"])
-        df[f"log HALPHA EW error (upper) (component {nn + 1})"] = np.log10(df[f"HALPHA EW (component {nn + 1})"] + df[f"HALPHA EW error (component {nn + 1})"]) - df[f"log HALPHA EW (component {nn + 1})"]
+    for col in ["HALPHA luminosity", "HALPHA continuum", "HALPHA EW", "sigma_gas"]:
+        # Compute log quantities for total 
+        if f"{col} (total)" in df:
+            df[f"log {col} (total)"] = np.log10(df[f"{col} (total)"])
+            df[f"log {col} error (lower) (total)"] = df[f"log {col} (total)"] - np.log10(df[f"{col} (total)"] - df[f"{col} error (total)"])
+            df[f"log {col} error (upper) (total)"] = np.log10(df[f"{col} (total)"] + df[f"{col} error (total)"]) -  df[f"log {col} (total)"]
         
-        df[f"log sigma_gas error (lower) (component {nn + 1})"] = df[f"log sigma_gas (component {nn + 1})"] - np.log10(df[f"sigma_gas (component {nn + 1})"] - df[f"sigma_gas error (component {nn + 1})"])
-        df[f"log sigma_gas error (upper) (component {nn + 1})"] = np.log10(df[f"sigma_gas (component {nn + 1})"] + df[f"sigma_gas error (component {nn + 1})"]) - df[f"log sigma_gas (component {nn + 1})"]
-        
-    # Compute log quantities for total HALPHA EW
-    df[f"log HALPHA luminosity (total)"] = np.log10(df[f"HALPHA luminosity (total)"])
-    df["log HALPHA luminosity error (lower) (total)"] = df["log HALPHA luminosity (total)"] - np.log10(df["HALPHA luminosity (total)"] - df["HALPHA luminosity error (total)"])
-    df["log HALPHA luminosity error (upper) (total)"] = np.log10(df["HALPHA luminosity (total)"] + df["HALPHA luminosity error (total)"]) -  df["log HALPHA luminosity (total)"]
-    
-    df[f"log HALPHA continuum luminosity"] = np.log10(df[f"HALPHA continuum luminosity"])
-    df["log HALPHA continuum luminosity error (lower)"] = df["log HALPHA continuum luminosity"] - np.log10(df["HALPHA continuum luminosity"] - df["HALPHA continuum luminosity error"])
-    df["log HALPHA continuum luminosity error (upper)"] = np.log10(df["HALPHA continuum luminosity"] + df["HALPHA continuum luminosity error"]) -  df["log HALPHA continuum luminosity"]
-    
-    df["log HALPHA EW (total)"] = np.log10(df["HALPHA EW (total)"])
-    df["log HALPHA EW error (lower) (total)"] = df["log HALPHA EW (total)"] - np.log10(df["HALPHA EW (total)"] - df["HALPHA EW error (total)"])
-    df["log HALPHA EW error (upper) (total)"] = np.log10(df["HALPHA EW (total)"] + df["HALPHA EW error (total)"]) -  df["log HALPHA EW (total)"]
+        # Per component
+        for nn in range(ncomponents):
+            if f"{col} (component {nn + 1})" in df:
+                df[f"log {col} (component {nn + 1})"] = np.log10(df[f"{col} (component {nn + 1})"])
+                df[f"log {col} error (lower) (component {nn + 1})"] = df[f"log {col} (component {nn + 1})"] - np.log10(df[f"{col} (component {nn + 1})"] - df[f"{col} error (component {nn + 1})"])
+                df[f"log {col} error (upper) (component {nn + 1})"] = np.log10(df[f"{col} (component {nn + 1})"] + df[f"{col} error (component {nn + 1})"]) - df[f"log {col} (component {nn + 1})"]
 
     # Compute log quantities for total HALPHA EW
     for nn in range(ncomponents):
@@ -684,13 +691,18 @@ def compute_extra_columns(df, ncomponents):
     # Halpha & continuum luminosity
     # HALPHA luminosity: units of erg s^-1 kpc^-2
     # HALPHA cont. luminosity: units of erg s^-1 Å-1 kpc^-2
-    df[f"HALPHA continuum luminosity"] = df[f"HALPHA continuum"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-    df[f"HALPHA continuum luminosity error"] = df[f"HALPHA continuum error"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-    df[f"HALPHA luminosity (total)"] = df[f"HALPHA (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-    df[f"HALPHA luminosity error (total)"] = df[f"HALPHA error (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-    for nn in range(ncomponents):
-        df[f"HALPHA luminosity (component {nn + 1})"] = df[f"HALPHA (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-        df[f"HALPHA luminosity error (component {nn + 1})"] = df[f"HALPHA error (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+    if all([col in df for col in ["D_L (Mpc)", "Bin size (square kpc)"]]):
+        if all([col in df for col in ["HALPHA continuum", "HALPHA continuum error"]]):
+            df[f"HALPHA continuum luminosity"] = df[f"HALPHA continuum"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+            df[f"HALPHA continuum luminosity error"] = df[f"HALPHA continuum error"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+
+        if all([col in df for col in ["HALPHA (total)", "HALPHA error (total)"]]):
+            df[f"HALPHA luminosity (total)"] = df[f"HALPHA (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+            df[f"HALPHA luminosity error (total)"] = df[f"HALPHA error (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+        for nn in range(ncomponents):
+            if all([col in df for col in [f"HALPHA (component {nn + 1})", f"HALPHA error (component {nn + 1})"]]):
+                df[f"HALPHA luminosity (component {nn + 1})"] = df[f"HALPHA (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+                df[f"HALPHA luminosity error (component {nn + 1})"] = df[f"HALPHA error (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
 
     # Compute FWHM
     for nn in range(ncomponents):
@@ -698,7 +710,7 @@ def compute_extra_columns(df, ncomponents):
         df[f"FWHM_gas error (component {nn + 1})"] = df[f"sigma_gas error (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
 
     # Stellar & gas kinematic offsets
-    if "v_*" in df.columns and "sigma_*" in df.columns:
+    if all([col in df for col in ["v_*", "sigma_*"]]):
         df = compute_gas_stellar_offsets(df, ncomponents=ncomponents)
 
     # Compute logs
