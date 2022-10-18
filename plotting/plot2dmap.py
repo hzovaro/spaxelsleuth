@@ -36,7 +36,7 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
               PA_deg=0,
               show_title=True, axis_labels=True,
               vmin=None, vmax=None, cmap=None,
-              contours=True, col_z_contours="HALPHA continuum", levels=None, linewidths=0.5, colors="white",
+              contours=True, col_z_contours="B-band continuum", levels=None, linewidths=0.5, colors="white",
               ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical",
               figsize=(5, 5)):
     """
