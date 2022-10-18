@@ -160,12 +160,13 @@ def make_sami_metadata_df():
     filler_metadata_fname = "sami_InputCatFiller.csv"
     morphologies_fname = "sami_VisualMorphologyDR3.csv"
     flag_metadata_fname = "sami_CubeObs.csv"
+    mge_fits_metadata_fname = "sami_MGEPhotomUnregDR3.csv"
 
     # Get the data path
     data_path = os.path.join(__file__.split("loaddata")[0], "data")
     for fname in [gama_metadata_fname, cluster_metadata_fname, 
                   filler_metadata_fname, morphologies_fname, 
-                  flag_metadata_fname]:
+                  flag_metadata_fname, mge_fits_metadata_fname]:
         assert os.path.exists(os.path.join(data_path, fname)),\
             f"File {os.path.join(data_path, fname)} not found!"
 
@@ -176,7 +177,6 @@ def make_sami_metadata_df():
     df_metadata_cluster = pd.read_csv(os.path.join(data_path, cluster_metadata_fname))  # ALL possible cluster targets
     df_metadata_filler = pd.read_csv(os.path.join(data_path, filler_metadata_fname))  # ALL possible filler targets
     df_metadata = pd.concat([df_metadata_gama, df_metadata_cluster, df_metadata_filler]).drop(["Unnamed: 0"], axis=1)
-
     gal_ids_metadata = list(np.sort(list(df_metadata["catid"])))
 
     ###########################################################################
@@ -254,6 +254,25 @@ def make_sami_metadata_df():
     df_metadata = df_metadata.set_index(df_metadata["catid"])
 
     ###########################################################################
+    # Add R_e and other parameters derived from MGE fits
+    # Note: these are based on SDSS and VST photometry, not GAMA.
+    ###########################################################################
+    df_mge = pd.read_csv(os.path.join(data_path, mge_fits_metadata_fname)).drop(["Unnamed: 0"], axis=1).set_index("catid") # Data from multi-expansion fits
+
+    # Drop duplicated rows: those with both SDSS and VST photometry
+    df_mge_vst = df_mge[df_mge["photometry"] == "VST"]
+    df_mge_sdss = df_mge[df_mge["photometry"] == "SDSS"]
+    gals_vst_and_sdss = [g for g in df_mge_vst.index.values if g in df_mge_sdss.index.values]
+    df_mge = df_mge.sort_values(by="photometry")    # Sort so that photometry values are alphabetically sorted
+    bad_rows = df_mge.index.duplicated(keep="last") # Find duplicate rows - these will all be galaxies with both SDSS and VST data, in which case we keep the VST measurement
+    df_mge = df_mge[~bad_rows]
+    # Check that all of the galaxies with both VST and SDSS entries have VST photometry
+    for gal in gals_vst_and_sdss:
+        assert df_mge.loc[gal, "photometry"] == "VST"
+    # Merge 
+    df_metadata = df_metadata.merge(df_mge, how="left", left_index=True, right_index=True)
+
+    ###########################################################################
     # Add angular scale info
     ###########################################################################
     print(f"In make_sami_metadata_df(): Computing distances...")
@@ -264,8 +283,19 @@ def make_sami_metadata_df():
         df_metadata.loc[gal, "D_A (Mpc)"] = D_A_Mpc
         df_metadata.loc[gal, "D_L (Mpc)"] = D_L_Mpc
     df_metadata["kpc per arcsec"] = df_metadata["D_A (Mpc)"] * 1e3 * np.pi / 180.0 / 3600.0
-    df_metadata["R_e (kpc)"] = df_metadata["r_e"] * df_metadata["kpc per arcsec"]
+    df_metadata["R_e (kpc)"] = df_metadata["remge"] * df_metadata["kpc per arcsec"]
     df_metadata["log(M/R_e)"] = df_metadata["mstar"] - np.log10(df_metadata["R_e (kpc)"])
+
+    ###########################################################################
+    # Compute inclination
+    ###########################################################################
+    e = df_metadata["ellip"]
+    PA = df_metadata["pa"]
+    beta_rad = np.deg2rad(PA - 90)
+    b_over_a = 1 - e
+    q0 = 0.2
+    i_rad = np.arccos(np.sqrt((b_over_a**2 - q0**2) / (1 - q0**2)))  # Want to store this!
+    df_metadata["Inclination i (degrees)"] = np.rad2deg(i_rad)
 
     ###########################################################################
     # Save to file
@@ -696,7 +726,7 @@ def _process_gals(args):
     ngood = rows_good.shape[0]
 
     # Append a column with the galaxy ID & other properties
-    safe_cols = [c for c in df_metadata.columns if c != "Morphology"]
+    safe_cols = [c for c in df_metadata.columns if c != "Morphology" and c != "photometry"]
     gal_metadata = np.tile(df_metadata.loc[df_metadata.loc[:, "catid"] == gal][safe_cols].values, (ngood_bins, 1))
     rows_good = np.hstack((gal_metadata, rows_good))
 
@@ -956,7 +986,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ###############################################################################
     rows_list_all = [r[0] for r in res_list]
     colnames = res_list[0][1]
-    safe_cols = [c for c in df_metadata.columns if c != "Morphology"]
+    safe_cols = [c for c in df_metadata.columns if c != "Morphology" and c != "photometry"]
     df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)), columns=safe_cols + colnames)
 
     ###############################################################################
@@ -1018,7 +1048,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     rename_dict[f"extinct-corr_{bin_type}_{ncomponents}-comp_error"] = "HALPHA extinction correction error"
 
     # R_e
-    rename_dict["r_e"] = "R_e (arcsec)"
+    rename_dict["remge"] = "R_e (arcsec)"
 
     # Rename columns
     df_spaxels = df_spaxels.rename(columns=rename_dict)
@@ -1095,8 +1125,6 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     # Add radius-derived value columns
     ######################################################################
     df_spaxels["r/R_e"] = df_spaxels["r (relative to galaxy centre, deprojected, arcsec)"] / df_spaxels["R_e (arcsec)"]
-    df_spaxels["R_e (kpc)"] = df_spaxels["R_e (arcsec)"] * df_spaxels["kpc per arcsec"]
-    df_spaxels["log(M/R_e)"] = df_spaxels["mstar"] - np.log10(df_spaxels["R_e (kpc)"])
 
     ######################################################################
     # Compute S/N in all lines, in all components
@@ -1301,19 +1329,85 @@ def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
     return df.sort_index()
 
 ###############################################################################
-def make_sami_metadata_df_extended():
+# For multithreading
+def _compute_snr(args, plotit=False):
+    gal, df_metadata = args
+
+    # Load the red & blue data cubes.
+    hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
+    hdulist_B_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
+    data_cube_B = hdulist_B_cube[0].data
+    var_cube_B = hdulist_B_cube[1].data
+    data_cube_R = hdulist_R_cube[0].data
+    var_cube_R = hdulist_R_cube[1].data
+    hdulist_R_cube.close()
+    hdulist_B_cube.close()
+
+    # Compute an image showing the median S/N in each spaxel.
+    im_SNR_B = np.nanmedian(data_cube_B / np.sqrt(var_cube_B), axis=0)
+    im_SNR_R = np.nanmedian(data_cube_R / np.sqrt(var_cube_R), axis=0)
+
+    #######################################################################
+    # Use R_e to compute the median S/N within 1, 1.5, 2 R_e. 
+    # Transform coordinates into the galaxy plane
+    e = df_metadata.loc[gal, "ellip"]
+    PA = df_metadata.loc[gal, "pa"]
+    beta_rad = np.deg2rad(PA - 90)
+    b_over_a = 1 - e
+    q0 = 0.2
+    i_rad = np.arccos(np.sqrt((b_over_a**2 - q0**2) / (1 - q0**2)))  # Want to store this!
+    i_rad = 0 if np.isnan(i_rad) else i_rad
+
+    # De-project the centroids to the coordinate system of the galaxy plane
+    x0_px = 25.5
+    y0_px = 25.5
+    as_per_px = 0.5
+    ys, xs = np.meshgrid(np.arange(50), np.arange(50), indexing="ij")
+    x_cc = xs - x0_px  # pixels
+    y_cc = ys - y0_px  # pixels
+    x_prime = x_cc * np.cos(beta_rad) + y_cc * np.sin(beta_rad)
+    y_prime_projec = (- x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad))
+    y_prime = (- x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad)) / np.cos(i_rad)
+    r_prime = np.sqrt(x_prime**2 + y_prime**2)
+
+    # Convert to arcsec
+    r_prime_as = r_prime * as_per_px
+
+    # Masks enclosing differen multiples of R_e 
+    mask_1Re = r_prime_as < df_metadata.loc[gal, "remge"]
+    mask_15Re = r_prime_as < 1.5 * df_metadata.loc[gal, "remge"]
+    mask_2Re = r_prime_as < 2 * df_metadata.loc[gal, "remge"]
+
+    # Compute median SNR within 1, 1.5, 2R_e
+    SNR_full_B = np.nanmedian(im_SNR_B)
+    SNR_full_R = np.nanmedian(im_SNR_R)
+    SNR_1Re_B = np.nanmedian(im_SNR_B[mask_1Re])
+    SNR_1Re_R = np.nanmedian(im_SNR_R[mask_1Re])
+    SNR_15Re_B = np.nanmedian(im_SNR_B[mask_15Re])
+    SNR_15Re_R = np.nanmedian(im_SNR_R[mask_15Re])
+    SNR_2Re_B = np.nanmedian(im_SNR_B[mask_2Re])
+    SNR_2Re_R = np.nanmedian(im_SNR_R[mask_2Re])
+
+    #######################################################################
+    # End
+    print(f"In make_sami_metadata_df_extended(): Finished processing {gal}")
+    return [gal, SNR_full_B, SNR_full_R, 
+                 SNR_1Re_B, SNR_1Re_R, 
+                 SNR_15Re_B, SNR_15Re_R, 
+                 SNR_2Re_B, SNR_2Re_R]
+
+###############################################################################
+def make_sami_metadata_df_extended(recompute_SNRs=False, nthreads=20):
     """
     DESCRIPTION
     ---------------------------------------------------------------------------
-    This funxtion is used to create an extended version of the metadata 
+    This function is used to create an extended version of the metadata 
     DataFrame created using make_sami_metadata_df().
 
     Additional quantities computed include 
     - compute continuum S/N values in both blue & red SAMI cubes in a variety of 
       different apertures, making it simpler to select high-S/N targets for your
       science case;
-    - total SFRs computed from the SFR maps provided in SAMI DR3;
-    - galaxy inclinations 
     - the maximum number of components fitted in any spaxel in each galaxy.
 
     The extended metadata DataFrame is saved to 
@@ -1331,7 +1425,10 @@ def make_sami_metadata_df_extended():
 
     INPUTS
     ---------------------------------------------------------------------------
-    None.
+    recompute_SNRs      bool
+        if True, recompute continuum signal-to-noise ratios. If False, the 
+        computation is only run if the file sami_dr3_aperture_snrs.hd5 is not 
+        found.
 
     OUTPUTS
     ---------------------------------------------------------------------------
@@ -1359,85 +1456,18 @@ def make_sami_metadata_df_extended():
     gals = df_metadata[df_metadata["Good?"] == True].index.values
 
     ###############################################################################
-    # For multithreading
-    def compute_snr(gal, plotit=False):
-        # Load the red & blue data cubes.
-        hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
-        hdulist_B_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
-        data_cube_B = hdulist_B_cube[0].data
-        var_cube_B = hdulist_B_cube[1].data
-        data_cube_R = hdulist_R_cube[0].data
-        var_cube_R = hdulist_R_cube[1].data
-        hdulist_R_cube.close()
-        hdulist_B_cube.close()
-
-        # Compute an image showing the median S/N in each spaxel.
-        im_SNR_B = np.nanmedian(data_cube_B / np.sqrt(var_cube_B), axis=0)
-        im_SNR_R = np.nanmedian(data_cube_R / np.sqrt(var_cube_R), axis=0)
-
-        #######################################################################
-        # Use R_e to compute the median S/N within 1, 1.5, 2 R_e. 
-        # Transform coordinates into the galaxy plane
-        e = df_metadata.loc[gal, "ellip"]
-        PA = df_metadata.loc[gal, "pa"]
-        beta_rad = np.deg2rad(PA - 90)
-        b_over_a = 1 - e
-        q0 = 0.2
-        i_rad = np.arccos(np.sqrt((b_over_a**2 - q0**2) / (1 - q0**2)))  # Want to store this!
-        i_rad = 0 if np.isnan(i_rad) else i_rad
-
-        # De-project the centroids to the coordinate system of the galaxy plane
-        x0_px = 25.5
-        y0_px = 25.5
-        as_per_px = 0.5
-        ys, xs = np.meshgrid(np.arange(50), np.arange(50), indexing="ij")
-        x_cc = xs - x0_px  # pixels
-        y_cc = ys - y0_px  # pixels
-        x_prime = x_cc * np.cos(beta_rad) + y_cc * np.sin(beta_rad)
-        y_prime_projec = (- x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad))
-        y_prime = (- x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad)) / np.cos(i_rad)
-        r_prime = np.sqrt(x_prime**2 + y_prime**2)
-
-        # Convert to arcsec
-        r_prime_as = r_prime * as_per_px
-
-        # Masks enclosing differen multiples of R_e 
-        mask_1Re = r_prime_as < df_metadata.loc[gal, "r_e"]
-        mask_15Re = r_prime_as < 1.5 * df_metadata.loc[gal, "r_e"]
-        mask_2Re = r_prime_as < 2 * df_metadata.loc[gal, "r_e"]
-
-        # Compute median SNR within 1, 1.5, 2R_e
-        SNR_full_B = np.nanmedian(im_SNR_B)
-        SNR_full_R = np.nanmedian(im_SNR_R)
-        SNR_1Re_B = np.nanmedian(im_SNR_B[mask_1Re])
-        SNR_1Re_R = np.nanmedian(im_SNR_R[mask_1Re])
-        SNR_15Re_B = np.nanmedian(im_SNR_B[mask_15Re])
-        SNR_15Re_R = np.nanmedian(im_SNR_R[mask_15Re])
-        SNR_2Re_B = np.nanmedian(im_SNR_B[mask_2Re])
-        SNR_2Re_R = np.nanmedian(im_SNR_R[mask_2Re])
-
-        #######################################################################
-        # End
-        print(f"In make_sami_metadata_df_extended(): Finished processing {gal}")
-        return [gal, SNR_full_B, SNR_full_R, 
-                     SNR_1Re_B, SNR_1Re_R, 
-                     SNR_15Re_B, SNR_15Re_R, 
-                     SNR_2Re_B, SNR_2Re_R]
-
-    ###############################################################################
     # Compute SNRs
     ###############################################################################
     print("In make_sami_metadata_df_extended(): Computing continuum SNRs...")
-    if os.path.exists(os.path.join(sami_data_path, "sami_dr3_aperture_snrs.hd5")):
+    if not recompute_SNRs and os.path.exists(os.path.join(sami_data_path, "sami_dr3_aperture_snrs.hd5")):
         print(f"In make_sami_metadata_df_extended(): WARNING: file {os.path.join(sami_data_path, 'sami_dr3_aperture_snrs.hd5')} found; loading SNRs from existing DataFrame...")
         df_snr = pd.read_hdf(os.path.join(sami_data_path, "sami_dr3_aperture_snrs.hd5"), key="SNR")
     else:
-        nthreads = 20
         print(f"In make_sami_metadata_df_extended(): WARNING: file {os.path.join(sami_data_path, 'sami_dr3_aperture_snrs.hd5')} not found; computing continuum SNRs on {nthreads} threads...")
         print("In make_sami_metadata_df_extended(): Beginning pool...")
-        args_list = gals
+        args_list = [[gal, df_metadata] for gal in gals]
         pool = multiprocessing.Pool(nthreads)
-        res_list = np.array((pool.map(compute_snr, args_list)))
+        res_list = np.array((pool.map(_compute_snr, args_list)))
         pool.close()
         pool.join()
 
@@ -1466,43 +1496,6 @@ def make_sami_metadata_df_extended():
     common_cols = [c for c in df_metadata.columns if c not in df_snr.columns]
     df_snr = df_snr.set_index("catid")
     df_snr = pd.concat([df_snr, df_metadata], axis=1)
-
-    ###############################################################################
-    # Load the SAMI sample
-    ###############################################################################
-    print("In make_sami_metadata_df_extended(): Loading SAMI DataFrame...")
-    df_sami = load_sami_df(ncomponents="recom",
-                                 bin_type="default",
-                                 eline_SNR_min=5, 
-                                 correct_extinction=True)
-
-    print("In make_sami_metadata_df_extended(): Appending total SFRs, max. number of components and inclinations to DataFrame...")
-    for gal in tqdm(df_sami.catid.unique()):
-
-        ###########################################################################
-        # Compute total SFRs from HALPHA emission
-        ###########################################################################
-        df_gal = df_sami[df_sami["catid"] == gal]
-        sfr_comp0 = df_gal["SFR (component 1)"].sum()
-        df_snr.loc[gal, "SFR (component 1)"] = sfr_comp0 if sfr_comp0 > 0 else np.nan
-        sfr_tot = df_gal["SFR (total)"].sum()
-        df_snr.loc[gal, "SFR (total)"] = sfr_tot if sfr_tot > 0 else np.nan
-
-        ###########################################################################
-        # Compute maximum number of components fitted in each galaxy
-        ###########################################################################
-        df_snr.loc[gal, "Maximum number of components"] = np.nanmax(df_gal["Number of components"])
-
-        ###########################################################################
-        # Compute inclination
-        ###########################################################################
-        e = df_metadata.loc[gal, "ellip"]
-        PA = df_metadata.loc[gal, "pa"]
-        beta_rad = np.deg2rad(PA - 90)
-        b_over_a = 1 - e
-        q0 = 0.2
-        i_rad = np.arccos(np.sqrt((b_over_a**2 - q0**2) / (1 - q0**2)))  # Want to store this!
-        df_snr.loc[gal, "Inclination i (degrees)"] = np.rad2deg(i_rad)
 
     ###############################################################################
     # Save to .csv 
@@ -1601,6 +1594,12 @@ def make_sami_aperture_df(eline_SNR_min,
     df_ap = df_ap[~df_ap.index.duplicated(keep="first")]
 
     ###########################################################################
+    # Merge with metadata DataFrame
+    ###########################################################################
+    df_metadata = pd.read_hdf(os.path.join(sami_data_path, df_metadata_fname), key="metadata") # .drop(["Unnamed: 0"], axis=1).set_index("catid")
+    df_ap = df_ap.merge(df_metadata, left_index=True, right_index=True)
+
+    ###########################################################################
     # Rename columns 
     ###########################################################################
     for ap in ["_1_4_arcsecond", "_2_arcsecond", "_3_arcsecond", "_4_arcsecond", "_re_mge", "_re", "_3kpc_round"]:
@@ -1633,6 +1632,40 @@ def make_sami_aperture_df(eline_SNR_min,
     new_cols_14 = [col.replace("(1 4", "(1.4") for col in old_cols_14]
     rename_dict = dict(zip(old_cols_14, new_cols_14))
     df_ap = df_ap.rename(columns=rename_dict)
+
+    ######################################################################
+    # Compute SFR surface densities & log quantities
+    ######################################################################
+    for ap in ["1.4 arcsecond", "2 arcsecond", "3 arcsecond", "4 arcsecond", "R_e", "R_e MGE", "3kpc round"]:
+        if ap.endswith("arcsecond"):
+            r_kpc = float(ap.split(" arcsecond")[0]) * df_ap["kpc per arcsec"]
+        elif ap == "3kpc round":
+            r_kpc = 3 
+        elif ap == "R_e MGE":
+            r_kpc = df_ap["R_e (kpc)"]
+        elif ap == "R_e":
+            r_kpc = df_ap["r_e"] * df_ap["kpc per arcsec"]
+        A_kpc2 = np.pi * r_kpc**2
+
+        # SFR surface density
+        df_ap[f"SFR surface density ({ap})"] = df_ap[f"SFR ({ap})"] / A_kpc2
+        df_ap[f"SFR surface density error ({ap})"] = df_ap[f"SFR error ({ap})"] / A_kpc2
+        
+        # Log SFR surface density
+        df_ap[f"log SFR surface density ({ap})"] = np.log10(df_ap[f"SFR surface density ({ap})"])
+        df_ap[f"log SFR surface density error (upper) ({ap})"] = np.log10(df_ap[f"SFR surface density ({ap})"] + df_ap[f"SFR surface density error ({ap})"]) - df_ap[f"log SFR surface density ({ap})"]
+        df_ap[f"log SFR surface density error (lower) ({ap})"] = df_ap[f"log SFR surface density ({ap})"] - np.log10(df_ap[f"SFR surface density ({ap})"] - df_ap[f"SFR surface density error ({ap})"])
+        
+        # log SFR
+        df_ap[f"log SFR ({ap})"] = np.log10(df_ap[f"SFR ({ap})"])
+        df_ap[f"log SFR error (upper) ({ap})"] = np.log10(df_ap[f"SFR ({ap})"] + df_ap[f"SFR error ({ap})"]) - df_ap[f"log SFR ({ap})"]
+        df_ap[f"log SFR error (lower) ({ap})"] = df_ap[f"log SFR ({ap})"] - np.log10(df_ap[f"SFR ({ap})"] - df_ap[f"SFR error ({ap})"])
+
+    ######################################################################
+    # Compute specific SFRs 
+    ######################################################################
+    for ap in ["1.4 arcsecond", "2 arcsecond", "3 arcsecond", "4 arcsecond", "R_e", "R_e MGE", "3kpc round"]:
+        df_ap[f"log sSFR ({ap})"] = df_ap[f"log SFR ({ap})"] - df_ap["mstar"]
 
     ######################################################################
     # Compute S/N for each emission line in each aperture
