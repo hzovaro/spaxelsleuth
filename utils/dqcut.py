@@ -582,16 +582,18 @@ def compute_log_columns(df, ncomponents):
             cond = ~np.isnan(df[f"SFR {s}"])
             cond &= df[f"SFR {s}"] > 0
             df.loc[cond, f"log SFR {s}"] = np.log10(df.loc[cond, f"SFR {s}"])
-            df.loc[cond, f"log SFR error (lower) {s}"] = df.loc[cond, f"log SFR {s}"] - np.log10(df.loc[cond, f"SFR {s}"] - df.loc[cond, f"SFR error {s}"])
-            df.loc[cond, f"log SFR error (upper) {s}"] = np.log10(df.loc[cond, f"SFR {s}"] + df.loc[cond, f"SFR error {s}"]) -  df.loc[cond, f"log SFR {s}"]
+            if f"SFR error {s}" in df.columns:
+                df.loc[cond, f"log SFR error (lower) {s}"] = df.loc[cond, f"log SFR {s}"] - np.log10(df.loc[cond, f"SFR {s}"] - df.loc[cond, f"SFR error {s}"])
+                df.loc[cond, f"log SFR error (upper) {s}"] = np.log10(df.loc[cond, f"SFR {s}"] + df.loc[cond, f"SFR error {s}"]) -  df.loc[cond, f"log SFR {s}"]
             
         if f"SFR surface density {s}" in df.columns:
             cond = ~np.isnan(df[f"SFR surface density {s}"])
             cond &= df[f"SFR surface density {s}"] > 0
             # Compute log quantities for total SFR surface density
             df.loc[cond, f"log SFR surface density {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"])
-            df.loc[cond, f"log SFR surface density error (lower) {s}"] = df.loc[cond, f"log SFR surface density {s}"] - np.log10(df.loc[cond, f"SFR surface density {s}"] - df.loc[cond, f"SFR surface density error {s}"])
-            df.loc[cond, f"log SFR surface density error (upper) {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"] + df.loc[cond, f"SFR surface density error {s}"]) -  df.loc[cond, f"log SFR surface density {s}"]
+            if f"SFR surface density error {s}" in df.columns:
+                df.loc[cond, f"log SFR surface density error (lower) {s}"] = df.loc[cond, f"log SFR surface density {s}"] - np.log10(df.loc[cond, f"SFR surface density {s}"] - df.loc[cond, f"SFR surface density error {s}"])
+                df.loc[cond, f"log SFR surface density error (upper) {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"] + df.loc[cond, f"SFR surface density error {s}"]) -  df.loc[cond, f"log SFR surface density {s}"]
 
     return df
 
@@ -620,8 +622,43 @@ def compute_gas_stellar_offsets(df, ncomponents):
 ######################################################################
 # Compute differences in Halpha EW, sigma_gas between different components
 def compute_component_offsets(df, ncomponents):
-    assert ncomponents == 3, "ncomponents must be 3 to compute offsets between different components!"
-    if ncomponents == 3:
+    assert ncomponents in [2, 3], "ncomponents must be 2 or 3 to compute offsets between different components!"
+
+    if ncomponents == 2:
+        # Difference between gas velocity dispersion between components
+        df["delta sigma_gas (2/1)"] = df["sigma_gas (component 2)"] - df["sigma_gas (component 1)"]
+
+        df["delta sigma_gas error (2/1)"] = np.sqrt(df["sigma_gas error (component 2)"]**2 +\
+                                                         df["sigma_gas error (component 1)"]**2)
+        
+        # DIfference between gas velocity between components
+        df["delta v_gas (2/1)"] = df["v_gas (component 2)"] - df["v_gas (component 1)"]
+        df["delta v_gas error (2/1)"] = np.sqrt(df["v_gas error (component 2)"]**2 +\
+                                                     df["v_gas error (component 1)"]**2)
+        
+        # Ratio of HALPHA EWs between components
+        df["HALPHA EW ratio (2/1)"] = df["HALPHA EW (component 2)"] / df["HALPHA EW (component 1)"]
+        df["HALPHA EW ratio error (2/1)"] = df["HALPHA EW ratio (2/1)"] *\
+            np.sqrt((df["HALPHA EW error (component 2)"] / df["HALPHA EW (component 2)"])**2 +\
+                    (df["HALPHA EW error (component 1)"] / df["HALPHA EW (component 1)"])**2)
+
+        # Ratio of HALPHA EWs between components (log)
+        df["Delta HALPHA EW (1/2)"] = df["log HALPHA EW (component 1)"] - df["log HALPHA EW (component 2)"]
+
+        # Fractional of total Halpha EW in each component
+        for nn in range(2):
+            df[f"HALPHA EW/HALPHA EW (total) (component {nn + 1})"] = df[f"HALPHA EW (component {nn + 1})"] / df[f"HALPHA EW (total)"]
+
+        # Forbidden line ratios:
+        for col in ["log O3", "log N2", "log S2", "log O1"]:
+            if f"{col} (component 1)" in df.columns and f"{col} (component 2)" in df.columns:
+                df[f"delta {col} (2/1)"] = df[f"{col} (component 2)"] - df[f"{col} (component 1)"]
+                df[f"delta {col} (2/1) error"] = np.sqrt(df[f"{col} (component 2)"]**2 + df[f"{col} (component 1)"]**2)
+            if f"{col} (component 2)" in df.columns and f"{col} (component 3)" in df.columns:
+                df[f"delta {col} (3/2)"] = df[f"{col} (component 3)"] - df[f"{col} (component 2)"]
+                df[f"delta {col} (3/2) error"] = np.sqrt(df[f"{col} (component 3)"]**2 + df[f"{col} (component 2)"]**2)
+
+    elif ncomponents == 3:
         # Difference between gas velocity dispersion between components
         df["delta sigma_gas (2/1)"] = df["sigma_gas (component 2)"] - df["sigma_gas (component 1)"]
         df["delta sigma_gas (3/2)"] = df["sigma_gas (component 3)"] - df["sigma_gas (component 2)"]
