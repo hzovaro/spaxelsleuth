@@ -423,6 +423,16 @@ def make_lzifu_df(gals=None, make_master_df=False,
         gals_subsample = df_info[cond_subsample].index.values
 
         # List of galaxies with only 1 component, which we will get from the SAMI data instead
+        # Compute maximum number of components fitted in each galaxy
+        print(f"{status_str}: Loading SAMI DataFrame...")
+        df_sami = load_sami_df(ncomponents="recom",
+                                     bin_type="default",
+                                     eline_SNR_min=5, 
+                                     correct_extinction=True)
+
+        print(f"{status_str}: Computing max. number of components in each galaxy...")
+        for gal in tqdm(df_sami.catid.unique()):
+            df_info.loc[gal, "Maximum number of components"] = np.nanmax(df_gal["Number of components"])
         gals_good_1comp = [g for g in gals_subsample if df_info.loc[g, "Maximum number of components"] == 1]
         gals_good_0comp = [g for g in gals_subsample if df_info.loc[g, "Maximum number of components"] == 0]
 
@@ -900,7 +910,7 @@ def make_lzifu_df(gals=None, make_master_df=False,
             rename_dict[f"VDISP_ERR (component {nn + 1})"] = f"sigma_gas error (component {nn + 1})"
 
         # R_e
-        rename_dict["r_e"] = "R_e (arcsec)"
+        rename_dict["remge"] = "R_e (arcsec)"
 
         # Rename columns
         df_spaxels = df_spaxels.rename(columns=rename_dict)
