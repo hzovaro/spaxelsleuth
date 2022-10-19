@@ -102,9 +102,9 @@ def plot_sdss_image(df_gal, axis_labels=True,
     df_gal:         pandas DataFrame
         DataFrame containing spaxel-by-spaxel data for a single galaxy.
         Must have columns:
-            catid - the catalogue ID of the galaxy
-            ra_obj - the RA of the galaxy in degrees
-            dec_obj - the declination of the galaxy in degrees
+            ID - the catalogue ID of the galaxy
+            RA (J2000) - the RA of the galaxy in degrees
+            Dec (J2000) - the declination of the galaxy in degrees
 
     axis_labels:    bool
         If True, plot RA and Dec axis labels.
@@ -135,12 +135,12 @@ def plot_sdss_image(df_gal, axis_labels=True,
 
     """
     # Input checking
-    assert len(df_gal["catid"].unique()) == 1, "df_gal must only contain one galaxy!!"
+    assert len(df_gal["ID"].unique()) == 1, "df_gal must only contain one galaxy!!"
 
     # Get the central coordinates from the DF
-    ra_deg = df_gal["ra_obj"].unique()[0]
-    dec_deg = df_gal["dec_obj"].unique()[0]
-    gal = df_gal["catid"].unique()[0]
+    ra_deg = df_gal["RA (J2000)"].unique()[0]
+    dec_deg = df_gal["Dec (J2000)"].unique()[0]
+    gal = df_gal["ID"].unique()[0]
 
     # Load image
     if not os.path.exists(os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg")):

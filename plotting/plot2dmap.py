@@ -141,7 +141,7 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
         f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' format of this column instead!"
     assert cax_orientation == "horizontal" or cax_orientation == "vertical",\
         "cax_orientation must be either 'horizontal' or 'vertical'!"
-    assert len(df_gal.catid.unique()) == 1,\
+    assert len(df_gal["ID"].unique()) == 1,\
         "df_gal contains must only contain one galaxy!"
     
     survey = survey.lower()
@@ -165,14 +165,14 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     ###########################################################################
     # Load the data cube to get the WCS and continuum image, if necessary
     ###########################################################################
-    gal = df_gal.catid.unique()[0]
+    gal = df_gal["ID"].unique()[0]
     
     # Get the WCS
     if survey == "sami":
         # Manually construct the WCS, since it's slow to read in the FITS file
         wcs = WCS(naxis=2)
         wcs.wcs.crpix = [25.5, 25.5]
-        wcs.wcs.crval = [df_gal["ra_ifu"].values[0], df_gal["dec_ifu"].values[0]]
+        wcs.wcs.crval = [df_gal["RA (IFU) (J2000)"].values[0], df_gal["Dec (IFU) (J2000)"].values[0]]
         wcs.wcs.cdelt = [-0.5 / 3600, 0.5 / 3600]
         wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
     if survey == "s7":
@@ -191,8 +191,8 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
         N_lambda = header["NAXIS3"]
         
         lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
-        start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z_spec"].unique()[0]) - 4000))
-        stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z_spec"].unique()[0]) - 5500))
+        start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z"].unique()[0]) - 4000))
+        stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z"].unique()[0]) - 5500))
         im_B = np.nansum(data_cube[start_idx:stop_idx], axis=0)
         im_B[im_B == 0] = np.nan
 

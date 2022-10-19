@@ -537,13 +537,13 @@ def dqcut(df, ncomponents,
     # End
     ######################################################################
     # Drop rows that have been NaNed out
-    if "catid" in df.columns: 
-        df = df.dropna(subset=["catid"])
+    if "ID" in df.columns: 
+        df = df.dropna(subset=["ID"])
 
-        # Cast catid column to int
-        if all([type(c) == float for c in df["catid"]]):
+        # Cast ID column to int
+        if all([type(c) == float for c in df["ID"]]):
             df = df.copy()  # Required to suppress SettingValueWithCopy warning
-            df["catid"] = df["catid"].astype(int)
+            df["ID"] = df["ID"].astype(int)
 
     return df
 
@@ -832,7 +832,7 @@ if __name__ == "__main__":
     assert np.all(df_cut["SFR"] != 0)
 
     # CHECK: no rows with inclination = 0 and SFR != nan
-    assert df_cut[(df_cut["Inclination i (degrees)"] == 0) & (df_cut["SFR"] > 0)].shape[0] == 0
+    assert df_cut[(df_cut["i (degrees)"] == 0) & (df_cut["SFR"] > 0)].shape[0] == 0
 
     # CHECK: "Number of components" is 0, 1, 2 or 3
     assert np.all(df_cut["Number of components"].unique() == [0, 1, 2, 3])
