@@ -431,7 +431,7 @@ def make_lzifu_df(gals=None, make_master_df=False,
                                      correct_extinction=True)
 
         print(f"{status_str}: Computing max. number of components in each galaxy...")
-        for gal in tqdm(df_sami.catid.unique()):
+        for gal in tqdm(df_sami["ID"].unique()):
             df_info.loc[gal, "Maximum number of components"] = np.nanmax(df_gal["Number of components"])
         gals_good_1comp = [g for g in gals_subsample if df_info.loc[g, "Maximum number of components"] == 1]
         gals_good_0comp = [g for g in gals_subsample if df_info.loc[g, "Maximum number of components"] == 0]
@@ -494,10 +494,10 @@ def make_lzifu_df(gals=None, make_master_df=False,
 
         # Compute the D4000Å break
         # Definition from Balogh+1999 (see here: https://arxiv.org/pdf/1611.07050.pdf, page 3)
-        start_b_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 3850))
-        stop_b_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 3950))
-        start_r_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 4000))
-        stop_r_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 4100))
+        start_b_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 3850))
+        stop_b_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 3950))
+        start_r_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 4000))
+        stop_r_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 4100))
         N_b = stop_b_idx - start_b_idx
         N_r = stop_r_idx - start_r_idx
 
@@ -529,8 +529,8 @@ def make_lzifu_df(gals=None, make_master_df=False,
         lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
 
         # Compute continuum intensity
-        start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 6500))
-        stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 6540))
+        start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 6500))
+        stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 6540))
         cont_HALPHA_map = np.nanmean(data_cube_R[start_idx:stop_idx], axis=0)
         cont_HALPHA_map_std = np.nanstd(data_cube_R[start_idx:stop_idx], axis=0)
         cont_HALPHA_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_R[start_idx:stop_idx], axis=0))
@@ -550,8 +550,8 @@ def make_lzifu_df(gals=None, make_master_df=False,
         lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
 
         # Compute continuum intensity
-        start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 4000))
-        stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z_spec"]) - 5000))
+        start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 4000))
+        stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 5000))
         cont_B_map = np.nanmean(data_cube_B[start_idx:stop_idx], axis=0)
         cont_B_map_std = np.nanstd(data_cube_B[start_idx:stop_idx], axis=0)
         cont_B_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_B[start_idx:stop_idx], axis=0))
@@ -583,8 +583,8 @@ def make_lzifu_df(gals=None, make_master_df=False,
         # Calculate the inclination
         # I think beta = 90 - PA...
         # Transform coordinates into the galaxy plane
-        e = df_metadata.loc[gal, "ellip"]
-        PA = df_metadata.loc[gal, "pa"]
+        e = df_metadata.loc[gal, "e"]
+        PA = df_metadata.loc[gal, "PA (degrees)"]
         beta_rad = np.deg2rad(PA - 90)
         b_over_a = 1 - e
         q0 = 0.2
@@ -848,7 +848,7 @@ def make_lzifu_df(gals=None, make_master_df=False,
         rows_list.append(np.array([1] * ngood_bins))
         rows_list.append(np.array([as_per_px**2] * ngood_bins))
         rows_list.append(np.array([as_per_px**2 * df_metadata.loc[gal, "kpc per arcsec"]**2] * ngood_bins))
-        colnames.append("Inclination i (degrees)")
+        colnames.append("i (degrees)")
         colnames.append("Galaxy centre x0_px (projected, arcsec)")
         colnames.append("Galaxy centre y0_px (projected, arcsec)")
         colnames.append("x (projected, arcsec)")
@@ -870,7 +870,7 @@ def make_lzifu_df(gals=None, make_master_df=False,
 
         # Append a column with the galaxy ID & other properties
         safe_cols = [c for c in df_metadata.columns if c != "Morphology"]
-        gal_metadata = np.tile(df_metadata[df_metadata.loc[:, "catid"] == gal][safe_cols].values, (ngood_bins, 1))
+        gal_metadata = np.tile(df_metadata[df_metadata.loc[:, "ID"] == gal][safe_cols].values, (ngood_bins, 1))
         rows_good = np.hstack((gal_metadata, rows_good))
 
         ###############################################################################
@@ -979,7 +979,7 @@ def make_lzifu_df(gals=None, make_master_df=False,
         ######################################################################
         df_spaxels["r/R_e"] = df_spaxels["r (relative to galaxy centre, deprojected, arcsec)"] / df_spaxels["R_e (arcsec)"]
         df_spaxels["R_e (kpc)"] = df_spaxels["R_e (arcsec)"] * df_spaxels["kpc per arcsec"]
-        df_spaxels["log(M/R_e)"] = df_spaxels["mstar"] - np.log10(df_spaxels["R_e (kpc)"])
+        df_spaxels["log(M/R_e)"] = df_spaxels["log M_*"] - np.log10(df_spaxels["R_e (kpc)"])
 
         ######################################################################
         # Compute S/N in all lines, in all components
@@ -1009,7 +1009,7 @@ def make_lzifu_df(gals=None, make_master_df=False,
         df_spaxels["SFR error (component 1)"] = df_spaxels["SFR error (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
 
         # NaN the SFR surface density if the inclination is undefined
-        cond_NaN_inclination = np.isnan(df_spaxels["Inclination i (degrees)"])
+        cond_NaN_inclination = np.isnan(df_spaxels["i (degrees)"])
         cols = [c for c in df_spaxels.columns if "SFR surface density" in c]
         df_spaxels.loc[cond_NaN_inclination, cols] = np.nan
 
@@ -1121,9 +1121,9 @@ def make_lzifu_df(gals=None, make_master_df=False,
         ######################################################################
         # Save to .hd5
         ######################################################################
-        # Add catid column
-        df_spaxels["catid"] = gal
-        df_spaxels_extcorr["catid"] = gal
+        # Add ID column
+        df_spaxels["ID"] = gal
+        df_spaxels_extcorr["ID"] = gal
         df_spaxels.to_hdf(os.path.join(lzifu_data_path, df_fname), key=f"LZIFU")
         df_spaxels_extcorr.to_hdf(os.path.join(lzifu_data_path, df_fname_extcorr), key=f"LZIFU")
 
@@ -1149,7 +1149,7 @@ def make_lzifu_df(gals=None, make_master_df=False,
 
         # Add the information for the 0- and 1-component galaxies
         for gal in gals_good_1comp + gals_good_0comp:
-            df_gal = df_sami_extcorr[df_sami_extcorr["catid"] == gal] 
+            df_gal = df_sami_extcorr[df_sami_extcorr["ID"] == gal] 
             df_all_extcorr = pd.concat([df_all_extcorr, df_gal], ignore_index=True)
 
         #/////////////////////////////////////////////////////////////////
@@ -1159,7 +1159,7 @@ def make_lzifu_df(gals=None, make_master_df=False,
 
         # Add the information for the 0- and 1-component galaxies
         for gal in gals_good_1comp + gals_good_0comp:
-            df_gal = df_sami[df_sami["catid"] == gal] 
+            df_gal = df_sami[df_sami["ID"] == gal] 
             df_all = pd.concat([df_all, df_gal], ignore_index=True)
 
         ######################################################################

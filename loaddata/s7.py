@@ -121,35 +121,35 @@ def make_s7_metadata_df():
     ###############################################################################
     coords = SkyCoord(df_metadata["RA_hms"], df_metadata["Dec_sxgsml"],
                  unit=(u.hourangle, u.deg))
-    df_metadata["ra_obj"] = coords.ra.deg
-    df_metadata["dec_obj"] = coords.dec.deg
+    df_metadata["RA (J2000)"] = coords.ra.deg
+    df_metadata["Dec (J2000)"] = coords.dec.deg
 
     ###############################################################################
     # Rename columns
     ###############################################################################
     rename_dict = {
-        "S7_Name": "catid",
-        "HL_inclination": "Inclination i (degrees)",
+        "S7_Name": "ID",
+        "HL_inclination": "i (degrees)",
         "HL_Re": "R_e (arcsec)",
         "HL_Re_err": "R_e error (arcsec)",
         "NED_ax_ratio": "b/a",
         "NED_ax_ratio_err": "b/a error",
-        "HL_PA": "pa",
+        "HL_PA": "PA (degrees)",
         "S7_best_WiFeS_PA": "WiFeS PA",
-        "S7_Mstar": "mstar",
-        "S7_Mstar_err": "mstar error",
+        "S7_log M_*": "log M_*",
+        "S7_log M_*_err": "log M_* error",
         "S7_Sy1_subtraction?": "Sy1 subtraction?",
         "S7_mosaic?": "Mosaic?",
         "S7_BPT_classification": "BPT (global)",
-        "S7_z": "z_spec",
+        "S7_z": "z",
         "S7_nucleus_index_x": "x0 (pixels)",
         "S7_nucleus_index_y": "y0 (pixels)"
     }
     df_metadata = df_metadata.rename(columns=rename_dict)
-    df_metadata = df_metadata.set_index(df_metadata["catid"])
+    df_metadata = df_metadata.set_index(df_metadata["ID"])
 
     # Get rid of unneeded columns
-    good_cols = [rename_dict[k] for k in rename_dict.keys()] + ["ra_obj", "dec_obj"]
+    good_cols = [rename_dict[k] for k in rename_dict.keys()] + ["RA (J2000)", "Dec (J2000)"]
     df_metadata = df_metadata[good_cols]
 
     ###############################################################################
@@ -158,8 +158,8 @@ def make_s7_metadata_df():
     print(f"In make_s7_metadata_df(): Computing distances...")
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
     for gal in gals:
-        D_A_Mpc = cosmo.angular_diameter_distance(df_metadata.loc[gal, "z_spec"]).value
-        D_L_Mpc = cosmo.luminosity_distance(df_metadata.loc[gal, "z_spec"]).value
+        D_A_Mpc = cosmo.angular_diameter_distance(df_metadata.loc[gal, "z"]).value
+        D_L_Mpc = cosmo.luminosity_distance(df_metadata.loc[gal, "z"]).value
         df_metadata.loc[gal, "D_A (Mpc)"] = D_A_Mpc
         df_metadata.loc[gal, "D_L (Mpc)"] = D_L_Mpc
     df_metadata["kpc per arcsec"] = df_metadata["D_A (Mpc)"] * 1e3 * np.pi / 180.0 / 3600.0
@@ -498,17 +498,17 @@ def make_s7_df(bin_type="default", ncomponents="recom",
         ###############################################################################
         # Make a radius map
         radius_map = np.zeros((n_y, n_x))
-        x_0 = df_metadata.loc[df_metadata["catid"] == gal, "x0 (pixels)"].values[0]
-        y_0 = df_metadata.loc[df_metadata["catid"] == gal, "y0 (pixels)"].values[0]
+        x_0 = df_metadata.loc[df_metadata["ID"] == gal, "x0 (pixels)"].values[0]
+        y_0 = df_metadata.loc[df_metadata["ID"] == gal, "y0 (pixels)"].values[0]
         try:
-            i_rad = np.deg2rad(float(df_metadata.loc[df_metadata["catid"] == gal, "Inclination i (degrees)"].values[0]))
+            i_rad = np.deg2rad(float(df_metadata.loc[df_metadata["ID"] == gal, "i (degrees)"].values[0]))
         except:
             i_rad = 0  # Assume face-on if inclination isn't defined
         try:
-            PA_deg = float(df_metadata.loc[df_metadata["catid"] == gal, "pa"].values[0])
+            PA_deg = float(df_metadata.loc[df_metadata["ID"] == gal, "PA (degrees)"].values[0])
         except:
             PA_deg = 0  # Assume NE if inclination isn't defined
-        PA_obs_deg = float(df_metadata.loc[df_metadata["catid"] == gal, "WiFeS PA"].values[0])
+        PA_obs_deg = float(df_metadata.loc[df_metadata["ID"] == gal, "WiFeS PA"].values[0])
         beta_rad = np.deg2rad(PA_deg - 90 - PA_obs_deg)
         for xx, yy in product(range(n_x), range(n_y)):
             # De-shift, de-rotate & de-incline
@@ -594,7 +594,7 @@ def make_s7_df(bin_type="default", ncomponents="recom",
 
         # Append to the "master" data frane
         df_gal = pd.DataFrame(rows_list)
-        df_gal["catid"] = gal
+        df_gal["ID"] = gal
         df_spaxels = df_spaxels.append(df_gal)
 
     ###############################################################################
@@ -605,7 +605,7 @@ def make_s7_df(bin_type="default", ncomponents="recom",
     ###############################################################################
     # Merge with metadata
     ###############################################################################
-    df_spaxels = df_spaxels.merge(df_metadata, left_on="catid", right_index=True)
+    df_spaxels = df_spaxels.merge(df_metadata, left_on="ID", right_index=True)
 
     ###############################################################################
     # Compute the ORIGINAL number of components
@@ -648,7 +648,7 @@ def make_s7_df(bin_type="default", ncomponents="recom",
     ######################################################################
     df_spaxels["r/R_e"] = df_spaxels["r (relative to galaxy centre, deprojected, arcsec)"] / df_spaxels["R_e (arcsec)"]
     df_spaxels["R_e (kpc)"] = df_spaxels["R_e (arcsec)"] * df_spaxels["kpc per arcsec"]
-    df_spaxels["log(M/R_e)"] = df_spaxels["mstar"] - np.log10(df_spaxels["R_e (kpc)"])
+    df_spaxels["log(M/R_e)"] = df_spaxels["log M_*"] - np.log10(df_spaxels["R_e (kpc)"])
 
     ###############################################################################
     # Add spaxel scale
