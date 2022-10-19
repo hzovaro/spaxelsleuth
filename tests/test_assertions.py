@@ -182,13 +182,15 @@ assert all(df.loc[df[f"HALPHA continuum"].isna() | (df[f"HALPHA continuum"] <= 0
 #//////////////////////////////////////////////////////////////////////////////
 # CHECK: check no spaxels with non-SF BPT classifications have metallicities
 cond_no_met = df["BPT (total)"] != "SF"
-met_diagnostic = "N2O2"
-assert all(df.loc[cond_no_met, f"log(O/H) + 12 ({met_diagnostic}) (total)"].isna())
+met_cols = [c for c in df.columns if "log(O/H) + 12" in c or "log(U)" in c]
+for met_col in met_cols:
+    assert all(df.loc[cond_no_met, met_cols].isna())
 
-# CHECK: check no spaxels with no S/N in relevant emission lines have metallicities 
-cond_low_SN = df["OII3726+OII3729 S/N (total)"] < eline_SNR_min
-cond_low_SN |= df["NII6583 S/N (total)"] < eline_SNR_min
-assert all(df.loc[cond_low_SN, f"log(O/H) + 12 ({met_diagnostic}) (total)"].isna())
+# NOTE: need to change below to use updated column names for metallicity calculations
+# # CHECK: check no spaxels with no S/N in relevant emission lines have metallicities 
+# cond_low_SN = df["OII3726+OII3729 S/N (total)"] < eline_SNR_min
+# cond_low_SN |= df["NII6583 S/N (total)"] < eline_SNR_min
+# assert all(df.loc[cond_low_SN, f"log(O/H) + 12 ({met_diagnostic}) (total)"].isna())
 
 #//////////////////////////////////////////////////////////////////////////////
 # EXTINCTION CORRECTION TESTS 
