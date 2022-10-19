@@ -76,7 +76,7 @@ plot2dhistcontours(df, col_x="log sigma_gas (component 1)", col_y="log HALPHA EW
 ##############################################################################
 # Test: 2D map plots
 ##############################################################################
-gal = df["catid"].values[0]
-plot2dmap(df[df["catid"] == gal], survey="s7", bin_type=bin_type, col_z="HALPHA (total)", 
+gal = df["ID"].values[0]
+plot2dmap(df[df["ID"] == gal], survey="s7", bin_type=bin_type, col_z="HALPHA (total)", 
          vmax=None)
 

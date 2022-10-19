@@ -53,7 +53,7 @@ df = load_sami_df(ncomponents=ncomponents,
 ###########################################################################
 #//////////////////////////////////////////////////////////////////////////
 # SDSS image 
-plot_sdss_image(df[df.catid == df.catid.values[0]])
+plot_sdss_image(df[df["ID"] == df["ID"].values[0]])
 
 #//////////////////////////////////////////////////////////////////////////
 # 2D scatter, 2D hist 
@@ -73,7 +73,7 @@ for cc, col_x in enumerate(["log N2", "log S2", "log O1"]):
                   plot_colorbar=True if cc==2 else False)
 
     # Overlay measurements for a specific galaxy
-    plot2dscatter(df=df[df.catid == df.catid.values[0]],
+    plot2dscatter(df=df[df["ID"] == df["ID"].values[0]],
                   col_x=f"{col_x} (total)",
                   col_y=f"{col_y} (total)",
                   ax=axs_bpt[cc], 
@@ -81,6 +81,6 @@ for cc, col_x in enumerate(["log N2", "log S2", "log O1"]):
 
 #//////////////////////////////////////////////////////////////////////////
 # 2D map plot
-plot2dmap(df_gal=df[df.catid == df.catid.values[0]],
+plot2dmap(df_gal=df[df["ID"] == df["ID"].values[0]],
           col_z="BPT (numeric) (total)", bin_type=bin_type, survey="sami")
 

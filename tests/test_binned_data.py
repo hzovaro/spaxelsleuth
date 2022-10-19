@@ -60,8 +60,8 @@ df_snr = pd.read_csv(os.path.join(sami_data_path, "sample_summary.csv"))
 # Sort by median red S/N in 2R_e
 df_snr = df_snr.sort_values("Median SNR (R, 2R_e)", ascending=False)
 
-# Set index to catid for ease of indexing
-df_snr = df_snr.set_index("catid")
+# Set index to ID for ease of indexing
+df_snr = df_snr.set_index("ID")
 
 ###########################################################################
 # Plot to check
@@ -83,14 +83,14 @@ h = (1 - 2 * b - dh) / 2
 # Define galaxy
 ###########################################################################
 # Check validity
-assert gal in df_unbinned.catid.unique(), f"{gal} not found in SAMI sample!"
+assert gal in df_unbinned["ID"].unique(), f"{gal} not found in SAMI sample!"
 
 # Get the unbinned DataFrame for this galaxy
-df_gal_unbinned = df_unbinned[df_unbinned["catid"] == gal]
+df_gal_unbinned = df_unbinned[df_unbinned["ID"] == gal]
 df_gal_unbinned.loc[df_gal_unbinned["Number of components"] == 0, "Number of components"] = np.nan
 
 # Get the binned DataFrame for this galaxy
-df_gal_binned = df_binned[df_binned["catid"] == gal]
+df_gal_binned = df_binned[df_binned["ID"] == gal]
 df_gal_binned.loc[df_gal_binned["Number of components"] == 0, "Number of components"] = np.nan
 
 ###########################################################################
@@ -300,18 +300,18 @@ plot2dmap(df_gal=df_gal_unbinned, bin_type="default", survey="sami",
 
 # Text string showing basic info
 sfr = df_snr.loc[gal, 'SFR (component 1)']
-mstar = df_gal_unbinned["mstar"].unique()[0]
+log M_* = df_gal_unbinned["log M_*"].unique()[0]
 if np.isnan(sfr):
     sfr = "n/a"
 else:
     sfr = f"{sfr:.3f}" + r" $\rm M_\odot\,yr^{-1}$"
     
-if np.isnan(mstar):
-    mstar = r"$\log \rm \, M_\odot = $ n/a"
+if np.isnan(log M_*):
+    log M_* = r"$\log \rm \, M_\odot = $ n/a"
 else:
-    mstar = r"$\log \rm \, M_\odot = $" + f"{mstar:.2f}"
+    log M_* = r"$\log \rm \, M_\odot = $" + f"{log M_*:.2f}"
 
-t = axs_bpt[0].text(s=f"{gal}, {df_snr.loc[gal, 'Morphology']}, SFR = {sfr}, {mstar}, SNR = {df_snr.loc[gal, 'Median SNR (R, 2R_e)']:.2f}", 
+t = axs_bpt[0].text(s=f"{gal}, {df_snr.loc[gal, 'Morphology']}, SFR = {sfr}, {log M_*}, SNR = {df_snr.loc[gal, 'Median SNR (R, 2R_e)']:.2f}", 
     x=0.0, y=1.02, transform=axs_bpt[0].transAxes)
 
 # Plot BPT diagram
@@ -408,10 +408,10 @@ axs_bpt[-1].legend(handles=legend_elements, fontsize="x-small", loc="upper right
 # Define galaxy
 ###########################################################################
 # Check validity
-assert gal in df_binned.catid.values, f"{gal} not found in SAMI sample!"
+assert gal in df_binned["ID"].values, f"{gal} not found in SAMI sample!"
 
 # Load the DataFrame
-df_gal_binned = df_binned[df_binned["catid"] == gal]
+df_gal_binned = df_binned[df_binned["ID"] == gal]
 df_gal_binned.loc[df_gal_binned["Number of components"] == 0, "Number of components"] = np.nan
 
 ###########################################################################
@@ -451,18 +451,18 @@ plot2dmap(df_gal=df_gal_binned, bin_type="adaptive", survey="sami",
 
 # Text string showing basic info
 sfr = df_snr.loc[gal, 'SFR (component 1)']
-mstar = df_gal_binned["mstar"].unique()[0]
+log M_* = df_gal_binned["log M_*"].unique()[0]
 if np.isnan(sfr):
     sfr = "n/a"
 else:
     sfr = f"{sfr:.3f}" + r" $\rm M_\odot\,yr^{-1}$"
     
-if np.isnan(mstar):
-    mstar = r"$\log \rm \, M_\odot = $ n/a"
+if np.isnan(log M_*):
+    log M_* = r"$\log \rm \, M_\odot = $ n/a"
 else:
-    mstar = r"$\log \rm \, M_\odot = $" + f"{mstar:.2f}"
+    log M_* = r"$\log \rm \, M_\odot = $" + f"{log M_*:.2f}"
 
-t = axs_bpt[0].text(s=f"{gal}, {df_snr.loc[gal, 'Morphology']}, SFR = {sfr}, {mstar}, SNR = {df_snr.loc[gal, 'Median SNR (R, 2R_e)']:.2f}", 
+t = axs_bpt[0].text(s=f"{gal}, {df_snr.loc[gal, 'Morphology']}, SFR = {sfr}, {log M_*}, SNR = {df_snr.loc[gal, 'Median SNR (R, 2R_e)']:.2f}", 
     x=0.0, y=1.02, transform=axs_bpt[0].transAxes)
 
 # Plot BPT diagram
