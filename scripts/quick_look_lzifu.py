@@ -77,7 +77,7 @@ else:
                                  ncomponents=ncomponents,
                                  eline_SNR_min=eline_SNR_min,
                                  correct_extinction=True)    
-    gals = df_all.catid.unique()
+    gals = df_all["ID"].unique()
 
     if debug:
         gals = gals[:1]
@@ -87,7 +87,7 @@ for gal in tqdm(gals):
     # try:
         # Load the DataFrame
         if df_all is not None:
-            df_gal = df_all[df_all["catid"] == gal]
+            df_gal = df_all[df_all["ID"] == gal]
         else:
             df_gal = load_lzifu_df(gal=gal, 
                                          bin_type=bin_type, 

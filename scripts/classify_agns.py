@@ -123,9 +123,9 @@ for gal in tqdm(gals):
         # print(f"GAMA {gal} not found in NED, using cone search...")
         
         # Look up coordinates instead
-        ra = df_ap_elines.loc[gal, "ra_obj"]
-        dec = df_ap_elines.loc[gal, "dec_obj"]
-        z = df_ap_elines.loc[gal, "z_spec"]
+        ra = df_ap_elines.loc[gal, "RA (J2000)"]
+        dec = df_ap_elines.loc[gal, "Dec (J2000)"]
+        z = df_ap_elines.loc[gal, "z"]
         coords = SkyCoord(ra=ra, dec=dec, unit=(u.deg, u.deg), frame="icrs")
         table_region = Ned.query_region(coordinates=coords, radius=30 * u.arcsec)
         

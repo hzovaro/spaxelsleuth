@@ -66,8 +66,8 @@ df_snr = pd.read_csv(os.path.join(sami_data_path, "sample_summary.csv"))
 # Sort by median red S/N in 2R_e
 df_snr = df_snr.sort_values("Median SNR (R, 2R_e)", ascending=False)
 
-# Set index to catid for ease of indexing
-df_snr = df_snr.set_index("catid")
+# Set index to ID for ease of indexing
+df_snr = df_snr.set_index("ID")
 
 ###########################################################################
 # Check input
@@ -76,8 +76,8 @@ if len(sys.argv) > 1:
     gals = [int(g) for g in sys.argv[1:]]
     for gal in gals:
         assert gal.isdigit(), "each gal given must be an integer!"
-        assert gal in df_sami.catid, f"{gal} not found in SAMI sample!"
-        assert df_snr.loc[gal, "z_spec"] > 0.072035, f"{gal} does not have coverage of Na D in the SAMI data!"
+        assert gal in df_sami["ID"], f"{gal} not found in SAMI sample!"
+        assert df_snr.loc[gal, "z"] > 0.072035, f"{gal} does not have coverage of Na D in the SAMI data!"
 else:
     gals = df_snr.index.values
 
@@ -116,7 +116,7 @@ if savefigs:
 for gal in gals:
 
     # Load the DataFrame
-    df_gal = df_sami[df_sami["catid"] == gal]
+    df_gal = df_sami[df_sami["ID"] == gal]
     df_gal.loc[df_gal["Number of components"] == 0, "Number of components"] = np.nan
 
     ###########################################################################
@@ -256,7 +256,7 @@ for gal in gals:
     var_cube_R = hdulist_R_cube[1].data
 
     # Get wavelength values 
-    z = df_snr.loc[gal, "z_spec"]
+    z = df_snr.loc[gal, "z"]
     lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
     dlambda_A = header["CDELT3"]
     N_lambda = header["NAXIS3"]

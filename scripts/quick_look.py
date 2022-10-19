@@ -55,8 +55,8 @@ df_snr = pd.read_hdf(os.path.join(sami_data_path, "sami_dr3_metadata_extended.hd
 # Sort by median red S/N in 2R_e
 df_snr = df_snr.sort_values("Median SNR (R, 2R_e)", ascending=False)
 
-# Set index to catid for ease of indexing
-df_snr = df_snr.set_index("catid")
+# Set index to ID for ease of indexing
+df_snr = df_snr.set_index("ID")
 
 ###########################################################################
 # Check input
@@ -92,7 +92,7 @@ w = (1 - 2 * l - 2 * dw) / 5
 h = (1 - 2 * b - dh) / 2
 
 # Load the DataFrame
-df_gal = df_sami[df_sami["catid"] == gal]
+df_gal = df_sami[df_sami["ID"] == gal]
 df_gal.loc[df_gal["Number of components"] == 0, "Number of components"] = np.nan
 
 ###########################################################################
@@ -237,7 +237,7 @@ data_cube_R = hdulist_R_cube[0].data
 var_cube_R = hdulist_R_cube[1].data
 
 # Get wavelength values 
-z = df_snr.loc[gal, "z_spec"]
+z = df_snr.loc[gal, "z"]
 lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
 dlambda_A = header["CDELT3"]
 N_lambda = header["NAXIS3"]

@@ -64,7 +64,7 @@ if len(sys.argv) > 1:
     gals = sys.argv[1:]
     for gal in gals:
         assert gal.isdigit(), "each gal given must be an integer!"
-        assert int(gal) in df_sami.catid.values, f"{gal} not found in SAMI sample!"
+        assert int(gal) in df_sami["ID"].values, f"{gal} not found in SAMI sample!"
     gals = [int(g) for g in gals]
 else:
     # Load the SNR DataFrame.
@@ -74,9 +74,9 @@ else:
     df_snr = df_snr.sort_values("Median SNR (R, 2R_e)", ascending=False)
 
     # Make a redshift cut to ensure that Na D is in the wavelength range 
-    df_snr = df_snr[df_snr["z_spec"] > 0.072035]
+    df_snr = df_snr[df_snr["z"] > 0.072035]
 
-    df_snr = df_snr.set_index("catid")
+    df_snr = df_snr.set_index("ID")
     gals = df_snr.index.values
 
 ###########################################################################
@@ -97,7 +97,7 @@ mask_area_px = len(mask[mask])
 mask_area_arcsec2 = mask_area_px * as_per_px**2
 
 for gal in gals:
-    df_gal = df_sami[df_sami["catid"] == gal]
+    df_gal = df_sami[df_sami["ID"] == gal]
 
     ###########################################################################
     # Figure 
@@ -164,7 +164,7 @@ for gal in gals:
     var_cube_R = hdulist_R_cube[1].data
 
     # Get wavelength values 
-    z = df_snr.loc[gal, "z_spec"]
+    z = df_snr.loc[gal, "z"]
     lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
     dlambda_A = header["CDELT3"]
     N_lambda = header["NAXIS3"]
