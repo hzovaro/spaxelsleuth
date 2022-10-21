@@ -492,7 +492,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     ###############################################################################
     common_cols = [c for c in df_metadata.columns if c not in df_snr.columns]
     df_snr = df_snr.set_index("ID")
-    df_snr = pd.concat([df_snr, df_metadata], axis=1)
+    df_metadata = pd.concat([df_snr, df_metadata], axis=1)
 
     ###########################################################################
     # Save to file
@@ -928,14 +928,18 @@ def _process_gals(args):
 
 ###############################################################################
 def make_sami_df(bin_type="default", ncomponents="recom", 
-                 line_flux_SNR_cut=True, eline_SNR_min=5,
-                 vgrad_cut=False ,
-                 sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
+                 eline_SNR_min=5, sigma_gas_SNR_min=3,
+                 eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", 
+                             "OII3726+OII3729", "OIII5007", 
+                             "SII6716", "SII6731"],
+                 line_flux_SNR_cut=True,
+                 missing_fluxes_cut=True,
                  line_amplitude_SNR_cut=True,
                  flux_fraction_cut=False,
+                 sigma_gas_SNR_cut=True, 
+                 vgrad_cut=False,
                  stekin_cut=True,
                  correct_extinction=True,
-                 eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
                  nthreads_max=20, debug=False):
     """
     DESCRIPTION
@@ -982,25 +986,25 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     eline_SNR_min:      int 
         Minimum emission line flux S/N to assume.
 
-    line_flux_SNR_cut:          bool
-        If True, make a S/N cut on all emission line components and associated
-        quantities with flux S/N below eline_SNR_min.
-
-    vgrad_cut:                  bool         
-        If True, mask component kinematics (velocity and velocity dispersion)
-        that are likely to be affected by beam smearing.
-        By default this is set to False b/c it tends to remove nuclear spaxels 
-        which may be of interest to your science case, & because it doesn't 
-        reliably remove spaxels with quite large beam smearing components
-
-    sigma_gas_SNR_cut:          bool
-        If True, mask component velocity dispersions where the S/N on the 
-        velocity dispersion measurement is below sigma_gas_SNR_min. 
-        By default this is set to True b/c it's a robust way to account for 
-        emission line widths < instrumental.
-
     sigma_gas_SNR_min:          int
         Minimum velocity dipersion S/N to accept.
+
+    correct_extinction:         bool
+        If True, correct emission line fluxes for extinction. 
+        NOTE: metallicities are ONLY computed if correct_extinction is True,
+        due to the large spacing in wavelength between the emission lines 
+        used in some diagnostics.
+
+    line_flux_SNR_cut:      bool
+        Whether to NaN emission line components AND total fluxes 
+        (corresponding to emission lines in eline_list) below a specified S/N 
+        threshold, given by eline_SNR_min. The S/N is simply the flux dividied 
+        by the formal 1sigma uncertainty on the flux. 
+
+    missing_fluxes_cut:         bool
+        Whether to NaN out "missing" fluxes - i.e., cells in which the flux
+        of an emission line (total or per component) is NaN, but the error 
+        is not for some reason.
 
     line_amplitude_SNR_cut:     bool
         If True, removes components with Gaussian amplitudes < 3 * RMS of the 
@@ -1014,15 +1018,22 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         Set to False by default b/c it's unclear whether this is needed to 
         reject unreliable components.
 
+    sigma_gas_SNR_cut:          bool
+        If True, mask component velocity dispersions where the S/N on the 
+        velocity dispersion measurement is below sigma_gas_SNR_min. 
+        By default this is set to True b/c it's a robust way to account for 
+        emission line widths < instrumental.
+
+    vgrad_cut:                  bool         
+        If True, mask component kinematics (velocity and velocity dispersion)
+        that are likely to be affected by beam smearing.
+        By default this is set to False b/c it tends to remove nuclear spaxels 
+        which may be of interest to your science case, & because it doesn't 
+        reliably remove spaxels with quite large beam smearing components
+
     stekin_cut:                 bool
         If True, mask stellar kinematic quantities that do not meet the DQ and 
         S/N requirements specified in Croom et al. (2021). True by default.
-
-    correct_extinction:         bool
-        If True, correct emission line fluxes for extinction. 
-        NOTE: metallicities are ONLY computed if correct_extinction is True,
-        due to the large spacing in wavelength between the emission lines 
-        used in some diagnostics.
 
     eline_list:                 list of str
         Default SAMI emission lines - don't change this!
@@ -1357,18 +1368,24 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ######################################################################
     # DQ and S/N CUTS
     ######################################################################
-    df_spaxels = dqcut.dqcut(df=df_spaxels, 
+    df_spaxels = dqcut.set_flags(df=df_spaxels, 
                   ncomponents=3 if ncomponents == "recom" else 1,
-                  line_flux_SNR_cut=line_flux_SNR_cut,
                   eline_SNR_min=eline_SNR_min, eline_list=eline_list,
-                  sigma_gas_SNR_cut=sigma_gas_SNR_cut,
                   sigma_gas_SNR_min=sigma_gas_SNR_min,
-                  sigma_inst_kms=29.6,
-                  vgrad_cut=vgrad_cut,
-                  line_amplitude_SNR_cut=line_amplitude_SNR_cut,
-                  flux_fraction_cut=flux_fraction_cut,
-                  stekin_cut=stekin_cut)
+                  sigma_inst_kms=29.6)
 
+    # Apply S/N and DQ cuts
+    df_spaxels = dqcut.apply_flags(df=df_spaxels, 
+                                   ncomponents=3 if ncomponents == "recom" else 1,
+                                   line_flux_SNR_cut=line_flux_SNR_cut,
+                                   missing_fluxes_cut=missing_fluxes_cut,
+                                   line_amplitude_SNR_cut=line_amplitude_SNR_cut,
+                                   flux_fraction_cut=flux_fraction_cut,
+                                   vgrad_cut=vgrad_cut,
+                                   sigma_gas_SNR_cut=sigma_gas_SNR_cut,
+                                   stekin_cut=stekin_cut,
+                                   eline_list=eline_list)              
+    
     ######################################################################
     # Make a copy of the DataFrame with EXTINCTION CORRECTION
     # Correct emission line fluxes (but not EWs!)
@@ -1419,17 +1436,17 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ###############################################################################
     # Save input flags to the DataFrame so that we can keep track
     ###############################################################################
-    df_spaxels["Extinction correction applied"] = correct_extinction
-    df_spaxels["line_flux_SNR_cut"] = line_flux_SNR_cut
     df_spaxels["eline_SNR_min"] = eline_SNR_min
     df_spaxels["sigma_gas_SNR_min"] = sigma_gas_SNR_min
-    df_spaxels["vgrad_cut"] = vgrad_cut
-    df_spaxels["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
-    df_spaxels["sigma_gas_SNR_min"] = sigma_gas_SNR_min
+    df_spaxels["Extinction correction applied"] = correct_extinction
+    df_spaxels["line_flux_SNR_cut"] = line_flux_SNR_cut
+    df_spaxels["missing_fluxes_cut"] = missing_fluxes_cut
     df_spaxels["line_amplitude_SNR_cut"] = line_amplitude_SNR_cut
     df_spaxels["flux_fraction_cut"] = flux_fraction_cut
+    df_spaxels["vgrad_cut"] = vgrad_cut
+    df_spaxels["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
     df_spaxels["stekin_cut"] = stekin_cut
-
+    
     ###############################################################################
     # Save to .hd5 & .csv
     ###############################################################################
@@ -1446,13 +1463,14 @@ def make_sami_df(bin_type="default", ncomponents="recom",
 
 ###############################################################################
 def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
-                       debug=False):
+                 debug=False):
 
     """
     DESCRIPTION
     ---------------------------------------------------------------------------
     Load and return the Pandas DataFrame containing spaxel-by-spaxel 
-    information for all SAMI galaxies which was created using make_sami_df().
+    information for all SAMI galaxies which was created using make_sami_df(),
+    making a series of optional S/N and data quality cuts.
 
     INPUTS
     ---------------------------------------------------------------------------
@@ -1473,7 +1491,11 @@ def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
         Minimum flux S/N to accept. Fluxes below the threshold (plus associated
         data products) are set to NaN.
 
-    debug:              bool
+    eline_list:                 list of str
+        List of emission lines to which the flagging operations are applied
+        for S/N cuts, etc. 
+
+    debug:                      bool
         If True, load the "debug" version of the DataFrame created when 
         running make_sami_df() with debug=True.
     
