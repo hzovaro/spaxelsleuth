@@ -349,7 +349,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     a_g               g-band extinction - keep
     bad_class         Flag for bad or problem objects - 0, 5 and 8 are "good" - keep
     catid             SAMI Galaxy ID - keep
-    dec_ifu           drop
+    dec_ifu           J2000 Declination of IFU - keep
     dec_obj           J2000 Declination of object - keep
     ellip             r-band ellipticity - ???
     fillflag          Flag for different filler classes - drop
@@ -365,7 +365,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     r_e               r-band major axis effective radius - ????
     r_on_rtwo         Projected distance from cluster centre normalised by R200 - keep
     r_petro           Extinction-corrected r-band Petrosian mag - drop
-    ra_ifu            Drop
+    ra_ifu            J2000 Right Ascension of IFU - keep
     ra_obj            J2000 Right Ascension of object - keep
     surv_sami         Drop
     v_on_sigma,       Line-of-sight velocity relative to cluster redshift normalised by cluster velocity dispersion measured within R200 - keep
@@ -440,6 +440,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     df_metadata["R_e (kpc)"] = df_metadata["R_e (arcsec)"] * df_metadata["kpc per arcsec"]
     df_metadata["R_e (MGE) (kpc)"] = df_metadata["R_e (MGE) (arcsec)"] * df_metadata["kpc per arcsec"]
     df_metadata["log(M/R_e)"] = df_metadata["log M_*"] - np.log10(df_metadata["R_e (kpc)"])
+    df_metadata["log(M/R_e^2)"] = df_metadata["log M_*"] - 2 * np.log10(df_metadata["R_e (kpc)"])
 
     ###########################################################################
     # Compute inclination
@@ -575,20 +576,20 @@ def _process_gals(args):
     lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
     dlambda_A = header["CDELT3"]
     N_lambda = header["NAXIS3"]
-    lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
+    lambda_vals_B_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
 
     # Compute the D4000Å break
     # Definition from Balogh+1999 (see here: https://arxiv.org/pdf/1611.07050.pdf, page 3)
-    start_b_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 3850))
-    stop_b_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 3950))
-    start_r_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 4000))
-    stop_r_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 4100))
+    start_b_idx = np.nanargmin(np.abs(lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"]) - 3850))
+    stop_b_idx = np.nanargmin(np.abs(lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"]) - 3950))
+    start_r_idx = np.nanargmin(np.abs(lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"]) - 4000))
+    stop_r_idx = np.nanargmin(np.abs(lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"]) - 4100))
     N_b = stop_b_idx - start_b_idx
     N_r = stop_r_idx - start_r_idx
 
     # Convert datacube & variance cubes to units of F_nu
-    data_cube_B_Hz = data_cube_B * lambda_vals_A[:, None, None]**2 / (constants.c * 1e10)
-    var_cube_B_Hz2 = var_cube_B * (lambda_vals_A[:, None, None]**2 / (constants.c * 1e10))**2
+    data_cube_B_Hz = data_cube_B * lambda_vals_B_A[:, None, None]**2 / (constants.c * 1e10)
+    var_cube_B_Hz2 = var_cube_B * (lambda_vals_B_A[:, None, None]**2 / (constants.c * 1e10))**2
 
     num = np.nanmean(data_cube_B_Hz[start_r_idx:stop_r_idx], axis=0)
     denom = np.nanmean(data_cube_B_Hz[start_b_idx:stop_b_idx], axis=0)
@@ -611,11 +612,11 @@ def _process_gals(args):
     lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
     dlambda_A = header["CDELT3"]
     N_lambda = header["NAXIS3"]
-    lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
+    lambda_vals_R_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
 
     # Compute continuum intensity
-    start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 6500))
-    stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 6540))
+    start_idx = np.nanargmin(np.abs(lambda_vals_R_A / (1 + df_metadata.loc[gal, "z"]) - 6500))
+    stop_idx = np.nanargmin(np.abs(lambda_vals_R_A / (1 + df_metadata.loc[gal, "z"]) - 6540))
     cont_HALPHA_map = np.nanmean(data_cube_R[start_idx:stop_idx], axis=0)
     cont_HALPHA_map_std = np.nanstd(data_cube_R[start_idx:stop_idx], axis=0)
     cont_HALPHA_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_R[start_idx:stop_idx], axis=0))
@@ -632,11 +633,11 @@ def _process_gals(args):
     lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
     dlambda_A = header["CDELT3"]
     N_lambda = header["NAXIS3"]
-    lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
+    lambda_vals_B_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
 
     # Compute continuum intensity
-    start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 4000))
-    stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_metadata.loc[gal, "z"]) - 5000))
+    start_idx = np.nanargmin(np.abs(lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"]) - 4000))
+    stop_idx = np.nanargmin(np.abs(lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"]) - 5000))
     cont_B_map = np.nanmean(data_cube_B[start_idx:stop_idx], axis=0)
     cont_B_map_std = np.nanstd(data_cube_B[start_idx:stop_idx], axis=0)
     cont_B_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_B[start_idx:stop_idx], axis=0))
@@ -656,6 +657,42 @@ def _process_gals(args):
     for yy, xx in product(range(1, 49), range(1, 49)):
         v_grad[:, yy, xx] = np.sqrt(((v[:, yy, xx + 1] - v[:, yy, xx - 1]) / 2)**2 +\
                                     ((v[:, yy + 1, xx] - v[:, yy - 1, xx]) / 2)**2)
+    
+    #######################################################################
+    # Measure the HALPHA amplitude-to-noise
+    # We measure this as 
+    #       (peak spectral value in window around Ha - mean R continuum flux density) / standard deviation in R continuum flux density 
+    # As such, this value can be negative. 
+    lambda_vals_rest_R_A = lambda_vals_R_A / (1 + df_metadata.loc[gal, "z"])
+    lambda_vals_rest_R_A_cube = np.zeros(data_cube_R.shape)
+    lambda_vals_rest_R_A_cube[:] = lambda_vals_rest_R_A[:, None, None]
+
+    dv = 300
+    lambda_c_A = dqcut.get_wavelength_from_velocity(6562.8, v[0], units="km/s")
+    lambda_max_A = dqcut.get_wavelength_from_velocity(6562.8, v[0] + dv, units="km/s")
+    lambda_min_A = dqcut.get_wavelength_from_velocity(6562.8, v[0] - dv, units="km/s")
+
+    # Measure HALPHA amplitude-to-noise 
+    # Store as "meas" to distinguish from A/N measurements for individual
+    # emission line components 
+    A_HALPHA_mask = (lambda_vals_rest_R_A_cube > lambda_min_A) & (lambda_vals_rest_R_A_cube < lambda_max_A)
+    data_cube_masked_R = np.copy(data_cube_R)
+    data_cube_masked_R[~A_HALPHA_mask] = np.nan
+    A_HALPHA_map = np.nanmax(data_cube_masked_R, axis=0)
+    AN_HALPHA_map = (A_HALPHA_map - cont_HALPHA_map) / cont_HALPHA_map_std
+
+    """
+    # Debugging... 
+    fig, axs = plt.subplots(figsize=(15, 10), nrows=3)
+    for ii, (rr, cc) in enumerate([(20, 20), (25, 25), (30, 30)]):
+        axs[ii].plot(lambda_vals_rest_R_A, data_cube_R[:, rr, cc], "k")
+        axs[ii].axvspan(lambda_min_A[rr, cc], lambda_max_A[rr, cc], alpha=0.2)
+        axs[ii].axvspan(6500, 6540, alpha=0.2)
+        axs[ii].axvline(lambda_c_A[rr, cc])
+        axs[ii].axhline(A_HALPHA_map[rr, cc], color="grey", linestyle="--")
+        axs[ii].text(x=0.1, y=0.9, s=f"Ha A/N = {AN_HALPHA_map[rr, cc]:.2f}", transform=axs[ii].transAxes)
+    Tracer()()
+    """
 
     hdulist_v.close()
 
@@ -824,6 +861,20 @@ def _process_gals(args):
             thisrow[jj] = v_grad[nn, y, x]
         rows_list.append(thisrow)
         colnames.append(f"v_grad (component {nn + 1})")       
+
+    ####################################################################### 
+    # Do the same but with HALPHA amplitude-to-noise
+    thisrow = np.full_like(x_c_list, np.nan, dtype="float")
+    thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
+    for jj, coords in enumerate(zip(x_c_list, y_c_list)):
+        x_c, y_c = coords
+        y, x = (int(np.round(y_c)), int(np.round(x_c)))
+        if x > 49 or y > 49:
+            x = min([x, 49])
+            y = min([y, 49])
+        thisrow[jj] = AN_HALPHA_map[y, x]
+    rows_list.append(thisrow)
+    colnames.append(f"HALPHA A/N (measured)")       
 
     #######################################################################
     # Do the same but with the continuum intensity for calculating the HALPHA EW
@@ -1590,11 +1641,11 @@ def make_sami_aperture_df(eline_SNR_min,
 
     OUTPUTS
     ---------------------------------------------------------------------------
-    The DataFrames (one with extinction correction, and one withou) are saved 
+    The DataFrames (one with extinction correction, and one without) are saved 
     to 
 
-        SAMI_DIR/sami_apertures_minSNR={eline_SNR_min}.hd5
-    and SAMI_DIR/sami_apertures_minSNR={eline_SNR_min}.hd5
+        SAMI_DIR/sami_apertures_<extcorr>_minSNR={eline_SNR_min}.hd5
+    and SAMI_DIR/sami_apertures_<extcorr>_minSNR={eline_SNR_min}.hd5
 
     """
     #######################################################################
