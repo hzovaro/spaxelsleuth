@@ -1670,9 +1670,19 @@ def make_sami_aperture_df(eline_SNR_min,
     # Open the .csv file containing the table 
     ###########################################################################
     data_path = os.path.join(__file__.split("loaddata")[0], "data")
-    df_ap = pd.read_csv(os.path.join(data_path, "sami_EmissionLine1compDR3.csv"))
-    df_ap = df_ap.set_index("catid").drop("Unnamed: 0", axis=1)
-    df_ap = df_ap.rename(columns={"catid": "ID"})
+    
+    # Emission line info
+    df_ap_elines = pd.read_csv(os.path.join(data_path, "sami_EmissionLine1compDR3.csv"))
+    df_ap_elines = df_ap_elines.set_index("catid").drop("Unnamed: 0", axis=1)
+    df_ap_elines = df_ap_elines.rename(columns={"catid": "ID"})
+    
+    # SSP info
+    df_ap_ssp = pd.read_csv(os.path.join(data_path, "sami_SSPAperturesDR3.csv"))
+    df_ap_ssp = df_ap_ssp.set_index("catid").drop("Unnamed: 0", axis=1)
+    df_ap_ssp = df_ap_ssp.rename(columns={"catid": "ID"})
+
+    # Merge 
+    df_ap = df_ap_elines.merge(df_ap_ssp, left_index=True, right_index=True).drop("cubeid_x", axis=1)
 
     # Drop duplicate rows 
     df_ap = df_ap[~df_ap.index.duplicated(keep="first")]
@@ -1715,6 +1725,15 @@ def make_sami_aperture_df(eline_SNR_min,
     old_cols_14 = [col for col in df_ap.columns if "(1 4" in col]
     new_cols_14 = [col.replace("(1 4", "(1.4") for col in old_cols_14]
     rename_dict = dict(zip(old_cols_14, new_cols_14))
+    df_ap = df_ap.rename(columns=rename_dict)
+
+    old_cols_ssp = [col for col in df_ap.columns if "AGE" in col] +\
+                   [col for col in df_ap.columns if "Z" in col] +\
+                   [col for col in df_ap.columns if "AGE" in col]
+    new_cols_ssp = [col.replace("AGE", "Stellar age (Gyr)") for col in old_cols_ssp] +\
+                   [col.replace("Z", "Stellar [Z/H]") for col in old_cols_ssp] +\
+                   [col.replace("ALPHA", "Stellar [alpha/Fe]") for col in old_cols_ssp]
+    rename_dict = dict(zip(old_cols_ssp, new_cols_ssp))
     df_ap = df_ap.rename(columns=rename_dict)
 
     ######################################################################
