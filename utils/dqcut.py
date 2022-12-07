@@ -14,8 +14,12 @@ get_wavelength_from_velocity()
     Convenience function for computing a Doppler-shifted wavelength given a 
     velocity and a rest-frame wavelength.
 
-dqcut()
-    A function for making data quality & S/N cuts on rows of a given DataFrame.
+set_flags()
+    A function for flagging cells affected by data quality & S/N cuts in a 
+    given DataFrame.
+
+apply_flags()
+    Applies cuts to the flagged cells determined in set_flags().
 
 compute_log_columns()
     Compute log quantities + errors for Halpha EW, sigma_gas, SFRs and [SII]
@@ -61,58 +65,14 @@ def get_wavelength_from_velocity(lambda_rest, v, units):
     return lambda_obs
 
 ###############################################################################
-def dqcut(df, ncomponents,
+def set_flags(df, ncomponents,
               eline_SNR_min, eline_list,
-              missing_fluxes_cut=True,
-              line_flux_SNR_cut=True, 
-              line_amplitude_SNR_cut=True,
-              flux_fraction_cut=False,
-              sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3, sigma_inst_kms=29.6,
-              vgrad_cut=False,
-              stekin_cut=True):
+              sigma_gas_SNR_min=3, sigma_inst_kms=29.6):
     """
     A function for making data quality & S/N cuts on rows of a given DataFrame.
 
     This function can be used to determine whether certain cells pass or fail 
     a number of data quality and S/N criteria. 
-
-    The following flags control whether affected cells are masked or not (i.e., 
-    set to NaN). 
-    --------------------------------------------------------------------------
-
-    missing_fluxes_cut:     bool
-        Whether to NaN out "missing" fluxes - i.e., cells in which the flux
-        of an emission line (total or per component) is NaN, but the error 
-        is not for some reason.
-    
-    line_flux_SNR_cut:      bool
-        Whether to NaN emission line components AND total fluxes 
-        (corresponding to emission lines in eline_list) below a specified S/N 
-        threshold, given by eline_SNR_min. The S/N is simply the flux dividied 
-        by the formal 1sigma uncertainty on the flux. 
-
-    line_amplitude_SNR_cut: bool     
-        Whether to NaN emission line components based on the amplitude of the
-        Gaussian fit. If the amplitude A < 3 * the rms continuum noise 
-        (measured in the vicinity of Halpha) then the flag is set to True.
-
-    flux_fraction_cut:      bool
-        Whether to NaN emission line components in which the amplitude is less
-        than 0.05 * the amplitude of the narrowest component. Only applies to
-        components > 1.         
-
-    sigma_gas_SNR_cut:      bool 
-        Whether to NaN gas velocity dispersions with a S/N < sigma_gas_SNR_min. 
-        This follows the method of Zhou+2017.
-
-    vgrad_cut:              bool
-        Whether to NaN gas velocities and velocity dispersions in which 
-            sigma_gas < 2 * v_grad 
-        as per Federrath+2017 and Zhou+2017.
-
-    stekin_cut:             bool
-        Whether to NaN stellar kinematic quantities that do not meet the DQ 
-        requirements listed in Croom+2021.
 
     """
     def isdup(df):
@@ -157,7 +117,7 @@ def dqcut(df, ncomponents,
     """
     ######################################################################
     print("////////////////////////////////////////////////////////////////////")
-    print("In dqcut.dqcut(): Flagging low S/N components and spaxels...")
+    print("In dqcut.set_flags(): Flagging low S/N components and spaxels...")
     for eline in eline_list:
         # Fluxes in individual components
         for nn in range(ncomponents):
@@ -174,7 +134,7 @@ def dqcut(df, ncomponents,
     # Flag emission lines with "missing" (i.e. NaN) fluxes in which the 
     # ERROR on the flux is not NaN
     ######################################################################
-    print("In dqcut.dqcut(): Flagging components and spaxels with NaN fluxes and finite errors...")
+    print("In dqcut.set_flags(): Flagging components and spaxels with NaN fluxes and finite errors...")
     for eline in eline_list:
         # Fluxes in individual components
         for nn in range(ncomponents):
@@ -204,7 +164,7 @@ def dqcut(df, ncomponents,
     """
     ######################################################################
     # Compute the amplitude corresponding to each component
-    print("In dqcut.dqcut(): Flagging components with amplitude < 3 * rms continuum noise...")
+    print("In dqcut.set_flags(): Flagging components with amplitude < 3 * rms continuum noise...")
     for eline in eline_list:
         if f"{eline} (component 1)" in df:
             lambda_rest_A = eline_lambdas_A[eline]
@@ -242,7 +202,7 @@ def dqcut(df, ncomponents,
     ######################################################################
     # Flag rows where the flux ratio of the broad:narrow component < 0.05 (using the method of Avery+2021)
     ######################################################################
-    print("In dqcut.dqcut(): Flagging spaxels where the flux ratio of the broad:narrow component < 0.05...")
+    print("In dqcut.set_flags(): Flagging spaxels where the flux ratio of the broad:narrow component < 0.05...")
     if ncomponents > 1:
         for nn in range(1, ncomponents):
             for eline in eline_list:
@@ -253,7 +213,7 @@ def dqcut(df, ncomponents,
     ######################################################################
     # Flag rows that don't meet the beam smearing requirement
     ######################################################################
-    print("In dqcut.dqcut(): Flagging components likely to be affected by beam smearing...")
+    print("In dqcut.set_flags(): Flagging components likely to be affected by beam smearing...")
     # Gas kinematics: beam semaring criteria of Federrath+2017 and Zhou+2017.
     for nn in range(ncomponents):
         if f"v_grad (component {nn + 1})" in df:
@@ -263,7 +223,7 @@ def dqcut(df, ncomponents,
     ######################################################################
     # Flag rows with insufficient S/N in sigma_gas
     ######################################################################
-    print("In dqcut.dqcut(): Flagging components with low sigma_gas S/N...")
+    print("In dqcut.set_flags(): Flagging components with low sigma_gas S/N...")
     # Gas kinematics: NaN out cells w/ sigma_gas S/N ratio < sigma_gas_SNR_min 
     # (For SAMI, the red arm resolution is 29.6 km/s - see p6 of Croom+2021)
     for nn in range(ncomponents):
@@ -284,7 +244,7 @@ def dqcut(df, ncomponents,
     ######################################################################
     # Stellar kinematics DQ cut
     ######################################################################
-    print("In dqcut.dqcut(): Flagging spaxels with unreliable stellar kinematics...")
+    print("In dqcut.set_flags(): Flagging spaxels with unreliable stellar kinematics...")
     # Stellar kinematics: NaN out cells that don't meet the criteria given  
     # on page 18 of Croom+2021
     if all([c in df.columns for c in ["sigma_*", "v_*"]]):
@@ -296,13 +256,66 @@ def dqcut(df, ncomponents,
         cond_bad_stekin |= df["sigma_*"].isna()
         cond_bad_stekin |= df["sigma_* error"].isna()
         df.loc[cond_bad_stekin, "Bad stellar kinematics"] = True
-        
-    ######################################################################
-    # NaN out columns!
-    ######################################################################
+
+    return df
+     
+######################################################################
+# Function for NaNing out cells based on the flags applied in dqcut()
+def apply_flags(df, ncomponents,
+                eline_list,
+                line_flux_SNR_cut, 
+                missing_fluxes_cut,
+                line_amplitude_SNR_cut,
+                flux_fraction_cut,
+                sigma_gas_SNR_cut,
+                vgrad_cut,
+                stekin_cut):
+    """
+    Apply the data quality & S/N cuts on cells of a given DataFrame based on
+    the flags that were defined in set_flags().
+
+    The following flags control whether affected cells are masked or not (i.e., 
+    set to NaN). 
+    --------------------------------------------------------------------------
+
+    line_flux_SNR_cut:      bool
+        Whether to NaN emission line components AND total fluxes 
+        (corresponding to emission lines in eline_list) below a specified S/N 
+        threshold, given by eline_SNR_min. The S/N is simply the flux dividied 
+        by the formal 1sigma uncertainty on the flux. 
+
+    missing_fluxes_cut:     bool
+        Whether to NaN out "missing" fluxes - i.e., cells in which the flux
+        of an emission line (total or per component) is NaN, but the error 
+        is not for some reason.    
+
+    line_amplitude_SNR_cut: bool     
+        Whether to NaN emission line components based on the amplitude of the
+        Gaussian fit. If the amplitude A < 3 * the rms continuum noise 
+        (measured in the vicinity of Halpha) then the flag is set to True.
+
+    flux_fraction_cut:      bool
+        Whether to NaN emission line components in which the amplitude is less
+        than 0.05 * the amplitude of the narrowest component. Only applies to
+        components > 1.         
+
+    sigma_gas_SNR_cut:      bool 
+        Whether to NaN gas velocity dispersions with a S/N < sigma_gas_SNR_min. 
+        This follows the method of Zhou+2017.
+
+    vgrad_cut:              bool
+        Whether to NaN gas velocities and velocity dispersions in which 
+            sigma_gas < 2 * v_grad 
+        as per Federrath+2017 and Zhou+2017.
+
+    stekin_cut:             bool
+        Whether to NaN stellar kinematic quantities that do not meet the DQ 
+        requirements listed in Croom+2021.    
+
+    """
     print("////////////////////////////////////////////////////////////////////")
     if line_flux_SNR_cut:
-        print("In dqcut.dqcut(): Masking components that don't meet the S/N requirements...")
+        print("In dqcut.apply_flags(): Masking components that don't meet the S/N requirements...")
         for eline in eline_list:
             if f"{eline} (component 1)" in df:
                 # Individual fluxes
@@ -330,7 +343,7 @@ def dqcut(df, ncomponents,
                 df.loc[cond_low_SN, cols_low_SN] = np.nan
 
     if missing_fluxes_cut:
-        print("In dqcut.dqcut(): Masking components with missing fluxes...")
+        print("In dqcut.apply_flags(): Masking components with missing fluxes...")
         for eline in eline_list:
             if f"{eline} (component 1)" in df:
                 # Individual fluxes
@@ -358,7 +371,7 @@ def dqcut(df, ncomponents,
                 df.loc[cond_missing_flux, cols_missing_fluxes] = np.nan
 
     if line_amplitude_SNR_cut:
-        print("In dqcut.dqcut(): Masking components that don't meet the amplitude requirements...")
+        print("In dqcut.apply_flags(): Masking components that don't meet the amplitude requirements...")
         for eline in eline_list:
             if f"{eline} (component 1)" in df:
                 for nn in range(ncomponents):
@@ -385,7 +398,7 @@ def dqcut(df, ncomponents,
                 df.loc[cond_low_amp, cols_low_amp] = np.nan
 
     if flux_fraction_cut:
-        print("In dqcut.dqcut(): Masking components 1, 2 where the flux ratio of this component:component 1 < 0.05...")
+        print("In dqcut.apply_flags(): Masking components 1, 2 where the flux ratio of this component:component 1 < 0.05...")
         if ncomponents > 1:
             for nn in range(1, ncomponents):
                 for eline in eline_list:
@@ -401,7 +414,7 @@ def dqcut(df, ncomponents,
                         df.loc[cond_low_flux_fraction, cols_low_flux_fraction] = np.nan
 
     if vgrad_cut:
-        print("In dqcut.dqcut(): Masking components that don't meet the beam smearing requirement...")
+        print("In dqcut.apply_flags(): Masking components that don't meet the beam smearing requirement...")
         for nn in range(ncomponents):
             cond_beam_smearing = df[f"Beam smearing flag (component {nn + 1})"]
 
@@ -411,7 +424,7 @@ def dqcut(df, ncomponents,
             df.loc[cond_beam_smearing, cols_beam_smearing] = np.nan
 
     if sigma_gas_SNR_cut:
-        print("In dqcut.dqcut(): Masking components with insufficient S/N in sigma_gas...")
+        print("In dqcut.apply_flags(): Masking components with insufficient S/N in sigma_gas...")
         for nn in range(ncomponents):
             cond_bad_sigma = df[f"Low sigma_gas S/N flag (component {nn + 1})"]
             
@@ -421,7 +434,7 @@ def dqcut(df, ncomponents,
             df.loc[cond_bad_sigma, cols_sigma_gas_SNR_cut] = np.nan
 
     if stekin_cut:
-        print("In dqcut.dqcut(): Masking spaxels with unreliable stellar kinematics...")
+        print("In dqcut.apply_flags(): Masking spaxels with unreliable stellar kinematics...")
         cond_bad_stekin = df["Bad stellar kinematics"]
 
         # Cells to NaN
@@ -432,7 +445,7 @@ def dqcut(df, ncomponents,
     # Identify which spaxels have "missing components"
     ######################################################################
     print("////////////////////////////////////////////////////////////////////")
-    print("In dqcut.dqcut(): Flagging spaxels with 'missing components'...")
+    print("In dqcut.apply_flags(): Flagging spaxels with 'missing components'...")
     """
     We define a "missing component" as one in which both the HALPHA flux and 
     velocity dispersion have been NaN'd for any reason, but we do NOT NaN 
@@ -549,7 +562,8 @@ def dqcut(df, ncomponents,
 
 ######################################################################
 # Compute log quantities + errors for Halpha EW, sigma_gas and SFRs
-def compute_log_columns(df, ncomponents):
+def compute_log_columns(df):
+
     # Halpha flux and EW for individual components
     for col in ["HALPHA luminosity", "HALPHA continuum", "HALPHA EW", "sigma_gas"]:
         # Compute log quantities for total 
@@ -559,154 +573,142 @@ def compute_log_columns(df, ncomponents):
             df[f"log {col} error (upper) (total)"] = np.log10(df[f"{col} (total)"] + df[f"{col} error (total)"]) -  df[f"log {col} (total)"]
         
         # Per component
-        for nn in range(ncomponents):
+        for nn in range(3):
             if f"{col} (component {nn + 1})" in df:
                 df[f"log {col} (component {nn + 1})"] = np.log10(df[f"{col} (component {nn + 1})"])
+            if f"{col} (component {nn + 1})" in df and f"{col} error (component {nn + 1})" in df:
                 df[f"log {col} error (lower) (component {nn + 1})"] = df[f"log {col} (component {nn + 1})"] - np.log10(df[f"{col} (component {nn + 1})"] - df[f"{col} error (component {nn + 1})"])
                 df[f"log {col} error (upper) (component {nn + 1})"] = np.log10(df[f"{col} (component {nn + 1})"] + df[f"{col} error (component {nn + 1})"]) - df[f"log {col} (component {nn + 1})"]
 
     # Compute log quantities for total HALPHA EW
-    for nn in range(ncomponents):
-        if f"S2 ratio (component {nn + 1})" in df.columns:
+    for nn in range(3):
+        if f"S2 ratio (component {nn + 1})" in df:
             df[f"log S2 ratio (component {nn + 1})"] = np.log10(df[f"S2 ratio (component {nn + 1})"])
+        if f"S2 ratio (component {nn + 1})" in df and f"S2 ratio (component error {nn + 1})" in df:
             df[f"log S2 ratio error (lower) (component {nn + 1})"] = df[f"log S2 ratio (component {nn + 1})"] - np.log10(df[f"S2 ratio (component {nn + 1})"] - df[f"S2 ratio error (component {nn + 1})"])
             df[f"log S2 ratio error (upper) (component {nn + 1})"] = np.log10(df[f"S2 ratio (component {nn + 1})"] + df[f"S2 ratio error (component {nn + 1})"]) -  df[f"log S2 ratio (component {nn + 1})"]
-    if f"S2 ratio (total)" in df.columns:    
+    if f"S2 ratio (total)" in df:    
         df[f"log S2 ratio (total)"] = np.log10(df["S2 ratio (total)"])
+    if f"S2 ratio (total)" in df and f"S2 ratio error (total)" in df:
         df[f"log S2 ratio error (lower) (total)"] = df[f"log S2 ratio (total)"] - np.log10(df["S2 ratio (total)"] - df["S2 ratio error (total)"])
         df[f"log S2 ratio error (upper) (total)"] = np.log10(df["S2 ratio (total)"] + df["S2 ratio error (total)"]) -  df[f"log S2 ratio (total)"]
 
     # Compute log quantities for total SFR
-    for s in ["(total)", "(component 1)"]:
-        if f"SFR {s}" in df.columns:
+    for s in ["(total)"] + [f"(component {nn})" for nn in [1, 2, 3]]:
+        if f"SFR {s}" in df:
             cond = ~np.isnan(df[f"SFR {s}"])
             cond &= df[f"SFR {s}"] > 0
             df.loc[cond, f"log SFR {s}"] = np.log10(df.loc[cond, f"SFR {s}"])
-            if f"SFR error {s}" in df.columns:
+            if f"SFR error {s}" in df:
                 df.loc[cond, f"log SFR error (lower) {s}"] = df.loc[cond, f"log SFR {s}"] - np.log10(df.loc[cond, f"SFR {s}"] - df.loc[cond, f"SFR error {s}"])
                 df.loc[cond, f"log SFR error (upper) {s}"] = np.log10(df.loc[cond, f"SFR {s}"] + df.loc[cond, f"SFR error {s}"]) -  df.loc[cond, f"log SFR {s}"]
             
-        if f"SFR surface density {s}" in df.columns:
+        if f"SFR surface density {s}" in df:
             cond = ~np.isnan(df[f"SFR surface density {s}"])
             cond &= df[f"SFR surface density {s}"] > 0
             # Compute log quantities for total SFR surface density
             df.loc[cond, f"log SFR surface density {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"])
-            if f"SFR surface density error {s}" in df.columns:
+            if f"SFR surface density error {s}" in df:
                 df.loc[cond, f"log SFR surface density error (lower) {s}"] = df.loc[cond, f"log SFR surface density {s}"] - np.log10(df.loc[cond, f"SFR surface density {s}"] - df.loc[cond, f"SFR surface density error {s}"])
                 df.loc[cond, f"log SFR surface density error (upper) {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"] + df.loc[cond, f"SFR surface density error {s}"]) -  df.loc[cond, f"log SFR surface density {s}"]
+
+        if f"sSFR {s}" in df:
+            cond = ~np.isnan(df[f"sSFR {s}"])
+            cond &= df[f"sSFR {s}"] > 0
+            # Compute log quantities for total sSFR
+            df.loc[cond, f"log sSFR {s}"] = np.log10(df.loc[cond, f"sSFR {s}"])
+            if f"sSFR error {s}" in df:
+                df.loc[cond, f"log sSFR error (lower) {s}"] = df.loc[cond, f"log sSFR {s}"] - np.log10(df.loc[cond, f"sSFR {s}"] - df.loc[cond, f"sSFR error {s}"])
+                df.loc[cond, f"log sSFR error (upper) {s}"] = np.log10(df.loc[cond, f"sSFR {s}"] + df.loc[cond, f"sSFR error {s}"]) -  df.loc[cond, f"log sSFR {s}"]
 
     return df
 
 ######################################################################
 # Compute offsets between gas & stellar kinematics
-def compute_gas_stellar_offsets(df, ncomponents):
-    assert ("v_*" in df.columns) and ("sigma_*" in df.columns), "v_* and sigma_* must be in the DataFrame to compute gas & stellar offsets!"
-    for nn in range(ncomponents):
-        df[f"sigma_gas - sigma_* (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] - df["sigma_*"]
-        df[f"sigma_gas - sigma_* error (component {nn + 1})"] = np.sqrt(df[f"sigma_gas error (component {nn + 1})"]**2 + df["sigma_* error"]**2)
+def compute_gas_stellar_offsets(df):    
+    if "v_*" in df and "sigma_*" in df:
+        for nn in range(3):
 
-        df[f"sigma_gas^2 - sigma_*^2 (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"]**2 - df["sigma_*"]**2
-        df[f"sigma_gas^2 - sigma_*^2 error (component {nn + 1})"] = 2 * np.sqrt(df[f"sigma_gas (component {nn + 1})"]**2 * df[f"sigma_gas error (component {nn + 1})"]**2 +\
-                                                                            df["sigma_*"]**2 * df["sigma_* error"]**2)
+            #//////////////////////////////////////////////////////////////////////
+            # Velocity offsets
+            if f"v_gas (component {nn + 1})" in df:
+                df[f"v_gas - v_* (component {nn + 1})"] = df[f"v_gas (component {nn + 1})"] - df["v_*"]
+            if f"v_gas error (component {nn + 1})" in df:
+                df[f"v_gas - v_* error (component {nn + 1})"] = np.sqrt(df[f"v_gas error (component {nn + 1})"]**2 + df["v_* error"]**2)
+
+            #//////////////////////////////////////////////////////////////////////
+            # Velocity dispersion offsets
+            if f"sigma_gas (component {nn + 1})" in df:
+                df[f"sigma_gas - sigma_* (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] - df["sigma_*"]
+                df[f"sigma_gas^2 - sigma_*^2 (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"]**2 - df["sigma_*"]**2
+                df[f"sigma_gas/sigma_* (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] / df["sigma_*"]
+
+            if f"sigma_gas error (component {nn + 1})" in df:
+                df[f"sigma_gas - sigma_* error (component {nn + 1})"] = np.sqrt(df[f"sigma_gas error (component {nn + 1})"]**2 + df["sigma_* error"]**2)
+                df[f"sigma_gas^2 - sigma_*^2 error (component {nn + 1})"] = 2 * np.sqrt(df[f"sigma_gas (component {nn + 1})"]**2 * df[f"sigma_gas error (component {nn + 1})"]**2 +\
+                                                                                df["sigma_*"]**2 * df["sigma_* error"]**2)
+                df[f"sigma_gas/sigma_* error (component {nn + 1})"] =\
+                    df[f"sigma_gas/sigma_* (component {nn + 1})"] *\
+                    np.sqrt((df[f"sigma_gas error (component {nn + 1})"] / df[f"sigma_gas (component {nn + 1})"])**2 +\
+                            (df["sigma_* error"] / df["sigma_*"])**2)
         
-        df[f"v_gas - v_* (component {nn + 1})"] = df[f"v_gas (component {nn + 1})"] - df["v_*"]
-        df[f"v_gas - v_* error (component {nn + 1})"] = np.sqrt(df[f"v_gas error (component {nn + 1})"]**2 + df["v_* error"]**2)
-        
-        df[f"sigma_gas/sigma_* (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] / df["sigma_*"]
-        df[f"sigma_gas/sigma_* error (component {nn + 1})"] =\
-                df[f"sigma_gas/sigma_* (component {nn + 1})"] *\
-                np.sqrt((df[f"sigma_gas error (component {nn + 1})"] / df[f"sigma_gas (component {nn + 1})"])**2 +\
-                        (df["sigma_* error"] / df["sigma_*"])**2)
     return df
 
 ######################################################################
 # Compute differences in Halpha EW, sigma_gas between different components
-def compute_component_offsets(df, ncomponents):
-    assert ncomponents in [2, 3], "ncomponents must be 2 or 3 to compute offsets between different components!"
+def compute_component_offsets(df):
+    
+    for nn_1, nn_2 in zip([2, 1], [3, 2], [3, 1]):
 
-    if ncomponents == 2:
+        #//////////////////////////////////////////////////////////////////////
         # Difference between gas velocity dispersion between components
-        df["delta sigma_gas (2/1)"] = df["sigma_gas (component 2)"] - df["sigma_gas (component 1)"]
-
-        df["delta sigma_gas error (2/1)"] = np.sqrt(df["sigma_gas error (component 2)"]**2 +\
-                                                         df["sigma_gas error (component 1)"]**2)
+        if all([col in df for col in [f"sigma_gas (component {nn_1})", f"sigma_gas (component {nn_2})"]]):
+            df[f"delta sigma_gas ({nn_2}/{nn_1})"] = df[f"sigma_gas (component {nn_2})"] - df[f"sigma_gas (component {nn_1})"]
         
-        # DIfference between gas velocity between components
-        df["delta v_gas (2/1)"] = df["v_gas (component 2)"] - df["v_gas (component 1)"]
-        df["delta v_gas error (2/1)"] = np.sqrt(df["v_gas error (component 2)"]**2 +\
-                                                     df["v_gas error (component 1)"]**2)
-        
-        # Ratio of HALPHA EWs between components
-        df["HALPHA EW ratio (2/1)"] = df["HALPHA EW (component 2)"] / df["HALPHA EW (component 1)"]
-        df["HALPHA EW ratio error (2/1)"] = df["HALPHA EW ratio (2/1)"] *\
-            np.sqrt((df["HALPHA EW error (component 2)"] / df["HALPHA EW (component 2)"])**2 +\
-                    (df["HALPHA EW error (component 1)"] / df["HALPHA EW (component 1)"])**2)
+        # Error in the difference between gas velocity dispersion between components   
+        if all([col in df for col in ["sigma_gas error (component 1)", "sigma_gas error (component 2)"]]):
+            df[f"delta sigma_gas error ({nn_2}/{nn_1})"] = np.sqrt(df[f"sigma_gas error (component {nn_2})"]**2 +\
+                                                                   df[f"sigma_gas error (component {nn_1})"]**2)
 
+        #//////////////////////////////////////////////////////////////////////
+        # DIfference between gas velocity between components (2/1)
+        if all([col in df for col in [f"v_gas (component {nn_1})", f"v_gas (component {nn_2})"]]):     
+            df[f"delta v_gas ({nn_2}/{nn_1})"] = df[f"v_gas (component {nn_2})"] - df[f"v_gas (component {nn_1})"]
+        if all([col in df for col in [f"v_gas error (component {nn_2})", f"v_gas error (component {nn_1})"]]):  
+            df[f"delta v_gas error ({nn_2}/{nn_1})"] = np.sqrt(df[f"v_gas error (component {nn_2})"]**2 +\
+                                                               df[f"v_gas error (component {nn_1})"]**2)
+        
+        #//////////////////////////////////////////////////////////////////////
+        # Ratio of HALPHA EWs between components   
+        if all([col in df for col in [f"HALPHA EW (component {nn_1})", f"HALPHA EW (component {nn_2})"]]):     
+            df[f"HALPHA EW ratio ({nn_2}/{nn_1})"] = df[f"HALPHA EW (component {nn_2})"] / df[f"HALPHA EW (component {nn_1})"]
+        if all([col in df for col in [f"HALPHA EW error (component {nn_1})", f"HALPHA EW error (component {nn_2})"]]):     
+            df[f"HALPHA EW ratio error ({nn_2}/{nn_1})"] = df[f"HALPHA EW ratio ({nn_2}/{nn_1})"] *\
+                np.sqrt((df[f"HALPHA EW error (component {nn_2})"] / df[f"HALPHA EW (component {nn_2})"])**2 +\
+                        (df[f"HALPHA EW error (component {nn_1})"] / df[f"HALPHA EW (component {nn_1})"])**2)
+
+        #//////////////////////////////////////////////////////////////////////
         # Ratio of HALPHA EWs between components (log)
-        df["Delta HALPHA EW (1/2)"] = df["log HALPHA EW (component 1)"] - df["log HALPHA EW (component 2)"]
+        if all([col in df for col in [f"log HALPHA EW (component {nn_2})", f"log HALPHA EW (component {nn_1})"]]):     
+            df[f"Delta HALPHA EW ({nn_2}/{nn_1})"] = df[f"log HALPHA EW (component {nn_2})"] - df[f"log HALPHA EW (component {nn_1})"]
 
-        # Fractional of total Halpha EW in each component
-        for nn in range(2):
-            df[f"HALPHA EW/HALPHA EW (total) (component {nn + 1})"] = df[f"HALPHA EW (component {nn + 1})"] / df[f"HALPHA EW (total)"]
-
+        #//////////////////////////////////////////////////////////////////////
         # Forbidden line ratios:
         for col in ["log O3", "log N2", "log S2", "log O1"]:
-            if f"{col} (component 1)" in df.columns and f"{col} (component 2)" in df.columns:
-                df[f"delta {col} (2/1)"] = df[f"{col} (component 2)"] - df[f"{col} (component 1)"]
-                df[f"delta {col} (2/1) error"] = np.sqrt(df[f"{col} (component 2)"]**2 + df[f"{col} (component 1)"]**2)
-            if f"{col} (component 2)" in df.columns and f"{col} (component 3)" in df.columns:
-                df[f"delta {col} (3/2)"] = df[f"{col} (component 3)"] - df[f"{col} (component 2)"]
-                df[f"delta {col} (3/2) error"] = np.sqrt(df[f"{col} (component 3)"]**2 + df[f"{col} (component 2)"]**2)
+            if f"{col} (component {nn_1})" in df and f"{col} (component {nn_2})" in df:
+                df[f"delta {col} ({nn_2}/{nn_1})"] = df[f"{col} (component {nn_2})"] - df[f"{col} (component {nn_1})"]
+                df[f"delta {col} ({nn_2}/{nn_1}) error"] = np.sqrt(df[f"{col} error (component {nn_2})"]**2 + df[f"{col} error (component {nn_1})"]**2)
 
-    elif ncomponents == 3:
-        # Difference between gas velocity dispersion between components
-        df["delta sigma_gas (2/1)"] = df["sigma_gas (component 2)"] - df["sigma_gas (component 1)"]
-        df["delta sigma_gas (3/2)"] = df["sigma_gas (component 3)"] - df["sigma_gas (component 2)"]
-
-        df["delta sigma_gas error (2/1)"] = np.sqrt(df["sigma_gas error (component 2)"]**2 +\
-                                                         df["sigma_gas error (component 1)"]**2)
-        df["delta sigma_gas error (3/2)"] = np.sqrt(df["sigma_gas error (component 2)"]**2 +\
-                                                         df["sigma_gas error (component 3)"]**2)
-        
-        # DIfference between gas velocity between components
-        df["delta v_gas (2/1)"] = df["v_gas (component 2)"] - df["v_gas (component 1)"]
-        df["delta v_gas (3/2)"] = df["v_gas (component 3)"] - df["v_gas (component 2)"]
-        df["delta v_gas error (2/1)"] = np.sqrt(df["v_gas error (component 2)"]**2 +\
-                                                     df["v_gas error (component 1)"]**2)
-        df["delta v_gas error (3/2)"] = np.sqrt(df["v_gas error (component 2)"]**2 +\
-                                                     df["v_gas error (component 3)"]**2)
-        
-        # Ratio of HALPHA EWs between components
-        df["HALPHA EW ratio (2/1)"] = df["HALPHA EW (component 2)"] / df["HALPHA EW (component 1)"]
-        df["HALPHA EW ratio (3/2)"] = df["HALPHA EW (component 3)"] / df["HALPHA EW (component 2)"]
-        df["HALPHA EW ratio error (2/1)"] = df["HALPHA EW ratio (2/1)"] *\
-            np.sqrt((df["HALPHA EW error (component 2)"] / df["HALPHA EW (component 2)"])**2 +\
-                    (df["HALPHA EW error (component 1)"] / df["HALPHA EW (component 1)"])**2)
-        df["HALPHA EW ratio error (3/2)"] = df["HALPHA EW ratio (3/2)"] *\
-            np.sqrt((df["HALPHA EW error (component 3)"] / df["HALPHA EW (component 3)"])**2 +\
-                    (df["HALPHA EW error (component 2)"] / df["HALPHA EW (component 2)"])**2)
-        
-        # Ratio of HALPHA EWs between components (log)
-        df["Delta HALPHA EW (1/2)"] = df["log HALPHA EW (component 1)"] - df["log HALPHA EW (component 2)"]
-        df["Delta HALPHA EW (2/3)"] = df["log HALPHA EW (component 2)"] - df["log HALPHA EW (component 3)"]
-
-        # Fractional of total Halpha EW in each component
-        for nn in range(3):
+    #//////////////////////////////////////////////////////////////////////
+    # Fractional of total Halpha EW in each component
+    for nn in range(3):
+        if all([col in df.columns for col in [f"HALPHA EW (component {nn + 1})", f"HALPHA EW (total)"]]):
             df[f"HALPHA EW/HALPHA EW (total) (component {nn + 1})"] = df[f"HALPHA EW (component {nn + 1})"] / df[f"HALPHA EW (total)"]
-
-        # Forbidden line ratios:
-        for col in ["log O3", "log N2", "log S2", "log O1"]:
-            if f"{col} (component 1)" in df.columns and f"{col} (component 2)" in df.columns:
-                df[f"delta {col} (2/1)"] = df[f"{col} (component 2)"] - df[f"{col} (component 1)"]
-                df[f"delta {col} (2/1) error"] = np.sqrt(df[f"{col} (component 2)"]**2 + df[f"{col} (component 1)"]**2)
-            if f"{col} (component 2)" in df.columns and f"{col} (component 3)" in df.columns:
-                df[f"delta {col} (3/2)"] = df[f"{col} (component 3)"] - df[f"{col} (component 2)"]
-                df[f"delta {col} (3/2) error"] = np.sqrt(df[f"{col} (component 3)"]**2 + df[f"{col} (component 2)"]**2)
 
     return df
 
 #########################################################################
-def compute_extra_columns(df, ncomponents):
+def compute_extra_columns(df):
     """
     Add the following extra columns to the DataFrame:
      - log quantities + errors:
@@ -736,139 +738,27 @@ def compute_extra_columns(df, ncomponents):
         if all([col in df for col in ["HALPHA (total)", "HALPHA error (total)"]]):
             df[f"HALPHA luminosity (total)"] = df[f"HALPHA (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
             df[f"HALPHA luminosity error (total)"] = df[f"HALPHA error (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-        for nn in range(ncomponents):
+        for nn in range(3):
             if all([col in df for col in [f"HALPHA (component {nn + 1})", f"HALPHA error (component {nn + 1})"]]):
                 df[f"HALPHA luminosity (component {nn + 1})"] = df[f"HALPHA (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
                 df[f"HALPHA luminosity error (component {nn + 1})"] = df[f"HALPHA error (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
 
     # Compute FWHM
-    for nn in range(ncomponents):
-        df[f"FWHM_gas (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
-        df[f"FWHM_gas error (component {nn + 1})"] = df[f"sigma_gas error (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
+    for nn in range(3):
+        if df[f"sigma_gas (component {nn + 1})"] in df:
+            df[f"FWHM_gas (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
+        if df[f"sigma_gas error (component {nn + 1})"] in df:
+            df[f"FWHM_gas error (component {nn + 1})"] = df[f"sigma_gas error (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
 
     # Stellar & gas kinematic offsets
-    if all([col in df for col in ["v_*", "sigma_*"]]):
-        df = compute_gas_stellar_offsets(df, ncomponents=ncomponents)
+    df = compute_gas_stellar_offsets(df)
 
     # Compute logs
-    df = compute_log_columns(df, ncomponents=ncomponents)
+    df = compute_log_columns(df)
     
-    if ncomponents > 1:
-        df = compute_component_offsets(df, ncomponents=ncomponents)
+    # Comptue component offsets
+    df = compute_component_offsets(df)
 
     return df
-
-######################################################################
-# TESTING
-######################################################################
-if __name__ == "__main__":
-
-    import pandas as pd
-    import os
-    from copy import deepcopy
-
-    import matplotlib.pyplot as plt
-    plt.ion()
-
-    ######################################################################
-    # Load the SAMI DF
-    ######################################################################
-    data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
-
-    bin_type = "default"
-    ncomponents = "recom"
-    eline_list = ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]
-    
-    # DQ options
-    stekin_cut = True
-    vgrad_cut = False
-    eline_SNR_cut = True 
-
-    eline_SNR_min = 5
-    sigma_gas_SNR_cut = True
-    sigma_gas_SNR_min = 3
-    sigma_inst_kms = 29.6
-
-    df_fname = f"sami_{bin_type}_{ncomponents}-comp.hd5"
-    print("Loading DataFrame...")
-    df = pd.read_hdf(os.path.join(data_path, df_fname),
-                    key=f"{aperture_type} {bin_type}, {ncomponents}-comp" if bin_type == "aperture" else f"{bin_type}, {ncomponents}-comp")
-
-    ######################################################################
-    # Now, we can test...
-    ######################################################################
-
-    fig, axs = plt.subplots(nrows=1, ncols=3)
-
-    df = compute_extra_columns(df, ncomponents=3 if ncomponents == "recom" else 1)
-    axs[0].hist(df["log HALPHA EW (component 1)"], color="k", histtype="step", range=(-1, 3), bins=20, alpha=0.5)
-    axs[1].hist(df["sigma_gas (component 1)"], color="k", histtype="step", range=(0, 50), bins=20, alpha=0.5)
-    axs[2].hist(df["sigma_gas - sigma_* (component 1)"], color="k", histtype="step", range=(0, 50), bins=20, alpha=0.5)
-
-
-    df_cut = deepcopy(df)
-
-    eline_SNR_min = 5
-    df_cut = df_dqcut(df=df_cut, ncomponents=3 if ncomponents == "recom" else 1,
-                   eline_SNR_min=eline_SNR_min, eline_list=eline_list,
-                   sigma_gas_SNR_cut=sigma_gas_SNR_cut, sigma_gas_SNR_min=sigma_gas_SNR_min, sigma_inst_kms=sigma_inst_kms,
-                   vgrad_cut=False,
-                   stekin_cut=True)
-
-    df_cut = compute_extra_columns(df_cut, ncomponents=3 if ncomponents == "recom" else 1)
-    axs[0].hist(df_cut["log HALPHA EW (component 1)"], color="k", histtype="step", range=(-1, 3), bins=20)
-    axs[1].hist(df_cut["sigma_gas (component 1)"], color="k", histtype="step", range=(0, 50), bins=20)
-    axs[2].hist(df_cut["sigma_gas - sigma_* (component 1)"], color="k", histtype="step", range=(0, 50), bins=20)
-
-    # CHECK: no rows with S/N < 5
-    fig, axs = plt.subplots(nrows=1, ncols=len(eline_list), figsize=(20, 5))
-    fig.subplots_adjust(wspace=0)
-    for rr, eline in enumerate(eline_list):
-        axs[rr].hist(df[f"{eline} S/N (total)"], range=(0, 10), bins=20, color="k", histtype="step", alpha=0.5)
-        axs[rr].hist(df_cut[f"{eline} S/N (total)"], range=(0, 10), bins=20, color="k", histtype="step", alpha=1.0)
-        axs[rr].set_xlabel(f"{eline} S/N (total)")
-
-    # CHECK: no rows with SFR = 0
-    assert np.all(df_cut["SFR"] != 0)
-
-    # CHECK: no rows with inclination = 0 and SFR != nan
-    assert df_cut[(df_cut["i (degrees)"] == 0) & (df_cut["SFR"] > 0)].shape[0] == 0
-
-    # CHECK: "Number of components" is 0, 1, 2 or 3
-    assert np.all(df_cut["Number of components"].unique() == [0, 1, 2, 3])
-
-    # CHECK: all emission line fluxes with S/N < SNR_min are NaN
-    for eline in eline_list:
-        assert np.all(np.isnan(df_cut.loc[df_cut[f"{eline} S/N (total)"] < eline_SNR_min, f"{eline} (total)"]))
-
-    # CHECK: all Halpha components below S/N limit are NaN
-    for nn in range(3 if ncomponents == "recom" else 1):
-        assert np.all(np.isnan(df_cut.loc[df_cut[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"HALPHA (component {nn + 1})"]))
-        assert np.all(np.isnan(df_cut.loc[df_cut[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"HALPHA error (component {nn + 1})"]))
-        assert np.all(np.isnan(df_cut.loc[df_cut[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"HALPHA EW (component {nn + 1})"]))
-        assert np.all(np.isnan(df_cut.loc[df_cut[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"HALPHA EW error (component {nn + 1})"]))
-        assert np.all(np.isnan(df_cut.loc[df_cut[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"log HALPHA EW (component {nn + 1})"]))
-        assert np.all(np.isnan(df_cut.loc[df_cut[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"log HALPHA EW error (upper) (component {nn + 1})"]))
-        assert np.all(np.isnan(df_cut.loc[df_cut[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"log HALPHA EW error (lower) (component {nn + 1})"]))
-
-    # CHECK: all sigma_gas components with S/N < S/N target are NaN
-    for nn in range(3 if ncomponents == "recom" else 1):
-        assert np.all(np.isnan(df_cut.loc[df_cut[f"sigma_obs S/N (component {nn + 1})"] < df_cut[f"sigma_obs target S/N (component {nn + 1})"], f"sigma_gas (component {nn + 1})"]))
-        assert np.all(np.isnan(df_cut.loc[df_cut[f"sigma_obs S/N (component {nn + 1})"] < df_cut[f"sigma_obs target S/N (component {nn + 1})"], f"sigma_gas error (component {nn + 1})"]))
-
-    # CHECK: all sigma_gas components that don't meet the v_grad requirement are NaN
-    if vgrad_cut:
-        for nn in range(3 if ncomponents == "recom" else 1):
-            assert np.all(np.isnan(df_cut.loc[df_cut[f"v_grad (component {nn + 1})"] > 2 * df_cut[f"sigma_gas (component {nn + 1})"], f"sigma_gas (component {nn + 1})"]))
-            assert np.all(np.isnan(df_cut.loc[df_cut[f"v_grad (component {nn + 1})"] > 2 * df_cut[f"sigma_gas (component {nn + 1})"], f"sigma_gas error (component {nn + 1})"]))
-
-    # 
-    fig, axs = plt.subplots(nrows=1, ncols=len(eline_list), figsize=(20, 5))
-    fig.subplots_adjust(wspace=0)
-    for rr, eline in enumerate(eline_list):
-        axs[rr].hist(df[f"{eline} S/N (total)"], range=(0, 10), bins=20, color="k", histtype="step", alpha=0.5)
-        axs[rr].hist(df_cut[f"{eline} S/N (total)"], range=(0, 10), bins=20, color="k", histtype="step", alpha=1.0)
-        axs[rr].set_xlabel(f"{eline} S/N (total)")
-
 
 
