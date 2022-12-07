@@ -65,8 +65,7 @@ def get_wavelength_from_velocity(lambda_rest, v, units):
     return lambda_obs
 
 ###############################################################################
-def set_flags(df, ncomponents,
-              eline_SNR_min, eline_list,
+def set_flags(df, eline_SNR_min, eline_list,
               sigma_gas_SNR_min=3, sigma_inst_kms=29.6):
     """
     A function for making data quality & S/N cuts on rows of a given DataFrame.
@@ -87,13 +86,15 @@ def set_flags(df, ncomponents,
     ######################################################################
     # INITIALISE FLAGS: these will get set below.
     ###################################################################### 
-    for nn in range(ncomponents):
-        df[f"Beam smearing flag (component {nn + 1})"] = False
-        df[f"Low sigma_gas S/N flag (component {nn + 1})"] = False
-        df[f"Bad stellar kinematics"] = False
+    for nn in range(3):
+        if f"v_gas (component {nn + 1})" in df:
+            df[f"Beam smearing flag (component {nn + 1})"] = False
+        if f"sigma_gas (component {nn + 1})" in df:
+            df[f"Low sigma_gas S/N flag (component {nn + 1})"] = False
+    df[f"Bad stellar kinematics"] = False
 
     for eline in eline_list:
-        for nn in range(ncomponents):
+        for nn in range(3):
             if f"{eline} (component {nn + 1})" in df:
                 df[f"Low flux S/N flag - {eline} (component {nn + 1})"] = False
                 df[f"Low flux fraction flag - {eline} (component {nn + 1})"] = False
@@ -120,7 +121,7 @@ def set_flags(df, ncomponents,
     print("In dqcut.set_flags(): Flagging low S/N components and spaxels...")
     for eline in eline_list:
         # Fluxes in individual components
-        for nn in range(ncomponents):
+        for nn in range(3):
             if f"{eline} (component {nn + 1})" in df.columns:
                 cond_low_SN = df[f"{eline} S/N (component {nn + 1})"] < eline_SNR_min
                 df.loc[cond_low_SN, f"Low flux S/N flag - {eline} (component {nn + 1})"] = True
@@ -137,7 +138,7 @@ def set_flags(df, ncomponents,
     print("In dqcut.set_flags(): Flagging components and spaxels with NaN fluxes and finite errors...")
     for eline in eline_list:
         # Fluxes in individual components
-        for nn in range(ncomponents):
+        for nn in range(3):
             if f"{eline} (component {nn + 1})" in df.columns:
                 cond_missing_flux = df[f"{eline} (component {nn + 1})"].isna() & ~df[f"{eline} error (component {nn + 1})"].isna()
                 df.loc[cond_missing_flux, f"Missing flux flag - {eline} (component {nn + 1})"] = True
@@ -168,7 +169,7 @@ def set_flags(df, ncomponents,
     for eline in eline_list:
         if f"{eline} (component 1)" in df:
             lambda_rest_A = eline_lambdas_A[eline]
-            for nn in range(ncomponents):
+            for nn in range(3):
                 if f"{eline} (component {nn + 1})" in df.columns:
                     # Compute the amplitude of the line
                     lambda_obs_A = get_wavelength_from_velocity(lambda_rest=lambda_rest_A, 
@@ -183,7 +184,7 @@ def set_flags(df, ncomponents,
                     df.loc[cond_bad_gasamp, f"Low amplitude flag - {eline} (component {nn + 1})"] = True
 
             # If all components in a given spaxel have low s/n, then discard total values as well.
-            if ncomponents == 3:
+            if all([col in df for col in ["v_gas (component 1)", "v_gas (component 2)", "v_gas (component3)"]]):
                 cond_all_bad_components  = (df["Number of components (original)"] == 1) &\
                                             df[f"Low amplitude flag - {eline} (component 1)"]
                 cond_all_bad_components |= (df["Number of components (original)"] == 2) &\
@@ -193,7 +194,13 @@ def set_flags(df, ncomponents,
                                             df[f"Low amplitude flag - {eline} (component 1)"] &\
                                             df[f"Low amplitude flag - {eline} (component 2)"] &\
                                             df[f"Low amplitude flag - {eline} (component 3)"]
-            else:
+            elif all([col in df for col in ["v_gas (component 1)", "v_gas (component 2)"]]):
+                cond_all_bad_components  = (df["Number of components (original)"] == 1) &\
+                                            df[f"Low amplitude flag - {eline} (component 1)"]
+                cond_all_bad_components |= (df["Number of components (original)"] == 2) &\
+                                            df[f"Low amplitude flag - {eline} (component 1)"] &\
+                                            df[f"Low amplitude flag - {eline} (component 2)"]
+            elif "v_gas (component 1)" in df:
                 cond_all_bad_components = (df["Number of components (original)"] == 1) &\
                                            df[f"Low amplitude flag - {eline} (component 1)"]
                 
@@ -203,20 +210,19 @@ def set_flags(df, ncomponents,
     # Flag rows where the flux ratio of the broad:narrow component < 0.05 (using the method of Avery+2021)
     ######################################################################
     print("In dqcut.set_flags(): Flagging spaxels where the flux ratio of the broad:narrow component < 0.05...")
-    if ncomponents > 1:
-        for nn in range(1, ncomponents):
-            for eline in eline_list:
-                if f"{eline} (component {nn + 1})" in df:
-                    cond_low_flux = df[f"{eline} A (component {nn + 1})"] < 0.05 * df[f"{eline} A (component 1)"]
-                    df.loc[cond_low_flux, f"Low flux fraction flag - {eline} (component {nn + 1})"] = True
+    for nn in range(1, 3):
+        for eline in eline_list:
+            if f"{eline} (component {nn + 1})" in df:
+                cond_low_flux = df[f"{eline} A (component {nn + 1})"] < 0.05 * df[f"{eline} A (component 1)"]
+                df.loc[cond_low_flux, f"Low flux fraction flag - {eline} (component {nn + 1})"] = True
 
     ######################################################################
     # Flag rows that don't meet the beam smearing requirement
     ######################################################################
     print("In dqcut.set_flags(): Flagging components likely to be affected by beam smearing...")
     # Gas kinematics: beam semaring criteria of Federrath+2017 and Zhou+2017.
-    for nn in range(ncomponents):
-        if f"v_grad (component {nn + 1})" in df:
+    for nn in range(3):
+        if f"v_grad (component {nn + 1})" in df and f"sigma_gas (component {nn + 1})" in df:
             cond_beam_smearing = df[f"sigma_gas (component {nn + 1})"] < 2 * df[f"v_grad (component {nn + 1})"]
             df.loc[cond_beam_smearing, f"Beam smearing flag (component {nn + 1})"] = True
 
@@ -226,20 +232,22 @@ def set_flags(df, ncomponents,
     print("In dqcut.set_flags(): Flagging components with low sigma_gas S/N...")
     # Gas kinematics: NaN out cells w/ sigma_gas S/N ratio < sigma_gas_SNR_min 
     # (For SAMI, the red arm resolution is 29.6 km/s - see p6 of Croom+2021)
-    for nn in range(ncomponents):
-        # 1. Define sigma_obs = sqrt(sigma_gas**2 + sigma_inst_kms**2).
-        df[f"sigma_obs (component {nn + 1})"] = np.sqrt(df[f"sigma_gas (component {nn + 1})"]**2 + sigma_inst_kms**2)
+    for nn in range(3):
+        if f"sigma_gas (component {nn + 1})" in df:
+            # 1. Define sigma_obs = sqrt(sigma_gas**2 + sigma_inst_kms**2).
+            df[f"sigma_obs (component {nn + 1})"] = np.sqrt(df[f"sigma_gas (component {nn + 1})"]**2 + sigma_inst_kms**2)
 
-        # 2. Define the S/N ratio of sigma_obs.
-        # NOTE: here we assume that sigma_gas error (as output by LZIFU) 
-        # really refers to the error on sigma_obs.
-        df[f"sigma_obs S/N (component {nn + 1})"] = df[f"sigma_obs (component {nn + 1})"] / df[f"sigma_gas error (component {nn + 1})"]
+            # 2. Define the S/N ratio of sigma_obs.
+            # NOTE: here we assume that sigma_gas error (as output by LZIFU) 
+            # really refers to the error on sigma_obs.
+            if f"sigma_gas error (component {nn + 1})" in df:
+                df[f"sigma_obs S/N (component {nn + 1})"] = df[f"sigma_obs (component {nn + 1})"] / df[f"sigma_gas error (component {nn + 1})"]
 
-        # 3. Given our target SNR_gas, compute the target SNR_obs,
-        # using the method in section 2.2.2 of Zhou+2017.
-        df[f"sigma_obs target S/N (component {nn + 1})"] = sigma_gas_SNR_min * (1 + sigma_inst_kms**2 / df[f"sigma_gas (component {nn + 1})"]**2)
-        cond_bad_sigma = df[f"sigma_obs S/N (component {nn + 1})"] < df[f"sigma_obs target S/N (component {nn + 1})"]
-        df.loc[cond_bad_sigma, f"Low sigma_gas S/N flag (component {nn + 1})"] = True
+                # 3. Given our target SNR_gas, compute the target SNR_obs,
+                # using the method in section 2.2.2 of Zhou+2017.
+                df[f"sigma_obs target S/N (component {nn + 1})"] = sigma_gas_SNR_min * (1 + sigma_inst_kms**2 / df[f"sigma_gas (component {nn + 1})"]**2)
+                cond_bad_sigma = df[f"sigma_obs S/N (component {nn + 1})"] < df[f"sigma_obs target S/N (component {nn + 1})"]
+                df.loc[cond_bad_sigma, f"Low sigma_gas S/N flag (component {nn + 1})"] = True
 
     ######################################################################
     # Stellar kinematics DQ cut
@@ -261,7 +269,7 @@ def set_flags(df, ncomponents,
      
 ######################################################################
 # Function for NaNing out cells based on the flags applied in dqcut()
-def apply_flags(df, ncomponents,
+def apply_flags(df,
                 eline_list,
                 line_flux_SNR_cut, 
                 missing_fluxes_cut,
@@ -317,9 +325,9 @@ def apply_flags(df, ncomponents,
     if line_flux_SNR_cut:
         print("In dqcut.apply_flags(): Masking components that don't meet the S/N requirements...")
         for eline in eline_list:
-            if f"{eline} (component 1)" in df:
-                # Individual fluxes
-                for nn in range(ncomponents):
+            # Individual fluxes
+            for nn in range(3):
+                if f"{eline} (component {nn + 1})" in df:
                     cond_low_SN = df[f"Low flux S/N flag - {eline} (component {nn + 1})"]
 
                     # Cells to NaN
@@ -345,9 +353,9 @@ def apply_flags(df, ncomponents,
     if missing_fluxes_cut:
         print("In dqcut.apply_flags(): Masking components with missing fluxes...")
         for eline in eline_list:
-            if f"{eline} (component 1)" in df:
-                # Individual fluxes
-                for nn in range(ncomponents):
+            # Individual fluxes
+            for nn in range(3):
+                if f"{eline} (component {nn + 1})" in df:
                     cond_missing_flux = df[f"Missing flux flag - {eline} (component {nn + 1})"]
 
                     # Cells to NaN
@@ -373,8 +381,8 @@ def apply_flags(df, ncomponents,
     if line_amplitude_SNR_cut:
         print("In dqcut.apply_flags(): Masking components that don't meet the amplitude requirements...")
         for eline in eline_list:
-            if f"{eline} (component 1)" in df:
-                for nn in range(ncomponents):
+            for nn in range(3):
+                if f"{eline} (component {nn + 1})" in df:
                     cond_low_amp = df[f"Low amplitude flag - {eline} (component {nn + 1})"]
 
                     # Cells to NaN
@@ -399,47 +407,49 @@ def apply_flags(df, ncomponents,
 
     if flux_fraction_cut:
         print("In dqcut.apply_flags(): Masking components 1, 2 where the flux ratio of this component:component 1 < 0.05...")
-        if ncomponents > 1:
-            for nn in range(1, ncomponents):
-                for eline in eline_list:
-                    if f"{eline} (component {nn + 1})" in df:
-                        cond_low_flux_fraction = df[f"Low flux fraction flag - {eline} (component {nn + 1})"]
+        for nn in range(1, 3):
+            for eline in eline_list:
+                if f"{eline} (component {nn + 1})" in df:
+                    cond_low_flux_fraction = df[f"Low flux fraction flag - {eline} (component {nn + 1})"]
 
-                        # Cells to NaN
-                        if eline == "HALPHA":
-                            # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
-                            cols_low_flux_fraction += [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
-                        else:
-                            cols_low_flux_fraction = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
-                        df.loc[cond_low_flux_fraction, cols_low_flux_fraction] = np.nan
+                    # Cells to NaN
+                    if eline == "HALPHA":
+                        # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
+                        cols_low_flux_fraction += [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
+                    else:
+                        cols_low_flux_fraction = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
+                    df.loc[cond_low_flux_fraction, cols_low_flux_fraction] = np.nan
 
     if vgrad_cut:
         print("In dqcut.apply_flags(): Masking components that don't meet the beam smearing requirement...")
-        for nn in range(ncomponents):
-            cond_beam_smearing = df[f"Beam smearing flag (component {nn + 1})"]
+        for nn in range(3):
+            if f"v_grad (component {nn + 1})" in df:
+                cond_beam_smearing = df[f"Beam smearing flag (component {nn + 1})"]
 
-            # Cells to NaN
-            cols_beam_smearing = [c for c in df.columns if f"component {nn + 1}" in c and ("v_gas" in c or "sigma_gas" in c) and "flag" not in c]
-            cols_beam_smearing += [c for c in df.columns if "delta" in c and str(nn + 1) in c]
-            df.loc[cond_beam_smearing, cols_beam_smearing] = np.nan
+                # Cells to NaN
+                cols_beam_smearing = [c for c in df.columns if f"component {nn + 1}" in c and ("v_gas" in c or "sigma_gas" in c) and "flag" not in c]
+                cols_beam_smearing += [c for c in df.columns if "delta" in c and str(nn + 1) in c]
+                df.loc[cond_beam_smearing, cols_beam_smearing] = np.nan
 
     if sigma_gas_SNR_cut:
         print("In dqcut.apply_flags(): Masking components with insufficient S/N in sigma_gas...")
-        for nn in range(ncomponents):
-            cond_bad_sigma = df[f"Low sigma_gas S/N flag (component {nn + 1})"]
-            
-            # Cells to NaN
-            cols_sigma_gas_SNR_cut = [c for c in df.columns if f"component {nn + 1}" in c and "sigma_gas" in c and "flag" not in c]
-            cols_sigma_gas_SNR_cut += [c for c in df.columns if "delta" in c and str(nn + 1) in c]
-            df.loc[cond_bad_sigma, cols_sigma_gas_SNR_cut] = np.nan
+        for nn in range(3):
+            if f"sigma_gas S/N (component {nn + 1})" in df:
+                cond_bad_sigma = df[f"Low sigma_gas S/N flag (component {nn + 1})"]
+                
+                # Cells to NaN
+                cols_sigma_gas_SNR_cut = [c for c in df.columns if f"component {nn + 1}" in c and "sigma_gas" in c and "flag" not in c]
+                cols_sigma_gas_SNR_cut += [c for c in df.columns if "delta" in c and str(nn + 1) in c]
+                df.loc[cond_bad_sigma, cols_sigma_gas_SNR_cut] = np.nan
 
     if stekin_cut:
         print("In dqcut.apply_flags(): Masking spaxels with unreliable stellar kinematics...")
-        cond_bad_stekin = df["Bad stellar kinematics"]
+        if "v_*" in df and "sigma_*" in df:
+            cond_bad_stekin = df["Bad stellar kinematics"]
 
-        # Cells to NaN
-        cols_stekin_cut = [c for c in df.columns if "v_*" in c or "sigma_*" in c]
-        df.loc[cond_bad_stekin, cols_stekin_cut] = np.nan
+            # Cells to NaN
+            cols_stekin_cut = [c for c in df.columns if "v_*" in c or "sigma_*" in c]
+            df.loc[cond_bad_stekin, cols_stekin_cut] = np.nan
 
     ######################################################################
     # Identify which spaxels have "missing components"
@@ -477,7 +487,8 @@ def apply_flags(df, ncomponents,
         df_good_quality_components = df[~df["Missing components flag"]]
 
     """
-    if ncomponents == 3:
+    if all([col in df for col in [[f"HALPHA (component 1)", f"HALPHA (component 2)", f"HALPHA (component 3)"] +\
+                                  [f"sigma_gas (component 1)", f"sigma_gas (component 2)", f"sigma_gas (component 3)"]]]):
         cond_has_3 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
                      ~np.isnan(df["HALPHA (component 2)"]) & ~np.isnan(df["sigma_gas (component 2)"]) &\
                      ~np.isnan(df["HALPHA (component 3)"]) & ~np.isnan(df["sigma_gas (component 3)"]) 
@@ -506,7 +517,8 @@ def apply_flags(df, ncomponents,
         df.loc[cond_has_3, "Number of components"] = 3
         df.loc[cond_has_0, "Number of components"] = 0
 
-    elif ncomponents == 2:
+    if all([col in df for col in [[f"HALPHA (component 1)", f"HALPHA (component 2)"] +\
+                                  [f"sigma_gas (component 1)", f"sigma_gas (component 2)"]]]):
         cond_has_2 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
                      ~np.isnan(df["HALPHA (component 2)"]) & ~np.isnan(df["sigma_gas (component 2)"])
         cond_has_1 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
@@ -527,7 +539,7 @@ def apply_flags(df, ncomponents,
         df.loc[cond_has_2, "Number of components"] = 2
         df.loc[cond_has_0, "Number of components"] = 0
 
-    elif ncomponents == 1:
+    all([col in df for col in [f"HALPHA (component 1)" f"sigma_gas (component 1)"]]):
         cond_has_1 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"])
         cond_has_0 =  np.isnan(df["HALPHA (component 1)"]) | np.isnan(df["sigma_gas (component 1)"])
         
@@ -565,61 +577,43 @@ def apply_flags(df, ncomponents,
 def compute_log_columns(df):
 
     # Halpha flux and EW for individual components
-    for col in ["HALPHA luminosity", "HALPHA continuum", "HALPHA EW", "sigma_gas"]:
-        # Compute log quantities for total 
-        if f"{col} (total)" in df:
-            df[f"log {col} (total)"] = np.log10(df[f"{col} (total)"])
-            df[f"log {col} error (lower) (total)"] = df[f"log {col} (total)"] - np.log10(df[f"{col} (total)"] - df[f"{col} error (total)"])
-            df[f"log {col} error (upper) (total)"] = np.log10(df[f"{col} (total)"] + df[f"{col} error (total)"]) -  df[f"log {col} (total)"]
-        
-        # Per component
-        for nn in range(3):
-            if f"{col} (component {nn + 1})" in df:
-                df[f"log {col} (component {nn + 1})"] = np.log10(df[f"{col} (component {nn + 1})"])
-            if f"{col} (component {nn + 1})" in df and f"{col} error (component {nn + 1})" in df:
-                df[f"log {col} error (lower) (component {nn + 1})"] = df[f"log {col} (component {nn + 1})"] - np.log10(df[f"{col} (component {nn + 1})"] - df[f"{col} error (component {nn + 1})"])
-                df[f"log {col} error (upper) (component {nn + 1})"] = np.log10(df[f"{col} (component {nn + 1})"] + df[f"{col} error (component {nn + 1})"]) - df[f"log {col} (component {nn + 1})"]
-
-    # Compute log quantities for total HALPHA EW
-    for nn in range(3):
-        if f"S2 ratio (component {nn + 1})" in df:
-            df[f"log S2 ratio (component {nn + 1})"] = np.log10(df[f"S2 ratio (component {nn + 1})"])
-        if f"S2 ratio (component {nn + 1})" in df and f"S2 ratio (component error {nn + 1})" in df:
-            df[f"log S2 ratio error (lower) (component {nn + 1})"] = df[f"log S2 ratio (component {nn + 1})"] - np.log10(df[f"S2 ratio (component {nn + 1})"] - df[f"S2 ratio error (component {nn + 1})"])
-            df[f"log S2 ratio error (upper) (component {nn + 1})"] = np.log10(df[f"S2 ratio (component {nn + 1})"] + df[f"S2 ratio error (component {nn + 1})"]) -  df[f"log S2 ratio (component {nn + 1})"]
-    if f"S2 ratio (total)" in df:    
-        df[f"log S2 ratio (total)"] = np.log10(df["S2 ratio (total)"])
-    if f"S2 ratio (total)" in df and f"S2 ratio error (total)" in df:
-        df[f"log S2 ratio error (lower) (total)"] = df[f"log S2 ratio (total)"] - np.log10(df["S2 ratio (total)"] - df["S2 ratio error (total)"])
-        df[f"log S2 ratio error (upper) (total)"] = np.log10(df["S2 ratio (total)"] + df["S2 ratio error (total)"]) -  df[f"log S2 ratio (total)"]
+    for col in ["HALPHA luminosity", "HALPHA continuum", "HALPHA EW", "sigma_gas", "S2 ratio"]:
+        for s in ["(total)"] + [f"(component {nn})" for nn in [1, 2, 3]]:
+            # Compute log quantities for total 
+            if f"{col} {s}" in df:
+                df[f"log {col} {s}"] = np.log10(df[f"{col} {s}"])
+            if f"{col} error {s}" in df:
+                df[f"log {col} error (lower) {s}"] = df[f"log {col} {s}"] - np.log10(df[f"{col} {s}"] - df[f"{col} error {s}"])
+                df[f"log {col} error (upper) {s}"] = np.log10(df[f"{col} {s}"] + df[f"{col} error {s}"]) -  df[f"log {col} {s}"]
 
     # Compute log quantities for total SFR
-    for s in ["(total)"] + [f"(component {nn})" for nn in [1, 2, 3]]:
-        if f"SFR {s}" in df:
-            cond = ~np.isnan(df[f"SFR {s}"])
-            cond &= df[f"SFR {s}"] > 0
-            df.loc[cond, f"log SFR {s}"] = np.log10(df.loc[cond, f"SFR {s}"])
-            if f"SFR error {s}" in df:
-                df.loc[cond, f"log SFR error (lower) {s}"] = df.loc[cond, f"log SFR {s}"] - np.log10(df.loc[cond, f"SFR {s}"] - df.loc[cond, f"SFR error {s}"])
-                df.loc[cond, f"log SFR error (upper) {s}"] = np.log10(df.loc[cond, f"SFR {s}"] + df.loc[cond, f"SFR error {s}"]) -  df.loc[cond, f"log SFR {s}"]
-            
-        if f"SFR surface density {s}" in df:
-            cond = ~np.isnan(df[f"SFR surface density {s}"])
-            cond &= df[f"SFR surface density {s}"] > 0
-            # Compute log quantities for total SFR surface density
-            df.loc[cond, f"log SFR surface density {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"])
-            if f"SFR surface density error {s}" in df:
-                df.loc[cond, f"log SFR surface density error (lower) {s}"] = df.loc[cond, f"log SFR surface density {s}"] - np.log10(df.loc[cond, f"SFR surface density {s}"] - df.loc[cond, f"SFR surface density error {s}"])
-                df.loc[cond, f"log SFR surface density error (upper) {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"] + df.loc[cond, f"SFR surface density error {s}"]) -  df.loc[cond, f"log SFR surface density {s}"]
+    for col in ["SFR", "SFR surface density", "sSFR"]:
+        for s in ["(total)"] + [f"(component {nn})" for nn in [1, 2, 3]]:
+            if f"{col} {s}" in df:
+                cond = ~np.isnan(df[f"{col} {s}"])
+                cond &= df[f"{col} {s}"] > 0
+                df.loc[cond, f"log {col} {s}"] = np.log10(df.loc[cond, f"{col} {s}"])
+                if f"{col} error {s}" in df:
+                    df.loc[cond, f"log {col} error (lower) {s}"] = df.loc[cond, f"log {col} {s}"] - np.log10(df.loc[cond, f"{col} {s}"] - df.loc[cond, f"{col} error {s}"])
+                    df.loc[cond, f"log {col} error (upper) {s}"] = np.log10(df.loc[cond, f"{col} {s}"] + df.loc[cond, f"{col} error {s}"]) -  df.loc[cond, f"log {col} {s}"]
+                
+        # if f"SFR surface density {s}" in df:
+        #     cond = ~np.isnan(df[f"SFR surface density {s}"])
+        #     cond &= df[f"SFR surface density {s}"] > 0
+        #     # Compute log quantities for total SFR surface density
+        #     df.loc[cond, f"log SFR surface density {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"])
+        #     if f"SFR surface density error {s}" in df:
+        #         df.loc[cond, f"log SFR surface density error (lower) {s}"] = df.loc[cond, f"log SFR surface density {s}"] - np.log10(df.loc[cond, f"SFR surface density {s}"] - df.loc[cond, f"SFR surface density error {s}"])
+        #         df.loc[cond, f"log SFR surface density error (upper) {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"] + df.loc[cond, f"SFR surface density error {s}"]) -  df.loc[cond, f"log SFR surface density {s}"]
 
-        if f"sSFR {s}" in df:
-            cond = ~np.isnan(df[f"sSFR {s}"])
-            cond &= df[f"sSFR {s}"] > 0
-            # Compute log quantities for total sSFR
-            df.loc[cond, f"log sSFR {s}"] = np.log10(df.loc[cond, f"sSFR {s}"])
-            if f"sSFR error {s}" in df:
-                df.loc[cond, f"log sSFR error (lower) {s}"] = df.loc[cond, f"log sSFR {s}"] - np.log10(df.loc[cond, f"sSFR {s}"] - df.loc[cond, f"sSFR error {s}"])
-                df.loc[cond, f"log sSFR error (upper) {s}"] = np.log10(df.loc[cond, f"sSFR {s}"] + df.loc[cond, f"sSFR error {s}"]) -  df.loc[cond, f"log sSFR {s}"]
+        # if f"sSFR {s}" in df:
+        #     cond = ~np.isnan(df[f"sSFR {s}"])
+        #     cond &= df[f"sSFR {s}"] > 0
+        #     # Compute log quantities for total sSFR
+        #     df.loc[cond, f"log sSFR {s}"] = np.log10(df.loc[cond, f"sSFR {s}"])
+        #     if f"sSFR error {s}" in df:
+        #         df.loc[cond, f"log sSFR error (lower) {s}"] = df.loc[cond, f"log sSFR {s}"] - np.log10(df.loc[cond, f"sSFR {s}"] - df.loc[cond, f"sSFR error {s}"])
+        #         df.loc[cond, f"log sSFR error (upper) {s}"] = np.log10(df.loc[cond, f"sSFR {s}"] + df.loc[cond, f"sSFR error {s}"]) -  df.loc[cond, f"log sSFR {s}"]
 
     return df
 
@@ -628,7 +622,6 @@ def compute_log_columns(df):
 def compute_gas_stellar_offsets(df):    
     if "v_*" in df and "sigma_*" in df:
         for nn in range(3):
-
             #//////////////////////////////////////////////////////////////////////
             # Velocity offsets
             if f"v_gas (component {nn + 1})" in df:
