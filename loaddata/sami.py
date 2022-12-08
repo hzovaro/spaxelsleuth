@@ -80,6 +80,9 @@ assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
 assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
 
+# Path for LZIFU data products
+__lzifu_products_path = "/priv/sami/sami_data/Final_SAMI_data/LZIFU/lzifu_default_products_old"
+
 ###############################################################################
 # For computing median continuum S/N values in make_sami_metadata_df()
 def _compute_snr(args, plotit=False):
@@ -524,26 +527,29 @@ def _process_gals(args):
 
     """
     # Extract input arguments
-    gal_idx, gal, ncomponents, bin_type, df_metadata, status_str = args
+    gal_idx, gal, ncomponents, bin_type, df_metadata, status_str, use_lzifu_fits, lzifu_ncomponents = args
 
     # List of filenames for SAMI data products
     fname_list = [
-        f"Halpha_{bin_type}_{ncomponents}-comp",
-        f"Hbeta_{bin_type}_{ncomponents}-comp",
-        f"NII6583_{bin_type}_{ncomponents}-comp",
-        f"OI6300_{bin_type}_{ncomponents}-comp",
-        f"OII3728_{bin_type}_{ncomponents}-comp",
-        f"OIII5007_{bin_type}_{ncomponents}-comp",
-        f"SII6716_{bin_type}_{ncomponents}-comp",
-        f"SII6731_{bin_type}_{ncomponents}-comp",
-        f"gas-vdisp_{bin_type}_{ncomponents}-comp",
-        f"gas-velocity_{bin_type}_{ncomponents}-comp",
         f"stellar-velocity-dispersion_{bin_type}_two-moment",
         f"stellar-velocity_{bin_type}_two-moment",
         f"extinct-corr_{bin_type}_{ncomponents}-comp",
         f"sfr-dens_{bin_type}_{ncomponents}-comp",
         f"sfr_{bin_type}_{ncomponents}-comp"
     ]
+    if not use_lzifu_fits:
+        fname_list += [
+            f"Halpha_{bin_type}_{ncomponents}-comp",
+            f"Hbeta_{bin_type}_{ncomponents}-comp",
+            f"NII6583_{bin_type}_{ncomponents}-comp",
+            f"OI6300_{bin_type}_{ncomponents}-comp",
+            f"OII3728_{bin_type}_{ncomponents}-comp",
+            f"OIII5007_{bin_type}_{ncomponents}-comp",
+            f"SII6716_{bin_type}_{ncomponents}-comp",
+            f"SII6731_{bin_type}_{ncomponents}-comp",
+            f"gas-vdisp_{bin_type}_{ncomponents}-comp",
+            f"gas-velocity_{bin_type}_{ncomponents}-comp",
+        ]   
     fnames = [os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{f}.fits") for f in fname_list]
 
     # X, Y pixel coordinates
@@ -645,15 +651,19 @@ def _process_gals(args):
 
     #######################################################################
     # Compute v_grad using eqn. 1 of Zhou+2017
-    hdulist_v = fits.open(os.path.join(
-        sami_data_path, f"ifs/{gal}/{gal}_A_gas-velocity_{bin_type}_{ncomponents}-comp.fits"))
-
-    # Open the velocity & velocity dispersion FITS files
-    v = hdulist_v[0].data.astype(np.float64)
-    v_grad = np.full_like(v, np.nan)
+    if not use_lzifu_fits:
+        hdulist_v = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_gas-velocity_{bin_type}_{ncomponents}-comp.fits"))
+        v = hdulist_v[0].data.astype(np.float64)
+        hdulist_v.close()
+    else:
+        lzifu_fname = [f for f in os.listdir(__lzifu_products_path) if f.startswith(str(gal)) and f"{lzifu_ncomponents}_comp" in f][0]
+        hdu_lzifu = fits.open(os.path.join(__lzifu_products_path, lzifu_fname))
+        v = hdu_lzifu["V"].data.astype(np.float64)
+        hdu_lzifu.close()
 
     # Compute v_grad for each spaxel in each component
     # in units of km/s/pixel
+    v_grad = np.full_like(v, np.nan)
     for yy, xx in product(range(1, 49), range(1, 49)):
         v_grad[:, yy, xx] = np.sqrt(((v[:, yy, xx + 1] - v[:, yy, xx - 1]) / 2)**2 +\
                                     ((v[:, yy + 1, xx] - v[:, yy - 1, xx]) / 2)**2)
@@ -680,21 +690,6 @@ def _process_gals(args):
     data_cube_masked_R[~A_HALPHA_mask] = np.nan
     A_HALPHA_map = np.nanmax(data_cube_masked_R, axis=0)
     AN_HALPHA_map = (A_HALPHA_map - cont_HALPHA_map) / cont_HALPHA_map_std
-
-    """
-    # Debugging... 
-    fig, axs = plt.subplots(figsize=(15, 10), nrows=3)
-    for ii, (rr, cc) in enumerate([(20, 20), (25, 25), (30, 30)]):
-        axs[ii].plot(lambda_vals_rest_R_A, data_cube_R[:, rr, cc], "k")
-        axs[ii].axvspan(lambda_min_A[rr, cc], lambda_max_A[rr, cc], alpha=0.2)
-        axs[ii].axvspan(6500, 6540, alpha=0.2)
-        axs[ii].axvline(lambda_c_A[rr, cc])
-        axs[ii].axhline(A_HALPHA_map[rr, cc], color="grey", linestyle="--")
-        axs[ii].text(x=0.1, y=0.9, s=f"Ha A/N = {AN_HALPHA_map[rr, cc]:.2f}", transform=axs[ii].transAxes)
-    Tracer()()
-    """
-
-    hdulist_v.close()
 
     #######################################################################
     # Compute the spaxel or bin coordinates, depending on the binning scheme 
@@ -846,6 +841,95 @@ def _process_gals(args):
                 rows_list.append(thisrow_err)
                 colnames.append(f"{fname_list[ff]} (component {nn + 1})")
                 colnames.append(f"{fname_list[ff]}_error (component {nn + 1})")
+            
+            # Add in total Halpha flux 
+            if "Halpha_" in fname:
+                thisrow = np.full_like(x_c_list, np.nan, dtype="float")
+                thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
+                for jj, coords in enumerate(zip(x_c_list, y_c_list)):
+                    x_c, y_c = coords
+                    y, x = (int(np.round(y_c)), int(np.round(x_c)))
+                    if x > 49 or y > 49:
+                        x = min([x, 49])
+                        y = min([y, 49])
+                    thisrow[jj] = np.nansum(data[:, y, x], axis=0)
+                    thisrow_err[jj] = np.nansum(data_err[:, y, x], axis=0)
+                rows_list.append(thisrow)
+                rows_list.append(thisrow_err)
+                colnames.append(f"{fname_list[ff]} (total)")
+                colnames.append(f"{fname_list[ff]}_error (total)")
+
+                # NOTE: NEED TO ADD (total) IN THE BIT WHERE WE RENAME COLUMNS
+                Tracer()()
+
+    #######################################################################
+    # Load LZIFU files
+    if use_lzifu_fits:
+        # Open the FITS file 
+        lzifu_fname = [f for f in os.listdir(__lzifu_products_path) if f.startswith(str(gal)) and f"{lzifu_ncomponents}_comp" in f][0]
+        hdu_lzifu = fits.open(os.path.join(__lzifu_products_path, lzifu_fname))
+
+        #//////////////////////////////////////////////////////////////////////
+        # Load emission line fluxes & kinematics (except for [OII])
+        for quantity in ["HBETA", "OIII5007", "OI6300", 
+                         "HALPHA", "NII6583", "SII6716", "SII6731"] +\
+                        ["V", "VDISP"]:
+
+            # Get the data. Ignore the 0th slice because this contains the total fluxes.
+            data = hdu_lzifu[f"{quantity}"].data.astype(np.float64)[1:]
+            data_err = hdu_lzifu[f"{quantity}_ERR"].data.astype(np.float64)[1:]
+
+            # Loop through data & store in row
+            for nn in range(data.shape[0]):
+                thisrow = np.full_like(x_c_list, np.nan, dtype="float")
+                thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
+                for jj, coords in enumerate(zip(x_c_list, y_c_list)):
+                    x_c, y_c = coords
+                    y, x = (int(np.round(y_c)), int(np.round(x_c)))
+                    if x > 49 or y > 49:
+                        x = min([x, 49])
+                        y = min([y, 49])
+                    thisrow[jj] = data[nn, y, x]
+                    thisrow_err[jj] = data_err[nn, y, x]
+                rows_list.append(thisrow)
+                rows_list.append(thisrow_err)
+
+                # Edit column name 
+                if quantity == "V":
+                    quantity_colname = "v_gas"
+                elif quantity == "VDISP":
+                    quantity_colname = "sigma_gas"
+                else:
+                    quantity_colname = quantity
+                colnames.append(f"{quantity_colname} (component {nn + 1})")
+                colnames.append(f"{quantity_colname} error (component {nn + 1})")
+
+        #//////////////////////////////////////////////////////////////////////
+        # OII doublet: these need to be combined to be consistent with the DR3 data products. 
+        # We will store combined fluxes in column "OII3726+OII3729"
+        data_OII3726 = hdu_lzifu[f"OII3726"].data.astype(np.float64)[1:]
+        data_OII3726_err = hdu_lzifu[f"OII3726_ERR"].data.astype(np.float64)[1:]
+        data_OII3729 = hdu_lzifu[f"OII3729"].data.astype(np.float64)[1:]
+        data_OII3729_err = hdu_lzifu[f"OII3729_ERR"].data.astype(np.float64)[1:]
+        data = data_OII3726 + data_OII3729
+        data_err = np.sqrt(data_OII3726_err**2 + data_OII3729_err**2)
+
+        # Loop through data & store in row
+        for nn in range(data.shape[0]):
+            thisrow = np.full_like(x_c_list, np.nan, dtype="float")
+            thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
+            for jj, coords in enumerate(zip(x_c_list, y_c_list)):
+                x_c, y_c = coords
+                y, x = (int(np.round(y_c)), int(np.round(x_c)))
+                if x > 49 or y > 49:
+                    x = min([x, 49])
+                    y = min([y, 49])
+                thisrow[jj] = data[nn, y, x]
+                thisrow_err[jj] = data_err[nn, y, x]
+            rows_list.append(thisrow)
+            rows_list.append(thisrow_err)
+            colnames.append(f"OII3726+OII3729 (component {nn + 1})")
+            colnames.append(f"OII3726+OII3729 error (component {nn + 1})")
 
     ####################################################################### 
     # Do the same but with v_grad
@@ -991,7 +1075,8 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                  vgrad_cut=False,
                  stekin_cut=True,
                  correct_extinction=True,
-                 nthreads_max=20, debug=False):
+                 nthreads_max=20, debug=False,
+                 __use_lzifu_fits=False, __lzifu_ncomponents=None):
     """
     DESCRIPTION
     ---------------------------------------------------------------------------
@@ -1028,7 +1113,13 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ---------------------------------------------------------------------------
     ncomponents:        str
         Which number of Gaussian components to assume. Options are "recom" (the
-        recommended multi-component fits) or "1" (1-component fits)
+        recommended multi-component fits) or "1" (1-component fits).
+        
+        NOTE: if __use_lzifu_fits is True, then ncomponents is ONLY used in  
+        loading data products that are NOT contained in the output LZIFU files -
+        i.e., SFRs/SFR surface densities and HALPHA extinction orrection 
+        factors. Use parameter __lzifu_ncomponents to control which data 
+        derived from the LZIFU fits is loaded. 
 
     bin_type:           str
         Spatial binning strategy. Options are "default" (unbinned), "adaptive"
@@ -1046,7 +1137,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         due to the large spacing in wavelength between the emission lines 
         used in some diagnostics.
 
-    line_flux_SNR_cut:      bool
+    line_flux_SNR_cut:          bool
         Whether to NaN emission line components AND total fluxes 
         (corresponding to emission lines in eline_list) below a specified S/N 
         threshold, given by eline_SNR_min. The S/N is simply the flux dividied 
@@ -1092,7 +1183,20 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     nthreads_max:               int            
         Maximum number of threds to use. 
 
-    debug:                      bool
+    __use_lzifu_fits:           bool (optional)
+        If True, load the DataFrame containing emission line quantities
+        (including fluxes, kinematics, etc.) derived directly from the LZIFU
+        output FITS files, rather than those included in DR3. 
+
+    __lzifu_ncomponents:        str  (optional)
+        Number of components corresponding to the LZIFU fit, if 
+        __use_lzifu_fits is specified. May be '1', '2', '3' or 'recom'. Note 
+        that this keyword ONLY affects emission line fluxes and gas kinematics;
+        other quantities including SFR/SFR surface densities and HALPHA 
+        extinction correction factors are loaded from DR3 data products as per
+        the ncomponents keyword. 
+
+    debug:                      bool (optional)
         If True, run on a subset of the entire sample (10 galaxies) and save
         the output with "_DEBUG" appended to the filename. This is useful for
         tweaking S/N and DQ cuts since running the function on the entire 
@@ -1169,6 +1273,15 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     #######################################################################
     assert (ncomponents == "recom") | (ncomponents == "1"), "ncomponents must be 'recom' or '1'!!"
     assert bin_type in ["default", "adaptive", "sectors"], "bin_type must be 'default' or 'adaptive' or 'sectors'!!"
+    if __use_lzifu_fits:
+        assert __lzifu_ncomponents in ["recom", "1", "2", "3"], "__lzifu_ncomponents must be 'recom', '1', '2' or '3'!!"
+        assert os.path.exists(__lzifu_products_path), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
+        print(f"WARNING: using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!")
+
+    # Component indices for emission line-derived quantities
+    range_ncomponents_elines =\
+        range(3 if ncomponents == "recom" else 1) if not __use_lzifu_fits \
+        else range(3 if __lzifu_ncomponents == "recom" else int(__lzifu_ncomponents))        
 
     # For printing to stdout
     status_str = f"In sami.make_df_sami() [bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}]"
@@ -1183,6 +1296,8 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         df_fname = f"sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}"
     else:
         df_fname = f"sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}"
+    if __use_lzifu_fits:
+        df_fname += f"_lzifu_{__lzifu_ncomponents}-comp"
     if debug:
         df_fname += "_DEBUG"
     df_fname += ".hd5"
@@ -1205,7 +1320,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
 
     # If running in DEBUG mode, run on a subset to speed up execution time
     if debug: 
-        gal_ids_dq_cut = gal_ids_dq_cut[:10]
+        gal_ids_dq_cut = gal_ids_dq_cut[:10] + [572402, 209807]
     df_metadata["Good?"] = df_metadata["Good?"].astype("float")
 
     # Turn off plotting if more than 1 galaxy is to be run
@@ -1217,7 +1332,8 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ###############################################################################
     # Run in parallel
     ###############################################################################
-    args_list = [[gg, gal, ncomponents, bin_type, df_metadata, status_str] for gg, gal in enumerate(gal_ids_dq_cut)]
+    args_list = [[gg, gal, ncomponents, bin_type, df_metadata, status_str, 
+                  __use_lzifu_fits, __lzifu_ncomponents] for gg, gal in enumerate(gal_ids_dq_cut)]
 
     if len(gal_ids_dq_cut) == 1:
         res_list = [_process_gals(args_list[0])]
@@ -1265,7 +1381,6 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ###############################################################################
     print(f"{status_str}: Renaming columns...")
     rename_dict = {}
-    sami_colnames = [col.split(f"_{bin_type}_{ncomponents}-comp")[0].upper() for col in df_spaxels.columns if col.endswith(f"_{bin_type}_{ncomponents}-comp")]
 
     # Emission lines except for Halpha
     for col in [c for c in df_spaxels.columns if c.endswith(f"_{bin_type}_{ncomponents}-comp")]:
@@ -1278,12 +1393,13 @@ def make_sami_df(bin_type="default", ncomponents="recom",
 
     # Halpha & kinematics
     for nn in range(3 if ncomponents == "recom" else 1):
-        rename_dict[f"Halpha_{bin_type}_{ncomponents}-comp (component {nn + 1})"] = f"HALPHA (component {nn + 1})"
-        rename_dict[f"Halpha_{bin_type}_{ncomponents}-comp_error (component {nn + 1})"] = f"HALPHA error (component {nn + 1})"
-        rename_dict[f"gas-vdisp_{bin_type}_{ncomponents}-comp (component {nn + 1})"] = f"sigma_gas (component {nn + 1})"
-        rename_dict[f"gas-vdisp_{bin_type}_{ncomponents}-comp_error (component {nn + 1})"] = f"sigma_gas error (component {nn + 1})"
-        rename_dict[f"gas-velocity_{bin_type}_{ncomponents}-comp (component {nn + 1})"] = f"v_gas (component {nn + 1})"
-        rename_dict[f"gas-velocity_{bin_type}_{ncomponents}-comp_error (component {nn + 1})"] = f"v_gas error (component {nn + 1})"
+        if not __use_lzifu_fits:
+            rename_dict[f"Halpha_{bin_type}_{ncomponents}-comp (component {nn + 1})"] = f"HALPHA (component {nn + 1})"
+            rename_dict[f"Halpha_{bin_type}_{ncomponents}-comp_error (component {nn + 1})"] = f"HALPHA error (component {nn + 1})"
+            rename_dict[f"gas-vdisp_{bin_type}_{ncomponents}-comp (component {nn + 1})"] = f"sigma_gas (component {nn + 1})"
+            rename_dict[f"gas-vdisp_{bin_type}_{ncomponents}-comp_error (component {nn + 1})"] = f"sigma_gas error (component {nn + 1})"
+            rename_dict[f"gas-velocity_{bin_type}_{ncomponents}-comp (component {nn + 1})"] = f"v_gas (component {nn + 1})"
+            rename_dict[f"gas-velocity_{bin_type}_{ncomponents}-comp_error (component {nn + 1})"] = f"v_gas error (component {nn + 1})"
 
         # Star formation rate
         rename_dict[f"sfr_{bin_type}_{ncomponents}-comp (component {nn + 1})"] = f"SFR (component {nn + 1})"
@@ -1307,14 +1423,29 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ###############################################################################
     # Compute the ORIGINAL number of components
     ###############################################################################
-    if ncomponents == "recom":
-        df_spaxels["Number of components (original)"] =\
-            (~df_spaxels["sigma_gas (component 1)"].isna()).astype(int) +\
-            (~df_spaxels["sigma_gas (component 2)"].isna()).astype(int) +\
-            (~df_spaxels["sigma_gas (component 3)"].isna()).astype(int)
-    elif ncomponents == "1":
-        df_spaxels["Number of components (original)"] =\
-            (~df_spaxels["sigma_gas (component 1)"].isna()).astype(int)
+    ncomponents_original = (~df_spaxels[f"sigma_gas (component 1)"].isna()).astype(int)
+    for nn in range_ncomponents_elines[1:]:
+        ncomponents_original += (~df_spaxels[f"sigma_gas (component {nn + 1})"].isna()).astype(int)
+    df_spaxels["Number of components (original)"] = ncomponents_original
+
+    # 
+    # DEBUGGING
+    # df_gal = df_spaxels[df_spaxels["ID"] == 572402]
+    # ncomp = df_gal["Number of components (original)"]
+    # from spaxelsleuth.plotting.plot2dmap import plot2dmap
+    # plot2dmap(df_gal=df_gal, col_z="Number of components (original)", bin_type="default", survey="sami")
+    # fig, axs = plt.subplots(ncols=3, figsize=(12, 4))
+    # plot2dmap(df_gal=df_gal, col_z="sigma_gas (component 1)", bin_type="default", survey="sami", ax=axs[0])
+    # plot2dmap(df_gal=df_gal, col_z="sigma_gas (component 2)", bin_type="default", survey="sami", ax=axs[1])
+    # plot2dmap(df_gal=df_gal, col_z="sigma_gas (component 3)", bin_type="default", survey="sami", ax=axs[2])
+    # if __use_lzifu_fits:
+    #     plt.gcf().suptitle("LZIFU")
+    #     fig.suptitle("LZIFU")
+    # else:
+    #     plt.gcf().suptitle("Non-LZIFU")
+    #     fig.suptitle("Non-LZIFU")
+    # Tracer()()
+    # 
 
     ###############################################################################
     # Calculate equivalent widths
@@ -1323,7 +1454,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         df_spaxels[col] = pd.to_numeric(df_spaxels[col])
 
     df_spaxels.loc[df_spaxels["HALPHA continuum"] < 0, "HALPHA continuum"] = 0
-    for nn in range(3 if ncomponents == "recom" else 1):
+    for nn in range_ncomponents_elines:
         # Cast to float
         df_spaxels[f"HALPHA (component {nn + 1})"] = pd.to_numeric(df_spaxels[f"HALPHA (component {nn + 1})"])
         df_spaxels[f"HALPHA error (component {nn + 1})"] = pd.to_numeric(df_spaxels[f"HALPHA error (component {nn + 1})"])
@@ -1340,18 +1471,14 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                         f"HALPHA EW error (component {nn + 1})"]] = np.nan  
 
     # Calculate total EWs
-    df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {nn + 1})"] for nn in range(3 if ncomponents == "recom" else 1)], axis=0)
-    df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {nn + 1})"]**2 for nn in range(3 if ncomponents == "recom" else 1)], axis=0))
+    df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {nn + 1})"] for nn in range_ncomponents_elines], axis=0)
+    df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {nn + 1})"]**2 for nn in range_ncomponents_elines], axis=0))
 
     # If all HALPHA EWs are NaN, then make the total HALPHA EW NaN too
-    if ncomponents == "recom":
-        df_spaxels.loc[df_spaxels["HALPHA EW (component 1)"].isna() &\
-                       df_spaxels["HALPHA EW (component 2)"].isna() &\
-                       df_spaxels["HALPHA EW (component 3)"].isna(), 
-                       ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
-    elif ncomponents == "1":
-        df_spaxels.loc[df_spaxels["HALPHA EW (component 1)"].isna(),
-                       ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
+    cond_HaEW_isnan = df_spaxels[f"HALPHA EW (component 1)"].isna()
+    for nn in range_ncomponents_elines[1:]:
+        cond_HaEW_isnan &= df_spaxels[f"HALPHA EW (component {nn + 1})"].isna()
+    df_spaxels.loc[cond_HaEW_isnan, ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
 
     ######################################################################
     # SFR and SFR surface density
@@ -1383,14 +1510,29 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ######################################################################
     for eline in eline_list:
         # Compute S/N 
-        for nn in range(3 if ncomponents == "recom" else 1):
+        for nn in range_ncomponents_elines:
             if f"{eline} (component {nn + 1})" in df_spaxels.columns:
                 df_spaxels[f"{eline} S/N (component {nn + 1})"] = df_spaxels[f"{eline} (component {nn + 1})"] / df_spaxels[f"{eline} error (component {nn + 1})"]
         
         # Compute total line fluxes, if the total fluxes are not given
         if f"{eline} (total)" not in df_spaxels.columns:
-            df_spaxels[f"{eline} (total)"] = np.nansum([df_spaxels[f"{eline} (component {nn + 1})"] for nn in range(3 if ncomponents == "recom" else 1)], axis=0)
-            df_spaxels[f"{eline} error (total)"] = np.sqrt(np.nansum([df_spaxels[f"{eline} error (component {nn + 1})"]**2 for nn in range(3 if ncomponents == "recom" else 1)], axis=0))
+
+
+
+
+            # I think this line is not doing what I think it's doing 
+            flux_tot = 0
+            flux_vartot = 0
+            for nn in range_ncomponents_elines:
+                flux_tot += df_spaxels[f"{eline} (component {nn + 1})"]
+                flux_vartot += df_spaxels[f"{eline} error (component {nn + 1})"]**2
+                Tracer()()
+            df_spaxels[f"{eline} (total)"] = flux_tot
+            df_spaxels[f"{eline} error (total)"] = np.sqrt(flux_vartot)
+            Tracer()()
+
+            # df_spaxels[f"{eline} (total)"] = np.nansum([df_spaxels[f"{eline} (component {nn + 1})"] for nn in range_ncomponents_elines], axis=0)
+            # df_spaxels[f"{eline} error (total)"] = np.sqrt(np.nansum([df_spaxels[f"{eline} error (component {nn + 1})"]**2 for nn in range_ncomponents_elines], axis=0))
 
         # Compute the S/N in the TOTAL line flux
         df_spaxels[f"{eline} S/N (total)"] = df_spaxels[f"{eline} (total)"] / df_spaxels[f"{eline} error (total)"]
@@ -1420,14 +1562,12 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     # DQ and S/N CUTS
     ######################################################################
     df_spaxels = dqcut.set_flags(df=df_spaxels, 
-                  ncomponents=3 if ncomponents == "recom" else 1,
                   eline_SNR_min=eline_SNR_min, eline_list=eline_list,
                   sigma_gas_SNR_min=sigma_gas_SNR_min,
                   sigma_inst_kms=29.6)
 
     # Apply S/N and DQ cuts
     df_spaxels = dqcut.apply_flags(df=df_spaxels, 
-                                   ncomponents=3 if ncomponents == "recom" else 1,
                                    line_flux_SNR_cut=line_flux_SNR_cut,
                                    missing_fluxes_cut=missing_fluxes_cut,
                                    line_amplitude_SNR_cut=line_amplitude_SNR_cut,
@@ -1435,7 +1575,19 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                                    vgrad_cut=vgrad_cut,
                                    sigma_gas_SNR_cut=sigma_gas_SNR_cut,
                                    stekin_cut=stekin_cut,
-                                   eline_list=eline_list)              
+                                   eline_list=eline_list)    
+
+    ######################################################################
+    # NaN out SFR quantities if the HALPHA flux is NaN
+    ###################################################################### 
+    cond_Ha_isnan = df_spaxels["HALPHA (total)"].isna()
+    cols_sfr = [c for c in df_spaxels.columns if "SFR" in c]
+    for col in cols_sfr:
+        df_spaxels.loc[cond_Ha_isnan, col] = np.nan
+
+    for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
+        assert f"{col}" in df_spaxels.columns
+        assert all(df_spaxels.loc[df_spaxels["HALPHA (total)"].isna(), f"{col}"].isna())
     
     ######################################################################
     # Make a copy of the DataFrame with EXTINCTION CORRECTION
@@ -1455,16 +1607,29 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         df_spaxels["Corrected for extinction?"] = False
     df_spaxels = df_spaxels.sort_index()
 
+    for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
+        assert f"{col}" in df_spaxels.columns
+        assert all(df_spaxels.loc[df_spaxels["HALPHA (total)"].isna(), f"{col}"].isna())
+
     ######################################################################
     # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
     ######################################################################
     df_spaxels = linefns.ratio_fn(df_spaxels, s=f" (total)")
     df_spaxels = linefns.bpt_fn(df_spaxels, s=f" (total)")
 
+    for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
+        assert f"{col}" in df_spaxels.columns
+        assert all(df_spaxels.loc[df_spaxels["HALPHA (total)"].isna(), f"{col}"].isna())
+
     ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
     ######################################################################
-    df_spaxels = dqcut.compute_extra_columns(df_spaxels, ncomponents=3 if ncomponents=="recom" else 1)
+    # WHAT TO DO HERE?
+    df_spaxels = dqcut.compute_extra_columns(df_spaxels)
+
+    for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
+        assert f"{col}" in df_spaxels.columns
+        assert all(df_spaxels.loc[df_spaxels["HALPHA (total)"].isna(), f"{col}"].isna())
 
     ######################################################################
     # EVALUATE METALLICITY (only for spaxels with extinction correction)
@@ -1484,6 +1649,10 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2O2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
     df_spaxels = metallicity.calculate_metallicity(met_diagnostic="R23_KK04", compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
 
+    for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
+        assert f"{col}" in df_spaxels.columns
+        assert all(df_spaxels.loc[df_spaxels["HALPHA (total)"].isna(), f"{col}"].isna())
+
     ###############################################################################
     # Save input flags to the DataFrame so that we can keep track
     ###############################################################################
@@ -1498,6 +1667,10 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     df_spaxels["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
     df_spaxels["stekin_cut"] = stekin_cut
     
+    for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
+        assert f"{col}" in df_spaxels.columns
+        assert all(df_spaxels.loc[df_spaxels["HALPHA (total)"].isna(), f"{col}"].isna())
+
     ###############################################################################
     # Save to .hd5 & .csv
     ###############################################################################
@@ -1514,6 +1687,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
 
 ###############################################################################
 def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
+                 __use_lzifu_fits=False, __lzifu_ncomponents='3',
                  debug=False):
 
     """
@@ -1546,6 +1720,19 @@ def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
         List of emission lines to which the flagging operations are applied
         for S/N cuts, etc. 
 
+    __use_lzifu_fits:           bool (optional)
+        If True, load the DataFrame containing emission line quantities
+        (including fluxes, kinematics, etc.) derived directly from the LZIFU
+        output FITS files, rather than those included in DR3. 
+
+    __lzifu_ncomponents:        str  (optional)
+        Number of components corresponding to the LZIFU fit, if 
+        __use_lzifu_fits is specified. May be '1', '2', '3' or 'recom'. Note 
+        that this keyword ONLY affects emission line fluxes and gas kinematics;
+        other quantities including SFR/SFR surface densities and HALPHA 
+        extinction correction factors are loaded from DR3 data products as per
+        the ncomponents keyword. 
+
     debug:                      bool
         If True, load the "debug" version of the DataFrame created when 
         running make_sami_df() with debug=True.
@@ -1568,12 +1755,18 @@ def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
     #######################################################################
     assert (ncomponents == "recom") | (ncomponents == "1"), "ncomponents must be 'recom' or '1'!!"
     assert bin_type in ["default", "adaptive", "sectors"], "bin_type must be 'default' or 'adaptive' or 'sectors'!!"
+    if __use_lzifu_fits:
+        assert __lzifu_ncomponents in ["recom", "1", "2", "3"], "__lzifu_ncomponents must be 'recom', '1', '2' or '3'!!"
+        assert os.path.exists(__lzifu_products_path), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
+        print(f"WARNING: using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!")
 
     # Input file name 
     df_fname = f"sami_{bin_type}_{ncomponents}-comp"
     if correct_extinction:
         df_fname += "_extcorr"
     df_fname += f"_minSNR={eline_SNR_min}"
+    if __use_lzifu_fits:
+        df_fname += f"_lzifu_{__lzifu_ncomponents}-comp"
     if debug:
         df_fname += "_DEBUG"
     df_fname += ".hd5"
