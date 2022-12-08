@@ -167,44 +167,57 @@ def set_flags(df, eline_SNR_min, eline_list,
     # Compute the amplitude corresponding to each component
     print("In dqcut.set_flags(): Flagging components with amplitude < 3 * rms continuum noise...")
     for eline in eline_list:
-        if f"{eline} (component 1)" in df:
-            lambda_rest_A = eline_lambdas_A[eline]
-            for nn in range(3):
-                if f"{eline} (component {nn + 1})" in df.columns:
-                    # Compute the amplitude of the line
-                    lambda_obs_A = get_wavelength_from_velocity(lambda_rest=lambda_rest_A, 
-                                                                v=df[f"v_gas (component {nn + 1})"], 
-                                                                units='km/s')
-                    df[f"{eline} lambda_obs (component {nn + 1}) (Å)"] = lambda_obs_A
-                    df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] = lambda_obs_A * df[f"sigma_gas (component {nn + 1})"] * 1e3 / constants.c
-                    df[f"{eline} A (component {nn + 1})"] = df[f"HALPHA (component {nn + 1})"] / df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] / np.sqrt(2 * np.pi)
-                
-                    # Flag bad components
-                    cond_bad_gasamp = df[f"{eline} A (component {nn + 1})"] < 3 * df["HALPHA continuum std. dev."]
-                    df.loc[cond_bad_gasamp, f"Low amplitude flag - {eline} (component {nn + 1})"] = True
+        lambda_rest_A = eline_lambdas_A[eline]
+        for nn in range(3):
+            if f"{eline} (component {nn + 1})" in df.columns:
+                # Compute the amplitude of the line
+                lambda_obs_A = get_wavelength_from_velocity(lambda_rest=lambda_rest_A, 
+                                                            v=df[f"v_gas (component {nn + 1})"], 
+                                                            units='km/s')
+                df[f"{eline} lambda_obs (component {nn + 1}) (Å)"] = lambda_obs_A
+                df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] = lambda_obs_A * df[f"sigma_gas (component {nn + 1})"] * 1e3 / constants.c
+                df[f"{eline} A (component {nn + 1})"] = df[f"HALPHA (component {nn + 1})"] / df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] / np.sqrt(2 * np.pi)
+            
+                # Flag bad components
+                cond_bad_gasamp = df[f"{eline} A (component {nn + 1})"] < 3 * df["HALPHA continuum std. dev."]
+                df.loc[cond_bad_gasamp, f"Low amplitude flag - {eline} (component {nn + 1})"] = True
 
-            # If all components in a given spaxel have low s/n, then discard total values as well.
-            if all([col in df for col in ["v_gas (component 1)", "v_gas (component 2)", "v_gas (component3)"]]):
-                cond_all_bad_components  = (df["Number of components (original)"] == 1) &\
-                                            df[f"Low amplitude flag - {eline} (component 1)"]
+        # If all components in a given spaxel have low s/n, then discard total values as well.
+        if f"{eline} (component 1)" in df:
+            cond_all_bad_components = (df["Number of components (original)"] == 1) &\
+                                       df[f"Low amplitude flag - {eline} (component 1)"]
+            if f"{eline} (component 2)" in df:
                 cond_all_bad_components |= (df["Number of components (original)"] == 2) &\
-                                            df[f"Low amplitude flag - {eline} (component 1)"] &\
-                                            df[f"Low amplitude flag - {eline} (component 2)"]
+                                        df[f"Low amplitude flag - {eline} (component 1)"] &\
+                                        df[f"Low amplitude flag - {eline} (component 2)"]
+            if f"{eline} (component 3)" in df:
                 cond_all_bad_components |= (df["Number of components (original)"] == 3) &\
-                                            df[f"Low amplitude flag - {eline} (component 1)"] &\
-                                            df[f"Low amplitude flag - {eline} (component 2)"] &\
-                                            df[f"Low amplitude flag - {eline} (component 3)"]
-            elif all([col in df for col in ["v_gas (component 1)", "v_gas (component 2)"]]):
-                cond_all_bad_components  = (df["Number of components (original)"] == 1) &\
-                                            df[f"Low amplitude flag - {eline} (component 1)"]
-                cond_all_bad_components |= (df["Number of components (original)"] == 2) &\
-                                            df[f"Low amplitude flag - {eline} (component 1)"] &\
-                                            df[f"Low amplitude flag - {eline} (component 2)"]
-            elif "v_gas (component 1)" in df:
-                cond_all_bad_components = (df["Number of components (original)"] == 1) &\
-                                           df[f"Low amplitude flag - {eline} (component 1)"]
-                
+                                        df[f"Low amplitude flag - {eline} (component 1)"] &\
+                                        df[f"Low amplitude flag - {eline} (component 2)"] &\
+                                        df[f"Low amplitude flag - {eline} (component 3)"]
             df.loc[cond_all_bad_components, f"Low amplitude flag - {eline} (total)"] = True
+
+        # if all([col in df for col in [f"{eline} (component 1)", f"{eline} (component 2)", f"{eline} (component3)"]]):
+        #     cond_all_bad_components  = (df["Number of components (original)"] == 1) &\
+        #                                 df[f"Low amplitude flag - {eline} (component 1)"]
+        #     cond_all_bad_components |= (df["Number of components (original)"] == 2) &\
+        #                                 df[f"Low amplitude flag - {eline} (component 1)"] &\
+        #                                 df[f"Low amplitude flag - {eline} (component 2)"]
+        #     cond_all_bad_components |= (df["Number of components (original)"] == 3) &\
+        #                                 df[f"Low amplitude flag - {eline} (component 1)"] &\
+        #                                 df[f"Low amplitude flag - {eline} (component 2)"] &\
+        #                                 df[f"Low amplitude flag - {eline} (component 3)"]
+        # elif all([col in df for col in [f"{eline} (component 1)", f"{eline} (component 2)"]]):
+        #     cond_all_bad_components  = (df["Number of components (original)"] == 1) &\
+        #                                 df[f"Low amplitude flag - {eline} (component 1)"]
+        #     cond_all_bad_components |= (df["Number of components (original)"] == 2) &\
+        #                                 df[f"Low amplitude flag - {eline} (component 1)"] &\
+        #                                 df[f"Low amplitude flag - {eline} (component 2)"]
+        # elif f"{eline} (component 1)" in df:
+        #     cond_all_bad_components = (df["Number of components (original)"] == 1) &\
+        #                                df[f"Low amplitude flag - {eline} (component 1)"]
+            
+        # df.loc[cond_all_bad_components, f"Low amplitude flag - {eline} (total)"] = True
 
     ######################################################################
     # Flag rows where the flux ratio of the broad:narrow component < 0.05 (using the method of Avery+2021)
@@ -433,8 +446,9 @@ def apply_flags(df,
 
     if sigma_gas_SNR_cut:
         print("In dqcut.apply_flags(): Masking components with insufficient S/N in sigma_gas...")
+        Tracer()()
         for nn in range(3):
-            if f"sigma_gas S/N (component {nn + 1})" in df:
+            if f"sigma_obs S/N (component {nn + 1})" in df:
                 cond_bad_sigma = df[f"Low sigma_gas S/N flag (component {nn + 1})"]
                 
                 # Cells to NaN
@@ -487,8 +501,8 @@ def apply_flags(df,
         df_good_quality_components = df[~df["Missing components flag"]]
 
     """
-    if all([col in df for col in [[f"HALPHA (component 1)", f"HALPHA (component 2)", f"HALPHA (component 3)"] +\
-                                  [f"sigma_gas (component 1)", f"sigma_gas (component 2)", f"sigma_gas (component 3)"]]]):
+    if all([col in df for col in [f"HALPHA (component 1)", f"HALPHA (component 2)", f"HALPHA (component 3)",
+                                  f"sigma_gas (component 1)", f"sigma_gas (component 2)", f"sigma_gas (component 3)"]]):
         cond_has_3 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
                      ~np.isnan(df["HALPHA (component 2)"]) & ~np.isnan(df["sigma_gas (component 2)"]) &\
                      ~np.isnan(df["HALPHA (component 3)"]) & ~np.isnan(df["sigma_gas (component 3)"]) 
@@ -517,8 +531,8 @@ def apply_flags(df,
         df.loc[cond_has_3, "Number of components"] = 3
         df.loc[cond_has_0, "Number of components"] = 0
 
-    if all([col in df for col in [[f"HALPHA (component 1)", f"HALPHA (component 2)"] +\
-                                  [f"sigma_gas (component 1)", f"sigma_gas (component 2)"]]]):
+    elif all([col in df for col in [f"HALPHA (component 1)", f"HALPHA (component 2)",
+                                  f"sigma_gas (component 1)", f"sigma_gas (component 2)"]]):
         cond_has_2 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
                      ~np.isnan(df["HALPHA (component 2)"]) & ~np.isnan(df["sigma_gas (component 2)"])
         cond_has_1 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
@@ -539,7 +553,7 @@ def apply_flags(df,
         df.loc[cond_has_2, "Number of components"] = 2
         df.loc[cond_has_0, "Number of components"] = 0
 
-    all([col in df for col in [f"HALPHA (component 1)" f"sigma_gas (component 1)"]]):
+    elif all([col in df for col in [f"HALPHA (component 1)", f"sigma_gas (component 1)"]]):
         cond_has_1 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"])
         cond_has_0 =  np.isnan(df["HALPHA (component 1)"]) | np.isnan(df["sigma_gas (component 1)"])
         
@@ -651,7 +665,7 @@ def compute_gas_stellar_offsets(df):
 # Compute differences in Halpha EW, sigma_gas between different components
 def compute_component_offsets(df):
     
-    for nn_1, nn_2 in zip([2, 1], [3, 2], [3, 1]):
+    for nn_1, nn_2 in ([2, 1], [3, 2], [3, 1]):
 
         #//////////////////////////////////////////////////////////////////////
         # Difference between gas velocity dispersion between components
@@ -738,9 +752,9 @@ def compute_extra_columns(df):
 
     # Compute FWHM
     for nn in range(3):
-        if df[f"sigma_gas (component {nn + 1})"] in df:
+        if f"sigma_gas (component {nn + 1})" in df:
             df[f"FWHM_gas (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
-        if df[f"sigma_gas error (component {nn + 1})"] in df:
+        if f"sigma_gas error (component {nn + 1})" in df:
             df[f"FWHM_gas error (component {nn + 1})"] = df[f"sigma_gas error (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
 
     # Stellar & gas kinematic offsets
