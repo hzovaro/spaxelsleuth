@@ -27,7 +27,7 @@ df = load_sami_df(ncomponents=ncomponents,
 ###########################################################################
 # CHECK: stellar kinematics have been masked out
 cond_bad_stekin = df["Bad stellar kinematics"]
-for col in [c for c in df.columns if "*" in c]:
+for col in [c for c in df.columns if "v_*" in c or "sigma_*" in c]:
     assert all(df.loc[cond_bad_stekin, col].isna())
 
 # CHECK: sigma_gas S/N has worked 
@@ -165,3 +165,5 @@ for nn in range(3 if ncomponents == "recom" else 1):
 assert all(df.loc[df[f"HALPHA (total)"].isna(), f"HALPHA EW (total)"].isna())
 assert all(df.loc[df[f"HALPHA continuum"].isna() | (df[f"HALPHA continuum"] <= 0), f"HALPHA EW (total)"].isna())
 assert all(df.loc[df[f"HALPHA continuum"].isna() | (df[f"HALPHA continuum"] <= 0), f"HALPHA EW error (total)"].isna())
+
+print("All tests passed!")
