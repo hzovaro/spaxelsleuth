@@ -446,7 +446,6 @@ def apply_flags(df,
 
     if sigma_gas_SNR_cut:
         print("In dqcut.apply_flags(): Masking components with insufficient S/N in sigma_gas...")
-        Tracer()()
         for nn in range(3):
             if f"sigma_obs S/N (component {nn + 1})" in df:
                 cond_bad_sigma = df[f"Low sigma_gas S/N flag (component {nn + 1})"]
@@ -558,7 +557,7 @@ def apply_flags(df,
         cond_has_0 =  np.isnan(df["HALPHA (component 1)"]) | np.isnan(df["sigma_gas (component 1)"])
         
         cond_still_has_1 = cond_has_1 & (df["Number of components (original)"] == 1)
-        cond_still_has_1 = cond_has_0 & (df["Number of components (original)"] == 0)
+        cond_still_has_0 = cond_has_0 & (df["Number of components (original)"] == 0)
 
         # TRUE if the number of components after making DQ cuts matches the "original" number of components
         cond_has_original = cond_still_has_1 | cond_has_0
