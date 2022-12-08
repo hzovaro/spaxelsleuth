@@ -197,28 +197,6 @@ def set_flags(df, eline_SNR_min, eline_list,
                                         df[f"Low amplitude flag - {eline} (component 3)"]
             df.loc[cond_all_bad_components, f"Low amplitude flag - {eline} (total)"] = True
 
-        # if all([col in df for col in [f"{eline} (component 1)", f"{eline} (component 2)", f"{eline} (component3)"]]):
-        #     cond_all_bad_components  = (df["Number of components (original)"] == 1) &\
-        #                                 df[f"Low amplitude flag - {eline} (component 1)"]
-        #     cond_all_bad_components |= (df["Number of components (original)"] == 2) &\
-        #                                 df[f"Low amplitude flag - {eline} (component 1)"] &\
-        #                                 df[f"Low amplitude flag - {eline} (component 2)"]
-        #     cond_all_bad_components |= (df["Number of components (original)"] == 3) &\
-        #                                 df[f"Low amplitude flag - {eline} (component 1)"] &\
-        #                                 df[f"Low amplitude flag - {eline} (component 2)"] &\
-        #                                 df[f"Low amplitude flag - {eline} (component 3)"]
-        # elif all([col in df for col in [f"{eline} (component 1)", f"{eline} (component 2)"]]):
-        #     cond_all_bad_components  = (df["Number of components (original)"] == 1) &\
-        #                                 df[f"Low amplitude flag - {eline} (component 1)"]
-        #     cond_all_bad_components |= (df["Number of components (original)"] == 2) &\
-        #                                 df[f"Low amplitude flag - {eline} (component 1)"] &\
-        #                                 df[f"Low amplitude flag - {eline} (component 2)"]
-        # elif f"{eline} (component 1)" in df:
-        #     cond_all_bad_components = (df["Number of components (original)"] == 1) &\
-        #                                df[f"Low amplitude flag - {eline} (component 1)"]
-            
-        # df.loc[cond_all_bad_components, f"Low amplitude flag - {eline} (total)"] = True
-
     ######################################################################
     # Flag rows where the flux ratio of the broad:narrow component < 0.05 (using the method of Avery+2021)
     ######################################################################
