@@ -1402,34 +1402,13 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     df_spaxels = df_spaxels.rename(columns=rename_dict)
 
     ###############################################################################
-    # Compute the ORIGINAL number of components: define these as those in which
-    # BOTH sigma_gas AND HALPHA are nonzero in each component
+    # Compute the ORIGINAL number of components: define these as those in which 
+    # sigma_gas
     ###############################################################################
-    ncomponents_original_sigma = (~df_spaxels[f"sigma_gas (component 1)"].isna()).astype(int)
-    ncomponents_original_halpha = (~df_spaxels[f"HALPHA (component 1)"].isna()).astype(int)
+    ncomponents_original = (~df_spaxels[f"sigma_gas (component 1)"].isna()).astype(int)
     for nn in range_ncomponents_elines[1:]:
-        ncomponents_original_sigma += (~df_spaxels[f"sigma_gas (component {nn + 1})"].isna()).astype(int)
-        ncomponents_original_halpha += (~df_spaxels[f"HALPHA (component {nn + 1})"].isna()).astype(int)
-    df_spaxels["Number of components (original)"] = np.nanmin([ncomponents_original_sigma, ncomponents_original_halpha], axis=0)
-
-    # 
-    # DEBUGGING
-    # df_gal = df_spaxels[df_spaxels["ID"] == 572402]
-    # ncomp = df_gal["Number of components (original)"]
-    # from spaxelsleuth.plotting.plot2dmap import plot2dmap
-    # plot2dmap(df_gal=df_gal, col_z="Number of components (original)", bin_type="default", survey="sami")
-    # fig, axs = plt.subplots(ncols=3, figsize=(12, 4))
-    # plot2dmap(df_gal=df_gal, col_z="sigma_gas (component 1)", bin_type="default", survey="sami", ax=axs[0])
-    # plot2dmap(df_gal=df_gal, col_z="sigma_gas (component 2)", bin_type="default", survey="sami", ax=axs[1])
-    # plot2dmap(df_gal=df_gal, col_z="sigma_gas (component 3)", bin_type="default", survey="sami", ax=axs[2])
-    # if __use_lzifu_fits:
-    #     plt.gcf().suptitle("LZIFU")
-    #     fig.suptitle("LZIFU")
-    # else:
-    #     plt.gcf().suptitle("Non-LZIFU")
-    #     fig.suptitle("Non-LZIFU")
-    # Tracer()()
-    # 
+        ncomponents_original += (~df_spaxels[f"sigma_gas (component {nn + 1})"].isna()).astype(int)
+    df_spaxels["Number of components (original)"] = ncomponents_original
 
     ###############################################################################
     # Calculate equivalent widths
@@ -1469,11 +1448,17 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         df_spaxels.loc[cond_has_nn_components, f"HALPHA EW error (total)"] =\
             np.sqrt((df_spaxels.loc[cond_has_nn_components, ew_err_cols]**2).sum(axis=1, min_count=nn + 1))
 
-    # # If all HALPHA EWs are NaN, then make the total HALPHA EW NaN too
-    # cond_HaEW_isnan = df_spaxels[f"HALPHA EW (component 1)"].isna()
-    # for nn in range_ncomponents_elines[1:]:
-    #     cond_HaEW_isnan &= df_spaxels[f"HALPHA EW (component {nn + 1})"].isna()
-    # df_spaxels.loc[cond_HaEW_isnan, ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
+    # # Check that this has worked
+    # cond_not_nan = ~df_spaxels[f"HALPHA EW (total)"].isna()
+    # cond_has_1 = cond_not_nan & (df_spaxels["Number of components (original)"] == 1)
+    # assert all(df_spaxels.loc[cond_has_1, f"HALPHA EW (component 1)"] == df_spaxels.loc[cond_has_1, f"HALPHA EW (total)"])
+    # assert all(np.sqrt(df_spaxels.loc[cond_has_1, f"HALPHA EW error (component 1)"]**2) == df_spaxels.loc[cond_has_1, f"HALPHA EW error (total)"])
+    # cond_has_2 = cond_not_nan & (df_spaxels["Number of components (original)"] == 2)
+    # assert all(df_spaxels.loc[cond_has_2, f"HALPHA EW (component 1)"] + df_spaxels.loc[cond_has_2, f"HALPHA EW (component 2)"] == df_spaxels.loc[cond_has_2, f"HALPHA EW (total)"])
+    # assert all(np.sqrt(df_spaxels.loc[cond_has_2, f"HALPHA EW error (component 1)"]**2 + df_spaxels.loc[cond_has_2, f"HALPHA EW error (component 2)"]**2) == df_spaxels.loc[cond_has_2, f"HALPHA EW error (total)"])
+    # cond_has_3 = cond_not_nan & (df_spaxels["Number of components (original)"] == 3)
+    # assert all(df_spaxels.loc[cond_has_3, f"HALPHA EW (component 1)"] + df_spaxels.loc[cond_has_3, f"HALPHA EW (component 2)"] + df_spaxels.loc[cond_has_3, f"HALPHA EW (component 3)"] == df_spaxels.loc[cond_has_3, f"HALPHA EW (total)"])
+    # assert all(np.sqrt(df_spaxels.loc[cond_has_3, f"HALPHA EW error (component 1)"]**2 + df_spaxels.loc[cond_has_3, f"HALPHA EW error (component 2)"]**2 + df_spaxels.loc[cond_has_3, f"HALPHA EW error (component 3)"]**2) == df_spaxels.loc[cond_has_3, f"HALPHA EW error (total)"])
 
     ######################################################################
     # SFR and SFR surface density
@@ -1532,17 +1517,17 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                 df_spaxels.loc[cond_has_nn_components, f"{eline} error (total)"] =\
                     np.sqrt((df_spaxels.loc[cond_has_nn_components, flux_err_cols]**2).sum(axis=1, min_count=nn + 1))
 
-            # Check... should move this to assertion tests
-            cond_not_nan = ~df_spaxels[f"{eline} (total)"].isna()
-            cond_has_1 = cond_not_nan & (df_spaxels["Number of components (original)"] == 1)
-            assert all(df_spaxels.loc[cond_has_1, f"{eline} (component 1)"] == df_spaxels.loc[cond_has_1, f"{eline} (total)"])
-            assert all(np.sqrt(df_spaxels.loc[cond_has_1, f"{eline} error (component 1)"]**2) == df_spaxels.loc[cond_has_1, f"{eline} error (total)"])
-            cond_has_2 = cond_not_nan & (df_spaxels["Number of components (original)"] == 2)
-            assert all(df_spaxels.loc[cond_has_2, f"{eline} (component 1)"] + df_spaxels.loc[cond_has_2, f"{eline} (component 2)"] == df_spaxels.loc[cond_has_2, f"{eline} (total)"])
-            assert all(np.sqrt(df_spaxels.loc[cond_has_2, f"{eline} error (component 1)"]**2 + df_spaxels.loc[cond_has_2, f"{eline} error (component 2)"]**2) == df_spaxels.loc[cond_has_2, f"{eline} error (total)"])
-            cond_has_3 = cond_not_nan & (df_spaxels["Number of components (original)"] == 3)
-            assert all(df_spaxels.loc[cond_has_3, f"{eline} (component 1)"] + df_spaxels.loc[cond_has_3, f"{eline} (component 2)"] + df_spaxels.loc[cond_has_3, f"{eline} (component 3)"] == df_spaxels.loc[cond_has_3, f"{eline} (total)"])
-            assert all(np.sqrt(df_spaxels.loc[cond_has_3, f"{eline} error (component 1)"]**2 + df_spaxels.loc[cond_has_3, f"{eline} error (component 2)"]**2 + df_spaxels.loc[cond_has_3, f"{eline} error (component 3)"]**2) == df_spaxels.loc[cond_has_3, f"{eline} error (total)"])
+            # # Check that this has worked
+            # cond_not_nan = ~df_spaxels[f"{eline} (total)"].isna()
+            # cond_has_1 = cond_not_nan & (df_spaxels["Number of components (original)"] == 1)
+            # assert all(df_spaxels.loc[cond_has_1, f"{eline} (component 1)"] == df_spaxels.loc[cond_has_1, f"{eline} (total)"])
+            # assert all(np.sqrt(df_spaxels.loc[cond_has_1, f"{eline} error (component 1)"]**2) == df_spaxels.loc[cond_has_1, f"{eline} error (total)"])
+            # cond_has_2 = cond_not_nan & (df_spaxels["Number of components (original)"] == 2)
+            # assert all(df_spaxels.loc[cond_has_2, f"{eline} (component 1)"] + df_spaxels.loc[cond_has_2, f"{eline} (component 2)"] == df_spaxels.loc[cond_has_2, f"{eline} (total)"])
+            # assert all(np.sqrt(df_spaxels.loc[cond_has_2, f"{eline} error (component 1)"]**2 + df_spaxels.loc[cond_has_2, f"{eline} error (component 2)"]**2) == df_spaxels.loc[cond_has_2, f"{eline} error (total)"])
+            # cond_has_3 = cond_not_nan & (df_spaxels["Number of components (original)"] == 3)
+            # assert all(df_spaxels.loc[cond_has_3, f"{eline} (component 1)"] + df_spaxels.loc[cond_has_3, f"{eline} (component 2)"] + df_spaxels.loc[cond_has_3, f"{eline} (component 3)"] == df_spaxels.loc[cond_has_3, f"{eline} (total)"])
+            # assert all(np.sqrt(df_spaxels.loc[cond_has_3, f"{eline} error (component 1)"]**2 + df_spaxels.loc[cond_has_3, f"{eline} error (component 2)"]**2 + df_spaxels.loc[cond_has_3, f"{eline} error (component 3)"]**2) == df_spaxels.loc[cond_has_3, f"{eline} error (total)"])
 
         # Compute the S/N in the TOTAL line flux
         df_spaxels[f"{eline} S/N (total)"] = df_spaxels[f"{eline} (total)"] / df_spaxels[f"{eline} error (total)"]
@@ -1576,13 +1561,6 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                   sigma_gas_SNR_min=sigma_gas_SNR_min,
                   sigma_inst_kms=29.6)
 
-
-    # Debugging - trying to figure out why the flux errors are so much larger in the LZIFU one
-    # cond_pix = df_spaxels["ID"] == 572402
-    # cond_pix &= df_spaxels["x, y (pixels)"] == (25.0, 14.0)
-    # df_spaxel = df_spaxels.loc[cond_pix]
-    # Tracer()()
-
     # Apply S/N and DQ cuts
     df_spaxels = dqcut.apply_flags(df=df_spaxels, 
                                    line_flux_SNR_cut=line_flux_SNR_cut,
@@ -1601,10 +1579,6 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     cols_sfr = [c for c in df_spaxels.columns if "SFR" in c]
     for col in cols_sfr:
         df_spaxels.loc[cond_Ha_isnan, col] = np.nan
-
-    for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
-        assert f"{col}" in df_spaxels.columns
-        assert all(df_spaxels.loc[df_spaxels["HALPHA (total)"].isna(), f"{col}"].isna())
     
     ######################################################################
     # Make a copy of the DataFrame with EXTINCTION CORRECTION
@@ -1642,29 +1616,16 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         df_spaxels["Corrected for extinction?"] = False
     df_spaxels = df_spaxels.sort_index()
 
-    for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
-        assert f"{col}" in df_spaxels.columns
-        assert all(df_spaxels.loc[df_spaxels["HALPHA (total)"].isna(), f"{col}"].isna())
-
     ######################################################################
     # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
     ######################################################################
     df_spaxels = linefns.ratio_fn(df_spaxels, s=f" (total)")
     df_spaxels = linefns.bpt_fn(df_spaxels, s=f" (total)")
 
-    for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
-        assert f"{col}" in df_spaxels.columns
-        assert all(df_spaxels.loc[df_spaxels["HALPHA (total)"].isna(), f"{col}"].isna())
-
     ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
     ######################################################################
-    # WHAT TO DO HERE?
     df_spaxels = dqcut.compute_extra_columns(df_spaxels)
-
-    for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
-        assert f"{col}" in df_spaxels.columns
-        assert all(df_spaxels.loc[df_spaxels["HALPHA (total)"].isna(), f"{col}"].isna())
 
     ######################################################################
     # EVALUATE METALLICITY (only for spaxels with extinction correction)
@@ -1687,10 +1648,6 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     else:
         df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_PP04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
         df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-
-    for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
-        assert f"{col}" in df_spaxels.columns
-        assert all(df_spaxels.loc[df_spaxels["HALPHA (total)"].isna(), f"{col}"].isna())
 
     ###############################################################################
     # Save input flags to the DataFrame so that we can keep track
