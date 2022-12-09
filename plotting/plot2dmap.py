@@ -172,7 +172,10 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
         # Manually construct the WCS, since it's slow to read in the FITS file
         wcs = WCS(naxis=2)
         wcs.wcs.crpix = [25.5, 25.5]
-        wcs.wcs.crval = [df_gal["RA (IFU) (J2000)"].values[0], df_gal["Dec (IFU) (J2000)"].values[0]]
+        if np.isnan(df_gal["RA (IFU) (J2000)"].values[0]) or np.isnan(df_gal["Dec (IFU) (J2000)"].values[0]):
+            wcs.wcs.crval = [df_gal["RA (J2000)"].values[0], df_gal["Dec (J2000)"].values[0]]
+        else:    
+            wcs.wcs.crval = [df_gal["RA (IFU) (J2000)"].values[0], df_gal["Dec (IFU) (J2000)"].values[0]]
         wcs.wcs.cdelt = [-0.5 / 3600, 0.5 / 3600]
         wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
     if survey == "s7":
@@ -217,7 +220,7 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
 
     elif bin_type == "default":
         pd.options.mode.chained_assignment = None
-        df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
+        # df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
         pd.options.mode.chained_assignment = "warn"
         for rr in range(df_gal.shape[0]):
             xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
@@ -277,7 +280,7 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
                     col_z_contour_map[bin_mask] = df_gal.loc[df_gal["Bin number"] == nn, col_z_contours]
 
             elif bin_type == "default":
-                df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
+                # df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
                 for rr in range(df_gal.shape[0]):
                     xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
                     col_z_contour_map[yy, xx] = df_gal.iloc[rr][col_z_contours]
