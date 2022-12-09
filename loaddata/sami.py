@@ -1577,10 +1577,11 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                   sigma_inst_kms=29.6)
 
 
-    cond_pix = df_spaxels["ID"] == 572402
-    cond_pix &= df_spaxels["x, y (pixels)"] == (25.0, 14.0)
-    df_spaxel = df_spaxels.loc[cond_pix]
-    Tracer()()
+    # Debugging - trying to figure out why the flux errors are so much larger in the LZIFU one
+    # cond_pix = df_spaxels["ID"] == 572402
+    # cond_pix &= df_spaxels["x, y (pixels)"] == (25.0, 14.0)
+    # df_spaxel = df_spaxels.loc[cond_pix]
+    # Tracer()()
 
     # Apply S/N and DQ cuts
     df_spaxels = dqcut.apply_flags(df=df_spaxels, 
@@ -1613,21 +1614,28 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ######################################################################
     if correct_extinction:
         print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
-        # Total emission line fluxes
-        df_spaxels = extcorr.extinction_corr_fn(df_spaxels, 
-                                        eline_list=eline_list,
+        # Compute A_V using total Halpha and Hbeta emission line fluxes
+        df_spaxels = extcorr.compute_A_V(df_spaxels,
+                                         reddening_curve="fm07", 
+                                         balmer_SNR_min=5,
+                                         s=f" (total)")
+
+        # Apply the extinction correction to total emission line fluxes
+        df_spaxels = extcorr.apply_extinction_correction(df_spaxels, 
                                         reddening_curve="fm07", 
-                                        balmer_SNR_min=5, nthreads=nthreads_max,
+                                        eline_list=[e for e in eline_list if f"{e} (component {nn + 1})" in df_spaxels],
+                                        a_v_col_name="A_V (total)",
+                                        nthreads=20,
                                         s=f" (total)")
-        # # Within individual components
-        # as-is, this computes the A_V from HA/HB in component ii, and then applies that correction to component ii.
-        # so this won't work bc we want to compute A_V ferom total & apply it to every component
-        # for nn in range_ncomponents_elines:
-        #     df_spaxels = extcorr.extinction_corr_fn(df_spaxels, 
-        #                                     eline_list=[e for e in eline_list if f"{e} (component {nn + 1})" in df_spaxels],
-        #                                     reddening_curve="fm07", 
-        #                                     balmer_SNR_min=5, nthreads=nthreads_max,
-        #                                     s=f" (component {nn + 1})")
+        
+        # Apply the extinction correction to fluxes of  individual components
+        for nn in range_ncomponents_elines:
+            df_spaxels = extcorr.apply_extinction_correction(df_spaxels, 
+                                            reddening_curve="fm07", 
+                                            eline_list=[e for e in eline_list if f"{e} (component {nn + 1})" in df_spaxels],
+                                            a_v_col_name="A_V (total)",
+                                            nthreads=20,
+                                            s=f" (component {nn + 1})")
 
         df_spaxels["Corrected for extinction?"] = True
     else:
