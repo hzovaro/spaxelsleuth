@@ -1402,12 +1402,15 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     df_spaxels = df_spaxels.rename(columns=rename_dict)
 
     ###############################################################################
-    # Compute the ORIGINAL number of components
+    # Compute the ORIGINAL number of components: define these as those in which
+    # BOTH sigma_gas AND HALPHA are nonzero in each component
     ###############################################################################
-    ncomponents_original = (~df_spaxels[f"sigma_gas (component 1)"].isna()).astype(int)
+    ncomponents_original_sigma = (~df_spaxels[f"sigma_gas (component 1)"].isna()).astype(int)
+    ncomponents_original_halpha = (~df_spaxels[f"HALPHA (component 1)"].isna()).astype(int)
     for nn in range_ncomponents_elines[1:]:
-        ncomponents_original += (~df_spaxels[f"sigma_gas (component {nn + 1})"].isna()).astype(int)
-    df_spaxels["Number of components (original)"] = ncomponents_original
+        ncomponents_original_sigma += (~df_spaxels[f"sigma_gas (component {nn + 1})"].isna()).astype(int)
+        ncomponents_original_halpha += (~df_spaxels[f"HALPHA (component {nn + 1})"].isna()).astype(int)
+    df_spaxels["Number of components (original)"] = np.nanmin([ncomponents_original_sigma, ncomponents_original_halpha], axis=0)
 
     # 
     # DEBUGGING
@@ -1495,6 +1498,11 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     # Add radius-derived value columns
     ######################################################################
     df_spaxels["r/R_e"] = df_spaxels["r (relative to galaxy centre, deprojected, arcsec)"] / df_spaxels["R_e (arcsec)"]
+    
+    ######################################################################
+    # Add pixel coordinates
+    ######################################################################
+    df_spaxels["x, y (pixels)"] = list(zip(df_spaxels["x (projected, arcsec)"] / 0.5, df_spaxels["y (projected, arcsec)"] / 0.5))
 
     ######################################################################
     # Compute S/N in all lines, in all components
@@ -1568,6 +1576,12 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                   sigma_gas_SNR_min=sigma_gas_SNR_min,
                   sigma_inst_kms=29.6)
 
+
+    cond_pix = df_spaxels["ID"] == 572402
+    cond_pix &= df_spaxels["x, y (pixels)"] == (25.0, 14.0)
+    df_spaxel = df_spaxels.loc[cond_pix]
+    Tracer()()
+
     # Apply S/N and DQ cuts
     df_spaxels = dqcut.apply_flags(df=df_spaxels, 
                                    line_flux_SNR_cut=line_flux_SNR_cut,
@@ -1599,11 +1613,22 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ######################################################################
     if correct_extinction:
         print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
+        # Total emission line fluxes
         df_spaxels = extcorr.extinction_corr_fn(df_spaxels, 
                                         eline_list=eline_list,
                                         reddening_curve="fm07", 
                                         balmer_SNR_min=5, nthreads=nthreads_max,
                                         s=f" (total)")
+        # # Within individual components
+        # as-is, this computes the A_V from HA/HB in component ii, and then applies that correction to component ii.
+        # so this won't work bc we want to compute A_V ferom total & apply it to every component
+        # for nn in range_ncomponents_elines:
+        #     df_spaxels = extcorr.extinction_corr_fn(df_spaxels, 
+        #                                     eline_list=[e for e in eline_list if f"{e} (component {nn + 1})" in df_spaxels],
+        #                                     reddening_curve="fm07", 
+        #                                     balmer_SNR_min=5, nthreads=nthreads_max,
+        #                                     s=f" (component {nn + 1})")
+
         df_spaxels["Corrected for extinction?"] = True
     else:
         df_spaxels["Corrected for extinction?"] = False
