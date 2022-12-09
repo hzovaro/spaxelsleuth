@@ -802,7 +802,8 @@ def _process_gals(args):
 
         # Extract values from maps at the bin centroids, store in a row
         if data.ndim == 2:
-            # Applies to emission lines, extinction
+            #//////////////////////////////////////////////////////////////////////
+            # Emission lines (except for Halpha), extinction
             thisrow = np.full_like(x_c_list, np.nan, dtype="float")
             thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
             for jj, coords in enumerate(zip(x_c_list, y_c_list)):
@@ -819,8 +820,8 @@ def _process_gals(args):
             colnames.append(fname_list[ff] + "_error")
 
         else:
-            # The 0th dimension of the Halpha & SFR maps contain the total values, 
-            # which we can calculate later
+            #//////////////////////////////////////////////////////////////////////
+            # HALPHA, SFR quantities, velocity/velocity dispersion
             if "Halpha" in fname or "sfr" in fname:
                 data = data[1:]
                 data_err = data_err[1:]
@@ -842,26 +843,6 @@ def _process_gals(args):
                 colnames.append(f"{fname_list[ff]} (component {nn + 1})")
                 colnames.append(f"{fname_list[ff]}_error (component {nn + 1})")
             
-            # Add in total Halpha flux 
-            if "Halpha_" in fname:
-                thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-                thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-                for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-                    x_c, y_c = coords
-                    y, x = (int(np.round(y_c)), int(np.round(x_c)))
-                    if x > 49 or y > 49:
-                        x = min([x, 49])
-                        y = min([y, 49])
-                    thisrow[jj] = np.nansum(data[:, y, x], axis=0)
-                    thisrow_err[jj] = np.nansum(data_err[:, y, x], axis=0)
-                rows_list.append(thisrow)
-                rows_list.append(thisrow_err)
-                colnames.append(f"{fname_list[ff]} (total)")
-                colnames.append(f"{fname_list[ff]}_error (total)")
-
-                # NOTE: NEED TO ADD (total) IN THE BIT WHERE WE RENAME COLUMNS
-                Tracer()()
-
     #######################################################################
     # Load LZIFU files
     if use_lzifu_fits:
@@ -1470,15 +1451,26 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                        [f"HALPHA EW (component {nn + 1})", 
                         f"HALPHA EW error (component {nn + 1})"]] = np.nan  
 
-    # Calculate total EWs
-    df_spaxels["HALPHA EW (total)"] = np.nansum([df_spaxels[f"HALPHA EW (component {nn + 1})"] for nn in range_ncomponents_elines], axis=0)
-    df_spaxels["HALPHA EW error (total)"] = np.sqrt(np.nansum([df_spaxels[f"HALPHA EW error (component {nn + 1})"]**2 for nn in range_ncomponents_elines], axis=0))
+    # Calculate total EWs:
+    # for each component,
+    for nn in range_ncomponents_elines:
+        ew_cols = [f"HALPHA EW (component {nn + 1})" for nn in range(0, nn + 1)]
+        ew_err_cols = [f"HALPHA EW error (component {nn + 1})" for nn in range(0, nn + 1)]
+        cond_has_nn_components = df_spaxels["Number of components (original)"] == nn + 1
+        
+        # Compute total fluxes in spaxels wih nn + 1 components
+        df_spaxels.loc[cond_has_nn_components, f"HALPHA EW (total)"] =\
+            df_spaxels.loc[cond_has_nn_components, ew_cols].sum(axis=1, min_count=nn + 1)
+        
+        # Compute corresponding error
+        df_spaxels.loc[cond_has_nn_components, f"HALPHA EW error (total)"] =\
+            np.sqrt((df_spaxels.loc[cond_has_nn_components, ew_err_cols]**2).sum(axis=1, min_count=nn + 1))
 
-    # If all HALPHA EWs are NaN, then make the total HALPHA EW NaN too
-    cond_HaEW_isnan = df_spaxels[f"HALPHA EW (component 1)"].isna()
-    for nn in range_ncomponents_elines[1:]:
-        cond_HaEW_isnan &= df_spaxels[f"HALPHA EW (component {nn + 1})"].isna()
-    df_spaxels.loc[cond_HaEW_isnan, ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
+    # # If all HALPHA EWs are NaN, then make the total HALPHA EW NaN too
+    # cond_HaEW_isnan = df_spaxels[f"HALPHA EW (component 1)"].isna()
+    # for nn in range_ncomponents_elines[1:]:
+    #     cond_HaEW_isnan &= df_spaxels[f"HALPHA EW (component {nn + 1})"].isna()
+    # df_spaxels.loc[cond_HaEW_isnan, ["HALPHA EW (total)", "HALPHA EW error (total)"]] = np.nan
 
     ######################################################################
     # SFR and SFR surface density
@@ -1514,25 +1506,35 @@ def make_sami_df(bin_type="default", ncomponents="recom",
             if f"{eline} (component {nn + 1})" in df_spaxels.columns:
                 df_spaxels[f"{eline} S/N (component {nn + 1})"] = df_spaxels[f"{eline} (component {nn + 1})"] / df_spaxels[f"{eline} error (component {nn + 1})"]
         
-        # Compute total line fluxes, if the total fluxes are not given
+        # Compute total line fluxes
+        #-----------------------------------------------------------------------
+        # Note that if __use_lzifu_fits is True, this block will compute TOTAL line fluxes for ALL emission lines. 
+        # Otherwise, it will ONLY compute it for HALPHA, becuase the total line fluxes for all other lines has already been defined above.
+        #-----------------------------------------------------------------------
         if f"{eline} (total)" not in df_spaxels.columns:
-
-
-
-
-            # I think this line is not doing what I think it's doing 
-            flux_tot = 0
-            flux_vartot = 0
+            # for each component,
             for nn in range_ncomponents_elines:
-                flux_tot += df_spaxels[f"{eline} (component {nn + 1})"]
-                flux_vartot += df_spaxels[f"{eline} error (component {nn + 1})"]**2
-                Tracer()()
-            df_spaxels[f"{eline} (total)"] = flux_tot
-            df_spaxels[f"{eline} error (total)"] = np.sqrt(flux_vartot)
-            Tracer()()
+                flux_cols = [f"{eline} (component {nn + 1})" for nn in range(0, nn + 1)]
+                flux_err_cols = [f"{eline} error (component {nn + 1})" for nn in range(0, nn + 1)]
+                cond_has_nn_components = df_spaxels["Number of components (original)"] == nn + 1
+                # Compute total fluxes in spaxels wih nn + 1 components
+                df_spaxels.loc[cond_has_nn_components, f"{eline} (total)"] =\
+                    df_spaxels.loc[cond_has_nn_components, flux_cols].sum(axis=1, min_count=nn + 1)
+                # Compute corresponding error
+                df_spaxels.loc[cond_has_nn_components, f"{eline} error (total)"] =\
+                    np.sqrt((df_spaxels.loc[cond_has_nn_components, flux_err_cols]**2).sum(axis=1, min_count=nn + 1))
 
-            # df_spaxels[f"{eline} (total)"] = np.nansum([df_spaxels[f"{eline} (component {nn + 1})"] for nn in range_ncomponents_elines], axis=0)
-            # df_spaxels[f"{eline} error (total)"] = np.sqrt(np.nansum([df_spaxels[f"{eline} error (component {nn + 1})"]**2 for nn in range_ncomponents_elines], axis=0))
+            # Check... should move this to assertion tests
+            cond_not_nan = ~df_spaxels[f"{eline} (total)"].isna()
+            cond_has_1 = cond_not_nan & (df_spaxels["Number of components (original)"] == 1)
+            assert all(df_spaxels.loc[cond_has_1, f"{eline} (component 1)"] == df_spaxels.loc[cond_has_1, f"{eline} (total)"])
+            assert all(np.sqrt(df_spaxels.loc[cond_has_1, f"{eline} error (component 1)"]**2) == df_spaxels.loc[cond_has_1, f"{eline} error (total)"])
+            cond_has_2 = cond_not_nan & (df_spaxels["Number of components (original)"] == 2)
+            assert all(df_spaxels.loc[cond_has_2, f"{eline} (component 1)"] + df_spaxels.loc[cond_has_2, f"{eline} (component 2)"] == df_spaxels.loc[cond_has_2, f"{eline} (total)"])
+            assert all(np.sqrt(df_spaxels.loc[cond_has_2, f"{eline} error (component 1)"]**2 + df_spaxels.loc[cond_has_2, f"{eline} error (component 2)"]**2) == df_spaxels.loc[cond_has_2, f"{eline} error (total)"])
+            cond_has_3 = cond_not_nan & (df_spaxels["Number of components (original)"] == 3)
+            assert all(df_spaxels.loc[cond_has_3, f"{eline} (component 1)"] + df_spaxels.loc[cond_has_3, f"{eline} (component 2)"] + df_spaxels.loc[cond_has_3, f"{eline} (component 3)"] == df_spaxels.loc[cond_has_3, f"{eline} (total)"])
+            assert all(np.sqrt(df_spaxels.loc[cond_has_3, f"{eline} error (component 1)"]**2 + df_spaxels.loc[cond_has_3, f"{eline} error (component 2)"]**2 + df_spaxels.loc[cond_has_3, f"{eline} error (component 3)"]**2) == df_spaxels.loc[cond_has_3, f"{eline} error (total)"])
 
         # Compute the S/N in the TOTAL line flux
         df_spaxels[f"{eline} S/N (total)"] = df_spaxels[f"{eline} (total)"] / df_spaxels[f"{eline} error (total)"]
@@ -1634,20 +1636,24 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ######################################################################
     # EVALUATE METALLICITY (only for spaxels with extinction correction)
     ######################################################################
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_PP04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_M13", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="O3N2_PP04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="O3N2_M13", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2S2Ha_D16", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2O2_KD02", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="Rcal_PG16", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="Scal_PG16", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="ON_P10", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="ONS_P10", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="O3N2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2O2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    df_spaxels = metallicity.calculate_metallicity(met_diagnostic="R23_KK04", compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    if not debug:
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_PP04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_M13", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="O3N2_PP04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="O3N2_M13", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2S2Ha_D16", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2O2_KD02", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="Rcal_PG16", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="Scal_PG16", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="ON_P10", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="ONS_P10", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="O3N2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2O2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="R23_KK04", compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+    else:
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_PP04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
+        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
 
     for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
         assert f"{col}" in df_spaxels.columns
