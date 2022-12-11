@@ -794,40 +794,67 @@ def _process_gals(args):
     # Open each FITS file, extract the values from the maps in each bin & append
     rows_list = []
     colnames = []
+
+    # Tidy up column names
+    colname_dict = {
+        f"stellar-velocity-dispersion_{bin_type}_two-moment" : "sigma_*",
+        f"stellar-velocity_{bin_type}_two-moment" : "v_*",
+        f"extinct-corr_{bin_type}_{ncomponents}-comp" : "HALPHA extinction correction",
+        f"sfr-dens_{bin_type}_{ncomponents}-comp" : "SFR surface density",
+        f"sfr_{bin_type}_{ncomponents}-comp" : "SFR",
+        f"Halpha_{bin_type}_{ncomponents}-comp" : "HALPHA",
+        f"Hbeta_{bin_type}_{ncomponents}-comp" : "HBETA",
+        f"NII6583_{bin_type}_{ncomponents}-comp" : "NII6583",
+        f"OI6300_{bin_type}_{ncomponents}-comp" : "OI6300",
+        f"OII3728_{bin_type}_{ncomponents}-comp" : "OII3726+OII3729",
+        f"OIII5007_{bin_type}_{ncomponents}-comp" : "OIII5007",
+        f"SII6716_{bin_type}_{ncomponents}-comp" : "SII6716",
+        f"SII6731_{bin_type}_{ncomponents}-comp" : "SII6731",
+        f"gas-vdisp_{bin_type}_{ncomponents}-comp" : "sigma_gas",
+        f"gas-velocity_{bin_type}_{ncomponents}-comp" : "v_gas",    
+    } 
+
     for ff, fname in enumerate(fnames):
         hdu = fits.open(fname)
         data = hdu[0].data.astype(np.float64)
         data_err = hdu[1].data.astype(np.float64)
         hdu.close()
 
-        # Extract values from maps at the bin centroids, store in a row
-        if data.ndim == 2:
-            #//////////////////////////////////////////////////////////////////////
-            # Emission lines (except for Halpha), extinction
-            thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-            thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-            for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-                x_c, y_c = coords
-                y, x = (int(np.round(y_c)), int(np.round(x_c)))
-                if x > 49 or y > 49:
-                    x = min([x, 49])
-                    y = min([y, 49])
-                thisrow[jj] = data[y, x]
-                thisrow_err[jj] = data_err[y, x]
-            rows_list.append(thisrow)
-            rows_list.append(thisrow_err)
-            colnames.append(fname_list[ff])
-            colnames.append(fname_list[ff] + "_error")
+        # DEBUGGING: somewhere, the errors on the total HALPHA flux are STILL being added together from compoennts 1, 2 and 3 rather than directly from FITS file
+        if "Halpha" in fname and gal == 6837:
+            fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(8, 4))
+            axs[0].imshow(data_err[0],  vmax=0.025, cmap="viridis", origin="lower")
+            axs[1].imshow(np.sqrt(np.nansum(data_err[1:]**2, axis=0)),  vmax=0.025, cmap="viridis", origin="lower")
+            axs[0].set_title("data_err[0]")
+            axs[1].set_title("np.sqrt(np.nansum(data_err[1:]**2, axis=0))")
+            Tracer()()
 
-        else:
-            #//////////////////////////////////////////////////////////////////////
-            # HALPHA, SFR quantities, velocity/velocity dispersion
+        #//////////////////////////////////////////////////////////////////////
+        # HALPHA, SFR quantities
+        if data.ndim > 2:
             if "Halpha" in fname or "sfr" in fname:
+                # Add total fluxees
+                thisrow = np.full_like(x_c_list, np.nan, dtype="float")
+                thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
+                for jj, coords in enumerate(zip(x_c_list, y_c_list)):
+                    x_c, y_c = coords
+                    y, x = (int(np.round(y_c)), int(np.round(x_c)))
+                    if x > 49 or y > 49:
+                        x = min([x, 49])
+                        y = min([y, 49])
+                    thisrow[jj] = data[0, y, x]
+                    thisrow_err[jj] = data_err[0, y, x]
+                rows_list.append(thisrow)
+                rows_list.append(thisrow_err)
+                colnames.append(f"{colname_dict[fname_list[ff]]} (total)")
+                colnames.append(f"{colname_dict[fname_list[ff]]} error (total)")
+
+                # Trim the 0th slice 
                 data = data[1:]
                 data_err = data_err[1:]
+
             # Add individual components 
-            # Applies to Halpha flux, gas velocity & velocity dispersion
-            for nn in range(data.shape[0]):
+            for nn in range(3 if ncomponents == "recom" else 1):
                 thisrow = np.full_like(x_c_list, np.nan, dtype="float")
                 thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
                 for jj, coords in enumerate(zip(x_c_list, y_c_list)):
@@ -840,9 +867,34 @@ def _process_gals(args):
                     thisrow_err[jj] = data_err[nn, y, x]
                 rows_list.append(thisrow)
                 rows_list.append(thisrow_err)
-                colnames.append(f"{fname_list[ff]} (component {nn + 1})")
-                colnames.append(f"{fname_list[ff]}_error (component {nn + 1})")
-            
+                colnames.append(f"{colname_dict[fname_list[ff]]} (component {nn + 1})")
+                colnames.append(f"{colname_dict[fname_list[ff]]} error (component {nn + 1})")
+        
+        #//////////////////////////////////////////////////////////////////////
+        # EXTINCTION, STELLAR KINEMATICS & EMISSION LINES EXCEPT FOR HALPHA 
+        else:
+            thisrow = np.full_like(x_c_list, np.nan, dtype="float")
+            thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
+            for jj, coords in enumerate(zip(x_c_list, y_c_list)):
+                x_c, y_c = coords
+                y, x = (int(np.round(y_c)), int(np.round(x_c)))
+                if x > 49 or y > 49:
+                    x = min([x, 49])
+                    y = min([y, 49])
+                thisrow[jj] = data[y, x]
+                thisrow_err[jj] = data_err[y, x]
+            rows_list.append(thisrow)
+            rows_list.append(thisrow_err)
+
+            # If adding the stellar kinematics, no point in adding "total" here
+            if "stellar" in fname:  
+                colnames.append(f"{colname_dict[fname_list[ff]]}")
+                colnames.append(f"{colname_dict[fname_list[ff]]} error")
+            # Otherwise append "total" to signify total fluxes.
+            else:  
+                colnames.append(f"{colname_dict[fname_list[ff]]} (total)")
+                colnames.append(f"{colname_dict[fname_list[ff]]} error (total)")
+
     #######################################################################
     # Load LZIFU files
     if use_lzifu_fits:
@@ -1301,7 +1353,8 @@ def make_sami_df(bin_type="default", ncomponents="recom",
 
     # If running in DEBUG mode, run on a subset to speed up execution time
     if debug: 
-        gal_ids_dq_cut = gal_ids_dq_cut[:10] + [572402, 209807]
+        # gal_ids_dq_cut = gal_ids_dq_cut[:10] + [572402, 209807]
+        gal_ids_dq_cut = [6837]
     df_metadata["Good?"] = df_metadata["Good?"].astype("float")
 
     # Turn off plotting if more than 1 galaxy is to be run
@@ -1340,6 +1393,21 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     safe_cols = [c for c in df_metadata.columns if c != "Morphology" and c != "MGE photometry"]
     df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)), columns=safe_cols + colnames)
 
+    ######################################################################
+    # Add radius-derived value columns
+    ######################################################################
+    df_spaxels["r/R_e"] = df_spaxels["r (relative to galaxy centre, deprojected, arcsec)"] / df_spaxels["R_e (arcsec)"]
+    
+    ######################################################################
+    # Add pixel coordinates
+    ######################################################################
+    df_spaxels["x, y (pixels)"] = list(zip(df_spaxels["x (projected, arcsec)"] / 0.5, df_spaxels["y (projected, arcsec)"] / 0.5))
+
+    gal = 6837
+    from spaxelsleuth.plotting.plot2dmap import plot2dmap
+    plot2dmap(df_gal=df_spaxels[df_spaxels["ID"] == gal], col_z="HALPHA error (total)", vmax=0.025, cmap="viridis", bin_type="default", survey="sami")
+    # Tracer()()
+
     ###############################################################################
     # Add the morphology column back in
     ###############################################################################
@@ -1358,52 +1426,8 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     df_spaxels["Morphology"] = [morph_dict[str(m)] for m in df_spaxels["Morphology (numeric)"]]
 
     ###############################################################################
-    # Rename columns
-    ###############################################################################
-    print(f"{status_str}: Renaming columns...")
-    rename_dict = {}
-
-    # Emission lines except for Halpha
-    for col in [c for c in df_spaxels.columns if c.endswith(f"_{bin_type}_{ncomponents}-comp")]:
-        eline = col.split(f"_{bin_type}_{ncomponents}-comp")[0].upper()
-        if eline == "OII3728":
-            eline = "OII3726+OII3729"
-        if eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
-            rename_dict[col] = f"{eline} (total)"
-            rename_dict[f"{col}_error"] = f"{eline} error (total)"
-
-    # Halpha & kinematics
-    for nn in range(3 if ncomponents == "recom" else 1):
-        if not __use_lzifu_fits:
-            rename_dict[f"Halpha_{bin_type}_{ncomponents}-comp (component {nn + 1})"] = f"HALPHA (component {nn + 1})"
-            rename_dict[f"Halpha_{bin_type}_{ncomponents}-comp_error (component {nn + 1})"] = f"HALPHA error (component {nn + 1})"
-            rename_dict[f"gas-vdisp_{bin_type}_{ncomponents}-comp (component {nn + 1})"] = f"sigma_gas (component {nn + 1})"
-            rename_dict[f"gas-vdisp_{bin_type}_{ncomponents}-comp_error (component {nn + 1})"] = f"sigma_gas error (component {nn + 1})"
-            rename_dict[f"gas-velocity_{bin_type}_{ncomponents}-comp (component {nn + 1})"] = f"v_gas (component {nn + 1})"
-            rename_dict[f"gas-velocity_{bin_type}_{ncomponents}-comp_error (component {nn + 1})"] = f"v_gas error (component {nn + 1})"
-
-        # Star formation rate
-        rename_dict[f"sfr_{bin_type}_{ncomponents}-comp (component {nn + 1})"] = f"SFR (component {nn + 1})"
-        rename_dict[f"sfr_{bin_type}_{ncomponents}-comp_error (component {nn + 1})"] = f"SFR error (component {nn + 1})"
-        rename_dict[f"sfr-dens_{bin_type}_{ncomponents}-comp (component {nn + 1})"] = f"SFR surface density (component {nn + 1})"
-        rename_dict[f"sfr-dens_{bin_type}_{ncomponents}-comp_error (component {nn + 1})"] = f"SFR surface density error (component {nn + 1})"
-
-    # Stellar kinematics
-    rename_dict[f"stellar-velocity-dispersion_{bin_type}_two-moment"] = "sigma_*"
-    rename_dict[f"stellar-velocity-dispersion_{bin_type}_two-moment_error"] = "sigma_* error"
-    rename_dict[f"stellar-velocity_{bin_type}_two-moment"] = "v_*"
-    rename_dict[f"stellar-velocity_{bin_type}_two-moment_error"] = "v_* error"
-
-    # Halpha attenuation correction
-    rename_dict[f"extinct-corr_{bin_type}_{ncomponents}-comp"] = "HALPHA extinction correction"
-    rename_dict[f"extinct-corr_{bin_type}_{ncomponents}-comp_error"] = "HALPHA extinction correction error"
-
-    # Rename columns
-    df_spaxels = df_spaxels.rename(columns=rename_dict)
-
-    ###############################################################################
     # Compute the ORIGINAL number of components: define these as those in which 
-    # sigma_gas
+    # sigma_gas is defined
     ###############################################################################
     ncomponents_original = (~df_spaxels[f"sigma_gas (component 1)"].isna()).astype(int)
     for nn in range_ncomponents_elines[1:]:
@@ -1413,14 +1437,15 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ###############################################################################
     # Calculate equivalent widths
     ###############################################################################
-    for col in ["HALPHA continuum", "HALPHA continuum error", "HALPHA continuum std. dev."]:
-        df_spaxels[col] = pd.to_numeric(df_spaxels[col])
+    # for col in ["HALPHA continuum", "HALPHA continuum error", "HALPHA continuum std. dev."]:
+    #     df_spaxels[col] = pd.to_numeric(df_spaxels[col])
 
     df_spaxels.loc[df_spaxels["HALPHA continuum"] < 0, "HALPHA continuum"] = 0
     for nn in range_ncomponents_elines:
         # Cast to float
-        df_spaxels[f"HALPHA (component {nn + 1})"] = pd.to_numeric(df_spaxels[f"HALPHA (component {nn + 1})"])
-        df_spaxels[f"HALPHA error (component {nn + 1})"] = pd.to_numeric(df_spaxels[f"HALPHA error (component {nn + 1})"])
+        # Don't think this is necessary any more
+        # df_spaxels[f"HALPHA (component {nn + 1})"] = pd.to_numeric(df_spaxels[f"HALPHA (component {nn + 1})"])
+        # df_spaxels[f"HALPHA error (component {nn + 1})"] = pd.to_numeric(df_spaxels[f"HALPHA error (component {nn + 1})"])
        
         # Compute EWs
         df_spaxels[f"HALPHA EW (component {nn + 1})"] = df_spaxels[f"HALPHA (component {nn + 1})"] / df_spaxels["HALPHA continuum"]
@@ -1464,30 +1489,25 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     # SFR and SFR surface density
     ######################################################################
     # Drop components 1 and 2 because they are always zero
-    if ncomponents == "recom":
-        for nn in [1, 2]:
-            df_spaxels = df_spaxels.drop(
-                columns=[f"SFR (component {nn + 1})", f"SFR error (component {nn + 1})",
-                         f"SFR surface density (component {nn + 1})", f"SFR surface density error (component {nn + 1})"])
+    # But they're not... see 572402!
+    # if ncomponents == "recom":
+    #     for nn in [1, 2]:
+    #         df_spaxels = df_spaxels.drop(
+    #             columns=[f"SFR (component {nn + 1})", f"SFR error (component {nn + 1})",
+    #                      f"SFR surface density (component {nn + 1})", f"SFR surface density error (component {nn + 1})"])
 
     # NOW we can rename SFR (compnent 0) to SFR (total)
-    rename_dict = {}
-    rename_dict["SFR (component 1)"] = "SFR (total)"
-    rename_dict["SFR error (component 1)"] = "SFR error (total)"
-    rename_dict["SFR surface density (component 1)"] = "SFR surface density (total)"
-    rename_dict["SFR surface density error (component 1)"] = "SFR surface density error (total)"
+    # CHECK... don't we already have "total" SFR directly from the FITS file?
+    # rename_dict = {}
+    # rename_dict["SFR (component 1)"] = "SFR (total)"
+    # rename_dict["SFR error (component 1)"] = "SFR error (total)"
+    # rename_dict["SFR surface density (component 1)"] = "SFR surface density (total)"
+    # rename_dict["SFR surface density error (component 1)"] = "SFR surface density error (total)"
 
-    df_spaxels = df_spaxels.rename(columns=rename_dict)
+    # df_spaxels = df_spaxels.rename(columns=rename_dict)
 
-    ######################################################################
-    # Add radius-derived value columns
-    ######################################################################
-    df_spaxels["r/R_e"] = df_spaxels["r (relative to galaxy centre, deprojected, arcsec)"] / df_spaxels["R_e (arcsec)"]
-    
-    ######################################################################
-    # Add pixel coordinates
-    ######################################################################
-    df_spaxels["x, y (pixels)"] = list(zip(df_spaxels["x (projected, arcsec)"] / 0.5, df_spaxels["y (projected, arcsec)"] / 0.5))
+    plot2dmap(df_gal=df_spaxels[df_spaxels["ID"] == gal], col_z="HALPHA error (total)", vmax=0.025, cmap="viridis", bin_type="default", survey="sami")
+    # Tracer()()
 
     ######################################################################
     # Compute S/N in all lines, in all components
@@ -1499,23 +1519,26 @@ def make_sami_df(bin_type="default", ncomponents="recom",
             if f"{eline} (component {nn + 1})" in df_spaxels.columns:
                 df_spaxels[f"{eline} S/N (component {nn + 1})"] = df_spaxels[f"{eline} (component {nn + 1})"] / df_spaxels[f"{eline} error (component {nn + 1})"]
         
+        # Compute the S/N in the TOTAL line flux
+        df_spaxels[f"{eline} S/N (total)"] = df_spaxels[f"{eline} (total)"] / df_spaxels[f"{eline} error (total)"]
+
         # Compute total line fluxes
         #-----------------------------------------------------------------------
         # Note that if __use_lzifu_fits is True, this block will compute TOTAL line fluxes for ALL emission lines. 
         # Otherwise, it will ONLY compute it for HALPHA, becuase the total line fluxes for all other lines has already been defined above.
         #-----------------------------------------------------------------------
-        if f"{eline} (total)" not in df_spaxels.columns:
-            # for each component,
-            for nn in range_ncomponents_elines:
-                flux_cols = [f"{eline} (component {nn + 1})" for nn in range(0, nn + 1)]
-                flux_err_cols = [f"{eline} error (component {nn + 1})" for nn in range(0, nn + 1)]
-                cond_has_nn_components = df_spaxels["Number of components (original)"] == nn + 1
-                # Compute total fluxes in spaxels wih nn + 1 components
-                df_spaxels.loc[cond_has_nn_components, f"{eline} (total)"] =\
-                    df_spaxels.loc[cond_has_nn_components, flux_cols].sum(axis=1, min_count=nn + 1)
-                # Compute corresponding error
-                df_spaxels.loc[cond_has_nn_components, f"{eline} error (total)"] =\
-                    np.sqrt((df_spaxels.loc[cond_has_nn_components, flux_err_cols]**2).sum(axis=1, min_count=nn + 1))
+        # if f"{eline} (total)" not in df_spaxels.columns:
+        #     # for each component,
+        #     for nn in range_ncomponents_elines:
+        #         flux_cols = [f"{eline} (component {nn + 1})" for nn in range(0, nn + 1)]
+        #         flux_err_cols = [f"{eline} error (component {nn + 1})" for nn in range(0, nn + 1)]
+        #         cond_has_nn_components = df_spaxels["Number of components (original)"] == nn + 1
+        #         # Compute total fluxes in spaxels wih nn + 1 components
+        #         df_spaxels.loc[cond_has_nn_components, f"{eline} (total)"] =\
+        #             df_spaxels.loc[cond_has_nn_components, flux_cols].sum(axis=1, min_count=nn + 1)
+        #         # Compute corresponding error
+        #         df_spaxels.loc[cond_has_nn_components, f"{eline} error (total)"] =\
+        #             np.sqrt((df_spaxels.loc[cond_has_nn_components, flux_err_cols]**2).sum(axis=1, min_count=nn + 1))
 
             # # Check that this has worked
             # cond_not_nan = ~df_spaxels[f"{eline} (total)"].isna()
@@ -1529,17 +1552,18 @@ def make_sami_df(bin_type="default", ncomponents="recom",
             # assert all(df_spaxels.loc[cond_has_3, f"{eline} (component 1)"] + df_spaxels.loc[cond_has_3, f"{eline} (component 2)"] + df_spaxels.loc[cond_has_3, f"{eline} (component 3)"] == df_spaxels.loc[cond_has_3, f"{eline} (total)"])
             # assert all(np.sqrt(df_spaxels.loc[cond_has_3, f"{eline} error (component 1)"]**2 + df_spaxels.loc[cond_has_3, f"{eline} error (component 2)"]**2 + df_spaxels.loc[cond_has_3, f"{eline} error (component 3)"]**2) == df_spaxels.loc[cond_has_3, f"{eline} error (total)"])
 
-        # Compute the S/N in the TOTAL line flux
-        df_spaxels[f"{eline} S/N (total)"] = df_spaxels[f"{eline} (total)"] / df_spaxels[f"{eline} error (total)"]
+    plot2dmap(df_gal=df_spaxels[df_spaxels["ID"] == gal], col_z="HALPHA error (total)", vmax=0.025, cmap="viridis", bin_type="default", survey="sami")
+    # Tracer()()
 
     ######################################################################
     # Fix SFR columns
     ######################################################################
-    # Compute the SFR and SFR surface density from the 0th component ONLY
-    df_spaxels["SFR surface density (component 1)"] = df_spaxels["SFR surface density (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
-    df_spaxels["SFR surface density error (component 1)"] = df_spaxels["SFR surface density error (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
-    df_spaxels["SFR (component 1)"] = df_spaxels["SFR (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
-    df_spaxels["SFR error (component 1)"] = df_spaxels["SFR error (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
+    # Don't think we need this since the SFRs for individual components are actually given in the data products...
+    # # Compute the SFR and SFR surface density from the 0th component ONLY
+    # df_spaxels["SFR surface density (component 1)"] = df_spaxels["SFR surface density (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
+    # df_spaxels["SFR surface density error (component 1)"] = df_spaxels["SFR surface density error (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
+    # df_spaxels["SFR (component 1)"] = df_spaxels["SFR (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
+    # df_spaxels["SFR error (component 1)"] = df_spaxels["SFR error (total)"] * df_spaxels["HALPHA (component 1)"] / df_spaxels["HALPHA (total)"]
 
     # NaN the SFR surface density if the inclination is undefined
     cond_NaN_inclination = np.isnan(df_spaxels["i (degrees)"])
@@ -1571,6 +1595,10 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                                    sigma_gas_SNR_cut=sigma_gas_SNR_cut,
                                    stekin_cut=stekin_cut,
                                    eline_list=eline_list)    
+
+    plot2dmap(df_gal=df_spaxels[df_spaxels["ID"] == gal], col_z="HALPHA error (total)", vmax=0.025, cmap="viridis", bin_type="default", survey="sami")
+    # Tracer()()
+
 
     ######################################################################
     # NaN out SFR quantities if the HALPHA flux is NaN
@@ -1672,6 +1700,9 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ###############################################################################
     print(f"{status_str}: Saving to file...")
 
+    plot2dmap(df_gal=df_spaxels[df_spaxels["ID"] == gal], col_z="HALPHA error (total)", vmax=0.025, cmap="viridis", bin_type="default", survey="sami")
+    Tracer()()
+
     # No extinction correction
     df_spaxels.to_csv(os.path.join(sami_data_path, df_fname.split("hd5")[0] + "csv"))
     try:
@@ -1771,7 +1802,7 @@ def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
         f"File {os.path.join(sami_data_path, df_fname)} does does not exist!"
 
     # Load the data frame
-    print("In load_sami_df(): Loading DataFrame...")
+    print(f"In load_sami_df(): Loading DataFrame from file {os.path.join(sami_data_path, df_fname)}...")
     df = pd.read_hdf(os.path.join(sami_data_path, df_fname))
 
     # Return
