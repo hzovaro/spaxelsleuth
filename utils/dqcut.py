@@ -139,6 +139,7 @@ def set_flags(df, eline_SNR_min, eline_list,
     for eline in eline_list:
         # Fluxes in individual components
         for nn in range(3):
+            # Should we change this to include fluxes that are NaN?
             if f"{eline} (component {nn + 1})" in df.columns:
                 cond_missing_flux = df[f"{eline} (component {nn + 1})"].isna() & ~df[f"{eline} error (component {nn + 1})"].isna()
                 df.loc[cond_missing_flux, f"Missing flux flag - {eline} (component {nn + 1})"] = True
@@ -149,6 +150,7 @@ def set_flags(df, eline_SNR_min, eline_list,
             cond_missing_flux = df[f"{eline} (total)"].isna() & ~df[f"{eline} error (total)"].isna()
             df.loc[cond_missing_flux, f"Missing flux flag - {eline} (total)"] = True
             print(f"{eline} (total): {df[cond_missing_flux].shape[0]:d} spaxels have missing total fluxes")
+        Tracer()()
 
     ######################################################################
     # Flag rows where any component doesn't meet the amplitude 
@@ -357,6 +359,9 @@ def apply_flags(df,
                         cols_missing_fluxes = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
                     df.loc[cond_missing_flux, cols_missing_fluxes] = np.nan
 
+            # NOTE: I discovered that there are quite a few spaxels with NaN fluxes in the total line 
+            # maps (i.e. data[0]) but non-zero errors in the corresponding error map (i.e. data_err[0]) in the LZIFU fits files.
+            # These spaxels get flagged by the below lines.
             if f"{eline} (total)" in df:
                 # TOTAL fluxes
                 cond_missing_flux = df[f"Missing flux flag - {eline} (total)"]
@@ -588,24 +593,6 @@ def compute_log_columns(df):
                     df.loc[cond, f"log {col} error (lower) {s}"] = df.loc[cond, f"log {col} {s}"] - np.log10(df.loc[cond, f"{col} {s}"] - df.loc[cond, f"{col} error {s}"])
                     df.loc[cond, f"log {col} error (upper) {s}"] = np.log10(df.loc[cond, f"{col} {s}"] + df.loc[cond, f"{col} error {s}"]) -  df.loc[cond, f"log {col} {s}"]
                 
-        # if f"SFR surface density {s}" in df:
-        #     cond = ~np.isnan(df[f"SFR surface density {s}"])
-        #     cond &= df[f"SFR surface density {s}"] > 0
-        #     # Compute log quantities for total SFR surface density
-        #     df.loc[cond, f"log SFR surface density {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"])
-        #     if f"SFR surface density error {s}" in df:
-        #         df.loc[cond, f"log SFR surface density error (lower) {s}"] = df.loc[cond, f"log SFR surface density {s}"] - np.log10(df.loc[cond, f"SFR surface density {s}"] - df.loc[cond, f"SFR surface density error {s}"])
-        #         df.loc[cond, f"log SFR surface density error (upper) {s}"] = np.log10(df.loc[cond, f"SFR surface density {s}"] + df.loc[cond, f"SFR surface density error {s}"]) -  df.loc[cond, f"log SFR surface density {s}"]
-
-        # if f"sSFR {s}" in df:
-        #     cond = ~np.isnan(df[f"sSFR {s}"])
-        #     cond &= df[f"sSFR {s}"] > 0
-        #     # Compute log quantities for total sSFR
-        #     df.loc[cond, f"log sSFR {s}"] = np.log10(df.loc[cond, f"sSFR {s}"])
-        #     if f"sSFR error {s}" in df:
-        #         df.loc[cond, f"log sSFR error (lower) {s}"] = df.loc[cond, f"log sSFR {s}"] - np.log10(df.loc[cond, f"sSFR {s}"] - df.loc[cond, f"sSFR error {s}"])
-        #         df.loc[cond, f"log sSFR error (upper) {s}"] = np.log10(df.loc[cond, f"sSFR {s}"] + df.loc[cond, f"sSFR error {s}"]) -  df.loc[cond, f"log sSFR {s}"]
-
     return df
 
 ######################################################################
@@ -650,12 +637,12 @@ def compute_component_offsets(df):
             df[f"delta sigma_gas ({nn_2}/{nn_1})"] = df[f"sigma_gas (component {nn_2})"] - df[f"sigma_gas (component {nn_1})"]
         
         # Error in the difference between gas velocity dispersion between components   
-        if all([col in df for col in ["sigma_gas error (component 1)", "sigma_gas error (component 2)"]]):
+        if all([col in df for col in [f"sigma_gas error (component {nn_1})", f"sigma_gas error (component {nn_2})"]]):
             df[f"delta sigma_gas error ({nn_2}/{nn_1})"] = np.sqrt(df[f"sigma_gas error (component {nn_2})"]**2 +\
                                                                    df[f"sigma_gas error (component {nn_1})"]**2)
 
         #//////////////////////////////////////////////////////////////////////
-        # DIfference between gas velocity between components (2/1)
+        # DIfference between gas velocity between components
         if all([col in df for col in [f"v_gas (component {nn_1})", f"v_gas (component {nn_2})"]]):     
             df[f"delta v_gas ({nn_2}/{nn_1})"] = df[f"v_gas (component {nn_2})"] - df[f"v_gas (component {nn_1})"]
         if all([col in df for col in [f"v_gas error (component {nn_2})", f"v_gas error (component {nn_1})"]]):  
