@@ -87,7 +87,9 @@ def get_sdss_image(gal, ra_deg, dec_deg,
 
 
 ###############################################################################
-def plot_sdss_image(df_gal, axis_labels=True,
+def plot_sdss_image(df_gal=None, 
+                    gal=None, ra_deg=None, dec_deg=None, kpc_per_as=None,
+                    axis_labels=True,
                     as_per_px=0.1, width_px=500, height_px=500,
                     ax=None, figsize=(5, 5)):    
 
@@ -135,12 +137,18 @@ def plot_sdss_image(df_gal, axis_labels=True,
 
     """
     # Input checking
-    assert len(df_gal["ID"].unique()) == 1, "df_gal must only contain one galaxy!!"
-
-    # Get the central coordinates from the DF
-    ra_deg = df_gal["RA (J2000)"].unique()[0]
-    dec_deg = df_gal["Dec (J2000)"].unique()[0]
-    gal = df_gal["ID"].unique()[0]
+    if df_gal is not None:
+        assert len(df_gal["ID"].unique()) == 1, "df_gal must only contain one galaxy!!"
+        # Get the central coordinates from the DF
+        ra_deg = df_gal["RA (J2000)"].unique()[0]
+        dec_deg = df_gal["Dec (J2000)"].unique()[0]
+        gal = df_gal["ID"].unique()[0]
+        kpc_per_as = df_gal["kpc per arcsec"].unique()[0]
+    else:
+        assert gal is not None, "gal must be specified!"
+        assert ra_deg is not None,  "ra_deg must be specified!"
+        assert dec_deg is not None, "dec_deg must be specified!"
+        assert kpc_per_as is not None, "kpc_per_as must be specified!"
 
     # Load image
     if not os.path.exists(os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg")):
@@ -183,7 +191,7 @@ def plot_sdss_image(df_gal, axis_labels=True,
     ax.add_patch(c)
 
     # Include scale bar
-    kpc_per_as = df_gal["kpc per arcsec"].unique()[0]
+    
     plot_scale_bar(as_per_px=0.1, loffset=0.25, kpc_per_as=kpc_per_as, ax=ax, l=10, units="arcsec", fontsize=10)
 
     # Axis labels
