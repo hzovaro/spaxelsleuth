@@ -11,6 +11,7 @@ from IPython.core.debugger import Tracer
 ###############################################################################
 # Options
 ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3])]
+debug = True
 
 ###############################################################################
 # Load the data
@@ -19,13 +20,13 @@ df = load_sami_df(ncomponents=ncomponents,
                   bin_type=bin_type,
                   eline_SNR_min=eline_SNR_min,
                   correct_extinction=True,
-                  debug=True)
+                  debug=debug)
 
 df_noextcorr = load_sami_df(ncomponents=ncomponents,
                         bin_type=bin_type,
                         eline_SNR_min=eline_SNR_min, 
                         correct_extinction=False,
-                        debug=True)
+                        debug=debug)
 
 ###############################################################################
 # Assertion checks
@@ -34,11 +35,9 @@ df_noextcorr = load_sami_df(ncomponents=ncomponents,
 # GENERAL TESTS
 #//////////////////////////////////////////////////////////////////////////////
 # CHECK: SFR/SFR surface density columns exist 
-for col in ["SFR (total)", "SFR (component 1)", "SFR surface density (total)", "SFR surface density (component 1)"]:
+for col in [c for c in df.columns if "SFR" in c and "error" not in c]:
     assert f"{col}" in df.columns
-    assert f"log {col}" in df.columns
     assert all(df.loc[df["HALPHA (total)"].isna(), f"{col}"].isna())
-    assert all(df.loc[df["HALPHA (total)"].isna(), f"log {col}"].isna())
 
 # CHECK: BPT categories 
 for eline in ["HALPHA", "HBETA", "NII6583", "OIII5007"]:
@@ -63,7 +62,7 @@ for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII50
 #//////////////////////////////////////////////////////////////////////////////
 # CHECK: stellar kinematics have been masked out
 cond_bad_stekin = df["Bad stellar kinematics"]
-for col in [c for c in df.columns if "*" in c]:
+for col in [c for c in df.columns if "v_*" in c or "sigma_*" in c]:
     assert all(df.loc[cond_bad_stekin, col].isna())
 
 # CHECK: sigma_gas S/N cut
@@ -204,6 +203,9 @@ eline_list = ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII50
 for eline in eline_list:
     assert np.all(df[f"{eline} (total)"].dropna() >= df_noextcorr[f"{eline} (total)"].dropna())
     assert np.all(df[f"{eline} error (total)"].dropna() >= df_noextcorr[f"{eline} error (total)"].dropna())
+for nn in range(3 if ncomponents == "recom" else 1):
+    assert np.all(df[f"HALPHA (component {nn + 1})"].dropna() >= df_noextcorr[f"HALPHA (component {nn + 1})"].dropna())
+    assert np.all(df[f"HALPHA error (component {nn + 1})"].dropna() >= df_noextcorr[f"HALPHA error (component {nn + 1})"].dropna())
 
 # CHECK: check no negative A_V's
 assert not np.any(df["A_V (total)"] < 0)

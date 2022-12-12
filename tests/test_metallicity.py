@@ -42,7 +42,7 @@ def assertion_checks(df):
 
 ##############################################################################
 # Load DataFrame
-df = load_sami_df(ncomponents="recom", bin_type="default", correct_extinction=True, eline_SNR_min=5, debug=False)
+df = load_sami_df(ncomponents="recom", bin_type="default", correct_extinction=True, eline_SNR_min=5, debug=True)
 assertion_checks(df)
 
 Tracer()()
