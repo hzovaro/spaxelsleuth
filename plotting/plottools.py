@@ -134,6 +134,8 @@ cmap_dict = {
     "log S2 ratio": copy.copy(plt.cm.get_cmap("cividis")),
     "O1O3": copy.copy(plt.cm.get_cmap("cividis")),
     "log M_*": copy.copy(plt.cm.get_cmap("jet")),
+    "log(M/R_e)": copy.copy(plt.cm.get_cmap("jet")),
+    "log(M/R_e^2)": copy.copy(plt.cm.get_cmap("jet")),
     "g - i colour": copy.copy(plt.cm.get_cmap("RdYlBu_r")),
     "Morphology (numeric)": morph_cmap,
     "M_r": copy.copy(plt.cm.get_cmap("Reds")),
@@ -169,14 +171,20 @@ cmap_dict = {
     "SFR": sfr_cmap,
     "SFR surface density": sfr_cmap,
     "log SFR": sfr_cmap,
+    "log sSFR": sfr_cmap,
     "log SFR surface density": sfr_cmap,
     "Delta HALPHA EW (1/2)": copy.copy(plt.cm.get_cmap("Spectral_r")),
     "Number of components": ncomponents_cmap,
+    "Number of components (original)": ncomponents_cmap,
     "HALPHA extinction correction": copy.copy(plt.cm.get_cmap("pink")),
     "v_grad": copy.copy(plt.cm.get_cmap("plasma")),
     "n_e (cm^-3)": copy.copy(plt.cm.get_cmap("cividis")),
     "log n_e (cm^-3)": copy.copy(plt.cm.get_cmap("cividis")),
     "mu_r within 1R_e": copy.copy(plt.cm.get_cmap("afmhot")),
+    "mu_r at 1R_e": copy.copy(plt.cm.get_cmap("afmhot")),
+    "Median SNR (B, 1R_e)": copy.copy(plt.cm.get_cmap("jet")),
+    "Median SNR (R, 1R_e)": copy.copy(plt.cm.get_cmap("jet")),
+    "log mean HALPHA A/N (1R_e)": copy.copy(plt.cm.get_cmap("jet")),
 }
 
 for key in cmap_dict.keys():
@@ -218,6 +226,8 @@ vmin_dict = {
     "log S2 ratio": -0.45,
     "O1O3": -2,
     "log M_*": 7.5,
+    "log(M/R_e)": 7,
+    "log(M/R_e^2)": 7,
     "g - i colour": -0.5,
     "Morphology (numeric)": -0.75,
     "M_r": -25,
@@ -246,21 +256,26 @@ vmin_dict = {
     "delta v_gas (3/2)": -150,
     "r/R_e": 0,
     "R_e (kpc)": 0,
-    "log(M/R_e)": 6,
     "i (degrees)": 0, 
     "Bin size (square kpc)": 0,
     "kpc per arcsec": 0,
     "SFR": 0,
     "SFR surface density": 0,
     "log SFR": -5.0,
+    "log sSFR": -12,
     "log SFR surface density": -4.0,
     "Delta HALPHA EW (1/2)": -1.0,
     "Number of components": -0.5,
+    "Number of components (original)": -0.5,
     "HALPHA extinction correction": 1,
     "v_grad": 0,
     "n_e (cm^-3)": 40,
     "log n_e (cm^-3)": np.log10(40),
     "mu_r within 1R_e": 19,
+    "mu_r at 1R_e": 19,
+    "Median SNR (B, 1R_e)": 0,
+    "Median SNR (R, 1R_e)": 0,
+    "log mean HALPHA A/N (1R_e)": -0.25,
 }
 
 vmax_dict = {
@@ -297,6 +312,8 @@ vmax_dict = {
     "log S2 ratio": +0.45,
     "O1O3": 1.5,
     "log M_*": 11.5,
+    "log(M/R_e)": 11,
+    "log(M/R_e^2)": 11,
     "g - i colour": 1.7,
     "Morphology (numeric)": 3.25,
     "M_r": -12.5,
@@ -325,21 +342,26 @@ vmax_dict = {
     "delta v_gas (3/2)": +150,
     "r/R_e": 2,
     "R_e (kpc)": 10,
-    "log(M/R_e)": 12,
     "i (degrees)": 90, 
     "Bin size (square kpc)": 0.5,
     "kpc per arcsec": 2,
     "SFR": 3,
     "SFR surface density": 0.05,
     "log SFR": -1.0,
+    "log sSFR": -9.0,
     "log SFR surface density": 0.5,
     "Delta HALPHA EW (1/2)": +2.0,
     "Number of components": +3.5,
+    "Number of components (original)": +3.5,
     "HALPHA extinction correction": 5,
     "v_grad": 50,
     "n_e (cm^-3)": 1e4,
     "log n_e (cm^-3)": 4,
     "mu_r within 1R_e": 25,
+    "mu_r at 1R_e": 25,
+    "Median SNR (B, 1R_e)": 30,
+    "Median SNR (R, 1R_e)": 30,
+    "log mean HALPHA A/N (1R_e)": 3.5,
 }
 
 label_dict = {
@@ -376,6 +398,8 @@ label_dict = {
      "log S2 ratio": r"$\log_{10}$ [S II]$6716/6731$ ratio",
      "O1O3": "O1O3",
      "log M_*": r"$\log_{10}(M_*\,[\rm M_\odot])$",
+     "log(M/R_e)": r"$\log_{10}(M/R_e\,[\rm M_\odot\,kpc^{-1}])$",
+     "log(M/R_e^2)": r"$\log_{10}(M/R_e^2\,[\rm M_\odot\,kpc^{-2}])$",
      "g - i colour": r"$g - i$ colour",
      "Morphology (numeric)": "Morphology",
      "M_r": r"$M_r$ (mag)",
@@ -406,21 +430,26 @@ label_dict = {
      "delta v_gas (3/1)": r"$v_{\rm gas,\,3} - v_{\rm gas,\,1}$",
      "r/R_e": r"$r/R_e$",
      "R_e (kpc)": r"$R_e$ (kpc)",
-     "log(M/R_e)": r"$\log_{10}(M_* / R_e \,\rm [M_\odot \, kpc^{-1}])$",
      "i (degrees)": r"Inclination $i$ (degrees)",  
      "Bin size (square kpc)": r"Bin size (kpc$^2$)",
-     "kpc per arcsec": "kpc per arcsec",
+     "kpc per arcsec": r"$\rm kpc \, arcsec^{-1}$",
      "SFR": r"$\rm SFR \, (M_\odot \, yr^{-1})$",
      "SFR surface density": r"$\rm \Sigma_{SFR} \, (M_\odot \, yr^{-1} \, kpc^{-2})$",
      "log SFR": r"$\log_{\rm 10} \rm (SFR \, [M_\odot \, yr^{-1}])$",
+     "log sSFR": r"$\log_{\rm 10} \rm (sSFR \, [yr^{-1}])$",
      "log SFR surface density": r"$\log_{\rm 10} \rm (\Sigma_{SFR} \, [M_\odot \, yr^{-1} \, kpc^{-2}])$",
      "Delta HALPHA EW (1/2)": r"$\log_{10} \rm EW(H\alpha)_{0} - \log_{10} \rm EW(H\alpha)_{1}$",
      "Number of components": "Number of components",
+     "Number of components (original)": "Number of components (original)",
      "HALPHA extinction correction": r"H$\alpha$ extinction correction factor",
      "v_grad" : r"$v_{\rm grad}$",
      "n_e (cm^-3)": r"$n_e \,\rm (cm^{-3})$",
      "log n_e (cm^-3)": r"$\log_{10} n_e \,\rm (cm^{-3})$",
      "mu_r within 1R_e": r"$\mu_r\,({\rm mag\,arcsec^{-2}})\,(\leq 1\,R_e)$",
+     "mu_r at 1R_e": r"$\mu_r\,({\rm mag\,arcsec^{-2}})\,({\rm at} \, 1\,R_e)$",
+     "Median SNR (B, 1R_e)": r"Median SNR (B, $1R_e$)",
+     "Median SNR (R, 1R_e)": r"Median SNR (R, $1R_e$)",
+     "log mean HALPHA A/N (1R_e)": r"log mean H$\alpha$ A/N ($1R_e$)",
 }
 
 fname_dict = {
@@ -457,6 +486,8 @@ fname_dict = {
      "log S2 ratio": "logS2ratio",
      "O1O3": "O1O3",
      "log M_*": "mstar",
+     "log(M/R_e)": "mstar_over_re",
+     "log(M/R_e^2)": "mstar_over_re2",
      "g - i colour": "g-i",
      "Morphology (numeric)": "morphology",
      "M_r": "M_r",
@@ -485,21 +516,26 @@ fname_dict = {
      "delta v_gas (3/2)": "delta_v_gas_32",
      "r/R_e": "r_over_Re",
      "R_e (kpc)": "Re_kpc",
-     "log(M/R_e)": "log_M_over_Re",
      "i (degrees)": "inclination",
      "Bin size (square kpc)": "bin_size",
      "kpc per arcsec": "kpc_per_arcsec",
      "SFR": "SFR",
      "SFR surface density": "SFR_surface_density",
      "log SFR": "logSFR",
+     "log sSFR": "sSFR",
      "log SFR surface density": "logSFR_surface_density",
      "Delta HALPHA EW (1/2)": "Delta_HaEW_21",
      "Number of components": "ncomponents",
+     "Number of components (original)": "ncomponents",
      "HALPHA extinction correction": "Ha_ext_corr",
      "v_grad" : "v_grad" ,
      "n_e (cm^-3)": "ne",
      "log n_e (cm^-3)": "logne",
      "mu_r within 1R_e": "mu_within_1re",
+     "mu_r at 1R_e": "mu_at_1re",
+     "Median SNR (B, 1R_e)": "cont_snr_b_1re",
+     "Median SNR (R, 1R_e)": "cont_snr_r_1re",
+     "log mean HALPHA A/N (1R_e)": "log_mean_HALPHA_AN_1re",
 }
 
 ###############################################################################
@@ -509,21 +545,28 @@ def cmap_fn(col):
     """
     Helper function to return the colourmap corresponding to column col. 
     """
-    if " (component" in col:
-        col = col.split(" (component")[0]
-    elif "(total)" in col:
-        col = col.split(" (total)")[0]
-    if col in cmap_dict.keys():
+    col, suffix = _colname_helper_fn(col)
+    if col in cmap_dict:
         return cmap_dict[col]
-    # Special case for log(U) and log(O/H) + 12, since the column names will 
-    # include the diagnostic(s) used
-    elif col.startswith("log(U)"):
-        return cmap_dict["log(U)"]
-    elif col.startswith("log(O/H) + 12"):
-        return cmap_dict["log(O/H) + 12"]
     else:
-        print("WARNING: in cmap_fn(): undefined column")
-        return copy.copy(plt.cm.get_cmap("jet"))
+        print(f"WARNING: in cmap_fn(): undefined column {col}")
+        return copy.copy(plt.cm.get_cmap("cubehlix"))
+
+    # if " (component" in col:
+    #     col = col.split(" (component")[0]
+    # elif "(total)" in col:
+    #     col = col.split(" (total)")[0]
+    # if col in cmap_dict.keys():
+    #     return cmap_dict[col]
+    # # Special case for log(U) and log(O/H) + 12, since the column names will 
+    # # include the diagnostic(s) used
+    # elif col.startswith("log(U)"):
+    #     return cmap_dict["log(U)"]
+    # elif col.startswith("log(O/H) + 12"):
+    #     return cmap_dict["log(O/H) + 12"]
+    # else:
+    #     print(f"WARNING: in cmap_fn(): undefined column {col}")
+    #     return copy.copy(plt.cm.get_cmap("jet"))
 
 ###############################################################################
 def vmin_fn(col):
@@ -531,21 +574,37 @@ def vmin_fn(col):
     Helper function to return the minimum range of parameter corresponding to
     column col. Useful in plotting. 
     """
-    if " (component" in col:
-        col = col.split(" (component")[0]
-    elif "(total)" in col:
-        col = col.split(" (total)")[0]
-    if col in vmin_dict.keys():
+    col, suffix = _colname_helper_fn(col)
+    if col in vmin_dict:
         return vmin_dict[col]
-    # Special case for log(U) and log(O/H) + 12, since the column names will 
-    # include the diagnostic(s) used
-    elif col.startswith("log(U)"):
-        return vmin_dict["log(U)"]
-    elif col.startswith("log(O/H) + 12"):
-        return vmin_dict["log(O/H) + 12"]
     else:
-        print("WARNING: in vmin_fn(): undefined column")
+        print(f"WARNING: in vmin_fn(): undefined column {col}")
         return None
+
+    # # Trim suffix
+    # suffix = ""
+    # for s in [" (1.4 arcsecond)", " (2 arcsecond)", " (3 arcsecond)", " (4 arcsecond)", " (R_e)", " (R_e (MGE))", " (3kpc round)", " (total)", " (component"]:
+    #     if s in col:
+    #         col_s = col.split(s)[0]
+    #         suffix = col.split(col_s)[1]
+    #         suffix = suffix_label_dict[suffix] if suffix in suffix_label_dict else suffix
+    #         col = col_s
+
+    # if " (component" in col:
+    #     col = col.split(" (component")[0]
+    # elif "(total)" in col:
+    #     col = col.split(" (total)")[0]
+    # if col in vmin_dict.keys():
+    #     return vmin_dict[col]
+    # # Special case for log(U) and log(O/H) + 12, since the column names will 
+    # # include the diagnostic(s) used
+    # elif col.startswith("log(U)"):
+    #     return vmin_dict["log(U)"]
+    # elif col.startswith("log(O/H) + 12"):
+    #     return vmin_dict["log(O/H) + 12"]
+    # else:
+    #     print(f"WARNING: in vmin_fn(): undefined column {col}")
+    #     return None
 
 ###############################################################################
 def vmax_fn(col):
@@ -553,21 +612,28 @@ def vmax_fn(col):
     Helper function to return the maximum range of parameter corresponding to
     column col. Useful in plotting. 
     """
-    if " (component" in col:
-        col = col.split(" (component")[0]
-    elif "(total)" in col:
-        col = col.split(" (total)")[0]
-    if col in vmax_dict.keys():
+    col, suffix = _colname_helper_fn(col)
+    if col in vmax_dict:
         return vmax_dict[col]
-    # Special case for log(U) and log(O/H) + 12, since the column names will 
-    # include the diagnostic(s) used
-    elif col.startswith("log(U)"):
-        return vmax_dict["log(U)"]
-    elif col.startswith("log(O/H) + 12"):
-        return vmax_dict["log(O/H) + 12"]
     else:
-        print("WARNING: in vmax_fn(): undefined column")
+        print(f"WARNING: in vmax_fn(): undefined column {col}")
         return None
+
+    # if " (component" in col:
+    #     col = col.split(" (component")[0]
+    # elif "(total)" in col:
+    #     col = col.split(" (total)")[0]
+    # if col in vmax_dict.keys():
+    #     return vmax_dict[col]
+    # # Special case for log(U) and log(O/H) + 12, since the column names will 
+    # # include the diagnostic(s) used
+    # elif col.startswith("log(U)"):
+    #     return vmax_dict["log(U)"]
+    # elif col.startswith("log(O/H) + 12"):
+    #     return vmax_dict["log(O/H) + 12"]
+    # else:
+    #     print(f"WARNING: in vmax_fn(): undefined column {col}")
+    #     return None
 
 ###############################################################################
 def label_fn(col):
@@ -575,23 +641,52 @@ def label_fn(col):
     Helper function to return a pretty LaTeX label corresponding to column
     col to use for plotting axis labels, titles, etc. 
     """
-    if " (component" in col:
-        col = col.split(" (component")[0]
-    elif "(total)" in col:
-        col = col.split(" (total)")[0]
-    if col in label_dict.keys():
-        return label_dict[col]
-    # Special case for log(U) and log(O/H) + 12, since the column names will 
-    # include the diagnostic(s) used
-    elif col.startswith("log(U)"):
-        diags = col.split("log(U) ")[1].split(" ")[0]
-        return label_dict["log(U)"] + " " + diags
-    elif col.startswith("log(O/H) + 12"):
-        diags = col.split("log(O/H) + 12 ")[1].split(" ")[0]
-        return label_dict["log(O/H) + 12"] + " " + diags
+    col, suffix = _colname_helper_fn(col)
+    if col in label_dict:
+        col = label_dict[col]
     else:
-        print("WARNING: in label_fn(): undefined column")
-        return col
+        print(f"WARNING: in label_fn(): undefined column {col}")
+    if len(suffix) > 1:
+        col = col + suffix
+    return col
+
+    # if " (component" in col:
+    #     col_short = col.split(" (component")[0]
+    #     suffix = col.split(col_short)
+    # elif "(total)" in col:
+    #     col_short = col.split(" (total)")[0]
+    # #     suffix = col.split(col_short)
+    # suffix_label_dict = {
+    #     " (1.4 arcsecond)": " (1.4\")", 
+    #     " (2 arcsecond)":" (2\")", 
+    #     " (3 arcsecond)":" (3\")", 
+    #     " (4 arcsecond)":" (4\")", 
+    #     " (R_e)": r" ($R_e$)",
+    #     " (R_e (MGE))": r" ($R_e$ (MGE))",
+    # }
+    
+    # # Trim suffix
+    # suffix = ""
+    # for s in [" (1.4 arcsecond)", " (2 arcsecond)", " (3 arcsecond)", " (4 arcsecond)", " (R_e)", " (R_e (MGE))", " (3kpc round)", " (total)", " (component"]:
+    #     if s in col:
+    #         col_s = col.split(s)[0]
+    #         suffix = col.split(col_s)[1]
+    #         suffix = suffix_label_dict[suffix] if suffix in suffix_label_dict else suffix
+    #         col = col_s
+    # if col in label_dict.keys():
+    #     return label_dict[col] + suffix
+
+    # # Special case for log(U) and log(O/H) + 12, since the column names will 
+    # # include the diagnostic(s) used
+    # elif col.startswith("log(U)"):
+    #     diags = col.split("log(U) ")[1].split(" ")[0]
+    #     return label_dict["log(U)"] + " " + diags + suffix
+    # elif col.startswith("log(O/H) + 12"):
+    #     diags = col.split("log(O/H) + 12 ")[1].split(" ")[0]
+    #     return label_dict["log(O/H) + 12"] + " " + diags + suffix
+    # else:
+    #     print(f"WARNING: in label_fn(): undefined column {col}")
+    #     return col
 
 ###############################################################################
 def fname_fn(col):
@@ -599,25 +694,73 @@ def fname_fn(col):
     Helper function to return a system-safe filename corresponding to column
     col to use for saving figures and other data to file. 
     """
-    if " (component" in col:
-        col = col.split(" (component")[0]
-    elif "(total)" in col:
-        col = col.split(" (total)")[0]
+    Tracer()()
+    col, suffix = _colname_helper_fn(col)
     if col in fname_dict.keys():
-        return fname_dict[col]
-    # Special case for log(U) and log(O/H) + 12, since the column names will 
-    # include the diagnostic(s) used
-    elif col.startswith("log(U)"):
-        diags = col.split("log(U) ")[1].split(" ")[0]
-        return fname_dict["log(U)"] + "_" + diags.replace("(", "").replace(")", "").replace("/", "_")
-    elif col.startswith("log(O/H) + 12"):
-        diags = col.split("log(O/H) + 12 ")[1].split(" ")[0]
-        return fname_dict["log(O/H) + 12"] + "_" + diags.replace("(", "").replace(")", "").replace("/", "_")
+        col = fname_dict[col]
     else:
-        print("WARNING: in fname_fn(): undefined column")
-        # Remove bad characters 
-        col = col.replace("(", "_").replace(")", "_").replace("/", "_over_").replace("*", "_star").replace(" ", "_")
-        return col
+        print(f"WARNING: in fname_fn(): undefined column {col}")
+    if len(suffix) > 1:
+        col = col + suffix
+    return col.replace("(", "").replace(")", "").replace("/", "_over_").replace("*", "_star").replace(" ", "_").replace("$", "")
+
+    # if " (component" in col:
+    #     col = col.split(" (component")[0]
+    # elif "(total)" in col:
+    #     col = col.split(" (total)")[0]
+    # if col in fname_dict.keys():
+    #     return fname_dict[col]
+    # # Special case for log(U) and log(O/H) + 12, since the column names will 
+    # # include the diagnostic(s) used
+    # elif col.startswith("log(U)"):
+    #     diags = col.split("log(U) ")[1].split(" ")[0]
+    #     return fname_dict["log(U)"] + "_" + diags.replace("(", "").replace(")", "").replace("/", "_")
+    # elif col.startswith("log(O/H) + 12"):
+    #     diags = col.split("log(O/H) + 12 ")[1].split(" ")[0]
+    #     return fname_dict["log(O/H) + 12"] + "_" + diags.replace("(", "").replace(")", "").replace("/", "_")
+    # else:
+    #     print(f"WARNING: in fname_fn(): undefined column {col}")
+    #     # Remove bad characters 
+    #     col = col.replace("(", "_").replace(")", "_").replace("/", "_over_").replace("*", "_star").replace(" ", "_")
+    #     return col
+
+###############################################################################
+def _colname_helper_fn(col):
+    """
+    Given a column, trim the suffix (if there is one). Return the column plus
+    the suffix.
+    """
+    suffix_label_dict = {
+        " (1.4 arcsecond)": " (1.4\")", 
+        " (2 arcsecond)":" (2\")", 
+        " (3 arcsecond)":" (3\")", 
+        " (4 arcsecond)":" (4\")", 
+        " (R_e)": r" ($R_e$)",
+        " (R_e (MGE))": r" ($R_e$ (MGE))",
+    }
+    
+    # Trim suffix
+    suffix = ""
+    for s in [" (1.4 arcsecond)", " (2 arcsecond)", " (3 arcsecond)", " (4 arcsecond)", " (R_e)", " (R_e (MGE))", " (3kpc round)", " (total)", " (component"]:
+        if s in col:
+            col_s = col.split(s)[0]
+            suffix = col.split(col_s)[1]
+            suffix = suffix_label_dict[suffix] if suffix in suffix_label_dict else suffix
+            col = col_s
+
+    # Then, deal with diagnostics 
+    diags = ""
+    if col.startswith("log(U)"):
+        diags = col.split("log(U)")[1]
+        col = col.split(diags)[0]
+        diags = diags.replace("/", "+")
+    elif col.startswith("log(O/H) + 12"):
+        diags = col.split("log(O/H) + 12")[1]
+        col = col.split(diags)[0]
+        diags = diags.replace("/", "+")
+
+    return col, diags + suffix
+
 
 ###############################################################################
 # Helper function for computing the mode in a data set 
