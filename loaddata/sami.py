@@ -51,7 +51,8 @@ Copyright (C) 2022 Henry Zovaro
 """
 ###############################################################################
 # Imports
-import os, inspect
+import datetime
+import os
 import pandas as pd
 import numpy as np
 from itertools import product
@@ -1565,7 +1566,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                                         reddening_curve="fm07", 
                                         eline_list=[e for e in eline_list if f"{e} (total)" in df_spaxels],
                                         a_v_col_name="A_V (total)",
-                                        nthreads=20,
+                                        nthreads=nthreads_max,
                                         s=f" (total)")
         
         # Apply the extinction correction to fluxes of  individual components
@@ -1574,7 +1575,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                                             reddening_curve="fm07", 
                                             eline_list=[e for e in eline_list if f"{e} (component {nn + 1})" in df_spaxels],
                                             a_v_col_name="A_V (total)",
-                                            nthreads=20,
+                                            nthreads=nthreads_max,
                                             s=f" (component {nn + 1})")
 
         df_spaxels["Corrected for extinction?"] = True
@@ -1737,7 +1738,8 @@ def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
         f"File {os.path.join(sami_data_path, df_fname)} does does not exist!"
 
     # Load the data frame
-    print(f"In load_sami_df(): Loading DataFrame from file {os.path.join(sami_data_path, df_fname)}...")
+    t = os.path.getmtime(os.path.join(sami_data_path, df_fname))
+    print(f"In load_sami_df(): Loading DataFrame from file {os.path.join(sami_data_path, df_fname)} [last modified {datetime.datetime.fromtimestamp(t)}]...")
     df = pd.read_hdf(os.path.join(sami_data_path, df_fname))
 
     # Return
@@ -2059,10 +2061,18 @@ def make_sami_aperture_df(eline_SNR_min,
     if correct_extinction:
         print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
         for ap in aps:
-            df_ap = extcorr.extinction_corr_fn(df_ap, 
-                                            eline_list=eline_list,
+            # Compute A_V using total Halpha and Hbeta emission line fluxes
+            df_ap = extcorr.compute_A_V(df_ap,
+                                             reddening_curve="fm07", 
+                                             balmer_SNR_min=5,
+                                             s=f" ({ap})")
+
+            # Apply the extinction correction to emission line fluxes
+            df_ap = extcorr.apply_extinction_correction(df_ap, 
                                             reddening_curve="fm07", 
-                                            balmer_SNR_min=5, nthreads=nthreads_max,
+                                            eline_list=[e for e in eline_list if f"{e} ({ap})" in df_ap],
+                                            a_v_col_name="A_V ({ap})",
+                                            nthreads=nthreads_max,
                                             s=f" ({ap})")
     df_ap["Corrected for extinction?"] = correct_extinction
     df_ap = df_ap.sort_index()
