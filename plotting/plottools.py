@@ -275,7 +275,7 @@ vmin_dict = {
     "mu_r at 1R_e": 19,
     "Median SNR (B, 1R_e)": 0,
     "Median SNR (R, 1R_e)": 0,
-    "log mean HALPHA A/N (1R_e)": -0.25,
+    "log mean HALPHA A/N (1R_e)": 1.0,
 }
 
 vmax_dict = {
@@ -346,7 +346,7 @@ vmax_dict = {
     "Bin size (square kpc)": 0.5,
     "kpc per arcsec": 2,
     "SFR": 3,
-    "SFR surface density": 0.05,
+    "SFR surface density": 0.0,
     "log SFR": -1.0,
     "log sSFR": -9.0,
     "log SFR surface density": 0.5,
@@ -550,7 +550,7 @@ def cmap_fn(col):
         return cmap_dict[col]
     else:
         print(f"WARNING: in cmap_fn(): undefined column {col}")
-        return copy.copy(plt.cm.get_cmap("cubehlix"))
+        return copy.copy(plt.cm.get_cmap("jet"))
 
     # if " (component" in col:
     #     col = col.split(" (component")[0]
