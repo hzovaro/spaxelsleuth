@@ -1838,8 +1838,15 @@ def make_sami_aperture_df(eline_SNR_min,
     df_ap_ssp = df_ap_ssp.set_index("catid").drop("Unnamed: 0", axis=1)
     df_ap_ssp = df_ap_ssp.rename(columns={"catid": "ID"})
 
+    # Stellar indices
+    df_ap_indices = pd.read_csv(os.path.join(data_path, "sami_IndexAperturesDR3.csv"))
+    df_ap_indices = df_ap_indices.set_index("catid").drop("Unnamed: 0", axis=1)
+    df_ap_indices = df_ap_indices.rename(columns={"catid": "ID"})
+
     # Merge 
-    df_ap = df_ap_elines.merge(df_ap_ssp, left_index=True, right_index=True).drop("cubeid_x", axis=1)
+    df_ap = df_ap_elines.merge(df_ap_ssp, left_index=True, right_index=True).drop(["cubeid_x", "cubeid_y"], axis=1)
+    stellar_idx_cols = [c for c in df_ap_indices if c not in df_ap]
+    df_ap = df_ap.merge(df_ap_indices[stellar_idx_cols], left_index=True, right_index=True)
 
     # Drop duplicate rows 
     df_ap = df_ap[~df_ap.index.duplicated(keep="first")]
@@ -1884,13 +1891,56 @@ def make_sami_aperture_df(eline_SNR_min,
     rename_dict = dict(zip(old_cols_14, new_cols_14))
     df_ap = df_ap.rename(columns=rename_dict)
 
+    # Rename stellar age/metallicity measurements
     old_cols_ssp = [col for col in df_ap.columns if "AGE" in col] +\
                    [col for col in df_ap.columns if "Z" in col] +\
-                   [col for col in df_ap.columns if "AGE" in col]
-    new_cols_ssp = [col.replace("AGE", "Stellar age (Gyr)") for col in old_cols_ssp] +\
-                   [col.replace("Z", "Stellar [Z/H]") for col in old_cols_ssp] +\
-                   [col.replace("ALPHA", "Stellar [alpha/Fe]") for col in old_cols_ssp]
+                   [col for col in df_ap.columns if "ALPHA" in col and "HALPHA" not in col]
+    new_cols_ssp = [col.replace("AGE", "Stellar age (Gyr)") for col in [col for col in df_ap.columns if "AGE" in col]] +\
+                   [col.replace("Z", "Stellar [Z/H]") for col in [col for col in df_ap.columns if "Z" in col]] +\
+                   [col.replace("ALPHA", "Stellar [alpha/Fe]") for col in [col for col in df_ap.columns if "ALPHA" in col and "HALPHA" not in col]]
     rename_dict = dict(zip(old_cols_ssp, new_cols_ssp))
+    df_ap = df_ap.rename(columns=rename_dict)
+
+    # Rename stellar indices
+    old_cols_idxs = [col for col in df_ap.columns if "HDELTAA" in col] +\
+                    [col for col in df_ap.columns if "HDELTAF" in col] +\
+                    [col for col in df_ap.columns if "HGAMMAA" in col] +\
+                    [col for col in df_ap.columns if "HGAMMAF" in col] +\
+                    [col for col in df_ap.columns if "MGB" in col] +\
+                    [col for col in df_ap.columns if "FE4383" in col] +\
+                    [col for col in df_ap.columns if "FE4668" in col] +\
+                    [col for col in df_ap.columns if "FE5015" in col] +\
+                    [col for col in df_ap.columns if "FE5270" in col] +\
+                    [col for col in df_ap.columns if "FE5335" in col] +\
+                    [col for col in df_ap.columns if "CN1" in col] +\
+                    [col for col in df_ap.columns if "CN2" in col] +\
+                    [col for col in df_ap.columns if "CA4227" in col] +\
+                    [col for col in df_ap.columns if "G4300" in col] +\
+                    [col for col in df_ap.columns if "MG1" in col] +\
+                    [col for col in df_ap.columns if "MG2" in col] +\
+                    [col for col in df_ap.columns if "FE4531" in col] +\
+                    [col for col in df_ap.columns if "FE5406" in col] +\
+                    [col for col in df_ap.columns if "CA4455" in col]
+    new_cols_idxs = [col.replace("HDELTAA", "HDELTA_A") for col in [col for col in df_ap.columns if "HDELTAA" in col]] +\
+                    [col.replace("HDELTAF", "HDELTA_F") for col in [col for col in df_ap.columns if "HDELTAF" in col]] +\
+                    [col.replace("HGAMMAA", "HGAMMA_A") for col in [col for col in df_ap.columns if "HGAMMAA" in col]] +\
+                    [col.replace("HGAMMAF", "HGAMMA_F") for col in [col for col in df_ap.columns if "HGAMMAF" in col]] +\
+                    [col.replace("MGB", "Mg_b") for col in [col for col in df_ap.columns if "MGB" in col]] +\
+                    [col.replace("FE4383", "Fe_4383") for col in [col for col in df_ap.columns if "FE4383" in col]] +\
+                    [col.replace("FE4668", "Fe_4668") for col in [col for col in df_ap.columns if "FE4668" in col]] +\
+                    [col.replace("FE5015", "Fe_5015") for col in [col for col in df_ap.columns if "FE5015" in col]] +\
+                    [col.replace("FE5270", "Fe_5270") for col in [col for col in df_ap.columns if "FE5270" in col]] +\
+                    [col.replace("FE5335", "Fe_5335") for col in [col for col in df_ap.columns if "FE5335" in col]] +\
+                    [col.replace("CN1", "CN_1") for col in [col for col in df_ap.columns if "CN1" in col]] +\
+                    [col.replace("CN2", "CN_2") for col in [col for col in df_ap.columns if "CN2" in col]] +\
+                    [col.replace("CA4227", "Ca_4227") for col in [col for col in df_ap.columns if "CA4227" in col]] +\
+                    [col.replace("G4300", "G_4300") for col in [col for col in df_ap.columns if "G4300" in col]] +\
+                    [col.replace("MG1", "Mg_1") for col in [col for col in df_ap.columns if "MG1" in col]] +\
+                    [col.replace("MG2", "Mg_2") for col in [col for col in df_ap.columns if "MG2" in col]] +\
+                    [col.replace("FE4531", "Fe_4531") for col in [col for col in df_ap.columns if "FE4531" in col]] +\
+                    [col.replace("FE5406", "Fe_5406") for col in [col for col in df_ap.columns if "FE5406" in col]] +\
+                    [col.replace("CA4455", "Ca_4455") for col in [col for col in df_ap.columns if "CA4455" in col]]
+    rename_dict = dict(zip(old_cols_idxs, new_cols_idxs))
     df_ap = df_ap.rename(columns=rename_dict)
 
     ######################################################################
@@ -2071,7 +2121,7 @@ def make_sami_aperture_df(eline_SNR_min,
             df_ap = extcorr.apply_extinction_correction(df_ap, 
                                             reddening_curve="fm07", 
                                             eline_list=[e for e in eline_list if f"{e} ({ap})" in df_ap],
-                                            a_v_col_name="A_V ({ap})",
+                                            a_v_col_name=f"A_V ({ap})",
                                             nthreads=nthreads_max,
                                             s=f" ({ap})")
     df_ap["Corrected for extinction?"] = correct_extinction
