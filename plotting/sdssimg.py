@@ -91,6 +91,7 @@ def plot_sdss_image(df_gal=None,
                     gal=None, ra_deg=None, dec_deg=None, kpc_per_as=None,
                     axis_labels=True,
                     as_per_px=0.1, width_px=500, height_px=500,
+                    reload_image=False,
                     ax=None, figsize=(5, 5)):    
 
     """
@@ -120,6 +121,9 @@ def plot_sdss_image(df_gal=None,
     height_px:      int
         height of image to download.
 
+    reload_image:   bool
+        If True, force re-download of the image.
+
     ax:             matplotlib.axis
         axis on which to plot the image. Note that because axis projections 
         cannot be changed after an axis is created, the original axis is 
@@ -140,8 +144,12 @@ def plot_sdss_image(df_gal=None,
     if df_gal is not None:
         assert len(df_gal["ID"].unique()) == 1, "df_gal must only contain one galaxy!!"
         # Get the central coordinates from the DF
-        ra_deg = df_gal["RA (J2000)"].unique()[0]
-        dec_deg = df_gal["Dec (J2000)"].unique()[0]
+        if "RA (IFU) (J2000)" in df_gal and "Dec (IFU) (J2000)" in df_gal:
+            ra_deg = df_gal["RA (IFU) (J2000)"].unique()[0]
+            dec_deg = df_gal["Dec (IFU) (J2000)"].unique()[0]
+        else:
+            ra_deg = df_gal["RA (J2000)"].unique()[0]
+            dec_deg = df_gal["Dec (J2000)"].unique()[0]
         gal = df_gal["ID"].unique()[0]
         kpc_per_as = df_gal["kpc per arcsec"].unique()[0]
     else:
@@ -151,7 +159,7 @@ def plot_sdss_image(df_gal=None,
         assert kpc_per_as is not None, "kpc_per_as must be specified!"
 
     # Load image
-    if not os.path.exists(os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg")):
+    if reload_image or (not os.path.exists(os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg"))):
         # Download the image
         print(f"WARNING: file {os.path.join(sdss_im_path, f'{gal}_{width_px}x{height_px}.jpg')} not found. Retrieving image from SDSS...")
         if not get_sdss_image(gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
