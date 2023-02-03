@@ -42,7 +42,7 @@ assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DI
 # Options
 ###########################################################################
 fig_path = "/priv/meggs3/u5708159/SAMI/figs/wifes_proposal/"
-savefigs = True
+savefigs = False
 bin_type = "default"    # Options: "default" or "adaptive" for Voronoi binning
 ncomponents = "recom"   # Options: "1" or "recom"
 eline_SNR_min = 5       # Minimum S/N of emission lines to accept

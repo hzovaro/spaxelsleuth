@@ -185,6 +185,12 @@ cmap_dict = {
     "Median SNR (B, 1R_e)": copy.copy(plt.cm.get_cmap("jet")),
     "Median SNR (R, 1R_e)": copy.copy(plt.cm.get_cmap("jet")),
     "log mean HALPHA A/N (1R_e)": copy.copy(plt.cm.get_cmap("jet")),
+    "Stellar age (Gyr)": copy.copy(plt.cm.get_cmap("copper")),
+    "Stellar [Z/H]": copy.copy(plt.cm.get_cmap("viridis")),
+    "HDELTA_A": copy.copy(plt.cm.get_cmap("viridis")),
+    f"Gini coefficient (SFR surface density)": copy.copy(plt.cm.get_cmap("viridis")),
+    f"Gini coefficient (SFR)": copy.copy(plt.cm.get_cmap("viridis")),
+    f"Gini coefficient (HALPHA continuum)": copy.copy(plt.cm.get_cmap("viridis")),
 }
 
 for key in cmap_dict.keys():
@@ -261,7 +267,7 @@ vmin_dict = {
     "kpc per arcsec": 0,
     "SFR": 0,
     "SFR surface density": 0,
-    "log SFR": -5.0,
+    "log SFR": -4.0,
     "log sSFR": -12,
     "log SFR surface density": -4.0,
     "Delta HALPHA EW (1/2)": -1.0,
@@ -276,6 +282,12 @@ vmin_dict = {
     "Median SNR (B, 1R_e)": 0,
     "Median SNR (R, 1R_e)": 0,
     "log mean HALPHA A/N (1R_e)": 1.0,
+    "Stellar age (Gyr)": 0.0,
+    "Stellar [Z/H]": -3.0,
+    "HDELTA_A": -1.0,
+    f"Gini coefficient (SFR surface density)": 0,
+    f"Gini coefficient (SFR)": 0,
+    f"Gini coefficient (HALPHA continuum)": 0,
 }
 
 vmax_dict = {
@@ -346,8 +358,8 @@ vmax_dict = {
     "Bin size (square kpc)": 0.5,
     "kpc per arcsec": 2,
     "SFR": 3,
-    "SFR surface density": 0.0,
-    "log SFR": -1.0,
+    "SFR surface density": 0.1,
+    "log SFR": 1.0,
     "log sSFR": -9.0,
     "log SFR surface density": 0.5,
     "Delta HALPHA EW (1/2)": +2.0,
@@ -362,6 +374,12 @@ vmax_dict = {
     "Median SNR (B, 1R_e)": 30,
     "Median SNR (R, 1R_e)": 30,
     "log mean HALPHA A/N (1R_e)": 3.5,
+    "Stellar age (Gyr)": 14.0,
+    "Stellar [Z/H]": 1.0,
+    "HDELTA_A": 7,
+    f"Gini coefficient (SFR surface density)": 1,
+    f"Gini coefficient (SFR)": 1,
+    f"Gini coefficient (HALPHA continuum)": 1,
 }
 
 label_dict = {
@@ -450,6 +468,12 @@ label_dict = {
      "Median SNR (B, 1R_e)": r"Median SNR (B, $1R_e$)",
      "Median SNR (R, 1R_e)": r"Median SNR (R, $1R_e$)",
      "log mean HALPHA A/N (1R_e)": r"log mean H$\alpha$ A/N ($1R_e$)",
+     "Stellar age (Gyr)": "Stellar age (Gyr)",
+     "Stellar [Z/H]": "[Z/Fe]",
+     "HDELTA_A": r"H$\delta_A$",
+     f"Gini coefficient (SFR surface density)": r"$G$ ($\Sigma_{\rm SFR}$)",
+     f"Gini coefficient (SFR)": r"$G$ (SFR)",
+     f"Gini coefficient (HALPHA continuum)": r"$G$ (continuum)",
 }
 
 fname_dict = {
@@ -536,6 +560,12 @@ fname_dict = {
      "Median SNR (B, 1R_e)": "cont_snr_b_1re",
      "Median SNR (R, 1R_e)": "cont_snr_r_1re",
      "log mean HALPHA A/N (1R_e)": "log_mean_HALPHA_AN_1re",
+     "Stellar age (Gyr)": "stellar_age",
+     "Stellar [Z/H]": "stellar_metallicity",
+     "HDELTA_A": "hdelta_a",
+     f"Gini coefficient (SFR surface density)": "gini_SFR_surface_density",
+     f"Gini coefficient (SFR)": "gini_SFR",
+     f"Gini coefficient (HALPHA continuum)": "gini_cont",
 }
 
 ###############################################################################
@@ -646,6 +676,14 @@ def label_fn(col):
         col = label_dict[col]
     else:
         print(f"WARNING: in label_fn(): undefined column {col}")
+        # If it's not in the dict, then try to beautify it by replacing substrings.
+        col = col.replace("ALPHA", r"$\alpha$")
+        col = col.replace("BETA", r"$\beta$")
+        col = col.replace("GAMMA", r"$\gamma$")
+        col = col.replace("delta", r"$\Delta$")  # always assume upper case delta 
+        col = col.replace("R_e", r"$R_e$")
+        col = col.replace("log ", r"$\log_{10}$ ")
+
     if len(suffix) > 1:
         col = col + suffix
     return col
@@ -694,7 +732,6 @@ def fname_fn(col):
     Helper function to return a system-safe filename corresponding to column
     col to use for saving figures and other data to file. 
     """
-    Tracer()()
     col, suffix = _colname_helper_fn(col)
     if col in fname_dict.keys():
         col = fname_dict[col]

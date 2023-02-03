@@ -150,7 +150,6 @@ def set_flags(df, eline_SNR_min, eline_list,
             cond_missing_flux = df[f"{eline} (total)"].isna() & ~df[f"{eline} error (total)"].isna()
             df.loc[cond_missing_flux, f"Missing flux flag - {eline} (total)"] = True
             print(f"{eline} (total): {df[cond_missing_flux].shape[0]:d} spaxels have missing total fluxes")
-        Tracer()()
 
     ######################################################################
     # Flag rows where any component doesn't meet the amplitude 
@@ -629,7 +628,7 @@ def compute_gas_stellar_offsets(df):
 # Compute differences in Halpha EW, sigma_gas between different components
 def compute_component_offsets(df):
     
-    for nn_1, nn_2 in ([2, 1], [3, 2], [3, 1]):
+    for nn_2, nn_1 in ([2, 1], [3, 2], [3, 1]):
 
         #//////////////////////////////////////////////////////////////////////
         # Difference between gas velocity dispersion between components
@@ -668,6 +667,7 @@ def compute_component_offsets(df):
         for col in ["log O3", "log N2", "log S2", "log O1"]:
             if f"{col} (component {nn_1})" in df and f"{col} (component {nn_2})" in df:
                 df[f"delta {col} ({nn_2}/{nn_1})"] = df[f"{col} (component {nn_2})"] - df[f"{col} (component {nn_1})"]
+            if f"{col} error (component {nn_2})" in df and f"{col} error (component {nn_1})" in df:
                 df[f"delta {col} ({nn_2}/{nn_1}) error"] = np.sqrt(df[f"{col} error (component {nn_2})"]**2 + df[f"{col} error (component {nn_1})"]**2)
 
     #//////////////////////////////////////////////////////////////////////
