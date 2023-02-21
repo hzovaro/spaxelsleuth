@@ -445,6 +445,8 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     df_metadata["R_e (MGE) (kpc)"] = df_metadata["R_e (MGE) (arcsec)"] * df_metadata["kpc per arcsec"]
     df_metadata["log(M/R_e)"] = df_metadata["log M_*"] - np.log10(df_metadata["R_e (kpc)"])
     df_metadata["log(M/R_e^2)"] = df_metadata["log M_*"] - 2 * np.log10(df_metadata["R_e (kpc)"])
+    df_metadata["log(M/R_e) (MGE)"] = df_metadata["log M_*"] - np.log10(df_metadata["R_e (MGE) (kpc)"])
+    df_metadata["log(M/R_e^2) (MGE)"] = df_metadata["log M_*"] - 2 * np.log10(df_metadata["R_e (MGE) (kpc)"])
 
     ###########################################################################
     # Compute inclination
