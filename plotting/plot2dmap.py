@@ -38,6 +38,7 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
               vmin=None, vmax=None, cmap=None,
               contours=True, col_z_contours="B-band continuum", levels=None, linewidths=0.5, colors="white",
               ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical",
+              show_compass=True, show_scale_bar=True,
               figsize=(5, 5)):
     """
     Show a reconstructed 2D map of the quantity specified by col_z in a single 
@@ -349,8 +350,10 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     # Decorations
     ###########################################################################
     # Include scale bar
-    plot_scale_bar(as_per_px=as_per_px, kpc_per_as=df_gal["kpc per arcsec"].unique()[0], fontsize=10, ax=ax, l=10, units="arcsec", color="black", loffset=0.30)
-    plot_compass(ax=ax, color="black", PA_deg=PA_deg)
+    if show_scale_bar:
+        plot_scale_bar(as_per_px=as_per_px, kpc_per_as=df_gal["kpc per arcsec"].unique()[0], fontsize=10, ax=ax, l=10, units="arcsec", color="black", loffset=0.30, long_dist_str=False)
+    if show_compass:
+        plot_compass(ax=ax, color="black", PA_deg=PA_deg)
 
     # Title
     if show_title:
