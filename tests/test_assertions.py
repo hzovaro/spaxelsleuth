@@ -177,6 +177,15 @@ assert all(df.loc[df[f"HALPHA continuum"].isna() | (df[f"HALPHA continuum"] <= 0
 assert all(df.loc[df[f"HALPHA continuum"].isna() | (df[f"HALPHA continuum"] <= 0), f"HALPHA EW error (total)"].isna())
 
 #//////////////////////////////////////////////////////////////////////////////
+# SFR TESTS
+#//////////////////////////////////////////////////////////////////////////////
+# CHECK: check no spaxels with non-SF BPT classifications have SFRs or SFR surface densities
+cond_no_met = df["BPT (total)"] != "SF"
+sfr_cols = [c for c in df.columns if "SFR" in c]
+for met_col in sfr_cols:
+    assert all(df.loc[cond_no_met, sfr_cols].isna())
+
+#//////////////////////////////////////////////////////////////////////////////
 # METALLICITY CALCULATION TESTS
 #//////////////////////////////////////////////////////////////////////////////
 # CHECK: check no spaxels with non-SF BPT classifications have metallicities
