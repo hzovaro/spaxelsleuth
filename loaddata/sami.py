@@ -433,7 +433,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     ###########################################################################
     # Add angular scale info
     ###########################################################################
-    print(f"In make_sami_metadata_df(): Computing distances...")
+    print(f"In make_sami_metadata_df(): Computing distances...")    
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
     for gal in gal_ids_dq_cut:
         D_A_Mpc = cosmo.angular_diameter_distance(df_metadata.loc[gal, "z"]).value
