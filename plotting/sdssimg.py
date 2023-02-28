@@ -199,8 +199,7 @@ def plot_sdss_image(df_gal=None,
     ax.add_patch(c)
 
     # Include scale bar
-    
-    plot_scale_bar(as_per_px=0.1, loffset=0.25, kpc_per_as=kpc_per_as, ax=ax, l=10, units="arcsec", fontsize=10)
+    plot_scale_bar(as_per_px=0.1, loffset=0.25, kpc_per_as=kpc_per_as, ax=ax, l=10, units="arcsec", fontsize=10, long_dist_str=False)
 
     # Axis labels
     if axis_labels:
