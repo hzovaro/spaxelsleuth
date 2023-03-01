@@ -1489,14 +1489,11 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     # Save to .hd5 & .csv
     ###############################################################################
     print(f"{status_str}: Saving to file...")
-
-    # No extinction correction
-    df_spaxels.to_csv(os.path.join(sami_data_path, df_fname.split("hd5")[0] + "csv"))
     try:
         df_spaxels.to_hdf(os.path.join(sami_data_path, df_fname), key=f"{bin_type}, {ncomponents}-comp")
     except:
-        print(f"{status_str}: Unable to save to HDF file... sigh...")
-
+        print(f"{status_str}: ERROR: Unable to save to HDF file! Saving to .csv instead")
+        df_spaxels.to_csv(os.path.join(sami_data_path, df_fname.split("hd5")[0] + "csv"))
     return
 
 ###############################################################################
