@@ -121,59 +121,70 @@ def compute_A_V(df,
         df = df_old.rename(columns=dict(zip(suffix_cols, suffix_removed_cols)))
     old_cols = df.columns
 
-    # Determine which reddening curve to use
-    if reddening_curve.lower() == "fm07":
-        ext_fn = extinction.fm07
-        if R_V != 3.1:
-            print(f"In extcorr.extinction_corr_fn(): WARNING: R_V is fixed at 3.1 in the FM07 reddening curve. Ignoring supplied R_V value of {R_V:.2f}...")
-    elif reddening_curve.lower() == "ccm89":
-        ext_fn = extinction.ccm89
-    elif reddening_curve.lower() == "calzetti00":
-        ext_fn = extinction.calzetti00
-        if R_V != 4.05:
-            print(f"In extcorr.extinction_corr_fn(): WARNING: R_V should be set to 4.05 for the calzetti00 reddening curve. Using supplied R_V value of {R_V:.2f}...")
-    else:  
-        raise ValueError("For now, 'reddening_curve' must be one of 'fm07', 'ccm89' or 'calzetti00'!")
+    # Check that HALPHA and HBETA are in the DataFrame 
+    if ("HALPHA" not in df) or ("HBETA" not in df):
+        print(f"In extcorr.extinction_corr_fn(): WARNING: HALPHA and/or HBETA are not in the DataFrame, so extinction cannot be calculated.")
+    else:
+        # Determine which reddening curve to use
+        if reddening_curve.lower() == "fm07":
+            ext_fn = extinction.fm07
+            if R_V != 3.1:
+                print(f"In extcorr.extinction_corr_fn(): WARNING: R_V is fixed at 3.1 in the FM07 reddening curve. Ignoring supplied R_V value of {R_V:.2f}...")
+        elif reddening_curve.lower() == "ccm89":
+            ext_fn = extinction.ccm89
+        elif reddening_curve.lower() == "calzetti00":
+            ext_fn = extinction.calzetti00
+            if R_V != 4.05:
+                print(f"In extcorr.extinction_corr_fn(): WARNING: R_V should be set to 4.05 for the calzetti00 reddening curve. Using supplied R_V value of {R_V:.2f}...")
+        else:  
+            raise ValueError("For now, 'reddening_curve' must be one of 'fm07', 'ccm89' or 'calzetti00'!")
 
-    #//////////////////////////////////////////////////////////////////////////
-    # Compute A_V in each spaxel
-    #//////////////////////////////////////////////////////////////////////////
-    df[f"Balmer decrement"] = df[f"HALPHA"] / df[f"HBETA"]
-    df[f"Balmer decrement error"] =\
-        df[f"Balmer decrement"] * \
-        np.sqrt( (df[f"HALPHA error"] / df[f"HALPHA"])**2 +\
-                 (df[f"HBETA error"] / df[f"HBETA"])**2 )
+        #//////////////////////////////////////////////////////////////////////////
+        # Compute A_V in each spaxel
+        #//////////////////////////////////////////////////////////////////////////
+        # Compute E(B-V)
+        df[f"Balmer decrement"] = df[f"HALPHA"] / df[f"HBETA"]
+        E_ba = 2.5 * (np.log10(df[f"Balmer decrement"])) - 2.5 * np.log10(2.86)
+            
+        # Calculate ( A(Ha) - A(Hb) ) / E(B-V) from extinction curve
+        wave_1_A = np.array([eline_lambdas_A["HALPHA"]])
+        wave_2_A = np.array([eline_lambdas_A["HBETA"]])
+        E_ba_over_E_BV = float(ext_fn(wave_2_A, a_v=1.0) - ext_fn(wave_1_A, a_v=1.0) ) /  1.0 * R_V
 
-    # Compute E(B-V)
-    E_ba = 2.5 * (np.log10(df[f"Balmer decrement"])) - 2.5 * np.log10(2.86)
-    E_ba_err = 2.5 / np.log(10) * df[f"Balmer decrement error"] / df[f"Balmer decrement"]
+        # Calculate E(B-V)
+        E_BV = 1 / E_ba_over_E_BV * E_ba
+        
+        # Calculate A(V)
+        df[f"A_V"] = R_V * E_BV
 
-    # Calculate ( A(Ha) - A(Hb) ) / E(B-V) from extinction curve
-    wave_1_A = np.array([eline_lambdas_A["HALPHA"]])
-    wave_2_A = np.array([eline_lambdas_A["HBETA"]])
-    E_ba_over_E_BV = float(ext_fn(wave_2_A, a_v=1.0) - ext_fn(wave_1_A, a_v=1.0) ) /  1.0 * R_V
+        #//////////////////////////////////////////////////////////////////////////
+        # DQ cuts
+        #//////////////////////////////////////////////////////////////////////////
+        # non-physical Balmer decrement (set A_V = 0)
+        cond_negative_A_V = df[f"A_V"] < 0
+        df.loc[cond_negative_A_V, f"A_V"] = 0
 
-    # Calculate E(B-V)
-    E_BV = 1 / E_ba_over_E_BV * E_ba
-    E_BV_err = 1 / E_ba_over_E_BV * E_ba_err
+        # low S/N HALPHA and HBETA fluxes (set A_V = NaN)
+        cond_bad_A_V = df[f"HALPHA S/N"] < balmer_SNR_min
+        cond_bad_A_V |= df[f"HBETA S/N"] < balmer_SNR_min
+        df.loc[cond_bad_A_V, f"A_V"] = np.nan
+        
+        #//////////////////////////////////////////////////////////////////////////
+        # Compute corresponding errors, if HALPHA and HBETA errors are present
+        #//////////////////////////////////////////////////////////////////////////
+        if ("HALPHA error" in df) and ("HBETA error") in df:
+            df[f"Balmer decrement error"] =\
+                df[f"Balmer decrement"] * \
+                np.sqrt( (df[f"HALPHA error"] / df[f"HALPHA"])**2 +\
+                         (df[f"HBETA error"]  / df[f"HBETA"])**2 )
+            
+            E_ba_err = 2.5 / np.log(10) * df[f"Balmer decrement error"] / df[f"Balmer decrement"]
+            E_BV_err = 1 / E_ba_over_E_BV * E_ba_err
+            df[f"A_V error"] = R_V * E_BV_err
 
-    # Calculate A(V)
-    df[f"A_V"] = R_V * E_BV
-    df[f"A_V error"] = R_V * E_BV_err
-
-    #//////////////////////////////////////////////////////////////////////////
-    # DQ cuts
-    #//////////////////////////////////////////////////////////////////////////
-    # non-physical Balmer decrement (set A_V = 0)
-    cond_negative_A_V = df[f"A_V"] < 0
-    df.loc[cond_negative_A_V, f"A_V"] = 0
-    df.loc[cond_negative_A_V, f"A_V error"] = 0
-
-    # low S/N HALPHA and HBETA fluxes (set A_V = NaN)
-    cond_bad_A_V = df[f"HALPHA S/N"] < balmer_SNR_min
-    cond_bad_A_V |= df[f"HBETA S/N"] < balmer_SNR_min
-    df.loc[cond_bad_A_V, f"A_V"] = np.nan
-    df.loc[cond_bad_A_V, f"A_V error"] = np.nan
+            # DQ cuts
+            df.loc[cond_negative_A_V, f"A_V error"] = 0
+            df.loc[cond_bad_A_V, f"A_V error"] = np.nan
 
     #//////////////////////////////////////////////////////////////////////////
     # Rename columns
