@@ -63,6 +63,7 @@ from tqdm import tqdm
 import multiprocessing
 
 from spaxelsleuth.utils import dqcut, linefns, metallicity, extcorr
+from .generic import add_columns
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -1468,173 +1469,21 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     # Tracer()()
 
     ###############################################################################
-    # Calculate equivalent widths
-    ###############################################################################
-    df_spaxels.loc[df_spaxels["HALPHA continuum"] < 0, "HALPHA continuum"] = 0
-    
-    # Compute EW in each component
-    for nn in range_ncomponents_elines:
-        df_spaxels[f"HALPHA EW (component {nn + 1})"] = df_spaxels[f"HALPHA (component {nn + 1})"] / df_spaxels["HALPHA continuum"]
-        df_spaxels[f"HALPHA EW error (component {nn + 1})"] = df_spaxels[f"HALPHA EW (component {nn + 1})"] *\
-            np.sqrt((df_spaxels[f"HALPHA error (component {nn + 1})"] / df_spaxels[f"HALPHA (component {nn + 1})"])**2 +\
-                    (df_spaxels[f"HALPHA continuum error"] / df_spaxels[f"HALPHA continuum"])**2) 
-        
-        # If the continuum level <= 0, then the EW is undefined, so set to NaN.
-        df_spaxels.loc[df_spaxels["HALPHA continuum"] <= 0, 
-                       [f"HALPHA EW (component {nn + 1})", 
-                        f"HALPHA EW error (component {nn + 1})"]] = np.nan  
-
-    # Calculate total EW
-    df_spaxels[f"HALPHA EW (total)"] = df_spaxels[f"HALPHA (total)"] / df_spaxels["HALPHA continuum"]
-    df_spaxels[f"HALPHA EW error (total)"] = df_spaxels[f"HALPHA EW (total)"] *\
-        np.sqrt((df_spaxels[f"HALPHA error (total)"] / df_spaxels[f"HALPHA (total)"])**2 +\
-                (df_spaxels[f"HALPHA continuum error"] / df_spaxels[f"HALPHA continuum"])**2) 
-    
-    # If the continuum level <= 0, then the EW is undefined, so set to NaN.
-    df_spaxels.loc[df_spaxels["HALPHA continuum"] <= 0, 
-                   [f"HALPHA EW (total)", 
-                    f"HALPHA EW error (total)"]] = np.nan  
-
-    ######################################################################
-    # Compute S/N in all lines
-    ######################################################################
-    for eline in eline_list:
-        # Compute S/N 
-        for nn in range_ncomponents_elines:
-            if f"{eline} (component {nn + 1})" in df_spaxels.columns:
-                df_spaxels[f"{eline} S/N (component {nn + 1})"] = df_spaxels[f"{eline} (component {nn + 1})"] / df_spaxels[f"{eline} error (component {nn + 1})"]
-        
-        # Compute the S/N in the TOTAL line flux
-        df_spaxels[f"{eline} S/N (total)"] = df_spaxels[f"{eline} (total)"] / df_spaxels[f"{eline} error (total)"]
-
-    ######################################################################
-    # Fix SFR columns
-    ######################################################################
-    # NaN the SFR surface density if the inclination is undefined
-    cond_NaN_inclination = np.isnan(df_spaxels["i (degrees)"])
-    cols = [c for c in df_spaxels.columns if "SFR surface density" in c]
-    df_spaxels.loc[cond_NaN_inclination, cols] = np.nan
-
-    # NaN the SFR if the SFR == 0
-    # Note: I'm not entirely sure why there are spaxels with SFR == 0
-    # in the first place.
-    cond_zero_SFR = df_spaxels["SFR (total)"]  == 0
-    cols = [c for c in df_spaxels.columns if "SFR" in c]
-    df_spaxels.loc[cond_zero_SFR, cols] = np.nan
-
-    ######################################################################
-    # DQ and S/N CUTS
-    ######################################################################
-    df_spaxels = dqcut.set_flags(df=df_spaxels, 
-                  eline_SNR_min=eline_SNR_min, eline_list=eline_list,
-                  sigma_gas_SNR_min=sigma_gas_SNR_min,
-                  sigma_inst_kms=29.6)
-
-    # Apply S/N and DQ cuts
-    df_spaxels = dqcut.apply_flags(df=df_spaxels, 
-                                   line_flux_SNR_cut=line_flux_SNR_cut,
-                                   missing_fluxes_cut=missing_fluxes_cut,
-                                   line_amplitude_SNR_cut=line_amplitude_SNR_cut,
-                                   flux_fraction_cut=flux_fraction_cut,
-                                   vgrad_cut=vgrad_cut,
-                                   sigma_gas_SNR_cut=sigma_gas_SNR_cut,
-                                   stekin_cut=stekin_cut,
-                                   eline_list=eline_list)    
-
-    ######################################################################
-    # NaN out SFR quantities if the HALPHA flux is NaN
-    ###################################################################### 
-    cond_Ha_isnan = df_spaxels["HALPHA (total)"].isna()
-    cols_sfr = [c for c in df_spaxels.columns if "SFR" in c]
-    for col in cols_sfr:
-        df_spaxels.loc[cond_Ha_isnan, col] = np.nan
-    
-    ######################################################################
-    # Make a copy of the DataFrame with EXTINCTION CORRECTION
-    # Correct emission line fluxes (but not EWs!)
-    # NOTE: extinction.fm07 assumes R_V = 3.1 so do not change R_V from 
-    # this value!!!
-    ######################################################################
-    if correct_extinction:
-        print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
-        # Compute A_V using total Halpha and Hbeta emission line fluxes
-        df_spaxels = extcorr.compute_A_V(df_spaxels,
-                                         reddening_curve="fm07", 
-                                         balmer_SNR_min=5,
-                                         s=f" (total)")
-
-        # Apply the extinction correction to total emission line fluxes
-        df_spaxels = extcorr.apply_extinction_correction(df_spaxels, 
-                                        reddening_curve="fm07", 
-                                        eline_list=[e for e in eline_list if f"{e} (total)" in df_spaxels],
-                                        a_v_col_name="A_V (total)",
-                                        nthreads=nthreads_max,
-                                        s=f" (total)")
-        
-        # Apply the extinction correction to fluxes of  individual components
-        for nn in range_ncomponents_elines:
-            df_spaxels = extcorr.apply_extinction_correction(df_spaxels, 
-                                            reddening_curve="fm07", 
-                                            eline_list=[e for e in eline_list if f"{e} (component {nn + 1})" in df_spaxels],
-                                            a_v_col_name="A_V (total)",
-                                            nthreads=nthreads_max,
-                                            s=f" (component {nn + 1})")
-
-        df_spaxels["Corrected for extinction?"] = True
-    else:
-        df_spaxels["Corrected for extinction?"] = False
-    df_spaxels = df_spaxels.sort_index()
-
-    ######################################################################
-    # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
-    ######################################################################
-    df_spaxels = linefns.ratio_fn(df_spaxels, s=f" (total)")
-    df_spaxels = linefns.bpt_fn(df_spaxels, s=f" (total)")
-
-    ######################################################################
-    # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
-    ######################################################################
-    df_spaxels = dqcut.compute_extra_columns(df_spaxels)
-
-    ######################################################################
-    # EVALUATE METALLICITY (only for spaxels with extinction correction)
-    ######################################################################
-    if not debug:
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_PP04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_M13", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="O3N2_PP04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="O3N2_M13", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2S2Ha_D16", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2O2_KD02", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="Rcal_PG16", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="Scal_PG16", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="ON_P10", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="ONS_P10", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="O3N2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2O2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="R23_KK04", compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-    else:
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_PP04", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-        df_spaxels = metallicity.calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_spaxels, s=" (total)")
-
-    ###############################################################################
-    # Save input flags to the DataFrame so that we can keep track
-    ###############################################################################
-    df_spaxels["eline_SNR_min"] = eline_SNR_min
-    df_spaxels["sigma_gas_SNR_min"] = sigma_gas_SNR_min
-    df_spaxels["Extinction correction applied"] = correct_extinction
-    df_spaxels["line_flux_SNR_cut"] = line_flux_SNR_cut
-    df_spaxels["missing_fluxes_cut"] = missing_fluxes_cut
-    df_spaxels["line_amplitude_SNR_cut"] = line_amplitude_SNR_cut
-    df_spaxels["flux_fraction_cut"] = flux_fraction_cut
-    df_spaxels["vgrad_cut"] = vgrad_cut
-    df_spaxels["sigma_gas_SNR_cut"] = sigma_gas_SNR_cut
-    df_spaxels["stekin_cut"] = stekin_cut
-    
-    for col in [c for c in df_spaxels.columns if "SFR" in c and "error" not in c]:
-        assert f"{col}" in df_spaxels.columns
-        assert all(df_spaxels.loc[df_spaxels["HALPHA (total)"].isna(), f"{col}"].isna())
+    # Compute additional columns
+    ################################################################################
+    df_spaxels = add_columns(df_spaxels, bin_type=bin_type, ncomponents=ncomponents, 
+                             eline_SNR_min=eline_SNR_min, sigma_gas_SNR_min=sigma_gas_SNR_min,
+                                eline_list=eline_list,
+                                line_flux_SNR_cut=line_flux_SNR_cut,
+                                missing_fluxes_cut=missing_fluxes_cut,
+                                line_amplitude_SNR_cut=line_amplitude_SNR_cut,
+                                flux_fraction_cut=flux_fraction_cut,
+                                sigma_gas_SNR_cut=sigma_gas_SNR_cut, 
+                                vgrad_cut=vgrad_cut,
+                                stekin_cut=stekin_cut,
+                                correct_extinction=correct_extinction,
+                                nthreads_max=nthreads_max, debug=debug,
+                                __use_lzifu_fits=__use_lzifu_fits, __lzifu_ncomponents=__lzifu_ncomponents) 
 
     ###############################################################################
     # Save to .hd5 & .csv
