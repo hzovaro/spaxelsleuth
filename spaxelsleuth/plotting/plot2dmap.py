@@ -24,6 +24,7 @@ from astropy.wcs import WCS
 
 from spaxelsleuth.plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn 
 from spaxelsleuth.plotting.plottools import plot_scale_bar, plot_compass
+from spaxelsleuth.plotting.plottools_new import get_vmin, get_vmax, get_cmap, get_label
 from spaxelsleuth.plotting.plottools import bpt_ticks, bpt_labels, whav_ticks, whav_labels, morph_ticks, morph_labels, law2021_ticks, law2021_labels, ncomponents_ticks, ncomponents_labels
 
 import matplotlib.pyplot as plt
@@ -32,7 +33,7 @@ plt.ion()
 from IPython.core.debugger import Tracer
 
 ###############################################################################
-def plot2dmap(df_gal, col_z, bin_type, survey,
+def plot2dmap(df, gal, col_z, bin_type, survey,
               PA_deg=0,
               show_title=True, axis_labels=True,
               vmin=None, vmax=None, cmap=None,
@@ -46,8 +47,10 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
 
     INPUTS
     ---------------------------------------------------------------------------
-    df_gal:         pandas DataFrame
-        DataFrame containing spaxel-by-spaxel data for a single galaxy.
+    df:         pandas DataFrame
+        DataFrame containing spaxel-by-spaxel data.
+
+    gal:
 
     col_z:              str
         Quantity used to colour the image. Must be a column in df.
@@ -136,14 +139,12 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     ###########################################################################
     # Input verification
     ###########################################################################
-    assert col_z in df_gal.columns,\
-        f"{col_z} is not a valid column!"
-    assert df_gal[col_z].dtype != "O",\
-        f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' format of this column instead!"
-    assert cax_orientation == "horizontal" or cax_orientation == "vertical",\
-        "cax_orientation must be either 'horizontal' or 'vertical'!"
-    assert len(df_gal["ID"].unique()) == 1,\
-        "df_gal contains must only contain one galaxy!"
+    if col_z not in df.columns:
+        raise ValueError(f"{col_z} is not a valid column!")
+    if df[col_z].dtype == "O":
+        raise ValueError(f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' format of this column instead!")
+    if cax_orientation not in ["horizontal", "vertical"]:
+        raise ValueError("cax_orientation must be either 'horizontal' or 'vertical'!")
     
     survey = survey.lower()
     assert survey in ["sami", "s7"],\
@@ -166,7 +167,8 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     ###########################################################################
     # Load the data cube to get the WCS and continuum image, if necessary
     ###########################################################################
-    gal = df_gal["ID"].unique()[0]
+    # Extract the subset of the DataFrame belonging to this galaxy
+    df_gal = df[df["ID"] == gal]
     
     # Get the WCS
     if survey == "sami":
@@ -220,9 +222,9 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
             col_z_map[bin_mask] = df_gal.loc[df_gal["Bin number"] == nn, col_z]
 
     elif bin_type == "default":
-        pd.options.mode.chained_assignment = None
+        # pd.options.mode.chained_assignment = None
         # df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
-        pd.options.mode.chained_assignment = "warn"
+        # pd.options.mode.chained_assignment = "warn"
         for rr in range(df_gal.shape[0]):
             xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
             col_z_map[yy, xx] = df_gal.iloc[rr][col_z]
@@ -239,21 +241,30 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
         ax.remove()
         ax = fig.add_axes(bbox, projection=wcs)
 
-    # Plot.
+    # Minimum data range
     if vmin is None:
-        vmin = vmin_fn(col_z)
+        vmin = get_vmin(col_z)
     elif vmin == "auto":
         vmin = np.nanmin(col_z_map)
+    
+    # Maximum data range
     if vmax is None:
-        vmax = vmax_fn(col_z)
+        vmax = get_vmax(col_z)
     elif vmax == "auto":
         vmax = np.nanmax(col_z_map)
+    
+    # options for cmap are None --> use default cmap; str --> use that cmap
+    discrete_colourmap = False
     if cmap is None:
-        cmap = cmap_fn(col_z)
-        cmap.set_bad("#b3b3b3")
+        res = get_cmap(col_z)
+        if len(res) == 1:
+            cmap = res
+        else:
+            cmap, cax_ticks, cax_labels = res
+            discrete_colourmap = True
     elif type(cmap) == str:
         cmap = plt.cm.get_cmap(cmap)
-        cmap.set_bad("#b3b3b3")
+    cmap.set_bad("#b3b3b3")
     m = ax.imshow(col_z_map, cmap=cmap, vmin=vmin, vmax=vmax)
 
     ###########################################################################
@@ -305,46 +316,19 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
     if plot_colorbar:
         plt.colorbar(mappable=m, cax=cax, orientation=cax_orientation)
         if cax_orientation == "vertical":
-            cax.set_ylabel(label_fn(col_z))
+            cax.set_ylabel(get_label(col_z))
         elif cax_orientation == "horizontal":
             cax.xaxis.set_ticks_position("top")
             cax.xaxis.set_label_position('top')
-            cax.set_xlabel(label_fn(col_z))
-        if col_z.startswith("BPT (numeric)"):
+            cax.set_xlabel(get_label(col_z))
+        
+        if discrete_colourmap:
             if cax_orientation == "vertical":
-                cax.yaxis.set_ticks(bpt_ticks)
-                cax.yaxis.set_ticklabels(bpt_labels)
+                cax.yaxis.set_ticks(cax_ticks)
+                cax.yaxis.set_ticklabels(cax_labels)
             elif cax_orientation == "horizontal":
-                cax.xaxis.set_ticks(bpt_ticks)
-                cax.xaxis.set_ticklabels(bpt_labels)
-        if col_z.startswith("WHAV* (numeric)"):
-            if cax_orientation == "vertical":
-                cax.yaxis.set_ticks(whav_ticks)
-                cax.yaxis.set_ticklabels(whav_labels)
-            elif cax_orientation == "horizontal":
-                cax.xaxis.set_ticks(whav_ticks)
-                cax.xaxis.set_ticklabels(whav_labels)
-        if col_z == "Morphology (numeric)":
-            if cax_orientation == "vertical":
-                cax.yaxis.set_ticks(morph_ticks)
-                cax.yaxis.set_ticklabels(morph_labels)
-            elif cax_orientation == "horizontal":
-                cax.xaxis.set_ticks(morph_ticks)
-                cax.xaxis.set_ticklabels(morph_labels)
-        if col_z.startswith("Law+2021 (numeric)"):
-            if cax_orientation == "vertical":
-                cax.yaxis.set_ticks(law2021_ticks)
-                cax.yaxis.set_ticklabels(law2021_labels)
-            elif cax_orientation == "horizontal":
-                cax.xaxis.set_ticks(law2021_ticks)
-                cax.xaxis.set_ticklabels(law2021_labels)
-        if col_z == "Number of components":
-            if cax_orientation == "vertical":
-                cax.yaxis.set_ticks(ncomponents_ticks)
-                cax.yaxis.set_ticklabels(ncomponents_labels)
-            elif cax_orientation == "horizontal":
-                cax.xaxis.set_ticks(ncomponents_ticks)
-                cax.xaxis.set_ticklabels(ncomponents_labels)
+                cax.xaxis.set_ticks(cax_ticks)
+                cax.xaxis.set_ticklabels(cax_labels)
 
     ###########################################################################
     # Decorations
@@ -357,7 +341,7 @@ def plot2dmap(df_gal, col_z, bin_type, survey,
 
     # Title
     if show_title:
-        ax.set_title(f"GAMA{gal}") if survey == "sami" else ax.set_title(gal)
+        ax.set_title(f"{gal}") if survey == "sami" else ax.set_title(gal)
 
     # Axis labels
     if axis_labels:
