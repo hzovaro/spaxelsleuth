@@ -1,7 +1,7 @@
 {
     "plotting": {
         "count": {
-            "vmin": 0,
+            "vmin": 1,
             "vmax": 1000,
             "label": "$N$",
             "cmap": "cubehelix",
