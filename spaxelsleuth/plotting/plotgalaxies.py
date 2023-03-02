@@ -641,7 +641,7 @@ def plot2dhistcontours(df,
         else:
             cmap = res
     elif type(cmap) == str:
-        cmap = plt.cm.get_cmap(cmap)
+        cmap = plt.cm.get_cmap(cmap).copy()
     cmap.set_bad("white", alpha=0)
 
     # Plot histogram and/or contours
@@ -1015,19 +1015,30 @@ def plot2dscatter(df,
     # Only colour the spaxels of the galaxy.
     if col_z is not None:
         if vmin is None:
-            vmin = vmin_fn(col_z)
+            vmin = get_vmin(col_z)
         if vmax is None:
-            vmax = vmax_fn(col_z)
+            vmax = get_vmax(col_z)
+        # options for cmap are None --> use default cmap; str --> use that cmap
+        discrete_colourmap = False
         if cmap is None:
-            cmap = cmap_fn(col_z)
+            res = get_cmap(col_z)
+            if type(res) == tuple:
+                cmap, cax_ticks, cax_labels = res
+                discrete_colourmap = True
+            else:
+                cmap = res
+        elif type(cmap) == str:
+            cmap = plt.cm.get_cmap(cmap).copy()
+        cmap.set_bad("white", alpha=0)
+
     if xmin is None:
-        xmin = vmin_fn(col_x)
+        xmin = get_vmin(col_x)
     if xmax is None:
-        xmax = vmax_fn(col_x)
+        xmax = get_vmax(col_x)
     if ymin is None:
-        ymin = vmin_fn(col_y)
+        ymin = get_vmin(col_y)
     if ymax is None:
-        ymax = vmax_fn(col_y)
+        ymax = get_vmax(col_y)
 
     # Plot the scatter points
     if col_z is not None:
@@ -1064,49 +1075,13 @@ def plot2dscatter(df,
             cax.xaxis.set_ticks_position("top")
             cax.xaxis.set_label_position('top')
             cax.set_xlabel(label_fn(col_z))
-
-        if col_z.startswith("BPT (numeric)"):
+        if discrete_colourmap:
             if cax_orientation == "vertical":
-                cax.yaxis.set_ticks(bpt_ticks)
-                cax.yaxis.set_ticklabels(bpt_labels)
+                cax.yaxis.set_ticks(cax_ticks)
+                cax.yaxis.set_ticklabels(cax_labels)
             elif cax_orientation == "horizontal":
-                cax.xaxis.set_ticks(bpt_ticks)
-                cax.xaxis.set_ticklabels(bpt_labels)
-        if col_z.startswith("WHAV* (numeric)"):
-            if cax_orientation == "vertical":
-                cax.yaxis.set_ticks(whav_ticks)
-                cax.yaxis.set_ticklabels(whav_labels)
-            elif cax_orientation == "horizontal":
-                cax.xaxis.set_ticks(whav_ticks)
-                cax.xaxis.set_ticklabels(whav_labels)
-        if col_z == "Morphology (numeric)":
-            if cax_orientation == "vertical":
-                cax.yaxis.set_ticks(morph_ticks)
-                cax.yaxis.set_ticklabels(morph_labels)
-            elif cax_orientation == "horizontal":
-                cax.xaxis.set_ticks(morph_ticks)
-                cax.xaxis.set_ticklabels(morph_labels)
-        if col_z.startswith("Law+2021 (numeric)"):
-            if cax_orientation == "vertical":
-                cax.yaxis.set_ticks(law2021_ticks)
-                cax.yaxis.set_ticklabels(law2021_labels)
-            elif cax_orientation == "horizontal":
-                cax.xaxis.set_ticks(law2021_ticks)
-                cax.xaxis.set_ticklabels(law2021_labels)
-        if col_z.startswith("Law+2021 (numeric)"):
-            if cax_orientation == "vertical":
-                cax.yaxis.set_ticks(law2021_ticks)
-                cax.yaxis.set_ticklabels(law2021_labels)
-            elif cax_orientation == "horizontal":
-                cax.xaxis.set_ticks(law2021_ticks)
-                cax.xaxis.set_ticklabels(law2021_labels)
-        if col_z == "Number of components":
-            if cax_orientation == "vertical":
-                cax.yaxis.set_ticks(ncomponents_ticks)
-                cax.yaxis.set_ticklabels(ncomponents_labels)
-            elif cax_orientation == "horizontal":
-                cax.xaxis.set_ticks(ncomponents_ticks)
-                cax.xaxis.set_ticklabels(ncomponents_labels)
+                cax.xaxis.set_ticks(cax_ticks)
+                cax.xaxis.set_ticklabels(cax_labels)
 
     if axis_labels:
         ax.set_xlabel(label_fn(col_x))
