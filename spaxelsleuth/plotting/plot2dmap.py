@@ -273,10 +273,10 @@ def plot2dmap(df,
     if cmap is None:
         res = get_cmap(col_z)
         if type(res) == tuple:
-            cmap = res
-        else:
             cmap, cax_ticks, cax_labels = res
             discrete_colourmap = True
+        else:
+            cmap = res
     elif type(cmap) == str:
         cmap = plt.cm.get_cmap(cmap).copy()
     cmap.set_bad("#b3b3b3")
