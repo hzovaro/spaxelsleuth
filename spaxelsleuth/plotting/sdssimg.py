@@ -87,8 +87,8 @@ def get_sdss_image(gal, ra_deg, dec_deg,
 
 
 ###############################################################################
-def plot_sdss_image(df_gal=None, 
-                    gal=None, ra_deg=None, dec_deg=None, kpc_per_as=None,
+def plot_sdss_image(df, gal, 
+                    ra_deg=None, dec_deg=None, kpc_per_as=None,
                     axis_labels=True,
                     as_per_px=0.1, width_px=500, height_px=500,
                     reload_image=False,
@@ -102,12 +102,15 @@ def plot_sdss_image(df_gal=None,
     
     INPUTS
     --------------------------------------------------------------------------
-    df_gal:         pandas DataFrame
-        DataFrame containing spaxel-by-spaxel data for a single galaxy.
+    df:         pandas DataFrame
+        DataFrame containing spaxel-by-spaxel data.
         Must have columns:
             ID - the catalogue ID of the galaxy
             RA (J2000) - the RA of the galaxy in degrees
             Dec (J2000) - the declination of the galaxy in degrees
+
+    gal:        int 
+        Galaxy to plot. Must be present in the "ID" column of df.
 
     axis_labels:    bool
         If True, plot RA and Dec axis labels.
@@ -141,8 +144,8 @@ def plot_sdss_image(df_gal=None,
 
     """
     # Input checking
-    if df_gal is not None:
-        assert len(df_gal["ID"].unique()) == 1, "df_gal must only contain one galaxy!!"
+    if df is not None:
+        df_gal = df[df["ID"] == gal]
         # Get the central coordinates from the DF
         if "RA (IFU) (J2000)" in df_gal and "Dec (IFU) (J2000)" in df_gal:
             ra_deg = df_gal["RA (IFU) (J2000)"].unique()[0]
