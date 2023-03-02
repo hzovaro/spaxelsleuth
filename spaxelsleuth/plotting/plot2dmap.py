@@ -22,7 +22,6 @@ import pandas as pd
 from astropy.io import fits
 from astropy.wcs import WCS
 
-from spaxelsleuth.plotting.plottools import vmin_fn, vmax_fn, label_fn, cmap_fn 
 from spaxelsleuth.plotting.plottools import plot_scale_bar, plot_compass
 from spaxelsleuth.plotting.plottools_new import get_vmin, get_vmax, get_cmap, get_label
 from spaxelsleuth.plotting.plottools import bpt_ticks, bpt_labels, whav_ticks, whav_labels, morph_ticks, morph_labels, law2021_ticks, law2021_labels, ncomponents_ticks, ncomponents_labels
@@ -33,13 +32,28 @@ plt.ion()
 from IPython.core.debugger import Tracer
 
 ###############################################################################
-def plot2dmap(df, gal, col_z, bin_type, survey,
+def plot2dmap(df,
+              gal,
+              col_z,
+              bin_type,
+              survey,
               PA_deg=0,
-              show_title=True, axis_labels=True,
-              vmin=None, vmax=None, cmap=None,
-              contours=True, col_z_contours="B-band continuum", levels=None, linewidths=0.5, colors="white",
-              ax=None, plot_colorbar=True, cax=None, cax_orientation="vertical",
-              show_compass=True, show_scale_bar=True,
+              show_title=True,
+              axis_labels=True,
+              vmin=None,
+              vmax=None,
+              cmap=None,
+              contours=True,
+              col_z_contours="B-band continuum",
+              levels=None,
+              linewidths=0.5,
+              colors="white",
+              ax=None,
+              plot_colorbar=True,
+              cax=None,
+              cax_orientation="vertical",
+              show_compass=True,
+              show_scale_bar=True,
               figsize=(5, 5)):
     """
     Show a reconstructed 2D map of the quantity specified by col_z in a single 
@@ -47,11 +61,12 @@ def plot2dmap(df, gal, col_z, bin_type, survey,
 
     INPUTS
     ---------------------------------------------------------------------------
-    df:         pandas DataFrame
+    df:                 pandas DataFrame
         DataFrame containing spaxel-by-spaxel data.
 
-    gal:
-
+    gal:                int
+        Galaxy ID. 
+    
     col_z:              str
         Quantity used to colour the image. Must be a column in df.
         NOTE: if you want to plot discrete quantities, such as BPT category,
@@ -145,7 +160,7 @@ def plot2dmap(df, gal, col_z, bin_type, survey,
         raise ValueError(f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' format of this column instead!")
     if cax_orientation not in ["horizontal", "vertical"]:
         raise ValueError("cax_orientation must be either 'horizontal' or 'vertical'!")
-    
+
     survey = survey.lower()
     assert survey in ["sami", "s7"],\
         "survey must be either SAMI or S7!"
@@ -169,7 +184,7 @@ def plot2dmap(df, gal, col_z, bin_type, survey,
     ###########################################################################
     # Extract the subset of the DataFrame belonging to this galaxy
     df_gal = df[df["ID"] == gal]
-    
+
     # Get the WCS
     if survey == "sami":
         # Manually construct the WCS, since it's slow to read in the FITS file
@@ -177,7 +192,7 @@ def plot2dmap(df, gal, col_z, bin_type, survey,
         wcs.wcs.crpix = [25.5, 25.5]
         if np.isnan(df_gal["RA (IFU) (J2000)"].values[0]) or np.isnan(df_gal["Dec (IFU) (J2000)"].values[0]):
             wcs.wcs.crval = [df_gal["RA (J2000)"].values[0], df_gal["Dec (J2000)"].values[0]]
-        else:    
+        else:
             wcs.wcs.crval = [df_gal["RA (IFU) (J2000)"].values[0], df_gal["Dec (IFU) (J2000)"].values[0]]
         wcs.wcs.cdelt = [-0.5 / 3600, 0.5 / 3600]
         wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
@@ -195,8 +210,8 @@ def plot2dmap(df, gal, col_z, bin_type, survey,
         lambda_0_A = header["CRVAL3"] - crpix * header["CDELT3"]
         dlambda_A = header["CDELT3"]
         N_lambda = header["NAXIS3"]
-        
-        lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A 
+
+        lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
         start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z"].unique()[0]) - 4000))
         stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z"].unique()[0]) - 5500))
         im_B = np.nansum(data_cube[start_idx:stop_idx], axis=0)
@@ -212,7 +227,7 @@ def plot2dmap(df, gal, col_z, bin_type, survey,
         col_z_map = np.full((50, 50), np.nan)
     elif survey == "s7":
         col_z_map = np.full((38, 25), np.nan)
-    
+
     if bin_type == "adaptive" or bin_type == "sectors":
         hdulist = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
         bin_map = hdulist[2].data.astype("float")
@@ -246,13 +261,13 @@ def plot2dmap(df, gal, col_z, bin_type, survey,
         vmin = get_vmin(col_z)
     elif vmin == "auto":
         vmin = np.nanmin(col_z_map)
-    
+
     # Maximum data range
     if vmax is None:
         vmax = get_vmax(col_z)
     elif vmax == "auto":
         vmax = np.nanmax(col_z_map)
-    
+
     # options for cmap are None --> use default cmap; str --> use that cmap
     discrete_colourmap = False
     if cmap is None:
@@ -280,7 +295,7 @@ def plot2dmap(df, gal, col_z, bin_type, survey,
             assert col_z_contours in df_gal.columns, f"{col_z_contours} not found in df_gal!"
             # Reconstruct 2D arrays from the rows in the data frame.
             if survey == "sami":
-                col_z_contour_map = np.full((50, 50), np.nan) 
+                col_z_contour_map = np.full((50, 50), np.nan)
             elif survey == "s7":
                 col_z_contour_map = np.full((38, 25), np.nan)
             if bin_type == "adaptive" or bin_type == "sectors":
@@ -321,7 +336,7 @@ def plot2dmap(df, gal, col_z, bin_type, survey,
             cax.xaxis.set_ticks_position("top")
             cax.xaxis.set_label_position('top')
             cax.set_xlabel(get_label(col_z))
-        
+
         if discrete_colourmap:
             if cax_orientation == "vertical":
                 cax.yaxis.set_ticks(cax_ticks)
@@ -349,5 +364,3 @@ def plot2dmap(df, gal, col_z, bin_type, survey,
         ax.set_xlabel("RA (J2000)")
 
     return fig, ax
-
-
