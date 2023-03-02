@@ -1,4 +1,3 @@
-import copy
 import json
 from matplotlib.colors import ListedColormap, to_rgba
 import matplotlib.patheffects as PathEffects

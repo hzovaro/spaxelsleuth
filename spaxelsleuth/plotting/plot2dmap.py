@@ -18,18 +18,13 @@ Copyright (C) 2022 Henry Zovaro
 # Imports
 import os
 import numpy as np
-import pandas as pd
+import matplotlib.pyplot as plt
+
 from astropy.io import fits
 from astropy.wcs import WCS
 
-from spaxelsleuth.plotting.plottools import plot_scale_bar, plot_compass
-from spaxelsleuth.plotting.plottools_new import get_vmin, get_vmax, get_cmap, get_label
-from spaxelsleuth.plotting.plottools import bpt_ticks, bpt_labels, whav_ticks, whav_labels, morph_ticks, morph_labels, law2021_ticks, law2021_labels, ncomponents_ticks, ncomponents_labels
+from spaxelsleuth.plotting.plottools import get_vmin, get_vmax, get_cmap, get_label, plot_scale_bar, plot_compass
 
-import matplotlib.pyplot as plt
-plt.ion()
-
-from IPython.core.debugger import Tracer
 
 ###############################################################################
 def plot2dmap(df,
@@ -157,9 +152,12 @@ def plot2dmap(df,
     if col_z not in df.columns:
         raise ValueError(f"{col_z} is not a valid column!")
     if df[col_z].dtype == "O":
-        raise ValueError(f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' format of this column instead!")
+        raise ValueError(
+            f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' format of this column instead!"
+        )
     if cax_orientation not in ["horizontal", "vertical"]:
-        raise ValueError("cax_orientation must be either 'horizontal' or 'vertical'!")
+        raise ValueError(
+            "cax_orientation must be either 'horizontal' or 'vertical'!")
 
     survey = survey.lower()
     assert survey in ["sami", "s7"],\
@@ -190,15 +188,22 @@ def plot2dmap(df,
         # Manually construct the WCS, since it's slow to read in the FITS file
         wcs = WCS(naxis=2)
         wcs.wcs.crpix = [25.5, 25.5]
-        if np.isnan(df_gal["RA (IFU) (J2000)"].values[0]) or np.isnan(df_gal["Dec (IFU) (J2000)"].values[0]):
-            wcs.wcs.crval = [df_gal["RA (J2000)"].values[0], df_gal["Dec (J2000)"].values[0]]
+        if np.isnan(df_gal["RA (IFU) (J2000)"].values[0]) or np.isnan(
+                df_gal["Dec (IFU) (J2000)"].values[0]):
+            wcs.wcs.crval = [
+                df_gal["RA (J2000)"].values[0], df_gal["Dec (J2000)"].values[0]
+            ]
         else:
-            wcs.wcs.crval = [df_gal["RA (IFU) (J2000)"].values[0], df_gal["Dec (IFU) (J2000)"].values[0]]
+            wcs.wcs.crval = [
+                df_gal["RA (IFU) (J2000)"].values[0],
+                df_gal["Dec (IFU) (J2000)"].values[0]
+            ]
         wcs.wcs.cdelt = [-0.5 / 3600, 0.5 / 3600]
         wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
     if survey == "s7":
         # Get the WCS from the FITS file since some observations have different PAs
-        hdulist = fits.open(os.path.join(s7_data_path, f"0_Cubes/{gal}_B.fits"))
+        hdulist = fits.open(os.path.join(s7_data_path,
+                                         f"0_Cubes/{gal}_B.fits"))
         wcs = WCS(hdulist[0].header).dropaxis(2)
         wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
 
@@ -212,8 +217,10 @@ def plot2dmap(df,
         N_lambda = header["NAXIS3"]
 
         lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
-        start_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z"].unique()[0]) - 4000))
-        stop_idx = np.nanargmin(np.abs(lambda_vals_A / (1 + df_gal["z"].unique()[0]) - 5500))
+        start_idx = np.nanargmin(
+            np.abs(lambda_vals_A / (1 + df_gal["z"].unique()[0]) - 4000))
+        stop_idx = np.nanargmin(
+            np.abs(lambda_vals_A / (1 + df_gal["z"].unique()[0]) - 5500))
         im_B = np.nansum(data_cube[start_idx:stop_idx], axis=0)
         im_B[im_B == 0] = np.nan
 
@@ -229,9 +236,11 @@ def plot2dmap(df,
         col_z_map = np.full((38, 25), np.nan)
 
     if bin_type == "adaptive" or bin_type == "sectors":
-        hdulist = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
+        hdulist = fits.open(
+            os.path.join(sami_data_path,
+                         f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
         bin_map = hdulist[2].data.astype("float")
-        bin_map[bin_map==0] = np.nan
+        bin_map[bin_map == 0] = np.nan
         for nn in df_gal["Bin number"]:
             bin_mask = bin_map == nn
             col_z_map[bin_mask] = df_gal.loc[df_gal["Bin number"] == nn, col_z]
@@ -288,9 +297,15 @@ def plot2dmap(df,
     if contours:
         if col_z_contours.lower() == "continuum":
             if survey == "sami":
-                ax.contour(im_B, linewidths=linewidths, colors=colors, levels=10 if levels is None else levels)
+                ax.contour(im_B,
+                           linewidths=linewidths,
+                           colors=colors,
+                           levels=10 if levels is None else levels)
             elif survey == "s7":
-                ax.contour(np.log10(im_B) + 15, linewidths=linewidths, colors=colors, levels=10 if levels is None else levels)
+                ax.contour(np.log10(im_B) + 15,
+                           linewidths=linewidths,
+                           colors=colors,
+                           levels=10 if levels is None else levels)
         else:
             assert col_z_contours in df_gal.columns, f"{col_z_contours} not found in df_gal!"
             # Reconstruct 2D arrays from the rows in the data frame.
@@ -299,21 +314,29 @@ def plot2dmap(df,
             elif survey == "s7":
                 col_z_contour_map = np.full((38, 25), np.nan)
             if bin_type == "adaptive" or bin_type == "sectors":
-                hdulist = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
+                hdulist = fits.open(
+                    os.path.join(sami_data_path,
+                                 f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
                 bin_map = hdulist[2].data.astype("float")
-                bin_map[bin_map==0] = np.nan
+                bin_map[bin_map == 0] = np.nan
                 for nn in df_gal["Bin number"]:
                     bin_mask = bin_map == nn
-                    col_z_contour_map[bin_mask] = df_gal.loc[df_gal["Bin number"] == nn, col_z_contours]
+                    col_z_contour_map[bin_mask] = df_gal.loc[
+                        df_gal["Bin number"] == nn, col_z_contours]
 
             elif bin_type == "default":
                 # df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
                 for rr in range(df_gal.shape[0]):
-                    xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
+                    xx, yy = [
+                        int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]
+                    ]
                     col_z_contour_map[yy, xx] = df_gal.iloc[rr][col_z_contours]
 
             # Draw contours
-            ax.contour(col_z_contour_map, linewidths=linewidths, colors=colors, levels=10 if levels is None else levels)
+            ax.contour(col_z_contour_map,
+                       linewidths=linewidths,
+                       colors=colors,
+                       levels=10 if levels is None else levels)
 
     ###########################################################################
     # Colourbar
@@ -323,9 +346,12 @@ def plot2dmap(df,
     if plot_colorbar and cax is None:
         bbox = ax.get_position()
         if cax_orientation == "vertical":
-            cax = fig.add_axes([bbox.x0 + bbox.width, bbox.y0, bbox.width * 0.1, bbox.height])
+            cax = fig.add_axes(
+                [bbox.x0 + bbox.width, bbox.y0, bbox.width * 0.1, bbox.height])
         elif cax_orientation == "horizontal":
-            cax = fig.add_axes([bbox.x0, bbox.y0 + bbox.height, bbox.width, bbox.height * 0.1])
+            cax = fig.add_axes([
+                bbox.x0, bbox.y0 + bbox.height, bbox.width, bbox.height * 0.1
+            ])
 
     # Add labels & ticks to colourbar, if necessary
     if plot_colorbar:
@@ -350,7 +376,15 @@ def plot2dmap(df,
     ###########################################################################
     # Include scale bar
     if show_scale_bar:
-        plot_scale_bar(as_per_px=as_per_px, kpc_per_as=df_gal["kpc per arcsec"].unique()[0], fontsize=10, ax=ax, l=10, units="arcsec", color="black", loffset=0.30, long_dist_str=False)
+        plot_scale_bar(as_per_px=as_per_px,
+                       kpc_per_as=df_gal["kpc per arcsec"].unique()[0],
+                       fontsize=10,
+                       ax=ax,
+                       l=10,
+                       units="arcsec",
+                       color="black",
+                       loffset=0.30,
+                       long_dist_str=False)
     if show_compass:
         plot_compass(ax=ax, color="black", PA_deg=PA_deg)
 

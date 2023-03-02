@@ -30,35 +30,15 @@ Copyright (C) 2022 Henry Zovaro
 # Imports
 import pandas as pd
 from matplotlib.colors import LogNorm
+import matplotlib.pyplot as plt
 import numpy as np
 
-from spaxelsleuth.plotting.plottools import cmap_fn, vmin_fn, vmax_fn, label_fn, histhelper
-from spaxelsleuth.plotting.plottools_new import get_cmap, get_vmin, get_vmax, get_label
-from spaxelsleuth.plotting.plottools import bpt_ticks, bpt_labels, whav_ticks, whav_labels, law2021_ticks, law2021_labels, morph_ticks, morph_labels, ncomponents_ticks, ncomponents_labels
-
-import matplotlib.pyplot as plt
-
-plt.ion()
-
-from IPython.core.debugger import Tracer
+from spaxelsleuth.plotting.plottools import get_cmap, get_vmin, get_vmax, get_label
 
 
 ###############################################################################
-def plot2dhist(df,
-               col_x,
-               col_y,
-               col_z,
-               ax,
-               log_z,
-               vmin,
-               vmax,
-               xmin,
-               xmax,
-               ymin,
-               ymax,
-               nbins,
-               alpha,
-               cmap):
+def plot2dhist(df, col_x, col_y, col_z, ax, log_z, vmin, vmax, xmin, xmax,
+               ymin, ymax, nbins, alpha, cmap):
     """
     Plot a 2D histogram corresponding to col_x and col_y in DataFrame df,
     optionally coloured by the median value of a third parameter col_z in 
@@ -247,8 +227,6 @@ def plot2dhist(df,
                               count_map.T,
                               cmap=cmap,
                               edgecolors="none",
-                              vmin=vmin,
-                              vmax=vmax,
                               shading="auto",
                               norm=LogNorm(vmin=vmin, vmax=vmax))
         else:
@@ -294,19 +272,8 @@ def plot2dhist(df,
 
 
 ###############################################################################
-def plot2dcontours(df,
-                   col_x,
-                   col_y,
-                   ax,
-                   nbins,
-                   alpha,
-                   levels,
-                   xmin,
-                   xmax,
-                   ymin,
-                   ymax,
-                   linewidths,
-                   colors):
+def plot2dcontours(df, col_x, col_y, ax, nbins, alpha, levels, xmin, xmax,
+                   ymin, ymax, linewidths, colors):
     """
     Plot a 2D histogram corresponding to col_x and col_y in DataFrame df,
     optionally coloured by the median value of a third parameter col_z in 
@@ -532,7 +499,7 @@ def plot2dhistcontours(df,
         Axis on which to plot. If unspecified, a new figure is created.    
     
     axis_labels:        bool
-        Whether to apply axis labels as returned by label_fn(col_<x/y>) in 
+        Whether to apply axis labels as returned by get_label(col_<x/y>) in 
         plottools.py.
     
     cmap:               str
@@ -578,13 +545,16 @@ def plot2dhistcontours(df,
     Returns:
         matplotlib figure object that is the parent of the main axis.
     """
-    if col_z is None:
-        assert hist is False, "in plot_full_sample: if hist is True then col_z must be specified!"
+    if col_z is None and hist is True:
+        raise ValueError("if hist is True then col_z must be specified!")
     else:
-        if col_z is not "count":
-            assert df[col_z].dtype != "O",\
+        if col_z is not "count" and df[col_z].dtype == "O":
+            raise ValueError(
                 f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
-    assert cax_orientation == "horizontal" or cax_orientation == "vertical", "cax_orientation must be either 'horizontal' or 'vertical'!"
+            )
+    if cax_orientation not in ["horizontal", "vertical"]:
+        raise ValueError(
+            "cax_orientation must be either 'horizontal' or 'vertical'!")
 
     # If no axis is specified then create a new one with a vertical colorbar.
     if ax is None:
@@ -680,11 +650,11 @@ def plot2dhistcontours(df,
     if plot_colorbar and hist:
         plt.colorbar(mappable=m, cax=cax, orientation=cax_orientation)
         if cax_orientation == "vertical":
-            cax.set_ylabel(label_fn(col_z))
+            cax.set_ylabel(get_label(col_z))
         elif cax_orientation == "horizontal":
             cax.xaxis.set_ticks_position("top")
             cax.xaxis.set_label_position('top')
-            cax.set_xlabel(label_fn(col_z))
+            cax.set_xlabel(get_label(col_z))
         if discrete_colourmap:
             if cax_orientation == "vertical":
                 cax.yaxis.set_ticks(cax_ticks)
@@ -695,8 +665,8 @@ def plot2dhistcontours(df,
 
     # Axis labels
     if axis_labels:
-        ax.set_xlabel(label_fn(col_x))
-        ax.set_ylabel(label_fn(col_y))
+        ax.set_xlabel(get_label(col_x))
+        ax.set_ylabel(get_label(col_y))
 
     #////////////////////////////////////////////////
     # Demarcation lines
@@ -710,7 +680,7 @@ def plot2dhistcontours(df,
         ax.axhline(np.log10(0.5), linestyle=":", linewidth=1,
                    color="k")  # "Passive" galaxies
         if col_x.startswith("log N2"):
-            ax.plot([-0.4, vmax_fn(col_x)],
+            ax.plot([-0.4, get_vmax(col_x)],
                     [np.log10(6), np.log10(6)],
                     linestyle="-",
                     linewidth=1,
@@ -730,7 +700,7 @@ def plot2dhistcontours(df,
         ax.axvline(np.log10(0.5), linestyle=":", linewidth=1,
                    color="k")  # "Passive" galaxies
         if col_y.startswith("log N2"):
-            ax.plot([np.log10(6), np.log10(6)], [-0.4, vmax_fn(col_y)],
+            ax.plot([np.log10(6), np.log10(6)], [-0.4, get_vmax(col_y)],
                     linestyle="-",
                     linewidth=1,
                     color="k"
@@ -828,7 +798,7 @@ def plot2dscatter(df,
         Axis on which to plot. If unspecified, a new figure is created.    
     
     axis_labels:        bool
-        Whether to apply axis labels as returned by label_fn(col_<x/y>) in 
+        Whether to apply axis labels as returned by get_label(col_<x/y>) in 
         plottools.py.
     
     cmap:               str
@@ -1070,11 +1040,11 @@ def plot2dscatter(df,
     if plot_colorbar and col_z is not None:
         plt.colorbar(mappable=m, cax=cax, orientation=cax_orientation)
         if cax_orientation == "vertical":
-            cax.set_ylabel(label_fn(col_z))
+            cax.set_ylabel(get_label(col_z))
         elif cax_orientation == "horizontal":
             cax.xaxis.set_ticks_position("top")
             cax.xaxis.set_label_position('top')
-            cax.set_xlabel(label_fn(col_z))
+            cax.set_xlabel(get_label(col_z))
         if discrete_colourmap:
             if cax_orientation == "vertical":
                 cax.yaxis.set_ticks(cax_ticks)
@@ -1084,8 +1054,8 @@ def plot2dscatter(df,
                 cax.xaxis.set_ticklabels(cax_labels)
 
     if axis_labels:
-        ax.set_xlabel(label_fn(col_x))
-        ax.set_ylabel(label_fn(col_y))
+        ax.set_xlabel(get_label(col_x))
+        ax.set_ylabel(get_label(col_y))
 
     # Add the EW classification lines of Lacerda+2017.
     if col_y.startswith("log HALPHA EW"):
@@ -1096,7 +1066,7 @@ def plot2dscatter(df,
         ax.axhline(np.log10(0.5), linestyle=":", linewidth=1,
                    color="k")  # "Passive" galaxies
         if col_x.startswith("log N2"):
-            ax.plot([-0.4, vmax_fn(col_x)],
+            ax.plot([-0.4, get_vmax(col_x)],
                     [np.log10(6), np.log10(6)],
                     linestyle="-",
                     linewidth=1,
@@ -1117,7 +1087,7 @@ def plot2dscatter(df,
         ax.axvline(np.log10(0.5), linestyle=":", linewidth=1,
                    color="k")  # "Passive" galaxies
         if col_y.startswith("log N2"):
-            ax.plot([np.log10(6), np.log10(6)], [-0.4, vmax_fn(col_y)],
+            ax.plot([np.log10(6), np.log10(6)], [-0.4, get_vmax(col_y)],
                     linestyle="-",
                     linewidth=1,
                     color="k"
