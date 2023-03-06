@@ -4,6 +4,8 @@ import os
 import numpy as np
 import pandas as pd
 
+from spaxelsleuth import load_user_config
+load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 from spaxelsleuth.loaddata.sami import load_sami_df
 
 from IPython.core.debugger import Tracer
