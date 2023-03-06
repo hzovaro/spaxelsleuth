@@ -1,4 +1,19 @@
 {
+    "sami": {
+        "data_cube_path": "sami/datacubes/",
+        "data_path": "sami/",
+        "lzifu_products_path": "sami/lzifu/products/"
+    },
+    "s7": {
+        "data_cube_path": "s7/datacubes/",
+        "data_path": "s7/",
+        "lzifu_products_path": "s7/lzifu/products/"
+    },
+    "manga": {
+        "data_cube_path": "manga/datacubes/",
+        "data_path": "manga/",
+        "lzifu_products_path": " manga/lzifu/products/"
+    },
     "plotting": {
         "count": {
             "vmin": 1,
