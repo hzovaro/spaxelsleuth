@@ -6,20 +6,17 @@ import numpy as np
 from pathlib import Path
 from typing import Tuple
 
+from spaxelsleuth import config
 from spaxelsleuth.utils.linefns import Kewley2001, Kewley2006, Kauffman2003, Law2021_1sigma, Law2021_3sigma
+
+#/////////////////////////////////////////
+# Load the plotting settings
+plot_settings = config.settings["plotting"]
 
 #/////////////////////////////////////////
 # Custom colour list for different components
 component_colours = ["#781EE5", "#FF53B4", "#FFC107"]
 component_labels = ["Component 1", "Component 2", "Component 3"]
-
-#/////////////////////////////////////////
-# Load the config file
-#TODO: make a default config file & allow the user to define their own - settings in that file will override those in the default file.
-with open(Path(__file__).parent.parent / "config.json", "r") as f:
-    settings = json.load(f)
-plot_settings = settings["plotting"]
-
 
 #/////////////////////////////////////////
 def trim_suffix(col: str) -> Tuple[str]:
