@@ -62,6 +62,7 @@ from astropy.io import fits
 from tqdm import tqdm
 import multiprocessing
 
+from spaxelsleuth.config import settings
 from spaxelsleuth.utils import dqcut, linefns, metallicity, extcorr
 from .generic import add_columns
 
@@ -77,13 +78,9 @@ warnings.filterwarnings(action="ignore", message="invalid value encountered in s
 
 ###############################################################################
 # Paths
-sami_data_path = os.environ["SAMI_DIR"]
-assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
-sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
-assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
-
-# Path for LZIFU data products
-__lzifu_products_path = "/priv/sami/sami_data/Final_SAMI_data/LZIFU/lzifu_default_products_old"
+sami_data_path = settings["sami"]["data_path"]
+sami_datacube_path = settings["sami"]["data_cube_path"]
+__lzifu_products_path = settings["sami"]["lzifu_products_path"]
 
 ###############################################################################
 # For computing median continuum S/N values in make_sami_metadata_df()
@@ -1394,12 +1391,6 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     if debug: 
         gal_ids_dq_cut = gal_ids_dq_cut[:10] + [572402, 209807]
     df_metadata["Good?"] = df_metadata["Good?"].astype("float")
-
-    # Turn off plotting if more than 1 galaxy is to be run
-    if len(gal_ids_dq_cut) > 1:
-        plotit = False
-    else:
-        plotit = True
 
     ###############################################################################
     # Run in parallel
