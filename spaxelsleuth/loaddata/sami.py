@@ -78,8 +78,9 @@ warnings.filterwarnings(action="ignore", message="invalid value encountered in s
 
 ###############################################################################
 # Paths
-sami_data_path = settings["sami"]["data_path"]
-sami_datacube_path = settings["sami"]["data_cube_path"]
+input_path = settings["sami"]["input_path"]
+output_path = settings["sami"]["output_path"]
+data_cube_path = settings["sami"]["data_cube_path"]
 __lzifu_products_path = settings["sami"]["lzifu_products_path"]
 
 ###############################################################################
@@ -88,8 +89,8 @@ def _compute_snr(args, plotit=False):
     gal, df_metadata = args
 
     # Load the red & blue data cubes.
-    hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
-    hdulist_B_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
+    hdulist_R_cube = fits.open(os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
+    hdulist_B_cube = fits.open(os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
     data_cube_B = hdulist_B_cube[0].data
     var_cube_B = hdulist_B_cube[1].data
     data_cube_R = hdulist_R_cube[0].data
@@ -461,9 +462,9 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     # Compute continuum SNRs from the data cubes
     ###############################################################################
     print("In make_sami_metadata_df(): Computing continuum SNRs...")
-    if not recompute_continuum_SNRs and os.path.exists(os.path.join(sami_data_path, "sami_dr3_aperture_snrs.hd5")):
-        print(f"In make_sami_metadata_df(): WARNING: file {os.path.join(sami_data_path, 'sami_dr3_aperture_snrs.hd5')} found; loading SNRs from existing DataFrame...")
-        df_snr = pd.read_hdf(os.path.join(sami_data_path, "sami_dr3_aperture_snrs.hd5"), key="SNR")
+    if not recompute_continuum_SNRs and os.path.exists(os.path.join(output_path, "sami_dr3_aperture_snrs.hd5")):
+        print(f"In make_sami_metadata_df(): WARNING: file {os.path.join(output_path, 'sami_dr3_aperture_snrs.hd5')} found; loading SNRs from existing DataFrame...")
+        df_snr = pd.read_hdf(os.path.join(output_path, "sami_dr3_aperture_snrs.hd5"), key="SNR")
     else:
         print(f"In make_sami_metadata_df(): WARNING: computing continuum SNRs on {nthreads} threads...")
         print("In make_sami_metadata_df(): Beginning pool...")
@@ -490,7 +491,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
 
         # Save 
         print("In make_sami_metadata_df(): Saving aperture SNR DataFrame to file...")
-        df_snr.to_hdf(os.path.join(sami_data_path, "sami_dr3_aperture_snrs.hd5"), key="SNR")
+        df_snr.to_hdf(os.path.join(output_path, "sami_dr3_aperture_snrs.hd5"), key="SNR")
 
     ###############################################################################
     # Merge with the metadata DataFrame
@@ -502,8 +503,8 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     ###########################################################################
     # Save to file
     ###########################################################################
-    print(f"In make_sami_metadata_df(): Saving metadata DataFrame to file {os.path.join(sami_data_path, df_fname)}...")
-    df_metadata.to_hdf(os.path.join(sami_data_path, df_fname), key="metadata")
+    print(f"In make_sami_metadata_df(): Saving metadata DataFrame to file {os.path.join(output_path, df_fname)}...")
+    df_metadata.to_hdf(os.path.join(output_path, df_fname), key="metadata")
 
     print(f"In make_sami_metadata_df(): Finished!")
     return
@@ -551,7 +552,7 @@ def _process_gals(args):
             f"gas-vdisp_{bin_type}_{ncomponents}-comp",
             f"gas-velocity_{bin_type}_{ncomponents}-comp",
         ]   
-    fnames = [os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{f}.fits") for f in fname_list]
+    fnames = [os.path.join(input_path, f"ifs/{gal}/{gal}_A_{f}.fits") for f in fname_list]
 
     # X, Y pixel coordinates
     ys, xs = np.meshgrid(np.arange(50), np.arange(50), indexing="ij")
@@ -569,8 +570,8 @@ def _process_gals(args):
 
     #######################################################################
     # Open the red & blue cubes.
-    hdulist_B_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
-    hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
+    hdulist_B_cube = fits.open(os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
+    hdulist_R_cube = fits.open(os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
 
     #######################################################################
     # Compute the d4000 Angstrom break.
@@ -653,7 +654,7 @@ def _process_gals(args):
     #######################################################################
     # Compute v_grad using eqn. 1 of Zhou+2017
     if not use_lzifu_fits:
-        hdulist_v = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_gas-velocity_{bin_type}_{ncomponents}-comp.fits"))
+        hdulist_v = fits.open(os.path.join(input_path, f"ifs/{gal}/{gal}_A_gas-velocity_{bin_type}_{ncomponents}-comp.fits"))
         v = hdulist_v[0].data.astype(np.float64)
         hdulist_v.close()
     else:
@@ -712,7 +713,7 @@ def _process_gals(args):
     # data cube
     elif bin_type == "adaptive" or bin_type == "sectors":
         # Open the binned blue cube. Get the bin mask extension.
-        hdulist_binned_cube = fits.open(os.path.join(sami_data_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
+        hdulist_binned_cube = fits.open(os.path.join(input_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
         bin_map = hdulist_binned_cube[2].data.astype("float")
         bin_map[bin_map==0] = np.nan
 
@@ -1377,15 +1378,15 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     # READ IN THE METADATA
     ###############################################################################
     try:
-        df_metadata = pd.read_hdf(os.path.join(sami_data_path, df_metadata_fname), key="metadata")
+        df_metadata = pd.read_hdf(os.path.join(output_path, df_metadata_fname), key="metadata")
     except FileNotFoundError:
-        print(f"ERROR: metadata DataFrame file not found ({os.path.join(sami_data_path, df_metadata_fname)}). Please run make_sami_metadata_df.py first!")
+        print(f"ERROR: metadata DataFrame file not found ({os.path.join(output_path, df_metadata_fname)}). Please run make_sami_metadata_df.py first!")
 
     # Only include galaxies flagged as "good"
     gal_ids_dq_cut = df_metadata[df_metadata["Good?"] == True].index.values
     
     # Only include galaxies for which we have data 
-    gal_ids_dq_cut = [g for g in gal_ids_dq_cut if os.path.exists(os.path.join(sami_data_path, f"ifs/{g}/"))]
+    gal_ids_dq_cut = [g for g in gal_ids_dq_cut if os.path.exists(os.path.join(input_path, f"ifs/{g}/"))]
 
     # If running in DEBUG mode, run on a subset to speed up execution time
     if debug: 
@@ -1481,10 +1482,10 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ###############################################################################
     print(f"{status_str}: Saving to file...")
     try:
-        df_spaxels.to_hdf(os.path.join(sami_data_path, df_fname), key=f"{bin_type}, {ncomponents}-comp")
+        df_spaxels.to_hdf(os.path.join(output_path, df_fname), key=f"{bin_type}, {ncomponents}-comp")
     except:
         print(f"{status_str}: ERROR: Unable to save to HDF file! Saving to .csv instead")
-        df_spaxels.to_csv(os.path.join(sami_data_path, df_fname.split("hd5")[0] + "csv"))
+        df_spaxels.to_csv(os.path.join(output_path, df_fname.split("hd5")[0] + "csv"))
     return
 
 ###############################################################################
@@ -1573,13 +1574,13 @@ def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
         df_fname += "_DEBUG"
     df_fname += ".hd5"
 
-    assert os.path.exists(os.path.join(sami_data_path, df_fname)),\
-        f"File {os.path.join(sami_data_path, df_fname)} does does not exist!"
+    assert os.path.exists(os.path.join(output_path, df_fname)),\
+        f"File {os.path.join(output_path, df_fname)} does does not exist!"
 
     # Load the data frame
-    t = os.path.getmtime(os.path.join(sami_data_path, df_fname))
-    print(f"In load_sami_df(): Loading DataFrame from file {os.path.join(sami_data_path, df_fname)} [last modified {datetime.datetime.fromtimestamp(t)}]...")
-    df = pd.read_hdf(os.path.join(sami_data_path, df_fname))
+    t = os.path.getmtime(os.path.join(output_path, df_fname))
+    print(f"In load_sami_df(): Loading DataFrame from file {os.path.join(output_path, df_fname)} [last modified {datetime.datetime.fromtimestamp(t)}]...")
+    df = pd.read_hdf(os.path.join(output_path, df_fname))
 
     # Return
     print("In load_sami_df(): Finished!")
@@ -1693,7 +1694,7 @@ def make_sami_aperture_df(eline_SNR_min,
     ###########################################################################
     # Merge with metadata DataFrame
     ###########################################################################
-    df_metadata = pd.read_hdf(os.path.join(sami_data_path, df_metadata_fname), key="metadata")
+    df_metadata = pd.read_hdf(os.path.join(output_path, df_metadata_fname), key="metadata")
     df_ap = df_ap.merge(df_metadata, left_index=True, right_index=True)
 
     ###########################################################################
@@ -2008,11 +2009,11 @@ def make_sami_aperture_df(eline_SNR_min,
     print(f"{status_str}: Saving to file...")
 
     # No extinction correction
-    df_ap.to_csv(os.path.join(sami_data_path, df_fname.split("hd5")[0] + "csv"))
     try:
-        df_ap.to_hdf(os.path.join(sami_data_path, df_fname), key=f"1-comp aperture fit")
+        df_ap.to_hdf(os.path.join(output_path, df_fname), key=f"1-comp aperture fit")
     except:
-        print(f"{status_str}: Unable to save to HDF file... sigh...")
+        print(f"{status_str}: Unable to save to HDF file! Saving to .csv instead...")
+        df_ap.to_csv(os.path.join(output_path, df_fname.split("hd5")[0] + "csv"))
     print(f"{status_str}: Finished!")
     return
 
