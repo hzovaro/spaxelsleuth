@@ -729,6 +729,7 @@ def plot2dhistcontours(df,
 def plot2dscatter(df,
                   col_x,
                   col_y,
+                  gal=None,
                   col_z=None,
                   vmin=None,
                   vmax=None,
@@ -765,6 +766,10 @@ def plot2dscatter(df,
     
     col_y:              str
         Y-coordinate quantity. Must be a column in df.
+
+    gal:                int 
+        Galaxy (or galaxies) to plot, if desired. By default, all rows of df
+        are plotted.
     
     col_z:              str
         Quantity used to colour the points. Must be a column in df. If not 
@@ -847,19 +852,34 @@ def plot2dscatter(df,
     matplotlib figure object that is the parent of the main axis.
 
     """
-    assert col_z != "count", f"{col_z} cannot be 'count' in a scatter plot!"
+    if col_z == "count":
+        raise ValueError(f"{col_z} cannot be 'count' in a scatter plot!")
     if col_z is not None:
         for col in [col_x, col_y, col_z]:
-            assert (col in df.columns) or (
-                f"{col} (component 1)" in df.columns) or (
-                    f"{col} (total)"
-                    in df.columns), f"{col} is not a valid column!"
-        assert df[col_z].dtype != "O",\
-            f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
-    assert cax_orientation == "horizontal" or cax_orientation == "vertical", "cax_orientation must be either 'horizontal' or 'vertical'!"
+            if not ((col in df.columns) or
+                    (f"{col} (component 1)" in df.columns) or
+                    (f"{col} (total)" in df.columns)):
+                raise ValueError(f"{col} is not a valid column!")
+        if df[col_z].dtype == "O":
+            raise ValueError(
+                f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
+            )
+    if cax_orientation not in ["horizontal", "vertical"]:
+        raise ValueError(
+            "cax_orientation must be either 'horizontal' or 'vertical'!")
     if col_z is None and plot_colorbar == True:
+        # TODO replace with logger
         print(
             "WARNING: not plotting colourbar because col_z is not specified!")
+
+    # If a galaxy is specified (or galaxies), then plot only the galaxy
+    if gal is not None:
+        if (type(gal) == int) or (type(gal) == str):
+            df_plot = df[df["ID"] == gal]
+        elif type(gal) == list:
+            df_plot = df[df["ID"].isin(gal)]
+    else:
+        df_plot = df
 
     # If no axis is specified then create a new one with a vertical colorbar.
     if ax is None:
@@ -919,11 +939,11 @@ def plot2dscatter(df,
     # x-axis: add errorbars, if they exist
     if errorbars:
         # Symmetric errors
-        if col_x_err_label in df:
-            xerr = df[col_x_err_label]
-            ax.errorbar(x=df[col_x],
-                        y=df[col_y],
-                        xerr=df[col_x_err_label],
+        if col_x_err_label in df_plot:
+            xerr = df_plot[col_x_err_label]
+            ax.errorbar(x=df_plot[col_x],
+                        y=df_plot[col_y],
+                        xerr=df_plot[col_x_err_label],
                         ls="none",
                         mec="none",
                         ecolor="k",
@@ -931,18 +951,20 @@ def plot2dscatter(df,
                         alpha=alpha / 2,
                         zorder=zorder)
         # Asymmetric errors
-        elif col_x_err_lower_label in df and col_x_err_upper_label in df:
+        elif col_x_err_lower_label in df_plot and col_x_err_upper_label in df_plot:
             # Need to deal with special case where there is only one data point to prevent weird numpy error...
-            if len(df[col_x_err_lower_label]) > 1:
-                xerr = np.array(
-                    [df[col_x_err_lower_label], df[col_x_err_lower_label]])
+            if len(df_plot[col_x_err_lower_label]) > 1:
+                xerr = np.array([
+                    df_plot[col_x_err_lower_label],
+                    df_plot[col_x_err_lower_label]
+                ])
             else:
                 xerr = np.array([
-                    df[col_x_err_lower_label].values[0],
-                    df[col_x_err_lower_label].values[0]
+                    df_plot[col_x_err_lower_label].values[0],
+                    df_plot[col_x_err_lower_label].values[0]
                 ])[:, None]
-            ax.errorbar(x=df[col_x],
-                        y=df[col_y],
+            ax.errorbar(x=df_plot[col_x],
+                        y=df_plot[col_y],
                         xerr=xerr,
                         ls="none",
                         mec="none",
@@ -952,28 +974,30 @@ def plot2dscatter(df,
                         zorder=zorder)
 
         # y-axis: add errorbars, if they exist
-        if col_y_err_label in df:
-            ax.errorbar(x=df[col_x],
-                        y=df[col_y],
-                        yerr=df[col_y_err_label],
+        if col_y_err_label in df_plot:
+            ax.errorbar(x=df_plot[col_x],
+                        y=df_plot[col_y],
+                        yerr=df_plot[col_y_err_label],
                         ls="none",
                         mec="none",
                         ecolor="k",
                         elinewidth=0.5,
                         alpha=alpha / 2,
                         zorder=zorder)
-        elif col_y_err_lower_label in df and col_y_err_upper_label in df:
+        elif col_y_err_lower_label in df_plot and col_y_err_upper_label in df_plot:
             # Need to deal with special case where there is only one data point to prevent weird numpy error...
-            if len(df[col_y_err_lower_label]) > 1:
-                yerr = np.array(
-                    [df[col_y_err_lower_label], df[col_y_err_upper_label]])
+            if len(df_plot[col_y_err_lower_label]) > 1:
+                yerr = np.array([
+                    df_plot[col_y_err_lower_label],
+                    df_plot[col_y_err_upper_label]
+                ])
             else:
                 yerr = np.array([
-                    df[col_y_err_lower_label].values[0],
-                    df[col_y_err_upper_label].values[0]
+                    df_plot[col_y_err_lower_label].values[0],
+                    df_plot[col_y_err_upper_label].values[0]
                 ])[:, None]
-            ax.errorbar(x=df[col_x],
-                        y=df[col_y],
+            ax.errorbar(x=df_plot[col_x],
+                        y=df_plot[col_y],
                         yerr=yerr,
                         ls="none",
                         mec="none",
@@ -1012,9 +1036,9 @@ def plot2dscatter(df,
 
     # Plot the scatter points
     if col_z is not None:
-        m = ax.scatter(x=df[col_x],
-                       y=df[col_y],
-                       c=df[col_z],
+        m = ax.scatter(x=df_plot[col_x],
+                       y=df_plot[col_y],
+                       c=df_plot[col_z],
                        cmap=cmap,
                        vmin=vmin,
                        vmax=vmax,
@@ -1024,8 +1048,8 @@ def plot2dscatter(df,
                        alpha=alpha,
                        zorder=zorder + 1)
     else:
-        m = ax.scatter(x=df[col_x],
-                       y=df[col_y],
+        m = ax.scatter(x=df_plot[col_x],
+                       y=df_plot[col_y],
                        c=markerfacecolor,
                        marker=marker,
                        edgecolors=markeredgecolor,
