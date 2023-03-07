@@ -797,6 +797,21 @@ def _process_gals(args):
     rows_list = []
     colnames = []
 
+    def _2d_map_to_1d_list(colmap):
+        """Returns a 1D array of values extracted from from spaxels in x_c_list and y_c_list in 2D array colmap."""
+        if colmap.ndim != 2:
+            raise ValueError(f"colmap must be a 2D array but has ndim = {colmap.ndim}!")
+        row = np.full_like(x_c_list, np.nan, dtype="float")
+        for jj, coords in enumerate(zip(x_c_list, y_c_list)):
+            x_c, y_c = coords
+            y, x = (int(np.round(y_c)), int(np.round(x_c)))
+            #TODO: replace magic numbers with ENUM or Survey class definitions
+            if x > 49 or y > 49:
+                x = min([x, 49])
+                y = min([y, 49])
+            row[jj] = colmap[y, x]    
+        return row 
+
     # Tidy up column names
     colname_dict = {
         f"stellar-velocity-dispersion_{bin_type}_two-moment" : "sigma_*",
@@ -822,63 +837,24 @@ def _process_gals(args):
         data_err = hdu[1].data.astype(np.float64)
         hdu.close()
 
-        #//////////////////////////////////////////////////////////////////////
         # HALPHA, SFR quantities
         if data.ndim > 2:
             if "Halpha" in fname or "sfr" in fname:
-                # Add total fluxees
-                thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-                thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-                for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-                    x_c, y_c = coords
-                    y, x = (int(np.round(y_c)), int(np.round(x_c)))
-                    if x > 49 or y > 49:
-                        x = min([x, 49])
-                        y = min([y, 49])
-                    thisrow[jj] = data[0, y, x]
-                    thisrow_err[jj] = data_err[0, y, x]
-                rows_list.append(thisrow)
-                rows_list.append(thisrow_err)
-                colnames.append(f"{colname_dict[fname_list[ff]]} (total)")
-                colnames.append(f"{colname_dict[fname_list[ff]]} error (total)")
-
+                rows_list.append(_2d_map_to_1d_list(data[0]));     colnames.append(f"{colname_dict[fname_list[ff]]} (total)")
+                rows_list.append(_2d_map_to_1d_list(data_err[0])); colnames.append(f"{colname_dict[fname_list[ff]]} error (total)")
                 # Trim the 0th slice 
                 data = data[1:]
                 data_err = data_err[1:]
-
             # Add individual components 
             for nn in range(3 if ncomponents == "recom" else 1):
-                thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-                thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-                for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-                    x_c, y_c = coords
-                    y, x = (int(np.round(y_c)), int(np.round(x_c)))
-                    if x > 49 or y > 49:
-                        x = min([x, 49])
-                        y = min([y, 49])
-                    thisrow[jj] = data[nn, y, x]
-                    thisrow_err[jj] = data_err[nn, y, x]
-                rows_list.append(thisrow)
-                rows_list.append(thisrow_err)
-                colnames.append(f"{colname_dict[fname_list[ff]]} (component {nn + 1})")
-                colnames.append(f"{colname_dict[fname_list[ff]]} error (component {nn + 1})")
-        
-        #//////////////////////////////////////////////////////////////////////
+                rows_list.append(_2d_map_to_1d_list(data[nn]));     colnames.append(f"{colname_dict[fname_list[ff]]} (component {nn + 1})")
+                rows_list.append(_2d_map_to_1d_list(data_err[nn])); colnames.append(f"{colname_dict[fname_list[ff]]} error (component {nn + 1})")
+
         # EXTINCTION, STELLAR KINEMATICS & EMISSION LINES EXCEPT FOR HALPHA 
         else:
-            thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-            thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-            for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-                x_c, y_c = coords
-                y, x = (int(np.round(y_c)), int(np.round(x_c)))
-                if x > 49 or y > 49:
-                    x = min([x, 49])
-                    y = min([y, 49])
-                thisrow[jj] = data[y, x]
-                thisrow_err[jj] = data_err[y, x]
-            rows_list.append(thisrow)
-            rows_list.append(thisrow_err)
-
+            rows_list.append(_2d_map_to_1d_list(data)) 
+            rows_list.append(_2d_map_to_1d_list(data_err))
+            # Column name 
             # If adding the stellar kinematics, no point in adding "total" here
             if "stellar" in fname:  
                 colnames.append(f"{colname_dict[fname_list[ff]]}")
@@ -888,14 +864,12 @@ def _process_gals(args):
                 colnames.append(f"{colname_dict[fname_list[ff]]} (total)")
                 colnames.append(f"{colname_dict[fname_list[ff]]} error (total)")
 
-    #######################################################################
     # Load LZIFU files
     if use_lzifu_fits:
         # Open the FITS file 
         lzifu_fname = [f for f in os.listdir(__lzifu_products_path) if f.startswith(str(gal)) and f"{lzifu_ncomponents}_comp" in f][0]
         hdu_lzifu = fits.open(os.path.join(__lzifu_products_path, lzifu_fname))
 
-        #//////////////////////////////////////////////////////////////////////
         # Load emission line fluxes & kinematics (except for [OII])
         for quantity in ["HBETA", "OIII5007", "OI6300", 
                          "HALPHA", "NII6583", "SII6716", "SII6731"] +\
@@ -907,20 +881,9 @@ def _process_gals(args):
 
             # Total fluxes 
             if quantity not in ["V", "VDISP"]:
-                thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-                thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-                for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-                    x_c, y_c = coords
-                    y, x = (int(np.round(y_c)), int(np.round(x_c)))
-                    if x > 49 or y > 49:
-                        x = min([x, 49])
-                        y = min([y, 49])
-                    thisrow[jj] = data[0, y, x]
-                    thisrow_err[jj] = data_err[0, y, x]
-                rows_list.append(thisrow)
-                rows_list.append(thisrow_err)
-
-                # Edit column name 
+                rows_list.append(_2d_map_to_1d_list(data[0])) 
+                rows_list.append(_2d_map_to_1d_list(data_err[0]))
+                # Column name 
                 if quantity == "V":
                     quantity_colname = "v_gas"
                 elif quantity == "VDISP":
@@ -930,25 +893,11 @@ def _process_gals(args):
                 colnames.append(f"{quantity_colname} (total)")
                 colnames.append(f"{quantity_colname} error (total)")
 
-                # data = data[1:]
-                # data_err = data_err[1:]
-
             # Fluxes/kinematics in components 1, 2 and 3
             for nn in range(data.shape[0] - 1):
-                thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-                thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-                for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-                    x_c, y_c = coords
-                    y, x = (int(np.round(y_c)), int(np.round(x_c)))
-                    if x > 49 or y > 49:
-                        x = min([x, 49])
-                        y = min([y, 49])
-                    thisrow[jj] = data[nn + 1, y, x]
-                    thisrow_err[jj] = data_err[nn + 1, y, x]
-                rows_list.append(thisrow)
-                rows_list.append(thisrow_err)
-
-                # Edit column name 
+                rows_list.append(_2d_map_to_1d_list(data[nn + 1])) 
+                rows_list.append(_2d_map_to_1d_list(data_err[nn + 1]))
+                # Column name 
                 if quantity == "V":
                     quantity_colname = "v_gas"
                 elif quantity == "VDISP":
@@ -958,7 +907,6 @@ def _process_gals(args):
                 colnames.append(f"{quantity_colname} (component {nn + 1})")
                 colnames.append(f"{quantity_colname} error (component {nn + 1})")
 
-        #//////////////////////////////////////////////////////////////////////
         # OII doublet: these need to be combined to be consistent with the DR3 data products. 
         # We will store combined fluxes in column "OII3726+OII3729"
         data_OII3726 = hdu_lzifu[f"OII3726"].data.astype(np.float64)
@@ -969,127 +917,35 @@ def _process_gals(args):
         data_err = np.sqrt(data_OII3726_err**2 + data_OII3729_err**2)
 
         # Total fluxes 
-        thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-        thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-        for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-            x_c, y_c = coords
-            y, x = (int(np.round(y_c)), int(np.round(x_c)))
-            if x > 49 or y > 49:
-                x = min([x, 49])
-                y = min([y, 49])
-            thisrow[jj] = data[0, y, x]
-            thisrow_err[jj] = data_err[0, y, x]
-        rows_list.append(thisrow)
-        rows_list.append(thisrow_err)
-        colnames.append(f"OII3726+OII3729 (total)")
-        colnames.append(f"OII3726+OII3729 error (total)")
-
+        rows_list.append(_2d_map_to_1d_list(data[0]));     colnames.append(f"OII3726+OII3729 (total)")
+        rows_list.append(_2d_map_to_1d_list(data_err[0])); colnames.append(f"OII3726+OII3729 error (total)")
+        
         # Fluxes in components 1, 2 and 3
-        for nn in range(data.shape[0] - 1):
-            thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-            thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-            for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-                x_c, y_c = coords
-                y, x = (int(np.round(y_c)), int(np.round(x_c)))
-                if x > 49 or y > 49:
-                    x = min([x, 49])
-                    y = min([y, 49])
-                thisrow[jj] = data[nn + 1, y, x]
-                thisrow_err[jj] = data_err[nn + 1, y, x]
-            rows_list.append(thisrow)
-            rows_list.append(thisrow_err)
-            colnames.append(f"OII3726+OII3729 (component {nn + 1})")
-            colnames.append(f"OII3726+OII3729 error (component {nn + 1})")
-
-    ####################################################################### 
-    # Do the same but with v_grad
+        for nn in range(data.shape[0] - 1): 
+            rows_list.append(_2d_map_to_1d_list(data[nn + 1]));    colnames.append(f"OII3726+OII3729 (component {nn + 1})")
+            rows_list.append(_2d_map_to_1d_list(data_err[nn + 1])); colnames.append(f"OII3726+OII3729 error (component {nn + 1})")
+            
+    # Add v_grad
     for nn in range(v_grad.shape[0]):
-        thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-        thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-        for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-            x_c, y_c = coords
-            y, x = (int(np.round(y_c)), int(np.round(x_c)))
-            if x > 49 or y > 49:
-                x = min([x, 49])
-                y = min([y, 49])
-            thisrow[jj] = v_grad[nn, y, x]
-        rows_list.append(thisrow)
-        colnames.append(f"v_grad (component {nn + 1})")       
+        rows_list.append(_2d_map_to_1d_list(v_grad[nn]));    colnames.append(f"v_grad (component {nn + 1})")
 
-    ####################################################################### 
-    # Do the same but with HALPHA amplitude-to-noise
-    thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-    thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-    for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-        x_c, y_c = coords
-        y, x = (int(np.round(y_c)), int(np.round(x_c)))
-        if x > 49 or y > 49:
-            x = min([x, 49])
-            y = min([y, 49])
-        thisrow[jj] = AN_HALPHA_map[y, x]
-    rows_list.append(thisrow)
-    colnames.append(f"HALPHA A/N (measured)")       
+    # Add HALPHA amplitude-to-noise
+    rows_list.append(_2d_map_to_1d_list(AN_HALPHA_map));    colnames.append(f"HALPHA A/N (measured)")
 
-    #######################################################################
-    # Do the same but with the continuum intensity for calculating the HALPHA EW
-    thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-    thisrow_std = np.full_like(x_c_list, np.nan, dtype="float")
-    thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-    for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-        x_c, y_c = coords
-        y, x = (int(np.round(y_c)), int(np.round(x_c)))
-        if x > 49 or y > 49:
-            x = min([x, 49])
-            y = min([y, 49])
-        thisrow[jj] = cont_HALPHA_map[y, x]
-        thisrow_std[jj] = cont_HALPHA_map_std[y, x]
-        thisrow_err[jj] = cont_HALPHA_map_err[y, x]
-    rows_list.append(thisrow)
-    rows_list.append(thisrow_std)
-    rows_list.append(thisrow_err)
-    colnames.append("HALPHA continuum")
-    colnames.append("HALPHA continuum std. dev.")
-    colnames.append("HALPHA continuum error")        
+    # Add the continuum intensity for calculating the HALPHA EW
+    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map));    colnames.append(f"HALPHA continuum")
+    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_std)); colnames.append(f"HALPHA continuum std. dev.")
+    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_err)); colnames.append(f"HALPHA continuum error")
 
-    #######################################################################
-    # Do the same but with the continuum intensity for calculating the HALPHA EW
-    thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-    thisrow_std = np.full_like(x_c_list, np.nan, dtype="float")
-    thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-    for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-        x_c, y_c = coords
-        y, x = (int(np.round(y_c)), int(np.round(x_c)))
-        if x > 49 or y > 49:
-            x = min([x, 49])
-            y = min([y, 49])
-        thisrow[jj] = cont_B_map[y, x]
-        thisrow_std[jj] = cont_B_map_std[y, x]
-        thisrow_err[jj] = cont_B_map_err[y, x]
-    rows_list.append(thisrow)
-    rows_list.append(thisrow_std)
-    rows_list.append(thisrow_err)
-    colnames.append("B-band continuum")
-    colnames.append("B-band continuum std. dev.")
-    colnames.append("B-band continuum error")        
+    # Add the B-band continuum intensity
+    rows_list.append(_2d_map_to_1d_list(cont_B_map));    colnames.append(f"B-band continuum")
+    rows_list.append(_2d_map_to_1d_list(cont_B_map_std)); colnames.append(f"B-band continuum std. dev.")
+    rows_list.append(_2d_map_to_1d_list(cont_B_map_err)); colnames.append(f"B-band continuum error")
 
-    #######################################################################
-    # Do the same but with the D4000Å break
-    thisrow = np.full_like(x_c_list, np.nan, dtype="float")
-    thisrow_err = np.full_like(x_c_list, np.nan, dtype="float")
-    for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-        x_c, y_c = coords
-        y, x = (int(np.round(y_c)), int(np.round(x_c)))
-        if x > 49 or y > 49:
-            x = min([x, 49])
-            y = min([y, 49])
-        thisrow[jj] = d4000_map[y, x]
-        thisrow_err[jj] = d4000_map_err[y, x]
-    rows_list.append(thisrow)
-    rows_list.append(thisrow_err)
-    colnames.append("D4000")
-    colnames.append("D4000 error")          
+    # Add the D4000Å break
+    rows_list.append(_2d_map_to_1d_list(d4000_map));    colnames.append(f"D4000")
+    rows_list.append(_2d_map_to_1d_list(d4000_map_err));    colnames.append(f"D4000 error")
 
-    #######################################################################
     # Add pixel coordinates
     rows_list.append(np.array([x0_px] * ngood_bins) * as_per_px)
     rows_list.append(np.array([y0_px] * ngood_bins) * as_per_px)
