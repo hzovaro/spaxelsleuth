@@ -46,13 +46,14 @@ def add_columns(df, **kwargs):
     ###############################################################################
     # Compute the ORIGINAL number of components
     ###############################################################################
+    # Figure out the maximum number of components that has been fitted to each spaxel
     ncomponents_max = 0
     while True:
         if not in_dataframe(f"sigma_gas (component {ncomponents_max + 1})"):
             break
         ncomponents_max += 1
 
-    # Compute the ORIGINAL number of components: define these as those in which sigma_gas is defined
+    # Compute the ORIGINAL number of components in each spaxel: define these as those in which sigma_gas is not NaN
     ncomponents_original = (~df[f"sigma_gas (component 1)"].isna()).astype(int)
     for nn in range(1, ncomponents_max):
         ncomponents_original += (~df[f"sigma_gas (component {nn + 1})"].isna()).astype(int)
@@ -66,7 +67,7 @@ def add_columns(df, **kwargs):
         df.loc[df["HALPHA continuum"] < 0, "HALPHA continuum"] = 0
     
         # Compute EW in each component
-        for nn in range(NCOMPONENTS_MAX):
+        for nn in range(ncomponents_max):
             if in_dataframe(f"HALPHA (component {nn + 1})"):
                 df[f"HALPHA EW (component {nn + 1})"] = df[f"HALPHA (component {nn + 1})"] / df["HALPHA continuum"]
                 # Compute associated errors 
@@ -96,7 +97,7 @@ def add_columns(df, **kwargs):
     ######################################################################
     for eline in kwargs["eline_list"]:
         # Compute S/N 
-        for nn in range(NCOMPONENTS_MAX):
+        for nn in range(ncomponents_max):
             if in_dataframe([f"{eline} (component {nn + 1})", f"{eline} error (component {nn + 1})"]):
                 df[f"{eline} S/N (component {nn + 1})"] = df[f"{eline} (component {nn + 1})"] / df[f"{eline} error (component {nn + 1})"]
         
@@ -107,21 +108,8 @@ def add_columns(df, **kwargs):
     ######################################################################
     # DQ and S/N CUTS
     ######################################################################
-    df = dqcut.set_flags(df=df, 
-                  eline_SNR_min=kwargs["eline_SNR_min"], eline_list=kwargs["eline_list"],
-                  sigma_gas_SNR_min=kwargs["sigma_gas_SNR_min"],
-                  sigma_inst_kms=kwargs["sigma_inst_kms"])
-
-    # Apply S/N and DQ cuts
-    df = dqcut.apply_flags(df=df, 
-                                   line_flux_SNR_cut=kwargs["line_flux_SNR_cut"],
-                                   missing_fluxes_cut=kwargs["missing_fluxes_cut"],
-                                   line_amplitude_SNR_cut=kwargs["line_amplitude_SNR_cut"],
-                                   flux_fraction_cut=kwargs["flux_fraction_cut"],
-                                   vgrad_cut=kwargs["vgrad_cut"],
-                                   sigma_gas_SNR_cut=kwargs["sigma_gas_SNR_cut"],
-                                   stekin_cut=kwargs["stekin_cut"],
-                                   eline_list=kwargs["eline_list"])    
+    df = dqcut.set_flags(df=df, **kwargs)
+    df = dqcut.apply_flags(df=df, **kwargs)    
 
     ######################################################################
     # Fix SFR columns
@@ -169,7 +157,7 @@ def add_columns(df, **kwargs):
                                         s=f" (total)")
         
         # Apply the extinction correction to fluxes of  individual components
-        for nn in range(NCOMPONENTS_MAX):
+        for nn in range(ncomponents_max):
             df = extcorr.apply_extinction_correction(df, 
                                             reddening_curve="fm07", 
                                             eline_list=[e for e in kwargs["eline_list"] if f"{e} (component {nn + 1})" in df],

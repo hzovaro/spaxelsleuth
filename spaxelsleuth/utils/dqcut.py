@@ -66,7 +66,7 @@ def get_wavelength_from_velocity(lambda_rest, v, units):
 
 ###############################################################################
 def set_flags(df, eline_SNR_min, eline_list,
-              sigma_gas_SNR_min=3, sigma_inst_kms=29.6):
+              sigma_gas_SNR_min=3, sigma_inst_kms=29.6, **kwargs):
     """
     A function for making data quality & S/N cuts on rows of a given DataFrame.
 
@@ -261,7 +261,8 @@ def apply_flags(df,
                 flux_fraction_cut,
                 sigma_gas_SNR_cut,
                 vgrad_cut,
-                stekin_cut):
+                stekin_cut,
+                **kwargs):
     """
     Apply the data quality & S/N cuts on cells of a given DataFrame based on
     the flags that were defined in set_flags().
