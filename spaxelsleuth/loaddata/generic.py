@@ -44,6 +44,21 @@ def add_columns(df, **kwargs):
     status_str = "In generic.add_columns():"
 
     ###############################################################################
+    # Compute the ORIGINAL number of components
+    ###############################################################################
+    ncomponents_max = 0
+    while True:
+        if not in_dataframe(f"sigma_gas (component {ncomponents_max + 1})"):
+            break
+        ncomponents_max += 1
+
+    # Compute the ORIGINAL number of components: define these as those in which sigma_gas is defined
+    ncomponents_original = (~df[f"sigma_gas (component 1)"].isna()).astype(int)
+    for nn in range(1, ncomponents_max):
+        ncomponents_original += (~df[f"sigma_gas (component {nn + 1})"].isna()).astype(int)
+    df["Number of components (original)"] = ncomponents_original
+
+    ###############################################################################
     # Calculate equivalent widths
     ###############################################################################
     if in_dataframe(["HALPHA continuum"]):
@@ -95,7 +110,7 @@ def add_columns(df, **kwargs):
     df = dqcut.set_flags(df=df, 
                   eline_SNR_min=kwargs["eline_SNR_min"], eline_list=kwargs["eline_list"],
                   sigma_gas_SNR_min=kwargs["sigma_gas_SNR_min"],
-                  sigma_inst_kms=29.6)
+                  sigma_inst_kms=kwargs["sigma_inst_kms"])
 
     # Apply S/N and DQ cuts
     df = dqcut.apply_flags(df=df, 
