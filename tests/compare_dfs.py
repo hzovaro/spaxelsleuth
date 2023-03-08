@@ -33,3 +33,5 @@ if __name__ == "__main__":
             assert np.allclose(df_old.loc[cond_not_nan, c], df_new.loc[cond_not_nan, c]) 
         else:
             assert df_old[c].equals(df_new[c])
+
+    print(f"Comparison test passed ({fname})")
