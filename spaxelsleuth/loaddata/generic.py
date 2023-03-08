@@ -21,7 +21,7 @@ Steps to include:
 """
 import numpy as np
 
-# TODO: import this from a config file 
+# TODO: import this from a config file - actually, probably from the Survey DataClass or enum...
 NCOMPONENTS_MAX = 3
 
 # TODO: figure out how to tidy up this import
@@ -30,7 +30,6 @@ from spaxelsleuth.utils import dqcut, linefns, metallicity, extcorr
 #//////////////////////////////////////////////////////////////////////////////
 def add_columns(df, **kwargs):
     """Computes quantities such as metallicities, extinctions, etc. for each row in df."""
-    # TODO: before each of these, check that columns exist. Define a handy function for doing this.
 
     # Utility function for checking necessary columns
     def in_dataframe(cols) -> bool:
@@ -43,11 +42,6 @@ def add_columns(df, **kwargs):
             raise ValueError("cols must be str or list of str!")
 
     status_str = "In generic.add_columns():"
-
-    # Component indices for emission line-derived quantities
-    range_ncomponents_elines =\
-        range(3 if kwargs["ncomponents"] == "recom" else 1) if not kwargs["__use_lzifu_fits"] \
-        else range(3 if kwargs["__lzifu_ncomponents"] == "recom" else int(kwargs["__lzifu_ncomponents"]))        
 
     ###############################################################################
     # Calculate equivalent widths
@@ -96,23 +90,6 @@ def add_columns(df, **kwargs):
             df[f"{eline} S/N (total)"] = df[f"{eline} (total)"] / df[f"{eline} error (total)"]
 
     ######################################################################
-    # Fix SFR columns
-    ######################################################################
-    # NaN the SFR surface density if the inclination is undefined
-    if in_dataframe("i (degrees)"):
-        cond_NaN_inclination = np.isnan(df["i (degrees)"])
-        cols = [c for c in df.columns if "SFR surface density" in c]
-        df.loc[cond_NaN_inclination, cols] = np.nan
-
-    # NaN the SFR if the SFR == 0
-    # Note: I'm not entirely sure why there are spaxels with SFR == 0
-    # in the first place.
-    if in_dataframe("SFR (total)"):
-        cond_zero_SFR = df["SFR (total)"]  == 0
-        cols = [c for c in df.columns if "SFR" in c]
-        df.loc[cond_zero_SFR, cols] = np.nan
-
-    ######################################################################
     # DQ and S/N CUTS
     ######################################################################
     df = dqcut.set_flags(df=df, 
@@ -132,9 +109,24 @@ def add_columns(df, **kwargs):
                                    eline_list=kwargs["eline_list"])    
 
     ######################################################################
+    # Fix SFR columns
+    ######################################################################
+    # NaN the SFR surface density if the inclination is undefined
+    if in_dataframe("i (degrees)"):
+        cond_NaN_inclination = np.isnan(df["i (degrees)"])
+        cols = [c for c in df.columns if "SFR surface density" in c]
+        df.loc[cond_NaN_inclination, cols] = np.nan
+
+    # NaN the SFR if the SFR == 0
+    # Note: I'm not entirely sure why there are spaxels with SFR == 0
+    # in the first place.
+    if in_dataframe("SFR (total)"):
+        cond_zero_SFR = df["SFR (total)"]  == 0
+        cols = [c for c in df.columns if "SFR" in c]
+        df.loc[cond_zero_SFR, cols] = np.nan
+
     # NaN out SFR quantities if the HALPHA flux is NaN
     # need to do this AFTER applying S/N and DQ cuts above.
-    ###################################################################### 
     if in_dataframe("HALPHA (total)"):
         cond_Ha_isnan = df["HALPHA (total)"].isna()
         cols_sfr = [c for c in df.columns if "SFR" in c]
@@ -142,10 +134,8 @@ def add_columns(df, **kwargs):
             df.loc[cond_Ha_isnan, col] = np.nan
     
     ######################################################################
-    # Make a copy of the DataFrame with EXTINCTION CORRECTION
-    # Correct emission line fluxes (but not EWs!)
-    # NOTE: extinction.fm07 assumes R_V = 3.1 so do not change R_V from 
-    # this value!!!
+    # EXTINCTION CORRECTION
+    # Compute A_V & correct emission line fluxes (but not EWs!)
     ######################################################################
     if kwargs["correct_extinction"]:
         print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
@@ -211,22 +201,12 @@ def add_columns(df, **kwargs):
         df = metallicity.calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df, s=" (total)")
 
     ###############################################################################
-    # Save input flags to the DataFrame so that we can keep track
+    # Save input flags to the DataFrame
     ###############################################################################
-    df["eline_SNR_min"] = kwargs["eline_SNR_min"]
-    df["sigma_gas_SNR_min"] = kwargs["sigma_gas_SNR_min"]
+    for flag in ["eline_SNR_min", "sigma_gas_SNR_min", 
+                 "line_flux_SNR_cut", "missing_fluxes_cut", "line_amplitude_SNR_cut", 
+                 "flux_fraction_cut", "vgrad_cut", "sigma_gas_SNR_cut", "stekin_cut"]:
+        df[flag] = kwargs[flag]
     df["Extinction correction applied"] = kwargs["correct_extinction"]
-    df["line_flux_SNR_cut"] = kwargs["line_flux_SNR_cut"]
-    df["missing_fluxes_cut"] = kwargs["missing_fluxes_cut"]
-    df["line_amplitude_SNR_cut"] = kwargs["line_amplitude_SNR_cut"]
-    df["flux_fraction_cut"] = kwargs["flux_fraction_cut"]
-    df["vgrad_cut"] = kwargs["vgrad_cut"]
-    df["sigma_gas_SNR_cut"] = kwargs["sigma_gas_SNR_cut"]
-    df["stekin_cut"] = kwargs["stekin_cut"]
-    
-    # TODO: why is this here?
-    for col in [c for c in df.columns if "SFR" in c and "error" not in c]:
-        assert f"{col}" in df.columns
-        assert all(df.loc[df["HALPHA (total)"].isna(), f"{col}"].isna())
 
     return df

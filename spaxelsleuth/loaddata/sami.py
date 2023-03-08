@@ -947,28 +947,17 @@ def _process_gals(args):
     rows_list.append(_2d_map_to_1d_list(d4000_map_err));    colnames.append(f"D4000 error")
 
     # Add pixel coordinates
-    rows_list.append(np.array([x0_px] * ngood_bins) * as_per_px)
-    rows_list.append(np.array([y0_px] * ngood_bins) * as_per_px)
-    rows_list.append(np.array(x_c_list).flatten() * as_per_px)
-    rows_list.append(np.array(y_c_list).flatten() * as_per_px)
-    rows_list.append(np.array(x_prime_list).flatten() * as_per_px)
-    rows_list.append(np.array(y_prime_list).flatten() * as_per_px)
-    rows_list.append(np.array(r_prime_list).flatten() * as_per_px)
-    rows_list.append(np.array(bin_number_list))
-    rows_list.append(np.array(bin_size_list_px))
-    rows_list.append(np.array(bin_size_list_px) * as_per_px**2)
-    rows_list.append(np.array(bin_size_list_px) * as_per_px**2 * df_metadata.loc[gal, "kpc per arcsec"]**2)
-    colnames.append("Galaxy centre x0_px (projected, arcsec)")
-    colnames.append("Galaxy centre y0_px (projected, arcsec)")
-    colnames.append("x (projected, arcsec)")
-    colnames.append("y (projected, arcsec)")
-    colnames.append("x (relative to galaxy centre, deprojected, arcsec)")
-    colnames.append("y (relative to galaxy centre, deprojected, arcsec)")
-    colnames.append("r (relative to galaxy centre, deprojected, arcsec)")
-    colnames.append("Bin number")
-    colnames.append("Bin size (pixels)")
-    colnames.append("Bin size (square arcsec)")
-    colnames.append("Bin size (square kpc)")
+    rows_list.append(np.array([x0_px] * ngood_bins) * as_per_px); colnames.append("Galaxy centre x0_px (projected, arcsec)")
+    rows_list.append(np.array([y0_px] * ngood_bins) * as_per_px); colnames.append("Galaxy centre y0_px (projected, arcsec)")
+    rows_list.append(np.array(x_c_list).flatten() * as_per_px); colnames.append("x (projected, arcsec)")
+    rows_list.append(np.array(y_c_list).flatten() * as_per_px); colnames.append("y (projected, arcsec)")
+    rows_list.append(np.array(x_prime_list).flatten() * as_per_px); colnames.append("x (relative to galaxy centre, deprojected, arcsec)")
+    rows_list.append(np.array(y_prime_list).flatten() * as_per_px); colnames.append("y (relative to galaxy centre, deprojected, arcsec)")
+    rows_list.append(np.array(r_prime_list).flatten() * as_per_px); colnames.append("r (relative to galaxy centre, deprojected, arcsec)")
+    rows_list.append(np.array(bin_number_list)); colnames.append("Bin number")
+    rows_list.append(np.array(bin_size_list_px)); colnames.append("Bin size (pixels)")
+    rows_list.append(np.array(bin_size_list_px) * as_per_px**2); colnames.append("Bin size (square arcsec)")
+    rows_list.append(np.array(bin_size_list_px) * as_per_px**2 * df_metadata.loc[gal, "kpc per arcsec"]**2); colnames.append("Bin size (square kpc)")
 
     # Transpose so that each row represents a single pixel & each column a measured quantity.
     rows_arr = np.array(rows_list).T
@@ -976,7 +965,6 @@ def _process_gals(args):
     # Get rid of rows that are all NaNs
     bad_rows = np.all(np.isnan(rows_arr), axis=1)
     rows_good = rows_arr[~bad_rows]
-    ngood = rows_good.shape[0]
 
     # Append a column with the galaxy ID & other properties
     safe_cols = [c for c in df_metadata.columns if c != "Morphology" and c != "MGE photometry"]
@@ -992,7 +980,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                  eline_SNR_min=5, sigma_gas_SNR_min=3,
                  eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", 
                              "OII3726+OII3729", "OIII5007", 
-                             "SII6716", "SII6731"],
+                             "SII6716", "SII6731"], #TODO move this to Survey description?
                  line_flux_SNR_cut=True,
                  missing_fluxes_cut=True,
                  line_amplitude_SNR_cut=True,
@@ -1004,6 +992,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                  nthreads_max=20, debug=False,
                  __use_lzifu_fits=False, __lzifu_ncomponents=None):
     """
+    Make the SAMI DataFrame, where each row represents a single spaxel in a SAMI galaxy.
     DESCRIPTION
     ---------------------------------------------------------------------------
     This function is used to create a Pandas DataFrame containing emission line 
@@ -1195,7 +1184,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     """
 
     #######################################################################
-    # INPUT CHECKING
+    # Input checking
     #######################################################################
     assert (ncomponents == "recom") | (ncomponents == "1"), "ncomponents must be 'recom' or '1'!!"
     assert bin_type in ["default", "adaptive", "sectors"], "bin_type must be 'default' or 'adaptive' or 'sectors'!!"
@@ -1213,7 +1202,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     status_str = f"In sami.make_df_sami() [bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}]"
 
     ###############################################################################
-    # FILENAMES
+    # Filenames
     #######################################################################
     df_metadata_fname = "sami_dr3_metadata.hd5"
 
@@ -1231,26 +1220,30 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     print(f"{status_str}: saving to files {df_fname}...")
 
     ###############################################################################
-    # READ IN THE METADATA
+    # Read metadata
     ###############################################################################
     try:
         df_metadata = pd.read_hdf(os.path.join(output_path, df_metadata_fname), key="metadata")
     except FileNotFoundError:
         print(f"ERROR: metadata DataFrame file not found ({os.path.join(output_path, df_metadata_fname)}). Please run make_sami_metadata_df.py first!")
 
-    # Only include galaxies flagged as "good"
+    # Only include galaxies flagged as "good" & for which we have data 
     gal_ids_dq_cut = df_metadata[df_metadata["Good?"] == True].index.values
-    
-    # Only include galaxies for which we have data 
     gal_ids_dq_cut = [g for g in gal_ids_dq_cut if os.path.exists(os.path.join(input_path, f"ifs/{g}/"))]
 
     # If running in DEBUG mode, run on a subset to speed up execution time
     if debug: 
-        gal_ids_dq_cut = gal_ids_dq_cut[:10] + [572402, 209807]
+        gal_ids_dq_cut_debug = gal_ids_dq_cut[:10]
+        for gal in [572402, 209807]:  # Add these two galaxies because they are very distinctive, making debugging a bit easier (for me at least...)
+            if gal in gal_ids_dq_cut:
+                gal_ids_dq_cut_debug += [gal]
+        gal_ids_dq_cut = gal_ids_dq_cut_debug
+
+    # Cast to flaot to avoid issues around Object data types 
     df_metadata["Good?"] = df_metadata["Good?"].astype("float")
 
     ###############################################################################
-    # Run in parallel
+    # Scrape measurements for each galaxy from FITS files 
     ###############################################################################
     args_list = [[gg, gal, ncomponents, bin_type, df_metadata, status_str, 
                   __use_lzifu_fits, __lzifu_ncomponents] for gg, gal in enumerate(gal_ids_dq_cut)]
@@ -1279,12 +1272,10 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     safe_cols = [c for c in df_metadata.columns if c != "Morphology" and c != "MGE photometry"]
     df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)), columns=safe_cols + colnames)
 
-    ######################################################################
+    ###############################################################################
     # Add extra columns
-    ######################################################################
+    ###############################################################################
     df_spaxels["r/R_e"] = df_spaxels["r (relative to galaxy centre, deprojected, arcsec)"] / df_spaxels["R_e (arcsec)"]
-    
-    # Add pixel coordinates
     df_spaxels["x, y (pixels)"] = list(zip(df_spaxels["x (projected, arcsec)"] / 0.5, df_spaxels["y (projected, arcsec)"] / 0.5))
 
     # Add the morphology column back in
@@ -1302,23 +1293,21 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     }
     df_spaxels["Morphology"] = [morph_dict[str(m)] for m in df_spaxels["Morphology (numeric)"]]
 
-    ###############################################################################
     # Compute the ORIGINAL number of components: define these as those in which sigma_gas is defined
-    ###############################################################################
     ncomponents_original = (~df_spaxels[f"sigma_gas (component 1)"].isna()).astype(int)
     for nn in range_ncomponents_elines[1:]:
         ncomponents_original += (~df_spaxels[f"sigma_gas (component {nn + 1})"].isna()).astype(int)
     df_spaxels["Number of components (original)"] = ncomponents_original
 
-    # Leave this here for debugging!
+    # Leave this here for debugging to check for Object data types
     # for col in df_spaxels.columns:
     #     if df_spaxels[col].dtypes != "float64":
     #         print(f"{col}: {df_spaxels[col].dtypes}")
     # Tracer()()
 
     ###############################################################################
-    # Compute additional columns
-    ################################################################################
+    # Generic stuff: compute additional columns - extinction, metallicity, etc.
+    ###############################################################################
     df_spaxels = add_columns(df_spaxels, bin_type=bin_type, ncomponents=ncomponents, 
                              eline_SNR_min=eline_SNR_min, sigma_gas_SNR_min=sigma_gas_SNR_min,
                                 eline_list=eline_list,
@@ -1334,7 +1323,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
                                 __use_lzifu_fits=__use_lzifu_fits, __lzifu_ncomponents=__lzifu_ncomponents) 
 
     ###############################################################################
-    # Save to .hd5 & .csv
+    # Save
     ###############################################################################
     print(f"{status_str}: Saving to file...")
     try:
