@@ -1293,12 +1293,6 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     }
     df_spaxels["Morphology"] = [morph_dict[str(m)] for m in df_spaxels["Morphology (numeric)"]]
 
-    # # Compute the ORIGINAL number of components: define these as those in which sigma_gas is defined
-    # ncomponents_original = (~df_spaxels[f"sigma_gas (component 1)"].isna()).astype(int)
-    # for nn in range_ncomponents_elines[1:]:
-    #     ncomponents_original += (~df_spaxels[f"sigma_gas (component {nn + 1})"].isna()).astype(int)
-    # df_spaxels["Number of components (original)"] = ncomponents_original
-
     # Leave this here for debugging to check for Object data types
     # for col in df_spaxels.columns:
     #     if df_spaxels[col].dtypes != "float64":
