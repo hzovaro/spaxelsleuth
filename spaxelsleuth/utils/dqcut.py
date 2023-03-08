@@ -74,14 +74,6 @@ def set_flags(df, eline_SNR_min, eline_list,
     a number of data quality and S/N criteria. 
 
     """
-    def isdup(df):
-        if any(df.columns.duplicated()):
-            print("The following columns are duplicated:")
-            for col in [df.columns[df.columns.duplicated()]]:
-                print(col)
-        else:
-            print("No columns are duplicated")
-        return
 
     ######################################################################
     # INITIALISE FLAGS: these will get set below.
