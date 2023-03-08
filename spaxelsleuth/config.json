@@ -1,17 +1,20 @@
 {
     "sami": {
-        "data_cube_path": "sami/datacubes/",
-        "data_path": "sami/",
+        "data_cube_path": "sami/input/",
+        "input_path": "sami/input",
+        "output_path": "sami/output",
         "lzifu_products_path": "sami/lzifu/products/"
     },
     "s7": {
-        "data_cube_path": "s7/datacubes/",
-        "data_path": "s7/",
+        "data_cube_path": "s7/input/",
+        "input_path": "s7/input",
+        "output_path": "s7/output",
         "lzifu_products_path": "s7/lzifu/products/"
     },
     "manga": {
-        "data_cube_path": "manga/datacubes/",
-        "data_path": "manga/",
+        "data_cube_path": "manga/input/",
+        "input_path": "manga/input",
+        "output_path": "manga/output",
         "lzifu_products_path": " manga/lzifu/products/"
     },
     "plotting": {
