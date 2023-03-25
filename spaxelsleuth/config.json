@@ -11,6 +11,11 @@
         "output_path": "s7/output",
         "lzifu_products_path": "s7/lzifu/products/"
     },
+    "lzifu": {
+        "data_cube_path": "lzifu/input/",
+        "input_path": "lzifu/input",
+        "output_path": "lzifu/output"
+    },
     "manga": {
         "data_cube_path": "manga/input/",
         "input_path": "manga/input",
