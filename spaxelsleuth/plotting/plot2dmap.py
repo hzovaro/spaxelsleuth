@@ -159,6 +159,7 @@ def plot2dmap(df,
         raise ValueError(
             "cax_orientation must be either 'horizontal' or 'vertical'!")
 
+    # TODO use an enum or something for this instead
     survey = survey.lower()
     assert survey in ["sami", "s7"],\
         "survey must be either SAMI or S7!"

@@ -616,7 +616,7 @@
         "log mean HALPHA A/N": {
             "vmin": 1.0,
             "vmax": 3.5,
-            "label": "$log_{10} \\langle {\\rm H}\\alpha \\rangle$ A/N",
+            "label": "$\\log_{10} \\langle {\\rm H}\\alpha \\rangle$ A/N",
             "cmap": "jet",
             "fname": "log_mean_HALPHA_AN"
         },

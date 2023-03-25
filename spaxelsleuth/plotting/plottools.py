@@ -18,6 +18,12 @@ plot_settings = config.settings["plotting"]
 component_colours = ["#781EE5", "#FF53B4", "#FFC107"]
 component_labels = ["Component 1", "Component 2", "Component 3"]
 
+c1 = to_rgba("#4A4A4A")
+c2 = to_rgba("#6EC0FF")
+c3 = to_rgba("#8AE400")
+c4 = to_rgba("#A722FF")
+ncomponents_colours = np.vstack((c1, c2, c3, c4))
+
 #/////////////////////////////////////////
 def trim_suffix(col: str) -> Tuple[str]:
     """Trim the suffix from col & return the trimmed column name and suffix separately."""
