@@ -64,7 +64,7 @@ import multiprocessing
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils import dqcut, linefns, metallicity, extcorr
-from .generic import add_columns
+from .generic import add_columns, compute_d4000, compute_continuum_intensity, compute_HALPHA_amplitude_to_noise, compute_v_grad, deproject_coordinates
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -112,19 +112,17 @@ def _compute_snr(args, plotit=False):
     i_rad = 0 if np.isnan(i_rad) else i_rad
 
     # De-project the centroids to the coordinate system of the galaxy plane
-    x0_px = 25.5
-    y0_px = 25.5
-    as_per_px = 0.5
-    ys, xs = np.meshgrid(np.arange(50), np.arange(50), indexing="ij")
-    x_cc = xs - x0_px  # pixels
-    y_cc = ys - y0_px  # pixels
+    ny, nx = data_cube_B.shape[1:]
+    ys, xs = np.meshgrid(np.arange(ny), np.arange(nx), indexing="ij")
+    x_cc = xs - settings["sami"]["x0_px"]  # pixels
+    y_cc = ys - settings["sami"]["x0_px"]  # pixels
     x_prime = x_cc * np.cos(beta_rad) + y_cc * np.sin(beta_rad)
     y_prime_projec = (- x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad))
     y_prime = (- x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad)) / np.cos(i_rad)
     r_prime = np.sqrt(x_prime**2 + y_prime**2)
 
     # Convert to arcsec
-    r_prime_as = r_prime * as_per_px
+    r_prime_as = r_prime * settings["sami"]["as_per_px"]
 
     # Masks enclosing differen multiples of R_e
     mask_1Re = r_prime_as < df_metadata.loc[gal, "R_e (arcsec)"]
@@ -554,148 +552,67 @@ def _process_gals(args):
         ]
     fnames = [os.path.join(input_path, f"ifs/{gal}/{gal}_A_{f}.fits") for f in fname_list]
 
-    # X, Y pixel coordinates
-    ys, xs = np.meshgrid(np.arange(50), np.arange(50), indexing="ij")
-    as_per_px = 0.5
-    ys_as = ys * as_per_px
-    xs_as = xs * as_per_px
-
-    # Centre galaxy coordinates (see p16 of Croom+2021)
-    x0_px = 25.5
-    y0_px = 25.5
-
-    # If True, plot the bin coordinates before and after de-projection
-    # Should not be used if multithreading is enabled!
-    plotit = False
-
     #######################################################################
     # Open the red & blue cubes.
-    hdulist_B_cube = fits.open(os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
-    hdulist_R_cube = fits.open(os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
+    with fits.open(os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz")) as hdulist_B_cube:
+        header_R = hdulist_B_cube[0].header
+        data_cube_B = hdulist_B_cube[0].data
+        var_cube_B = hdulist_B_cube[1].data
+        hdulist_B_cube.close()
+
+        # Wavelength values
+        lambda_0_A = header_R["CRVAL3"] - header_R["CRPIX3"] * header_R["CDELT3"]
+        dlambda_A = header_R["CDELT3"]
+        N_lambda = header_R["NAXIS3"]
+        lambda_vals_B_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
+        lambda_vals_B_rest_A = lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"])
+
+    with fits.open(os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz")) as hdulist_R_cube:
+        header_R = hdulist_R_cube[0].header
+        data_cube_R = hdulist_R_cube[0].data
+        var_cube_R = hdulist_R_cube[1].data
+
+        # Wavelength values
+        lambda_0_A = header_R["CRVAL3"] - header_R["CRPIX3"] * header_R["CDELT3"]
+        dlambda_A = header_R["CDELT3"]
+        N_lambda = header_R["NAXIS3"]
+        lambda_vals_R_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
+        lambda_vals_R_rest_A = lambda_vals_R_A / (1 + df_metadata.loc[gal, "z"])
 
     #######################################################################
     # Compute the d4000 Angstrom break.
-    header = hdulist_B_cube[0].header
-    data_cube_B = hdulist_B_cube[0].data
-    var_cube_B = hdulist_B_cube[1].data
-    hdulist_B_cube.close()
+    d4000_map, d4000_map_err = compute_d4000(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A)
 
-    # Wavelength values
-    lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
-    dlambda_A = header["CDELT3"]
-    N_lambda = header["NAXIS3"]
-    lambda_vals_B_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
-
-    # Compute the D4000Å break
-    # Definition from Balogh+1999 (see here: https://arxiv.org/pdf/1611.07050.pdf, page 3)
-    start_b_idx = np.nanargmin(np.abs(lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"]) - 3850))
-    stop_b_idx = np.nanargmin(np.abs(lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"]) - 3950))
-    start_r_idx = np.nanargmin(np.abs(lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"]) - 4000))
-    stop_r_idx = np.nanargmin(np.abs(lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"]) - 4100))
-    N_b = stop_b_idx - start_b_idx
-    N_r = stop_r_idx - start_r_idx
-
-    # Convert datacube & variance cubes to units of F_nu
-    data_cube_B_Hz = data_cube_B * lambda_vals_B_A[:, None, None]**2 / (constants.c * 1e10)
-    var_cube_B_Hz2 = var_cube_B * (lambda_vals_B_A[:, None, None]**2 / (constants.c * 1e10))**2
-
-    num = np.nanmean(data_cube_B_Hz[start_r_idx:stop_r_idx], axis=0)
-    denom = np.nanmean(data_cube_B_Hz[start_b_idx:stop_b_idx], axis=0)
-    err_num = 1 / N_r * np.sqrt(np.nansum(var_cube_B_Hz2[start_r_idx:stop_r_idx], axis=0))
-    err_denom = 1 / N_b * np.sqrt(np.nansum(var_cube_B_Hz2[start_b_idx:stop_b_idx], axis=0))
-
-    d4000_map = num / denom
-    d4000_map_err = d4000_map * np.sqrt((err_num / num)**2 + (err_denom / denom)**2)
-
-    #######################################################################
-    # Use the red cube to calculate the continuum intensity so
-    # that we can compute the Halpha equivalent width.
-    # Units of 10**(-16) erg /s /cm**2 /angstrom /pixel
+    # Compute the continuum intensity so that we can compute the Halpha equivalent width. Units of 10**(-16) erg /s /cm**2 /angstrom /pixel
     # Continuum wavelength range taken from here: https://ui.adsabs.harvard.edu/abs/2019MNRAS.485.4024V/abstract
-    header = hdulist_R_cube[0].header
-    data_cube_R = hdulist_R_cube[0].data
-    var_cube_R = hdulist_R_cube[1].data
+    cont_HALPHA_map, cont_HALPHA_map_std, cont_HALPHA_map_err = compute_continuum_intensity(data_cube=data_cube_R, var_cube=var_cube_R, lambda_vals_rest_A=lambda_vals_R_rest_A, start_A=6500, stop_A=6540)
 
-    # Wavelength values
-    lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
-    dlambda_A = header["CDELT3"]
-    N_lambda = header["NAXIS3"]
-    lambda_vals_R_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
+    # Compute the approximate B-band continuum. Units of 10**(-16) erg /s /cm**2 /angstrom /pixel
+    cont_B_map, cont_B_map_std, cont_B_map_err = compute_continuum_intensity(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A, start_A=4000, stop_A=5000)
 
-    # Compute continuum intensity
-    start_idx = np.nanargmin(np.abs(lambda_vals_R_A / (1 + df_metadata.loc[gal, "z"]) - 6500))
-    stop_idx = np.nanargmin(np.abs(lambda_vals_R_A / (1 + df_metadata.loc[gal, "z"]) - 6540))
-    cont_HALPHA_map = np.nanmean(data_cube_R[start_idx:stop_idx], axis=0)
-    cont_HALPHA_map_std = np.nanstd(data_cube_R[start_idx:stop_idx], axis=0)
-    cont_HALPHA_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_R[start_idx:stop_idx], axis=0))
-    hdulist_R_cube.close()
-
-    #######################################################################
-    # Use the blue cube to calculate the approximate B-band continuum.
-    # Units of 10**(-16) erg /s /cm**2 /angstrom /pixel
-    header = hdulist_B_cube[0].header
-    data_cube_B = hdulist_B_cube[0].data
-    var_cube_B = hdulist_B_cube[1].data
-
-    # Wavelength values
-    lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
-    dlambda_A = header["CDELT3"]
-    N_lambda = header["NAXIS3"]
-    lambda_vals_B_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
-
-    # Compute continuum intensity
-    start_idx = np.nanargmin(np.abs(lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"]) - 4000))
-    stop_idx = np.nanargmin(np.abs(lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"]) - 5000))
-    cont_B_map = np.nanmean(data_cube_B[start_idx:stop_idx], axis=0)
-    cont_B_map_std = np.nanstd(data_cube_B[start_idx:stop_idx], axis=0)
-    cont_B_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_B[start_idx:stop_idx], axis=0))
-    hdulist_B_cube.close()
-
-    #######################################################################
     # Compute v_grad using eqn. 1 of Zhou+2017
     if not use_lzifu_fits:
-        hdulist_v = fits.open(os.path.join(input_path, f"ifs/{gal}/{gal}_A_gas-velocity_{bin_type}_{ncomponents}-comp.fits"))
-        v = hdulist_v[0].data.astype(np.float64)
-        hdulist_v.close()
+        with fits.open(os.path.join(input_path, f"ifs/{gal}/{gal}_A_gas-velocity_{bin_type}_{ncomponents}-comp.fits")) as hdulist_v:
+            v_map = hdulist_v[0].data.astype(np.float64)
     else:
         lzifu_fname = [f for f in os.listdir(__lzifu_products_path) if f.startswith(str(gal)) and f"{lzifu_ncomponents}_comp" in f][0]
-        hdu_lzifu = fits.open(os.path.join(__lzifu_products_path, lzifu_fname))
-        v = hdu_lzifu["V"].data.astype(np.float64)
-        hdu_lzifu.close()
+        with fits.open(os.path.join(__lzifu_products_path, lzifu_fname)) as hdu_lzifu:
+            v_map = hdu_lzifu["V"].data.astype(np.float64)
+    v_grad = compute_v_grad(v_map)
 
-    # Compute v_grad for each spaxel in each component
-    # in units of km/s/pixel
-    v_grad = np.full_like(v, np.nan)
-    for yy, xx in product(range(1, 49), range(1, 49)):
-        v_grad[:, yy, xx] = np.sqrt(((v[:, yy, xx + 1] - v[:, yy, xx - 1]) / 2)**2 +\
-                                    ((v[:, yy + 1, xx] - v[:, yy - 1, xx]) / 2)**2)
+    # Compute the HALPHA amplitude-to-noise. Store as "meas" to distinguish from A/N measurements for individual emission line components
+    AN_HALPHA_map = compute_HALPHA_amplitude_to_noise(data_cube=data_cube_R, var_cube=var_cube_R, lambda_vals_rest_A=lambda_vals_R_rest_A, v_map=v_map[0], dv=300)
 
     #######################################################################
-    # Measure the HALPHA amplitude-to-noise
-    # We measure this as
-    #       (peak spectral value in window around Ha - mean R continuum flux density) / standard deviation in R continuum flux density
-    # As such, this value can be negative.
-    lambda_vals_rest_R_A = lambda_vals_R_A / (1 + df_metadata.loc[gal, "z"])
-    lambda_vals_rest_R_A_cube = np.zeros(data_cube_R.shape)
-    lambda_vals_rest_R_A_cube[:] = lambda_vals_rest_R_A[:, None, None]
-
-    dv = 300
-    lambda_c_A = dqcut.get_wavelength_from_velocity(6562.8, v[0], units="km/s")
-    lambda_max_A = dqcut.get_wavelength_from_velocity(6562.8, v[0] + dv, units="km/s")
-    lambda_min_A = dqcut.get_wavelength_from_velocity(6562.8, v[0] - dv, units="km/s")
-
-    # Measure HALPHA amplitude-to-noise
-    # Store as "meas" to distinguish from A/N measurements for individual
-    # emission line components
-    A_HALPHA_mask = (lambda_vals_rest_R_A_cube > lambda_min_A) & (lambda_vals_rest_R_A_cube < lambda_max_A)
-    data_cube_masked_R = np.copy(data_cube_R)
-    data_cube_masked_R[~A_HALPHA_mask] = np.nan
-    A_HALPHA_map = np.nanmax(data_cube_masked_R, axis=0)
-    AN_HALPHA_map = (A_HALPHA_map - cont_HALPHA_map) / cont_HALPHA_map_std
-
     #######################################################################
+    # X, Y pixel coordinates
+    
+    
+
     # Compute the spaxel or bin coordinates, depending on the binning scheme
     im = np.nansum(data_cube_B, axis=0)
+    ny, nx = im.shape
+    
     if bin_type == "default":
         # Create an image from the datacube to figure out where are "good" spaxels
         if np.any(im.flatten() <= 0): # NaN out -ve spaxels. Most galaxies seem to have *some* -ve pixels
@@ -712,6 +629,7 @@ def _process_gals(args):
     # Compute the light-weighted bin centres, based on the blue unbinned
     # data cube
     elif bin_type == "adaptive" or bin_type == "sectors":
+        ys, xs = np.meshgrid(np.arange(ny), np.arange(nx), indexing="ij")
         # Open the binned blue cube. Get the bin mask extension.
         hdulist_binned_cube = fits.open(os.path.join(input_path, f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
         bin_map = hdulist_binned_cube[2].data.astype("float")
@@ -730,7 +648,7 @@ def _process_gals(args):
             x_c = np.nansum(xs * bin_mask * im) / np.nansum(bin_mask * im)
             y_c = np.nansum(ys * bin_mask * im) / np.nansum(bin_mask * im)
             # Don't add the centroids if they are out of bounds.
-            if (x_c < 0 or x_c >= 50 or y_c < 0 or y_c >= 50):
+            if (x_c < 0 or x_c >= nx or y_c < 0 or y_c >= ny):
                 x_c_list[ii] = np.nan
                 y_c_list[ii] = np.nan
             else:
@@ -748,49 +666,40 @@ def _process_gals(args):
 
     #######################################################################
     # Calculate the inclination
-    # I think beta = 90 - PA...
-    # Transform coordinates into the galaxy plane
-    e = df_metadata.loc[gal, "e"]
-    PA = df_metadata.loc[gal, "PA (degrees)"]
-    i_rad = np.deg2rad(df_metadata.loc[gal, "i (degrees)"])
-    i_rad = 0 if np.isnan(i_rad) else i_rad
-    beta_rad = np.deg2rad(PA - 90)
+    PA_deg = df_metadata.loc[gal, "PA (degrees)"]
+    i_deg = 0 if np.isnan(df_metadata.loc[gal, "i (degrees)"]) else df_metadata.loc[gal, "i (degrees)"]
+    x_prime_list, y_prime_list, r_prime_list = deproject_coordinates(
+        x_c_list,
+        y_c_list,
+        settings["sami"]["x0_px"],
+        settings["sami"]["x0_px"],
+        PA_deg,
+        i_deg,
+    )
 
-    #######################################################################
-    # De-project the centroids to the coordinate system of the galaxy plane
-    x_prime_list = np.full_like(x_c_list, np.nan, dtype="float")
-    y_prime_list = np.full_like(x_c_list, np.nan, dtype="float")
-    y_prime_projec_list = np.full_like(x_c_list, np.nan, dtype="float")
-    r_prime_list = np.full_like(x_c_list, np.nan, dtype="float")
-    for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-        x_c, y_c = coords
-        # De-shift, de-rotate & de-incline
-        x_cc = x_c - x0_px
-        y_cc = y_c - y0_px
-        x_prime = x_cc * np.cos(beta_rad) + y_cc * np.sin(beta_rad)
-        y_prime_projec = (- x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad))
-        y_prime = (- x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad)) / np.cos(i_rad)
-        r_prime = np.sqrt(x_prime**2 + y_prime**2)
+    # #######################################################################
+    # # De-project the centroids to the coordinate system of the galaxy plane
+    # x_prime_list = np.full_like(x_c_list, np.nan, dtype="float")
+    # y_prime_list = np.full_like(x_c_list, np.nan, dtype="float")
+    # y_prime_projec_list = np.full_like(x_c_list, np.nan, dtype="float")
+    # r_prime_list = np.full_like(x_c_list, np.nan, dtype="float")
+    # for jj, coords in enumerate(zip(x_c_list, y_c_list)):
+    #     x_c, y_c = coords
+    #     # De-shift, de-rotate & de-incline
+    #     x_cc = x_c - settings["sami"]["x0_px"]
+    #     y_cc = y_c - settings["sami"]["x0_px"]
+    #     x_prime = x_cc * np.cos(beta_rad) + y_cc * np.sin(beta_rad)
+    #     y_prime_projec = (- x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad))
+    #     y_prime = (- x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad)) / np.cos(i_rad)
+    #     r_prime = np.sqrt(x_prime**2 + y_prime**2)
 
-        # Add to list
-        x_prime_list[jj] = x_prime
-        y_prime_list[jj] = y_prime
-        y_prime_projec_list[jj] = y_prime_projec
-        r_prime_list[jj] = r_prime
+    #     # Add to list
+    #     x_prime_list[jj] = x_prime
+    #     y_prime_list[jj] = y_prime
+    #     y_prime_projec_list[jj] = y_prime_projec
+    #     r_prime_list[jj] = r_prime
 
-    #######################################################################
-    # For plotting
-    if plotit:
-        fig, axs = plt.subplots(ncols=2, figsize=(10, 5))
-        axs[0].imshow(im, origin="lower")
-        axs[1].axhline(0)
-        axs[1].axvline(0)
-        axs[0].scatter(x_c_list, y_c_list, color="k")
-        axs[0].scatter(x0_px, y0_px, color="white")
-        axs[1].scatter(x_prime_list, y_prime_list, color="r")
-        axs[1].scatter(x_prime_list, y_prime_projec_list, color="r", alpha=0.3)
-        axs[1].axis("equal")
-        fig.canvas.draw()
+
 
     #######################################################################
     # Open each FITS file, extract the values from the maps in each bin & append
@@ -805,10 +714,9 @@ def _process_gals(args):
         for jj, coords in enumerate(zip(x_c_list, y_c_list)):
             x_c, y_c = coords
             y, x = (int(np.round(y_c)), int(np.round(x_c)))
-            #TODO: replace magic numbers with ENUM or Survey class definitions
-            if x > 49 or y > 49:
-                x = min([x, 49])
-                y = min([y, 49])
+            if x > nx - 1 or y > ny - 1:
+                x = min([x, nx - 1])
+                y = min([y, ny - 1])
             row[jj] = colmap[y, x]
         return row
 
@@ -947,17 +855,17 @@ def _process_gals(args):
     rows_list.append(_2d_map_to_1d_list(d4000_map_err));    colnames.append(f"D4000 error")
 
     # Add pixel coordinates
-    rows_list.append(np.array([x0_px] * ngood_bins) * as_per_px); colnames.append("Galaxy centre x0_px (projected, arcsec)")
-    rows_list.append(np.array([y0_px] * ngood_bins) * as_per_px); colnames.append("Galaxy centre y0_px (projected, arcsec)")
-    rows_list.append(np.array(x_c_list).flatten() * as_per_px); colnames.append("x (projected, arcsec)")
-    rows_list.append(np.array(y_c_list).flatten() * as_per_px); colnames.append("y (projected, arcsec)")
-    rows_list.append(np.array(x_prime_list).flatten() * as_per_px); colnames.append("x (relative to galaxy centre, deprojected, arcsec)")
-    rows_list.append(np.array(y_prime_list).flatten() * as_per_px); colnames.append("y (relative to galaxy centre, deprojected, arcsec)")
-    rows_list.append(np.array(r_prime_list).flatten() * as_per_px); colnames.append("r (relative to galaxy centre, deprojected, arcsec)")
+    rows_list.append(np.array([settings["sami"]["x0_px"]] * ngood_bins) * settings["sami"]["as_per_px"]); colnames.append("Galaxy centre x0_px (projected, arcsec)")
+    rows_list.append(np.array([settings["sami"]["y0_px"]] * ngood_bins) * settings["sami"]["as_per_px"]); colnames.append("Galaxy centre y0_px (projected, arcsec)")
+    rows_list.append(np.array(x_c_list).flatten() * settings["sami"]["as_per_px"]); colnames.append("x (projected, arcsec)")
+    rows_list.append(np.array(y_c_list).flatten() * settings["sami"]["as_per_px"]); colnames.append("y (projected, arcsec)")
+    rows_list.append(np.array(x_prime_list).flatten() * settings["sami"]["as_per_px"]); colnames.append("x (relative to galaxy centre, deprojected, arcsec)")
+    rows_list.append(np.array(y_prime_list).flatten() * settings["sami"]["as_per_px"]); colnames.append("y (relative to galaxy centre, deprojected, arcsec)")
+    rows_list.append(np.array(r_prime_list).flatten() * settings["sami"]["as_per_px"]); colnames.append("r (relative to galaxy centre, deprojected, arcsec)")
     rows_list.append(np.array(bin_number_list)); colnames.append("Bin number")
     rows_list.append(np.array(bin_size_list_px)); colnames.append("Bin size (pixels)")
-    rows_list.append(np.array(bin_size_list_px) * as_per_px**2); colnames.append("Bin size (square arcsec)")
-    rows_list.append(np.array(bin_size_list_px) * as_per_px**2 * df_metadata.loc[gal, "kpc per arcsec"]**2); colnames.append("Bin size (square kpc)")
+    rows_list.append(np.array(bin_size_list_px) * settings["sami"]["as_per_px"]**2); colnames.append("Bin size (square arcsec)")
+    rows_list.append(np.array(bin_size_list_px) * settings["sami"]["as_per_px"]**2 * df_metadata.loc[gal, "kpc per arcsec"]**2); colnames.append("Bin size (square kpc)")
 
     # Transpose so that each row represents a single pixel & each column a measured quantity.
     rows_arr = np.array(rows_list).T
@@ -978,9 +886,7 @@ def _process_gals(args):
 ###############################################################################
 def make_sami_df(bin_type="default", ncomponents="recom",
                  eline_SNR_min=5, sigma_gas_SNR_min=3,
-                 eline_list=["HALPHA", "HBETA", "NII6583", "OI6300",
-                             "OII3726+OII3729", "OIII5007",
-                             "SII6716", "SII6731"], #TODO move this to Survey description?
+                 eline_list=settings["sami"]["eline_list"],
                  line_flux_SNR_cut=True,
                  missing_fluxes_cut=True,
                  line_amplitude_SNR_cut=True,
@@ -1270,8 +1176,6 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     rows_list_all = [r[0] for r in res_list]
     colnames = res_list[0][1]
     safe_cols = [c for c in df_metadata.columns if c != "Morphology" and c != "MGE photometry"]
-
-    Tracer()
     df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)), columns=safe_cols + colnames)
 
     ###############################################################################
@@ -1317,7 +1221,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         vgrad_cut=vgrad_cut,
         stekin_cut=stekin_cut,
         correct_extinction=correct_extinction,
-        sigma_inst_kms=29.6,  #TODO move this to Survey
+        sigma_inst_kms=settings["sami"]["sigma_inst_kms"],
         nthreads_max=nthreads_max,
         debug=debug,
         __use_lzifu_fits=__use_lzifu_fits,
