@@ -1,26 +1,46 @@
 {
     "sami": {
+        "as_per_px": 0.5,
+        "x0_px": 25.5,
+        "y0_px": 25.5,
+        "sigma_inst_kms": 29.6,
+        "eline_list": [
+            "HALPHA",
+            "HBETA",
+            "NII6583",
+            "OI6300",
+            "OII3726+OII3729",
+            "OIII5007",
+            "SII6716",
+            "SII6731"
+        ],
+        "bin_types": [
+            "default",
+            "adaptive",
+            "recom"
+        ],
         "data_cube_path": "sami/input/",
         "input_path": "sami/input",
         "output_path": "sami/output",
         "lzifu_products_path": "sami/lzifu/products/"
     },
     "s7": {
+        "as_per_px": 1.0,
         "data_cube_path": "s7/input/",
         "input_path": "s7/input",
-        "output_path": "s7/output",
-        "lzifu_products_path": "s7/lzifu/products/"
+        "output_path": "s7/output"
     },
     "lzifu": {
+        "as_per_px": null,
         "data_cube_path": "lzifu/input/",
         "input_path": "lzifu/input",
         "output_path": "lzifu/output"
     },
     "manga": {
+        "as_per_px": null,
         "data_cube_path": "manga/input/",
         "input_path": "manga/input",
-        "output_path": "manga/output",
-        "lzifu_products_path": " manga/lzifu/products/"
+        "output_path": "manga/output"
     },
     "plotting": {
         "count": {
