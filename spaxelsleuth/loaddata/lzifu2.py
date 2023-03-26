@@ -8,8 +8,7 @@ import pandas as pd
 from scipy import constants
 
 from spaxelsleuth.config import settings
-from spaxelsleuth.utils import dqcut
-from .generic import add_columns
+from .generic import add_columns, compute_d4000, compute_continuum_intensity, compute_HALPHA_amplitude_to_noise, compute_v_grad
 
 from IPython.core.debugger import Tracer
 
@@ -132,12 +131,17 @@ def _process_lzifu(args):
     #######################################################################
     # Scrape data from original data cube
     #######################################################################
-    #TODO: how to deal with "_R" and "_B" extensions? 
     if onesided:
         with fits.open(datacube_fname) as hdulist_cube:
             header = hdulist_cube[0].header
             data_cube = hdulist_cube[0].data
             var_cube = hdulist_cube[1].data
+
+            # Plate scale
+            if header_B["CUNIT1"].lower().startswith("deg"):
+                as_per_px = np.abs(header_B["CDELT1"]) * 3600.
+            elif header_B["CUNIT1"].lower().startswith("arc"):
+                as_per_px = np.abs(header_B["CDELT1"])
 
             # Wavelength values
             lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
@@ -158,6 +162,12 @@ def _process_lzifu(args):
             data_cube_B = hdulist_B_cube[0].data
             var_cube_B = hdulist_B_cube[1].data
 
+            # Plate scale
+            if header_B["CUNIT1"].lower().startswith("deg"):
+                as_per_px = np.abs(header_B["CDELT1"]) * 3600.
+            elif header_B["CUNIT1"].lower().startswith("arc"):
+                as_per_px = np.abs(header_B["CDELT1"])
+
             # Wavelength values
             lambda_0_A = header_B["CRVAL3"] - header_B["CRPIX3"] * header_B["CDELT3"]
             dlambda_A = header_B["CDELT3"]
@@ -177,98 +187,43 @@ def _process_lzifu(args):
             lambda_vals_R_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
 
     # Rest-frame wavelength arrays
-    lambda_vals_rest_R_A = lambda_vals_R_A / (1 + z)
-    lambda_vals_rest_B_A = lambda_vals_B_A / (1 + z)
+    lambda_vals_R_rest_A = lambda_vals_R_A / (1 + z)
+    lambda_vals_B_rest_A = lambda_vals_B_A / (1 + z)
 
-    #######################################################################
     # Compute the D4000Å break
-    # TODO put in function
-    # Definition from Balogh+1999 (see here: https://arxiv.org/pdf/1611.07050.pdf, page 3)
-    start_b_idx = np.nanargmin(np.abs(lambda_vals_rest_B_A - 3850))
-    stop_b_idx = np.nanargmin(np.abs(lambda_vals_rest_B_A - 3950))
-    start_r_idx = np.nanargmin(np.abs(lambda_vals_rest_B_A - 4000))
-    stop_r_idx = np.nanargmin(np.abs(lambda_vals_rest_B_A - 4100))
-    N_b = stop_b_idx - start_b_idx
-    N_r = stop_r_idx - start_r_idx
-    if start_b_idx > 0 and stop_r_idx < len(lambda_vals_B_A) - 1:
-        # Convert datacube & variance cubes to units of F_nu
-        data_cube_B_Hz = data_cube_B * lambda_vals_B_A[:, None, None]**2 / (constants.c * 1e10)
-        var_cube_B_Hz2 = var_cube_B * (lambda_vals_B_A[:, None, None]**2 / (constants.c * 1e10))**2
-        num = np.nanmean(data_cube_B_Hz[start_r_idx:stop_r_idx], axis=0)
-        denom = np.nanmean(data_cube_B_Hz[start_b_idx:stop_b_idx], axis=0)
-        err_num = 1 / N_r * np.sqrt(np.nansum(var_cube_B_Hz2[start_r_idx:stop_r_idx], axis=0))
-        err_denom = 1 / N_b * np.sqrt(np.nansum(var_cube_B_Hz2[start_b_idx:stop_b_idx], axis=0))
-
-        d4000_map = num / denom
-        d4000_map_err = d4000_map * np.sqrt((err_num / num)**2 + (err_denom / denom)**2)
-
-        # Append to rows
+    if lambda_vals_B_rest_A[0] >= 3850 and lambda_vals_B_rest_A[-1] <= 4100:
+        d4000_map, d4000_map_err = compute_d4000(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A)
         rows_list.append(_2d_map_to_1d_list(d4000_map));     colnames.append(f"D4000")
         rows_list.append(_2d_map_to_1d_list(d4000_map_err)); colnames.append(f"D4000 error")
 
-    #######################################################################
-    # Use the red cube to calculate the continuum intensity so
-    # that we can compute the Halpha equivalent width.
-    # TODO put in function
-    # Units of 10**(-16) erg /s /cm**2 /angstrom /pixel
+    # Compute the continuum intensity so that we can compute the Halpha equivalent width.
     # Continuum wavelength range taken from here: https://ui.adsabs.harvard.edu/abs/2019MNRAS.485.4024V/abstract
-    start_idx = np.nanargmin(np.abs(lambda_vals_rest_R_A - 6500))
-    stop_idx = np.nanargmin(np.abs(lambda_vals_rest_R_A - 6540))
-    if start_idx > 0 and stop_idx < len(lambda_vals_R_A) - 1:
-        cont_HALPHA_map = np.nanmean(data_cube_R[start_idx:stop_idx], axis=0)
-        cont_HALPHA_map_std = np.nanstd(data_cube_R[start_idx:stop_idx], axis=0)
-        cont_HALPHA_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_R[start_idx:stop_idx], axis=0))
-        
-        # Append to rows
+    if lambda_vals_R_rest_A[0] >= 6500 and lambda_vals_R_rest_A[-1] <= 6540:
+        cont_HALPHA_map, cont_HALPHA_map_std, cont_HALPHA_map_err = compute_continuum_intensity(data_cube=data_cube_R, var_cube=var_cube_R, lambda_vals_rest_A=lambda_vals_R_rest_A, start_A=6500, stop_A=6540)
         rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map));     colnames.append(f"HALPHA continuum")
         rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_std)); colnames.append(f"HALPHA continuum std. dev.")
         rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_err)); colnames.append(f"HALPHA continuum error")
 
-    #######################################################################
-    # Use the blue cube to calculate the approximate B-band continuum.
-    # TODO put in function
-    start_idx = np.nanargmin(np.abs(lambda_vals_rest_B_A - 4000))
-    stop_idx = np.nanargmin(np.abs(lambda_vals_rest_B_A - 5000))
-    if start_idx >= 0 and stop_idx <= len(lambda_vals_B_A) - 1:
-        cont_B_map = np.nanmean(data_cube_B[start_idx:stop_idx], axis=0)
-        cont_B_map_std = np.nanstd(data_cube_B[start_idx:stop_idx], axis=0)
-        cont_B_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube_B[start_idx:stop_idx], axis=0))
-        
-        # Append to rows
+    # Compute the approximate B-band continuum
+    if lambda_vals_B_rest_A[0] >= 4000 and lambda_vals_B_rest_A[-1] <= 5000:
+        cont_B_map, cont_B_map_std, cont_B_map_err = compute_continuum_intensity(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A, start_A=4000, stop_A=5000)
         rows_list.append(_2d_map_to_1d_list(cont_B_map));     colnames.append(f"B-band continuum")
         rows_list.append(_2d_map_to_1d_list(cont_B_map_std)); colnames.append(f"B-band continuum std. dev.")
         rows_list.append(_2d_map_to_1d_list(cont_B_map_err)); colnames.append(f"B-band continuum error")
 
-    #######################################################################
-    # Measure the HALPHA amplitude-to-noise
-    # TODO put in function
-    # We measure this as
-    #       (peak spectral value in window around Ha - mean R continuum flux density) / standard deviation in R continuum flux density
-    # As such, this value can be negative.
-    lambda_vals_rest_R_A_cube = np.zeros(data_cube_R.shape)
-    lambda_vals_rest_R_A_cube[:] = lambda_vals_rest_R_A[:, None, None]
-    dv = 300
-    v = hdulist_lzifu["V"].data  # Get velocity field from LZIFU fit
-    lambda_c_A = dqcut.get_wavelength_from_velocity(6562.8, v[0], units="km/s")
-    lambda_max_A = dqcut.get_wavelength_from_velocity(6562.8, v[0] + dv, units="km/s")
-    lambda_min_A = dqcut.get_wavelength_from_velocity(6562.8, v[0] - dv, units="km/s")
-
-    # Measure HALPHA amplitude-to-noise
-    # Store as "meas" to distinguish from A/N measurements for individual
-    # emission line components
-    A_HALPHA_mask = (lambda_vals_rest_R_A_cube > lambda_min_A) & (lambda_vals_rest_R_A_cube < lambda_max_A)
-    data_cube_masked_R = np.copy(data_cube_R)
-    data_cube_masked_R[~A_HALPHA_mask] = np.nan
-    A_HALPHA_map = np.nanmax(data_cube_masked_R, axis=0)
-    AN_HALPHA_map = (A_HALPHA_map - cont_HALPHA_map) / cont_HALPHA_map_std
-    
-    # Append to rows
-    rows_list.append(_2d_map_to_1d_list(AN_HALPHA_map)); colnames.append(f"HALPHA A/N (measured)")
+    # Compute the HALPHA amplitude-to-noise
+    if lambda_vals_R_rest_A[0] >= 6562.8 and lambda_vals_R_rest_A[-1] <= 6562.8:
+        v_map = hdulist_lzifu["V"].data  # Get velocity field from LZIFU fit
+        AN_HALPHA_map = compute_HALPHA_amplitude_to_noise(data_cube=data_cube_R, var_cube=var_cube_R, lambda_vals_rest_A=lambda_vals_R_rest_A, v_map=v_map[0], dv=300)
+        rows_list.append(_2d_map_to_1d_list(AN_HALPHA_map)); colnames.append(f"HALPHA A/N (measured)")
 
     ##########################################################
     # Add other stuff
-    # Pixel coordinates 
-    ...
+    rows_list.append([gal] * len(x_c_list)); colnames.append("ID")
+    rows_list.append(np.array(x_c_list).flatten()); colnames.append("x (pixels)")
+    rows_list.append(np.array(y_c_list).flatten()); colnames.append("y (pixels)")  
+    rows_list.append(np.array(x_c_list).flatten() * as_per_px); colnames.append("x (projected, arcsec)")
+    rows_list.append(np.array(y_c_list).flatten() * as_per_px); colnames.append("y (projected, arcsec)")
 
     ##########################################################
     # Transpose so that each row represents a single pixel & each column a measured quantity.
@@ -301,6 +256,8 @@ def make_lzifu_df(gals,
     """TODO: WRITE DOCSTRING"""
 
     # TODO: input checking
+    if not df_fname.endswith(".hd5"):
+        df_fname += ".hd5"
     # TODO store valid values in settings?
     if (type(ncomponents) not in [int, str]) or (type(ncomponents) == str and ncomponents != "merge"):
         raise ValueError("ncomponents must be either an integer or 'merge'!")
