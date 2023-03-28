@@ -104,6 +104,7 @@ def _process_lzifu(args):
     rows_list = []
     colnames = []
     eline_list = [q for q in quantities if q not in ["V", "VDISP", "CHI2", "DOF"]]
+    lzifu_ncomponents = hdulist_lzifu["V"].shape[0] - 1
 
     # Scrape the FITS file: emission line flues, velocity/velocity dispersion, fit quality
     for quantity in quantities:
@@ -191,28 +192,28 @@ def _process_lzifu(args):
     lambda_vals_B_rest_A = lambda_vals_B_A / (1 + z)
 
     # Compute the D4000Å break
-    if lambda_vals_B_rest_A[0] >= 3850 and lambda_vals_B_rest_A[-1] <= 4100:
+    if lambda_vals_B_rest_A[0] <= 3850 and lambda_vals_B_rest_A[-1] >= 4100:
         d4000_map, d4000_map_err = compute_d4000(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A)
         rows_list.append(_2d_map_to_1d_list(d4000_map));     colnames.append(f"D4000")
         rows_list.append(_2d_map_to_1d_list(d4000_map_err)); colnames.append(f"D4000 error")
 
     # Compute the continuum intensity so that we can compute the Halpha equivalent width.
     # Continuum wavelength range taken from here: https://ui.adsabs.harvard.edu/abs/2019MNRAS.485.4024V/abstract
-    if lambda_vals_R_rest_A[0] >= 6500 and lambda_vals_R_rest_A[-1] <= 6540:
+    if lambda_vals_R_rest_A[0] <= 6500 and lambda_vals_R_rest_A[-1] >= 6540:
         cont_HALPHA_map, cont_HALPHA_map_std, cont_HALPHA_map_err = compute_continuum_intensity(data_cube=data_cube_R, var_cube=var_cube_R, lambda_vals_rest_A=lambda_vals_R_rest_A, start_A=6500, stop_A=6540)
         rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map));     colnames.append(f"HALPHA continuum")
         rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_std)); colnames.append(f"HALPHA continuum std. dev.")
         rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_err)); colnames.append(f"HALPHA continuum error")
 
     # Compute the approximate B-band continuum
-    if lambda_vals_B_rest_A[0] >= 4000 and lambda_vals_B_rest_A[-1] <= 5000:
+    if lambda_vals_B_rest_A[0] <= 4000 and lambda_vals_B_rest_A[-1] >= 5000:
         cont_B_map, cont_B_map_std, cont_B_map_err = compute_continuum_intensity(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A, start_A=4000, stop_A=5000)
         rows_list.append(_2d_map_to_1d_list(cont_B_map));     colnames.append(f"B-band continuum")
         rows_list.append(_2d_map_to_1d_list(cont_B_map_std)); colnames.append(f"B-band continuum std. dev.")
         rows_list.append(_2d_map_to_1d_list(cont_B_map_err)); colnames.append(f"B-band continuum error")
 
     # Compute the HALPHA amplitude-to-noise
-    if lambda_vals_R_rest_A[0] >= 6562.8 and lambda_vals_R_rest_A[-1] <= 6562.8:
+    if lambda_vals_R_rest_A[0] <= 6562.8 and lambda_vals_R_rest_A[-1] >= 6562.8:
         v_map = hdulist_lzifu["V"].data  # Get velocity field from LZIFU fit
         AN_HALPHA_map = compute_HALPHA_amplitude_to_noise(data_cube=data_cube_R, var_cube=var_cube_R, lambda_vals_rest_A=lambda_vals_R_rest_A, v_map=v_map[0], dv=300)
         rows_list.append(_2d_map_to_1d_list(AN_HALPHA_map)); colnames.append(f"HALPHA A/N (measured)")
@@ -225,22 +226,34 @@ def _process_lzifu(args):
     rows_list.append(np.array(x_c_list).flatten() * as_per_px); colnames.append("x (projected, arcsec)")
     rows_list.append(np.array(y_c_list).flatten() * as_per_px); colnames.append("y (projected, arcsec)")
 
+    # Rename columns
+    oldcol_v = [f"V (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    oldcol_v_err = [f"V error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    oldcol_sigma = [f"VDISP (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    oldcol_sigma_err = [f"VDISP error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    newcol_v = [f"v_gas (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    newcol_v_err = [f"v_gas error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    newcol_sigma = [f"sigma_gas (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    newcol_sigma_err = [f"sigma_gas error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    v_dict = dict(zip(oldcol_v, newcol_v))
+    v_err_dict = dict(zip(oldcol_v_err, newcol_v_err))
+    sigma_dict = dict(zip(oldcol_sigma, newcol_sigma))
+    sigma_err_dict = dict(zip(oldcol_sigma_err, newcol_sigma_err))
+    rename_dict = {**v_dict, **v_err_dict, **sigma_dict, **sigma_err_dict} 
+    for cc in range(len(colnames)):
+        if colnames[cc] in rename_dict:
+            colnames[cc] = rename_dict[colnames[cc]]
+
     ##########################################################
     # Transpose so that each row represents a single pixel & each column a measured quantity.
     rows_arr = np.array(rows_list).T
-
-    # Get rid of rows that are all NaNs
-    bad_rows = np.all(np.isnan(rows_arr), axis=1)
-    rows_good = rows_arr[~bad_rows]
-
-    return rows_good, colnames, eline_list
+    return rows_arr, colnames, eline_list
 
 #/////////////////////////////////////////////////////////////////////////////////
 def make_lzifu_df(gals,
                   ncomponents,
                   df_fname,
                   sigma_inst_kms,
-                  data_cube_path=None,
                   bin_type="default",
                   eline_SNR_min=5,
                   sigma_gas_SNR_min=3,
@@ -261,7 +274,6 @@ def make_lzifu_df(gals,
     # TODO store valid values in settings?
     if (type(ncomponents) not in [int, str]) or (type(ncomponents) == str and ncomponents != "merge"):
         raise ValueError("ncomponents must be either an integer or 'merge'!")
-    lzifu_ncomponents = ncomponents if type(ncomponents) == int else 3
     if bin_type not in ["default", "voronoi"]:
         raise ValueError("bin_type must be 'default' or 'voronoi'!")
 
@@ -299,21 +311,24 @@ def make_lzifu_df(gals,
     eline_list = res_list[0][2] #TODO 
     df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)), columns=colnames)
 
-    # Rename columns
-    oldcol_v = [f"V (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    oldcol_v_err = [f"V error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    oldcol_sigma = [f"VDISP (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    oldcol_sigma_err = [f"VDISP error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    newcol_v = [f"v_gas (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    newcol_v_err = [f"v_gas error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    newcol_sigma = [f"sigma_gas (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    newcol_sigma_err = [f"sigma_gas error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    v_dict = dict(zip(oldcol_v, newcol_v))
-    v_err_dict = dict(zip(oldcol_v_err, newcol_v_err))
-    sigma_dict = dict(zip(oldcol_sigma, newcol_sigma))
-    sigma_err_dict = dict(zip(oldcol_sigma_err, newcol_sigma_err))
-    rename_dict = {**v_dict, **v_err_dict, **sigma_dict, **sigma_err_dict}
-    df_spaxels = df_spaxels.rename(columns=rename_dict)
+    # Cast to float data types 
+
+
+    # # Rename columns
+    # oldcol_v = [f"V (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    # oldcol_v_err = [f"V error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    # oldcol_sigma = [f"VDISP (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    # oldcol_sigma_err = [f"VDISP error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    # newcol_v = [f"v_gas (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    # newcol_v_err = [f"v_gas error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    # newcol_sigma = [f"sigma_gas (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    # newcol_sigma_err = [f"sigma_gas error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
+    # v_dict = dict(zip(oldcol_v, newcol_v))
+    # v_err_dict = dict(zip(oldcol_v_err, newcol_v_err))
+    # sigma_dict = dict(zip(oldcol_sigma, newcol_sigma))
+    # sigma_err_dict = dict(zip(oldcol_sigma_err, newcol_sigma_err))
+    # rename_dict = {**v_dict, **v_err_dict, **sigma_dict, **sigma_err_dict}
+    # df_spaxels = df_spaxels.rename(columns=rename_dict)
 
     Tracer()()
 
