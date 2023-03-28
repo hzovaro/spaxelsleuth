@@ -24,6 +24,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 
 from spaxelsleuth.plotting.plottools import get_vmin, get_vmax, get_cmap, get_label, plot_scale_bar, plot_compass
+from spaxelsleuth import settings
 
 
 ###############################################################################
@@ -185,6 +186,19 @@ def plot2dmap(df,
     df_gal = df[df["ID"] == gal]
 
     # Get the WCS
+
+    ###
+    if plot_wcs:
+        # Then need survey to be defined -OR- need these values to be provided as input arguments
+        if as_per_px is None:
+            as_per_px = settings[survey]["as_per_px"]
+    
+    else:
+        ... 
+
+
+    ###
+
     if survey == "sami":
         # Manually construct the WCS, since it's slow to read in the FITS file
         wcs = WCS(naxis=2)
@@ -208,48 +222,33 @@ def plot2dmap(df,
         wcs = WCS(hdulist[0].header).dropaxis(2)
         wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
 
-    # Get the continuum inage if desired
-    if col_z_contours.lower() == "continuum":
-        data_cube = hdulist[0].data
-        header = hdulist[0].header
-        crpix = header["CRPIX3"] if survey == "sami" else 0
-        lambda_0_A = header["CRVAL3"] - crpix * header["CDELT3"]
-        dlambda_A = header["CDELT3"]
-        N_lambda = header["NAXIS3"]
-
-        lambda_vals_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
-        start_idx = np.nanargmin(
-            np.abs(lambda_vals_A / (1 + df_gal["z"].unique()[0]) - 4000))
-        stop_idx = np.nanargmin(
-            np.abs(lambda_vals_A / (1 + df_gal["z"].unique()[0]) - 5500))
-        im_B = np.nansum(data_cube[start_idx:stop_idx], axis=0)
-        im_B[im_B == 0] = np.nan
-
-        hdulist.close()
-
     ###########################################################################
     # Reconstruct & plot the 2D map
     ###########################################################################
     # Reconstruct 2D arrays from the rows in the data frame.
-    if survey == "sami":
-        col_z_map = np.full((50, 50), np.nan)
-    elif survey == "s7":
-        col_z_map = np.full((38, 25), np.nan)
+    if "N_x" in settings[survey] and "N_y" in settings[survey]:
+        nx = settings[survey]["N_x"]
+        ny = settings[survey]["N_y"]
+    else:
+        nx = df_gal["x (pixels)"].max()
+        ny = df_gal["y (pixels)"].max()
+    col_z_map = np.full((ny, nx), np.nan)
 
-    if bin_type == "adaptive" or bin_type == "sectors":
-        hdulist = fits.open(
-            os.path.join(sami_data_path,
-                         f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
-        bin_map = hdulist[2].data.astype("float")
-        bin_map[bin_map == 0] = np.nan
-        for nn in df_gal["Bin number"]:
-            bin_mask = bin_map == nn
-            col_z_map[bin_mask] = df_gal.loc[df_gal["Bin number"] == nn, col_z]
-
+    # Bin type
+    if (bin_type == "adaptive" or bin_type == "sectors"):
+        if survey == "sami":
+            hdulist = fits.open(
+                os.path.join(sami_data_path,
+                            f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
+            bin_map = hdulist[2].data.astype("float")
+            bin_map[bin_map == 0] = np.nan
+            for nn in df_gal["Bin number"]:
+                bin_mask = bin_map == nn
+                col_z_map[bin_mask] = df_gal.loc[df_gal["Bin number"] == nn, col_z]
+        else:
+            raise ValueError("Bin types other than 'default' for surveys other than SAMI have not yet been implemented!")
+            #TODO perhaps make bin_map one of the input arguments
     elif bin_type == "default":
-        # pd.options.mode.chained_assignment = None
-        # df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
-        # pd.options.mode.chained_assignment = "warn"
         for rr in range(df_gal.shape[0]):
             xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
             col_z_map[yy, xx] = df_gal.iloc[rr][col_z]
