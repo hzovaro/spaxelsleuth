@@ -3,6 +3,7 @@ from path import Path
 
 from astropy.io import fits
 import multiprocessing
+import numbers
 import numpy as np
 import pandas as pd
 from scipy import constants
@@ -223,6 +224,7 @@ def _process_lzifu(args):
     rows_list.append([gal] * len(x_c_list)); colnames.append("ID")
     rows_list.append(np.array(x_c_list).flatten()); colnames.append("x (pixels)")
     rows_list.append(np.array(y_c_list).flatten()); colnames.append("y (pixels)")  
+    rows_list.append(np.array([(x, y) for x, y in zip(x_c_list, y_c_list)])); colnames.append("x, y (pixels)")  
     rows_list.append(np.array(x_c_list).flatten() * as_per_px); colnames.append("x (projected, arcsec)")
     rows_list.append(np.array(y_c_list).flatten() * as_per_px); colnames.append("y (projected, arcsec)")
 
@@ -312,25 +314,9 @@ def make_lzifu_df(gals,
     df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)), columns=colnames)
 
     # Cast to float data types 
-
-
-    # # Rename columns
-    # oldcol_v = [f"V (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    # oldcol_v_err = [f"V error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    # oldcol_sigma = [f"VDISP (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    # oldcol_sigma_err = [f"VDISP error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    # newcol_v = [f"v_gas (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    # newcol_v_err = [f"v_gas error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    # newcol_sigma = [f"sigma_gas (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    # newcol_sigma_err = [f"sigma_gas error (component {nn + 1})" for nn in range(lzifu_ncomponents)]
-    # v_dict = dict(zip(oldcol_v, newcol_v))
-    # v_err_dict = dict(zip(oldcol_v_err, newcol_v_err))
-    # sigma_dict = dict(zip(oldcol_sigma, newcol_sigma))
-    # sigma_err_dict = dict(zip(oldcol_sigma_err, newcol_sigma_err))
-    # rename_dict = {**v_dict, **v_err_dict, **sigma_dict, **sigma_err_dict}
-    # df_spaxels = df_spaxels.rename(columns=rename_dict)
-
-    Tracer()()
+    for col in df_spaxels.columns:
+        # Check if column values can be cast to float 
+        df_spaxels[col] = pd.to_numeric(df_spaxels[col], errors="coerce")
 
     ###############################################################################
     # Generic stuff: compute additional columns - extinction, metallicity, etc.
@@ -352,14 +338,10 @@ def make_lzifu_df(gals,
         nthreads_max=nthreads_max,
         debug=True) #TODO fix debug 
 
-
     ###############################################################################
-    # TODO: Save
+    # Save to file
     ###############################################################################
     print(f"{status_str}: Saving to file...")
-    try:
-        df_spaxels.to_hdf(os.path.join(output_path, df_fname), key=f"{bin_type}, {ncomponents}-comp")
-    except:
-        print(f"{status_str}: ERROR: Unable to save to HDF file! Saving to .csv instead")
-        df_spaxels.to_csv(os.path.join(output_path, df_fname.split("hd5")[0] + "csv"))
+    df_spaxels.to_hdf(os.path.join(output_path, df_fname), key=f"{bin_type}, {ncomponents}-comp")
+    
     return
