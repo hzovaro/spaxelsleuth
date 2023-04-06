@@ -23,9 +23,6 @@ from itertools import product
 import numpy as np
 from scipy import constants
 
-# TODO: import this from a config file - actually, probably from the Survey DataClass or enum...
-NCOMPONENTS_MAX = 3
-
 # TODO: figure out how to tidy up this import
 from spaxelsleuth.utils import dqcut, linefns, metallicity, extcorr
 
