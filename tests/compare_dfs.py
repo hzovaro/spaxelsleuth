@@ -15,7 +15,8 @@ if __name__ == "__main__":
     # Check that shapes are the same 
     assert df_old.shape == df_new.shape
 
-    # Check that there are no columns or rows that are different 
+    # Check that there are no columns or rows that are different
+    # NOTE: bin_type, survey etc. columns will NOT be in df_new because these get added at runtime
     assert len([c for c in df_old if c not in df_new]) == 0
     assert len([c for c in df_new if c not in df_old]) == 0
     assert all(df_old.index == df_new.index)
