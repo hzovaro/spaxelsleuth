@@ -20,7 +20,13 @@ def load_user_config(p):
             print(f"{key}:")
             for subkey in user_settings[key]:
                 print(f"\t{subkey}:")
-                old_setting = settings[key][subkey]
                 new_setting = user_settings[key][subkey]
-                print(f"\t\t{old_setting} --> {new_setting}")
+                if subkey in settings[key]:
+                    old_setting = settings[key][subkey]
+                    print(f"\t\t{old_setting} --> {new_setting}")
+                else:
+                    print(f"\t\tAdding new setting {new_setting}")
                 settings[key][subkey] = new_setting
+        else:
+            print(f"Adding new key {key}: {user_settings[key]}")
+            settings[key] = user_settings[key]
