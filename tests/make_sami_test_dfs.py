@@ -1,4 +1,3 @@
-
 if __name__ == "__main__":
     from itertools import product
     import sys
@@ -15,12 +14,18 @@ if __name__ == "__main__":
     ###########################################################################
     # Create the DataFrames
     ###########################################################################
-    # Make test data 
-    for ncomponents, bin_type, correct_extinction in product(["recom", "1"], ["default", "adaptive", "sectors"], [True, False]):
+    # Make test data
+    for ncomponents, bin_type, correct_extinction in product(
+        ["recom", "1"], ["default", "adaptive", "sectors"], [True, False]):
         try:
-            make_sami_df(ncomponents=ncomponents, bin_type=bin_type, eline_SNR_min=5, correct_extinction=correct_extinction, debug=True)
+            make_sami_df(ncomponents=ncomponents,
+                         bin_type=bin_type,
+                         eline_SNR_min=5,
+                         correct_extinction=correct_extinction,
+                         debug=True)
         except:
-            print(f"ERROR: failed to make DataFrame with ncomponents={ncomponents}, bin_type={bin_type}, correct_extinction={correct_extinction}")
+            print(
+                f"ERROR: failed to make DataFrame with ncomponents={ncomponents}, bin_type={bin_type}, correct_extinction={correct_extinction}"
+            )
             sys.exit(1)
     sys.exit(0)
-    
