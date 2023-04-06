@@ -1,6 +1,8 @@
 {
     "sami": {
         "as_per_px": 0.5,
+        "N_x": 50,
+        "N_y": 50,
         "x0_px": 25.5,
         "y0_px": 25.5,
         "sigma_inst_kms": 29.6,
@@ -26,6 +28,10 @@
     },
     "s7": {
         "as_per_px": 1.0,
+        "N_x": 25,
+        "N_y": 38,
+        "x0_px": 12.5,
+        "y0_px": 19,
         "data_cube_path": "s7/input/",
         "input_path": "s7/input",
         "output_path": "s7/output"
