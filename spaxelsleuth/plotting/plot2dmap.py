@@ -20,20 +20,27 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
+from astropy import units as u
 from astropy.io import fits
+from matplotlib.transforms import Affine2D
+from astropy.visualization.wcsaxes import WCSAxes
 from astropy.wcs import WCS
 
 from spaxelsleuth.plotting.plottools import get_vmin, get_vmax, get_cmap, get_label, plot_scale_bar, plot_compass
-from spaxelsleuth import settings
+from spaxelsleuth.config import settings
 
+from IPython.core.debugger import Tracer
 
 ###############################################################################
 def plot2dmap(df,
               gal,
               col_z,
-              bin_type,
-              survey,
+              bin_type=None,
+              survey=None,
               PA_deg=0,
+              as_per_px=None,
+              plot_ra_dec=False,
+              ra_deg=None, dec_deg=None,
               show_title=True,
               axis_labels=True,
               vmin=None,
@@ -152,93 +159,90 @@ def plot2dmap(df,
     ###########################################################################
     if col_z not in df.columns:
         raise ValueError(f"{col_z} is not a valid column!")
+    
     if df[col_z].dtype == "O":
-        raise ValueError(
-            f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' format of this column instead!"
-        )
+        if f"{col_z} (numeric)" in df:
+            col_z = f"{col_z} (numeric)"
+            print("")
+        else:
+            raise ValueError(
+                f"{col_z} has an object data type and no numeric counterpart exists in df!"
+            )
+    
     if cax_orientation not in ["horizontal", "vertical"]:
         raise ValueError(
             "cax_orientation must be either 'horizontal' or 'vertical'!")
 
-    # TODO use an enum or something for this instead
-    survey = survey.lower()
-    assert survey in ["sami", "s7"],\
-        "survey must be either SAMI or S7!"
-    if survey == "sami":
-        assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
-        sami_data_path = os.environ["SAMI_DIR"]
-        assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
-        sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
-        assert bin_type in ["adaptive", "default", "sectors"],\
-        "bin_type must be either 'adaptive' or 'default' or 'sectors'!"
-        as_per_px = 0.5
-    elif survey == "s7":
-        assert "S7_DIR" in os.environ, "Environment variable S7_DIR is not defined!"
-        s7_data_path = os.environ["S7_DIR"]
-        assert bin_type == "default",\
-        "if survey is S7 then bin_type must be 'default'!"
-        as_per_px = 1.0
+    # Validate: survey
+    if "survey" in df:
+        if survey is not None:
+            print(f"WARNING: defaulting to 'survey' found in df rather than supplied value of '{survey}'")
+        if len(df["survey"].unique()) > 1:
+                raise ValueError(f"There appear to be multiple 'survey' values in df!")
+        survey = df["survey"].unique()[0]
+    elif survey is not None:
+        survey = survey.lower()
+        if survey not in settings:
+            raise ValueError(f"survey '{survey}' was not found in settings!")
+    else:
+        raise ValueError("'survey' must be specified if it does not exist in 'df'!")
+    
+    # Validate: bin_type
+    if "bin_type" in df:
+        if bin_type is not None:
+            print(f"WARNING: defaulting to 'bin_type' found in df rather than supplied value of '{bin_type}'")
+        if len(df["bin_type"].unique()) > 1:
+            raise ValueError(f"There appear to be multiple 'bin_type' values in df!")
+        bin_type = df["bin_type"].unique()[0]
+    elif bin_type is not None:
+        bin_type = bin_type.lower()
+        if "bin_types" in settings[survey]:
+            if bin_type not in settings[survey]["bin_types"]:
+                raise ValueError(f"bin_type '{bin_type}' is not valid for survey '{survey}'!")
+        else:
+            if bin_type is not "default":
+                raise ValueError("bin_type must be 'default' for survey '{survey}'!")
+    else:
+        raise ValueError("'bin_type' must be specified if it does not exist in 'df'!")
 
-    ###########################################################################
-    # Load the data cube to get the WCS and continuum image, if necessary
-    ###########################################################################
     # Extract the subset of the DataFrame belonging to this galaxy
     df_gal = df[df["ID"] == gal]
 
-    # Get the WCS
-
-    ###
-    if plot_wcs:
-        # Then need survey to be defined -OR- need these values to be provided as input arguments
-        if as_per_px is None:
-            as_per_px = settings[survey]["as_per_px"]
-    
-    else:
-        ... 
-
-
-    ###
-
-    if survey == "sami":
-        # Manually construct the WCS, since it's slow to read in the FITS file
-        wcs = WCS(naxis=2)
-        wcs.wcs.crpix = [25.5, 25.5]
-        if np.isnan(df_gal["RA (IFU) (J2000)"].values[0]) or np.isnan(
-                df_gal["Dec (IFU) (J2000)"].values[0]):
-            wcs.wcs.crval = [
-                df_gal["RA (J2000)"].values[0], df_gal["Dec (J2000)"].values[0]
-            ]
-        else:
-            wcs.wcs.crval = [
-                df_gal["RA (IFU) (J2000)"].values[0],
-                df_gal["Dec (IFU) (J2000)"].values[0]
-            ]
-        wcs.wcs.cdelt = [-0.5 / 3600, 0.5 / 3600]
-        wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
-    if survey == "s7":
-        # Get the WCS from the FITS file since some observations have different PAs
-        hdulist = fits.open(os.path.join(s7_data_path,
-                                         f"0_Cubes/{gal}_B.fits"))
-        wcs = WCS(hdulist[0].header).dropaxis(2)
-        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-
     ###########################################################################
-    # Reconstruct & plot the 2D map
+    # Get geometry
     ###########################################################################
-    # Reconstruct 2D arrays from the rows in the data frame.
+    as_per_px = settings[survey]["as_per_px"] if as_per_px is None else as_per_px
+
+    # Get size of image
     if "N_x" in settings[survey] and "N_y" in settings[survey]:
         nx = settings[survey]["N_x"]
         ny = settings[survey]["N_y"]
     else:
         nx = df_gal["x (pixels)"].max()
         ny = df_gal["y (pixels)"].max()
+
+    # Get centre coordinates of image 
+    if "x0_px" in settings[survey] and "y0_px" in settings[survey]:
+        x0_px = settings[survey]["x0_px"]
+        y0_px = settings[survey]["y0_px"]
+    else:
+        x0_px = nx / 2.
+        y0_px = ny / 2.
+
+    ###########################################################################
+    # Reconstruct 2D arrays from the rows in the data frame.
+    ###########################################################################
     col_z_map = np.full((ny, nx), np.nan)
 
     # Bin type
-    if (bin_type == "adaptive" or bin_type == "sectors"):
+    if bin_type == "default":
+        for rr in range(df_gal.shape[0]):
+            xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
+            col_z_map[yy, xx] = df_gal.iloc[rr][col_z]
+    elif (bin_type == "adaptive" or bin_type == "sectors"):
         if survey == "sami":
             hdulist = fits.open(
-                os.path.join(sami_data_path,
+                os.path.join(settings["sami"]["input_path"],
                             f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
             bin_map = hdulist[2].data.astype("float")
             bin_map[bin_map == 0] = np.nan
@@ -247,23 +251,62 @@ def plot2dmap(df,
                 col_z_map[bin_mask] = df_gal.loc[df_gal["Bin number"] == nn, col_z]
         else:
             raise ValueError("Bin types other than 'default' for surveys other than SAMI have not yet been implemented!")
-            #TODO perhaps make bin_map one of the input arguments
-    elif bin_type == "default":
-        for rr in range(df_gal.shape[0]):
-            xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
-            col_z_map[yy, xx] = df_gal.iloc[rr][col_z]
+            #TODO perhaps make bin_map one of the input arguments?
 
+    ###########################################################################
+    # Create the WCS for the axes
+    ###########################################################################
+    if plot_ra_dec:
+        # Get the RA and Dec of the target
+        if ra_deg is None and dec_deg is None and "RA (J2000)" in df_gal and "Dec (J2000)" in df:
+            ra_deg = df_gal["RA (J2000)"].values[0]
+            dec_deg = df_gal["Dec (J2000)"].values[0]
+        else:
+            raise ValueError("If plot_ra_dec is True, ra_deg and dec_deg must be specified if 'RA (J2000)' or 'Dec (J2000)' are not in df!")
+        # Construct the WCS
+        wcs = WCS(naxis=2)
+        wcs.wcs.crval = [ra_deg, dec_deg]
+        wcs.wcs.crpix = [x0_px, y0_px]
+        wcs.wcs.cdelt = [-as_per_px / 3600, as_per_px / 3600]
+        wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
+        
+    else:
+        # This code from https://docs.astropy.org/en/stable/visualization/wcsaxes/generic_transforms.html  
+        # Set up an affine transformation
+        transform = Affine2D()
+        transform.scale(as_per_px)
+        transform.translate(- x0_px * as_per_px, - y0_px * as_per_px)
+
+        # Set up metadata dictionary
+        coord_meta = {}
+        coord_meta["name"] = "x", "y"
+        coord_meta["type"] = "scalar", "scalar"
+        coord_meta["wrap"] = None, None
+        coord_meta["unit"] = u.arcsec, u.arcsec
+        coord_meta["format_unit"] = u.arcsec, u.arcsec
+
+    ###########################################################################
+    # Plot
+    ###########################################################################
     # If no axis is specified then create a new one with a vertical colorbar.
     if ax is None:
         # fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize, subplot_kw={"projection": wcs})
         fig = plt.figure(figsize=figsize)
-        ax = fig.add_axes([0.1, 0.1, 0.6, 0.8], projection=wcs)
+        if plot_ra_dec:
+            ax = fig.add_axes([0.1, 0.1, 0.6, 0.8], projection=wcs)
+        else:
+            ax = WCSAxes(fig, [0.1, 0.1, 0.8, 0.8], aspect="equal", transform=transform, coord_meta=coord_meta)
+            fig.add_axes(ax)
     else:
         # Sneaky... replace the provided axis with one that has the correct projection
         fig = ax.get_figure()
         bbox = ax.get_position()
         ax.remove()
-        ax = fig.add_axes(bbox, projection=wcs)
+        if plot_ra_dec:
+            ax = fig.add_axes(bbox, projection=wcs)
+        else:
+            ax = WCSAxes(fig, bbox, aspect="equal", transform=transform, coord_meta=coord_meta)
+            fig.add_axes(ax)
 
     # Minimum data range
     if vmin is None:
@@ -295,53 +338,38 @@ def plot2dmap(df,
     # Contours
     ###########################################################################
     if contours:
-        if col_z_contours.lower() == "continuum":
-            if survey == "sami":
-                ax.contour(im_B,
-                           linewidths=linewidths,
-                           colors=colors,
-                           levels=10 if levels is None else levels)
-            elif survey == "s7":
-                ax.contour(np.log10(im_B) + 15,
-                           linewidths=linewidths,
-                           colors=colors,
-                           levels=10 if levels is None else levels)
-        else:
-            assert col_z_contours in df_gal.columns, f"{col_z_contours} not found in df_gal!"
-            # Reconstruct 2D arrays from the rows in the data frame.
-            if survey == "sami":
-                col_z_contour_map = np.full((50, 50), np.nan)
-            elif survey == "s7":
-                col_z_contour_map = np.full((38, 25), np.nan)
-            if bin_type == "adaptive" or bin_type == "sectors":
-                hdulist = fits.open(
-                    os.path.join(sami_data_path,
-                                 f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
-                bin_map = hdulist[2].data.astype("float")
-                bin_map[bin_map == 0] = np.nan
-                for nn in df_gal["Bin number"]:
-                    bin_mask = bin_map == nn
-                    col_z_contour_map[bin_mask] = df_gal.loc[
-                        df_gal["Bin number"] == nn, col_z_contours]
+        if col_z_contours not in df_gal:
+            raise ValueError(f"{col_z_contours} not found in df_gal!")
+        
+        # Create empty array to store contour values
+        col_z_contour_map = np.full((ny, nx), np.nan)        
+        if survey == "sami" and (bin_type == "adaptive" or bin_type == "sectors"):
+            hdulist = fits.open(
+                os.path.join(settings["sami"]["input_path"],
+                                f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
+            bin_map = hdulist[2].data.astype("float")
+            bin_map[bin_map == 0] = np.nan
+            for nn in df_gal["Bin number"]:
+                bin_mask = bin_map == nn
+                col_z_contour_map[bin_mask] = df_gal.loc[
+                    df_gal["Bin number"] == nn, col_z_contours]
+        elif bin_type == "default":
+            for rr in range(df_gal.shape[0]):
+                xx, yy = [
+                    int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]
+                ]
+                col_z_contour_map[yy, xx] = df_gal.iloc[rr][col_z_contours]
 
-            elif bin_type == "default":
-                # df_gal["x, y (pixels)"] = list(zip(df_gal["x (projected, arcsec)"] / as_per_px, df_gal["y (projected, arcsec)"] / as_per_px))
-                for rr in range(df_gal.shape[0]):
-                    xx, yy = [
-                        int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]
-                    ]
-                    col_z_contour_map[yy, xx] = df_gal.iloc[rr][col_z_contours]
-
-            # Draw contours
-            ax.contour(col_z_contour_map,
-                       linewidths=linewidths,
-                       colors=colors,
-                       levels=10 if levels is None else levels)
+        # Draw contours
+        ax.contour(col_z_contour_map,
+                    linewidths=linewidths,
+                    colors=colors,
+                    levels=10 if levels is None else levels)
 
     ###########################################################################
     # Colourbar
     ###########################################################################
-    # If the user wants to plot a colorbar but the colorbar axis is not specified,
+    # If plot_colorbar is True but the colorbar axis is not specified,
     # then create a new one.
     if plot_colorbar and cax is None:
         bbox = ax.get_position()
@@ -393,7 +421,7 @@ def plot2dmap(df,
         ax.set_title(f"{gal}") if survey == "sami" else ax.set_title(gal)
 
     # Axis labels
-    if axis_labels:
+    if axis_labels and plot_ra_dec:
         ax.set_ylabel("Dec (J2000)")
         ax.set_xlabel("RA (J2000)")
 
