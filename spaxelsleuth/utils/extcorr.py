@@ -56,7 +56,30 @@ eline_lambdas_A = {
             "SII6716" : 6716.440, 
             "SII6731" : 6730.810,
             "SIII9069": 9068.600,
-            "SIII9531": 9531.100
+            "SIII9531": 9531.100,
+            # Xtra lines - values from LZIFU linelist (not sure if consistent with wavelengths above)
+            "FEVII3586": 3586.32,
+            "HETA": 3835.39,
+            "HZETA": 3889.06,
+            "NEIII3967": 3967.41,
+            "SII4069": 4068.60,
+            "SII4076": 4076.35,
+            "HEI4472": 4471.50,
+            "HEII4686": 4685.74,
+            "ARIV4711": 4711.26,
+            "ARIV4740": 4740.12,
+            "FEVII4893": 4893.37,
+            "NI5198": 5197.90,
+            "NI5200": 5200.26,
+            "FEII5273": 5273.36,
+            "FEXIV5303": 5302.86,
+            "ARX5534": 5534.01,
+            "FEVII5721": 5720.71,
+            "NII5755": 5754.59,
+            "FEVII6087": 6086.97,
+            "FEX6375": 6374.53,
+            "HEI6678": 6678.14,
+            "ARV6435": 6435.12,
 }
 
 ################################################################################
@@ -84,6 +107,7 @@ def extcorr_helper_fn(args):
 def compute_A_V(df, 
                 reddening_curve="fm07", R_V=3.1, 
                 balmer_SNR_min=5,
+                balmer_decrement_intrinsic=2.86,
                 s=None):
     """
     Compute extinction in the V-band (A_V) using the Balmer decrement.
@@ -105,6 +129,9 @@ def compute_A_V(df,
     balmer_SNR_min:     float
         Minimum SNR of the HALPHA and HBETA fluxes to accept in order to compute 
         A_V.
+
+    balmer_decrement_intrinsic:   float
+        Intrinsic Ha/Hb ratio to assume. 
 
 
     RETURNS
@@ -144,7 +171,7 @@ def compute_A_V(df,
         #//////////////////////////////////////////////////////////////////////////
         # Compute E(B-V)
         df[f"Balmer decrement"] = df[f"HALPHA"] / df[f"HBETA"]
-        E_ba = 2.5 * (np.log10(df[f"Balmer decrement"])) - 2.5 * np.log10(2.86)
+        E_ba = 2.5 * (np.log10(df[f"Balmer decrement"])) - 2.5 * np.log10(balmer_decrement_intrinsic)
             
         # Calculate ( A(Ha) - A(Hb) ) / E(B-V) from extinction curve
         wave_1_A = np.array([eline_lambdas_A["HALPHA"]])
