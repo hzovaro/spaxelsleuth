@@ -289,7 +289,6 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     df_flags = pd.read_csv(os.path.join(data_path, flag_metadata_fname)).drop(["Unnamed: 0"], axis=1)
     df_flags = df_flags.astype({col: "int64" for col in df_flags.columns if col.startswith("warn")})
     df_flags = df_flags.astype({"isbest": bool})
-    Tracer()()
 
     # Get rid of rows failing the following data quality criteria
     cond = df_flags["isbest"] == True
@@ -299,9 +298,9 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     cond &= df_flags["warnfcbr"] == 0  # flux calibration issues
     cond &= df_flags["warnskyb"] == 0  # bad sky subtraction residuals
     cond &= df_flags["warnskyr"] == 0  # bad sky subtraction residuals
-    cond &= df_flags["warnre"] == 0  # significant difference between standard & MGE Re. NOTE: there are actually no entries in this DataFrame with WARNRE = 1!
+    cond &= df_flags["warnre"] == 0  # significant difference between standard & MGE Re
     df_flags_cut = df_flags[cond]
-    
+
     for gal in df_flags_cut["catid"]:
         if df_flags_cut[df_flags_cut["catid"] == gal].shape[0] > 1:
             # If there are two "best" observations, drop the second one.
@@ -416,7 +415,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
         "r_e": "R_e (arcsec)",
         "ellip": "e",
         "r_on_rtwo": "r/R_200",
-        "z_spec": "z (spectroscopic)",
+        "z_spec": "z",
         "z_tonry": "z (flow-corrected)",
         "photometry": "MGE photometry",
         "remge": "R_e (MGE) (arcsec)",
@@ -428,18 +427,6 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     df_metadata = df_metadata.rename(columns=rename_dict)
     df_metadata = df_metadata.drop(columns=cols_to_remove)
 
-    ###########################################################################
-    # Assign redshifts based on cluster membership.
-    # For all galaxies, column "z" will contain the Tonry redshift for
-    # non-cluster members and the cluster redshift for cluster members.
-    ###########################################################################
-    cond_has_no_Tonry_z = df_metadata["z (flow-corrected)"].isna()
-    df_metadata.loc[cond_has_no_Tonry_z, "z"] = df_metadata.loc[cond_has_no_Tonry_z, "z (spectroscopic)"]
-    df_metadata.loc[~cond_has_no_Tonry_z, "z"] = df_metadata.loc[~cond_has_no_Tonry_z, "z (flow-corrected)"]
-    
-    # Check that NO cluster members have flow-corrected redshifts
-    assert not any((df_metadata["Cluster member"] == 1.0) & ~df_metadata["z (flow-corrected)"].isna())
-    
     ###########################################################################
     # Add angular scale info
     ###########################################################################
