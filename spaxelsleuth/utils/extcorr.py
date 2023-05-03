@@ -36,7 +36,7 @@ eline_lambdas_A = {
             "OII3726" : 3726.032,
             "OII3729" : 3728.815,
             "OII3726+OII3729": 3726.032,  # For the doublet, assume the blue wavelength 
-            "NEIII3869" : 3869.060,
+            "NeIII3869" : 3869.060,
             "HeI3889" : 3889.0,
             "HEPSILON" : 3970.072,
             "HDELTA" : 4101.734, 
@@ -46,7 +46,7 @@ eline_lambdas_A = {
             "HBETA" : 4861.325, 
             "OIII4959" : 4958.911, 
             "OIII5007" : 5006.843, 
-            "HEI5876" : 5875.624, 
+            "HeI5876" : 5875.624, 
             "OI6300" : 6300.304, 
             "SIII6312" : 6312.060,
             "OI6364" : 6363.776,
@@ -58,28 +58,28 @@ eline_lambdas_A = {
             "SIII9069": 9068.600,
             "SIII9531": 9531.100,
             # Xtra lines - values from LZIFU linelist (not sure if consistent with wavelengths above)
-            "FEVII3586": 3586.32,
+            "FeVII3586": 3586.32,
             "HETA": 3835.39,
             "HZETA": 3889.06,
-            "NEIII3967": 3967.41,
+            "NeIII3967": 3967.41,
             "SII4069": 4068.60,
             "SII4076": 4076.35,
-            "HEI4472": 4471.50,
-            "HEII4686": 4685.74,
-            "ARIV4711": 4711.26,
-            "ARIV4740": 4740.12,
-            "FEVII4893": 4893.37,
+            "HeI4472": 4471.50,
+            "HeII4686": 4685.74,
+            "ArIV4711": 4711.26,
+            "ArIV4740": 4740.12,
+            "FeVII4893": 4893.37,
             "NI5198": 5197.90,
             "NI5200": 5200.26,
-            "FEII5273": 5273.36,
-            "FEXIV5303": 5302.86,
-            "ARX5534": 5534.01,
-            "FEVII5721": 5720.71,
+            "FeII5273": 5273.36,
+            "FeXIV5303": 5302.86,
+            "ArX5534": 5534.01,
+            "FeVII5721": 5720.71,
             "NII5755": 5754.59,
-            "FEVII6087": 6086.97,
-            "FEX6375": 6374.53,
-            "HEI6678": 6678.14,
-            "ARV6435": 6435.12,
+            "FeVII6087": 6086.97,
+            "FeX6375": 6374.53,
+            "HeI6678": 6678.14,
+            "ArV6435": 6435.12,
 }
 
 ################################################################################
@@ -159,12 +159,14 @@ def compute_A_V(df,
                 print(f"In extcorr.extinction_corr_fn(): WARNING: R_V is fixed at 3.1 in the FM07 reddening curve. Ignoring supplied R_V value of {R_V:.2f}...")
         elif reddening_curve.lower() == "ccm89":
             ext_fn = extinction.ccm89
+        elif reddening_curve.lower() == "fitzpatrick99":
+            ext_fn = extinction.fitzpatrick99
         elif reddening_curve.lower() == "calzetti00":
             ext_fn = extinction.calzetti00
             if R_V != 4.05:
                 print(f"In extcorr.extinction_corr_fn(): WARNING: R_V should be set to 4.05 for the calzetti00 reddening curve. Using supplied R_V value of {R_V:.2f}...")
         else:  
-            raise ValueError("For now, 'reddening_curve' must be one of 'fm07', 'ccm89' or 'calzetti00'!")
+            raise ValueError("For now, 'reddening_curve' must be one of 'fm07', 'fitzpatrick99', 'ccm89' or 'calzetti00'!")
 
         #//////////////////////////////////////////////////////////////////////////
         # Compute A_V in each spaxel
@@ -279,8 +281,10 @@ def apply_extinction_correction(df, eline_list, a_v_col_name,
         ext_fn = extinction.ccm89
     elif reddening_curve.lower() == "calzetti00":
         ext_fn = extinction.calzetti00
+    elif reddening_curve.lower() == "fitzpatrick99":
+        ext_fn = extinction.fitzpatrick99
     else:  
-        raise ValueError("For now, 'reddening_curve' must be one of 'fm07', 'ccm89' or 'calzetti00'!")
+        raise ValueError("For now, 'reddening_curve' must be one of 'fm07', 'fitzpatrick99', 'ccm89' or 'calzetti00'!")
 
     #//////////////////////////////////////////////////////////////////////////
     # Correct emission line fluxes in cells where A_V > 0
