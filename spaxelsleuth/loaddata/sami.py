@@ -298,9 +298,9 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     cond &= df_flags["warnfcbr"] == 0  # flux calibration issues
     cond &= df_flags["warnskyb"] == 0  # bad sky subtraction residuals
     cond &= df_flags["warnskyr"] == 0  # bad sky subtraction residuals
-    cond &= df_flags["warnre"] == 0  # significant difference between standard & MGE Re
+    cond &= df_flags["warnre"] == 0  # significant difference between standard & MGE Re. NOTE: there are actually no entries in this DataFrame with WARNRE = 1!
     df_flags_cut = df_flags[cond]
-
+    
     for gal in df_flags_cut["catid"]:
         if df_flags_cut[df_flags_cut["catid"] == gal].shape[0] > 1:
             # If there are two "best" observations, drop the second one.
@@ -415,7 +415,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
         "r_e": "R_e (arcsec)",
         "ellip": "e",
         "r_on_rtwo": "r/R_200",
-        "z_spec": "z",
+        "z_spec": "z (spectroscopic)",
         "z_tonry": "z (flow-corrected)",
         "photometry": "MGE photometry",
         "remge": "R_e (MGE) (arcsec)",
@@ -427,6 +427,18 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     df_metadata = df_metadata.rename(columns=rename_dict)
     df_metadata = df_metadata.drop(columns=cols_to_remove)
 
+    ###########################################################################
+    # Assign redshifts based on cluster membership.
+    # For all galaxies, column "z" will contain the Tonry redshift for
+    # non-cluster members and the cluster redshift for cluster members.
+    ###########################################################################
+    cond_has_no_Tonry_z = df_metadata["z (flow-corrected)"].isna()
+    df_metadata.loc[cond_has_no_Tonry_z, "z"] = df_metadata.loc[cond_has_no_Tonry_z, "z (spectroscopic)"]
+    df_metadata.loc[~cond_has_no_Tonry_z, "z"] = df_metadata.loc[~cond_has_no_Tonry_z, "z (flow-corrected)"]
+    
+    # Check that NO cluster members have flow-corrected redshifts
+    assert not any((df_metadata["Cluster member"] == 1.0) & ~df_metadata["z (flow-corrected)"].isna())
+    
     ###########################################################################
     # Add angular scale info
     ###########################################################################
@@ -565,7 +577,7 @@ def _process_gals(args):
         dlambda_A = header_R["CDELT3"]
         N_lambda = header_R["NAXIS3"]
         lambda_vals_B_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
-        lambda_vals_B_rest_A = lambda_vals_B_A / (1 + df_metadata.loc[gal, "z"])
+        lambda_vals_B_rest_A = lambda_vals_B_A / (1 + df_metadata.loc[gal, "z (spectroscopic)"]) #NOTE: we use the spectroscopic redshift here, because when it comes to measuring e.g. continuum levels, it's important that the wavelength range we use is consistent between galaxies. For some galaxies the flow-corrected redshift is sufficiently different from the spectroscopic redshift that when we use it to define wavelength windows for computing the continuum level for instance we end up enclosing an emission line which throws the measurement way out of whack (e.g. for 572402)
 
     with fits.open(os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz")) as hdulist_R_cube:
         header_R = hdulist_R_cube[0].header
@@ -577,7 +589,7 @@ def _process_gals(args):
         dlambda_A = header_R["CDELT3"]
         N_lambda = header_R["NAXIS3"]
         lambda_vals_R_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
-        lambda_vals_R_rest_A = lambda_vals_R_A / (1 + df_metadata.loc[gal, "z"])
+        lambda_vals_R_rest_A = lambda_vals_R_A / (1 + df_metadata.loc[gal, "z (spectroscopic)"]) #NOTE: we use the spectroscopic redshift here, because when it comes to measuring e.g. continuum levels, it's important that the wavelength range we use is consistent between galaxies. For some galaxies the flow-corrected redshift is sufficiently different from the spectroscopic redshift that when we use it to define wavelength windows for computing the continuum level for instance we end up enclosing an emission line which throws the measurement way out of whack (e.g. for 572402)
 
     #######################################################################
     # Compute the d4000 Angstrom break.
