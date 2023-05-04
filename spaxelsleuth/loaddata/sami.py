@@ -684,7 +684,7 @@ def _process_gals(args):
         x_c_list,
         y_c_list,
         settings["sami"]["x0_px"],
-        settings["sami"]["x0_px"],
+        settings["sami"]["y0_px"],
         PA_deg,
         i_deg,
     )
