@@ -1,4 +1,36 @@
 ###############################################################################
+# Imports
+import datetime
+import os
+import pandas as pd
+import numpy as np
+from itertools import product
+from scipy import constants
+from astropy.cosmology import FlatLambdaCDM
+from astropy.io import fits
+from tqdm import tqdm
+import multiprocessing
+
+from spaxelsleuth.config import settings
+from spaxelsleuth.utils import dqcut, linefns, metallicity, extcorr
+from .generic import add_columns, compute_d4000, compute_continuum_intensity, compute_HALPHA_amplitude_to_noise, compute_v_grad, deproject_coordinates
+
+import matplotlib.pyplot as plt
+plt.ion()
+plt.close("all")
+
+from IPython.core.debugger import Tracer
+
+import warnings
+warnings.filterwarnings(action="ignore", message="Mean of empty slice")
+warnings.filterwarnings(action="ignore", message="invalid value encountered in sqrt")
+
+###############################################################################
+# Paths
+input_path = settings["sami"]["input_path"]
+output_path = settings["sami"]["output_path"]
+
+###############################################################################
 def make_sami_aperture_df(eline_SNR_min,
                           line_flux_SNR_cut=True,
                           missing_fluxes_cut=True,
