@@ -28,15 +28,12 @@ ncomponents_colours = np.vstack((c1, c2, c3, c4))
 def trim_suffix(col: str) -> Tuple[str]:
     """Trim the suffix from col & return the trimmed column name and suffix separately."""
     suffix = ""
-    for s in [
-            " (1.4 arcsecond)", " (2 arcsecond)", " (3 arcsecond)",
-            " (4 arcsecond)", " (R_e)", " (R_e (MGE))", " (3kpc round)",
-            " (total)", " (component"
-    ]:
+    for s in config.settings["plotting"]["suffixes"]:
         if s in col:
             col_s = col.split(s)[0]
             suffix = col.split(col_s)[1]
             col = col_s
+            break
 
     # If col is a metallicity or ionisation parameter then it will also contain a substring specifying the diagnostic used. Trim these as well.
     diags = ""
@@ -184,21 +181,6 @@ def get_label(col: str) -> str:
     if col in plot_settings:
         # Get the filename
         label = plot_settings[col]["label"]
-        # Add label for suffix, if it exists
-        if len(suffix) > 0:
-            suffix_label_dict = {
-                " (1.4 arcsecond)": " (1.4\")",
-                " (2 arcsecond)": " (2\")",
-                " (3 arcsecond)": " (3\")",
-                " (4 arcsecond)": " (4\")",
-                " (R_e)": r" ($R_e$)",
-                " (R_e (MGE))": r" ($R_e$ (MGE))",
-            }
-            if suffix in suffix_label_dict:
-                label_suffix = suffix_label_dict[suffix]
-            else:
-                label_suffix = suffix
-            label += label_suffix
     else:
         label = col
         # At least try to beautify some strings
@@ -209,8 +191,17 @@ def get_label(col: str) -> str:
                               r"$\Delta$")  # always assume upper case delta
         label = label.replace("R_e", r"$R_e$")
         label = label.replace("log ", r"$\log_{10}$ ")
-    return label
+    
+    # Add label for suffix, if it exists
+    if len(suffix) > 0:
+        suffix_label_dict = config.settings["plotting"]["suffix_labels"]
+        if suffix in suffix_label_dict:
+            label_suffix = suffix_label_dict[suffix]
+        else:
+            label_suffix = suffix
+        label += label_suffix
 
+    return label
 
 #/////////////////////////////////////////
 def plot_empty_BPT_diagram(colorbar=False,
