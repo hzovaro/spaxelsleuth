@@ -116,21 +116,25 @@ def make_sami_aperture_df(eline_SNR_min,
     df_ap_elines = pd.read_csv(os.path.join(data_path, "sami_EmissionLine1compDR3.csv"))
     df_ap_elines = df_ap_elines.set_index("catid").drop("Unnamed: 0", axis=1)
     df_ap_elines = df_ap_elines.rename(columns={"catid": "ID"})
+    print(f"df_ap_elines has {len(df_ap_elines.index.unique())} galaxies")
 
     # SSP info
     df_ap_ssp = pd.read_csv(os.path.join(data_path, "sami_SSPAperturesDR3.csv"))
     df_ap_ssp = df_ap_ssp.set_index("catid").drop("Unnamed: 0", axis=1)
     df_ap_ssp = df_ap_ssp.rename(columns={"catid": "ID"})
+    print(f"df_ap_ssp has {len(df_ap_ssp.index.unique())} galaxies")
 
     # Stellar indices
     df_ap_indices = pd.read_csv(os.path.join(data_path, "sami_IndexAperturesDR3.csv"))
     df_ap_indices = df_ap_indices.set_index("catid").drop("Unnamed: 0", axis=1)
     df_ap_indices = df_ap_indices.rename(columns={"catid": "ID"})
+    print(f"df_ap_indices has {len(df_ap_indices.index.unique())} galaxies")
 
     # Merge
-    df_ap = df_ap_elines.merge(df_ap_ssp, left_index=True, right_index=True).drop(["cubeid_x", "cubeid_y"], axis=1)
+    df_ap = df_ap_elines.merge(df_ap_ssp, how="outer", left_index=True, right_index=True).drop(["cubeid_x", "cubeid_y"], axis=1)
     stellar_idx_cols = [c for c in df_ap_indices if c not in df_ap]
-    df_ap = df_ap.merge(df_ap_indices[stellar_idx_cols], left_index=True, right_index=True)
+    df_ap = df_ap.merge(df_ap_indices[stellar_idx_cols], how="outer", left_index=True, right_index=True)
+    print(f"After merging, df_ap has {len(df_ap.index.unique())} galaxies")
 
     # Drop duplicate rows
     df_ap = df_ap[~df_ap.index.duplicated(keep="first")]
@@ -139,7 +143,9 @@ def make_sami_aperture_df(eline_SNR_min,
     # Merge with metadata DataFrame
     ###########################################################################
     df_metadata = pd.read_hdf(os.path.join(output_path, df_metadata_fname), key="metadata")
-    df_ap = df_ap.merge(df_metadata, left_index=True, right_index=True)
+    print(f"Before merging, there are {len([g for g in df_metadata.index if g not in df_ap.index])} galaxies in df_metadata that are missing from df_ap")
+    print(f"Before merging, there are {len([g for g in df_ap.index if g not in df_metadata.index])} galaxies in df_ap that are missing from df_metadata")
+    df_ap = df_ap.merge(df_metadata, how="outer", left_index=True, right_index=True)
 
     ###########################################################################
     # Rename columns
