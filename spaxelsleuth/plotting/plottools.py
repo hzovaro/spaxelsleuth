@@ -117,6 +117,9 @@ def get_custom_cmap(cmap_str: str) -> Tuple[ListedColormap, np.ndarray, list]:
 #/////////////////////////////////////////
 def get_vmin(col: str) -> float:
     """Returns minimum value used for plotting quantity col."""
+    # If there is an entry in plot_settings for col, don't bother with the suffix. Just return the relevant entry.
+    if col in plot_settings:
+        return plot_settings[col]["vmin"]
     col, _ = trim_suffix(col)
     if col in plot_settings:
         return plot_settings[col]["vmin"]
@@ -127,6 +130,9 @@ def get_vmin(col: str) -> float:
 #/////////////////////////////////////////
 def get_vmax(col: str) -> float:
     """Returns maximum value used for plotting quantity col."""
+    # If there is an entry in plot_settings for col, don't bother with the suffix. Just return the relevant entry.
+    if col in plot_settings:
+        return plot_settings[col]["vmax"]
     col, _ = trim_suffix(col)
     if col in plot_settings:
         return plot_settings[col]["vmax"]
@@ -137,6 +143,9 @@ def get_vmax(col: str) -> float:
 #/////////////////////////////////////////
 def get_cmap(col: str):
     """Returns colourmap (plus ticks and labels for discrete quantities) used for plotting quantity col."""
+    # If there is an entry in plot_settings for col, don't bother with the suffix. Just return the relevant entry.
+    if col in plot_settings:
+        return plot_settings[col]["cmap"]
     col, _ = trim_suffix(col)
     # Get the cmap_str
     if col in plot_settings:
@@ -156,6 +165,9 @@ def get_cmap(col: str):
 #/////////////////////////////////////////
 def get_fname(col: str) -> str:
     """Returns system-safe filename for column col."""
+    # If there is an entry in plot_settings for col, don't bother with the suffix. Just return the relevant entry.
+    if col in plot_settings:
+        return plot_settings[col]["fname"]
     col, suffix = trim_suffix(col)
     if col in plot_settings:
         # Get the filename
@@ -177,6 +189,9 @@ def get_fname(col: str) -> str:
 #/////////////////////////////////////////
 def get_label(col: str) -> str:
     """Returns LaTeX label for column col."""
+    # If there is an entry in plot_settings for col, don't bother with the suffix. Just return the relevant entry.
+    if col in plot_settings:
+        return plot_settings[col]["label"]
     col, suffix = trim_suffix(col)
     if col in plot_settings:
         # Get the filename
