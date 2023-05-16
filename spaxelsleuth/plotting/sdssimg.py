@@ -72,14 +72,14 @@ def get_sdss_image(gal, ra_deg, dec_deg,
     Returns True if the image was successfully received; False otherwise.
     """
     # Determine the URL
-    url = f"http://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/getjpeg?TaskName=Skyserver.Explore.Image&ra={ra_deg}&dec={dec_deg}&scale={as_per_px:.1f}&width={width_px}&height={height_px}&opt=G"
+    url = f"https://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/getjpeg?TaskName=Skyserver.Explore.Image&ra={ra_deg}&dec={dec_deg}&scale={as_per_px:.1f}&width={width_px}&height={height_px}&opt=G"
     
     # Download the image
     imname = os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg")
     
     try:
         urlretrieve(url, imname)
-    except:
+    except Exception as e:
         print(f"{gal} not in SDSS footprint!")
         return False
 
