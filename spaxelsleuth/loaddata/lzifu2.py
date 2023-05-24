@@ -1,6 +1,7 @@
 import os
 from path import Path
 
+import datetime
 from astropy.io import fits
 import multiprocessing
 import numbers
@@ -19,6 +20,16 @@ from IPython.core.debugger import Tracer
 input_path = Path(settings["lzifu"]["input_path"])
 output_path = Path(settings["lzifu"]["output_path"])
 data_cube_path = Path(settings["lzifu"]["data_cube_path"])
+
+#/////////////////////////////////////////////////////////////////////////////////
+def add_metadata(df, df_metadata):
+    """Merge an input DataFrame with that created using make_lzifu_df."""
+    if "ID" not in df_metadata:
+        raise ValueError("df_metadata must contain an 'ID' column!")
+    
+    df = df.merge(df_metadata, on="ID", how="left")
+
+    return df
 
 #/////////////////////////////////////////////////////////////////////////////////
 def _process_lzifu(args):
@@ -66,8 +77,6 @@ def _process_lzifu(args):
     
     # Redshift
     z = t["Z"][0]
-    sigma_inst_A = t["RESOL_SIGMA"] #TODO not sure what effect this will have in 2-sided fits since B and R are different 
-    sigma_inst_kms = sigma_inst_A / 6562.8 * constants.c / 1e3 #TODO CHECK THIS FORMULA! Evaluate at Halpha I guess
 
     # Get size from one of the extensions
     nx = t["XSIZE"][0]
@@ -224,7 +233,6 @@ def _process_lzifu(args):
     rows_list.append([gal] * len(x_c_list)); colnames.append("ID")
     rows_list.append(np.array(x_c_list).flatten()); colnames.append("x (pixels)")
     rows_list.append(np.array(y_c_list).flatten()); colnames.append("y (pixels)")  
-    rows_list.append(np.array([(x, y) for x, y in zip(x_c_list, y_c_list)])); colnames.append("x, y (pixels)")  
     rows_list.append(np.array(x_c_list).flatten() * as_per_px); colnames.append("x (projected, arcsec)")
     rows_list.append(np.array(y_c_list).flatten() * as_per_px); colnames.append("y (projected, arcsec)")
 
@@ -254,8 +262,8 @@ def _process_lzifu(args):
 #/////////////////////////////////////////////////////////////////////////////////
 def make_lzifu_df(gals,
                   ncomponents,
-                  df_fname,
                   sigma_inst_kms,
+                  df_fname=None,
                   bin_type="default",
                   eline_SNR_min=5,
                   sigma_gas_SNR_min=3,
@@ -267,12 +275,24 @@ def make_lzifu_df(gals,
                   vgrad_cut=False,
                   stekin_cut=False,
                   correct_extinction=True,
-                  nthreads_max=20):
+                  nthreads_max=20,
+                  debug=False):
     """TODO: WRITE DOCSTRING"""
 
     # TODO: input checking
-    if not df_fname.endswith(".hd5"):
+    if df_fname is not None:
+        if not df_fname.endswith(".hd5"):
+            df_fname += ".hd5"
+    else:
+        # Input file name
+        df_fname = f"lzifu_{bin_type}_{ncomponents}-comp"
+        if correct_extinction:
+            df_fname += "_extcorr"
+        df_fname += f"_minSNR={eline_SNR_min}"
+        if debug:
+            df_fname += "_DEBUG"
         df_fname += ".hd5"
+
     # TODO store valid values in settings?
     if (type(ncomponents) not in [int, str]) or (type(ncomponents) == str and ncomponents != "merge"):
         raise ValueError("ncomponents must be either an integer or 'merge'!")
@@ -339,9 +359,59 @@ def make_lzifu_df(gals,
         debug=True) #TODO fix debug 
 
     ###############################################################################
+    # Add extra columns
+    ###############################################################################
+    df_spaxels["x, y (pixels)"] = list(zip(df_spaxels["x (pixels)"], df_spaxels["y (pixels)"]))
+
+    ###############################################################################
     # Save to file
     ###############################################################################
     print(f"{status_str}: Saving to file...")
     df_spaxels.to_hdf(os.path.join(output_path, df_fname), key=f"{bin_type}, {ncomponents}-comp")
     
     return
+
+#/////////////////////////////////////////////////////////////////////////////////
+def load_lzifu_df(ncomponents,
+                  bin_type,
+                  correct_extinction,
+                  eline_SNR_min,
+                  debug=False,
+                  df_fname=None):
+
+    #######################################################################
+    # INPUT CHECKING
+    #######################################################################
+    assert bin_type in settings["lzifu"]["bin_types"], "bin_type is invalid for survey lzifu!!"
+
+    # Input file name
+    if df_fname is not None:
+        if not df_fname.endswith(".hd5"):
+            df_fname += ".hd5"
+    else:
+        # Input file name
+        df_fname = f"lzifu_{bin_type}_{ncomponents}-comp"
+        if correct_extinction:
+            df_fname += "_extcorr"
+        df_fname += f"_minSNR={eline_SNR_min}"
+        if debug:
+            df_fname += "_DEBUG"
+        df_fname += ".hd5"
+
+    assert os.path.exists(os.path.join(output_path, df_fname)),\
+        f"File {os.path.join(output_path, df_fname)} does does not exist!"
+
+    # Load the data frame
+    t = os.path.getmtime(os.path.join(output_path, df_fname))
+    print(f"In load_lzifu_df(): Loading DataFrame from file {os.path.join(output_path, df_fname)} [last modified {datetime.datetime.fromtimestamp(t)}]...")
+    df = pd.read_hdf(os.path.join(output_path, df_fname))
+
+    # Add "metadata" columns to the DataFrame
+    df["survey"] = "lzifu"
+    df["ncomponents"] = ncomponents
+    df["bin_type"] = bin_type
+    df["debug"] = debug
+
+    # Return
+    print("In load_lzifu_df(): Finished!")
+    return df.sort_index()
