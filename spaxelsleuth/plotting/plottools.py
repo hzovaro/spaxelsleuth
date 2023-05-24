@@ -9,6 +9,8 @@ from typing import Tuple
 from spaxelsleuth import config
 from spaxelsleuth.utils.linefns import Kewley2001, Kewley2006, Kauffman2003, Law2021_1sigma, Law2021_3sigma
 
+from IPython.core.debugger import Tracer
+
 #/////////////////////////////////////////
 # Load the plotting settings
 plot_settings = config.settings["plotting"]
@@ -28,7 +30,7 @@ ncomponents_colours = np.vstack((c1, c2, c3, c4))
 def trim_suffix(col: str) -> Tuple[str]:
     """Trim the suffix from col & return the trimmed column name and suffix separately."""
     suffix = ""
-    for s in config.settings["plotting"]["suffixes"]:
+    for s in plot_settings["suffixes"]:
         if s in col:
             col_s = col.split(s)[0]
             suffix = col.split(col_s)[1]
@@ -77,7 +79,7 @@ def get_custom_cmap(cmap_str: str) -> Tuple[ListedColormap, np.ndarray, list]:
             "Early/Late spiral", "Late spiral"
         ]
         ticks = (np.arange(len(labels)) - 1) / 2
-        rdylbu = plt.cm.get_cmap("RdYlBu")
+        rdylbu = plt.cm.get_cmap("RdYlBu").copy()
         rdylbu_colours = rdylbu(np.linspace(0, 1, len(labels)))
         rdylbu_colours[0] = [0.5, 0.5, 0.5, 1]
         cmap = ListedColormap(rdylbu_colours)
@@ -89,7 +91,7 @@ def get_custom_cmap(cmap_str: str) -> Tuple[ListedColormap, np.ndarray, list]:
             "Not classified", "Cold", "Intermediate", "Warm", "Ambiguous"
         ]
         ticks = (np.arange(len(labels)) - 1)
-        jet = plt.cm.get_cmap("jet")
+        jet = plt.cm.get_cmap("jet").copy()
         jet_colours = jet(np.linspace(0, 1, len(labels)))
         jet_colours[0] = [0.5, 0.5, 0.5, 1]
         cmap = ListedColormap(jet_colours)
@@ -144,14 +146,14 @@ def get_vmax(col: str) -> float:
 def get_cmap(col: str):
     """Returns colourmap (plus ticks and labels for discrete quantities) used for plotting quantity col."""
     # If there is an entry in plot_settings for col, don't bother with the suffix. Just return the relevant entry.
-    if col in plot_settings:
-        return plot_settings[col]["cmap"]
-    col, _ = trim_suffix(col)
+    if col not in plot_settings:
+        col, _ = trim_suffix(col)
     # Get the cmap_str
     if col in plot_settings:
         cmap_str = plot_settings[col]["cmap"]
     else:
         cmap_str = plot_settings["default"]["cmap"]
+    
     # Now get the cmap
     try:
         cmap = plt.cm.get_cmap(cmap_str).copy()
@@ -171,19 +173,18 @@ def get_fname(col: str) -> str:
     col, suffix = trim_suffix(col)
     if col in plot_settings:
         # Get the filename
-        fname = plot_settings[col]["fname"]
-        # Add filename for suffix, if it exists
-        if len(suffix) > 0:
-            fname_suffix = suffix.replace("(", "").replace(")", "").replace(
-                "/", "_over_").replace("*",
-                                       "_star").replace(" ",
-                                                        "_").replace("$", "")
-            fname += "_" + fname_suffix
+        fname = plot_settings[col]["fname"] 
     else:
         fname = col.replace("(", "").replace(")", "").replace(
             "/", "_over_").replace("*", "_star").replace(" ",
                                                          "_").replace("$", "")
-    return fname
+    # Add filename for suffix, if it exists
+    if len(suffix) > 0:
+        fname_suffix = suffix.replace(",", "").replace("(", "").replace(")", "").replace(
+            "/", "_over_").replace("*", "_star").replace(" ", "_").replace("$", "")
+        fname += "_" + fname_suffix
+
+    return fname.replace("__", "_")
 
 
 #/////////////////////////////////////////
