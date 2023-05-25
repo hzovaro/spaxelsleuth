@@ -262,6 +262,7 @@ def apply_flags(df,
                 sigma_gas_SNR_cut,
                 vgrad_cut,
                 stekin_cut,
+                base_missing_flux_components_on_HALPHA=True,
                 **kwargs):
     """
     Apply the data quality & S/N cuts on cells of a given DataFrame based on
@@ -304,6 +305,13 @@ def apply_flags(df,
     stekin_cut:             bool
         Whether to NaN stellar kinematic quantities that do not meet the DQ 
         requirements listed in Croom+2021.    
+
+    base_missing_flux_components_on_HALPHA  bool
+        If True, then use HALPHA fluxes to determine whether components are 
+        "missing" or not. i.e. - if HALPHA is NaN in component 1 but sigma_gas 
+        is not, then this component is counted as "missing". If false,
+        only sigma_gas is used in this determination, so this component would 
+        NOT be counted as missing.
 
     """
     print("////////////////////////////////////////////////////////////////////")
@@ -475,72 +483,142 @@ def apply_flags(df,
         df_good_quality_components = df[~df["Missing components flag"]]
 
     """
-    if all([col in df for col in [f"HALPHA (component 1)", f"HALPHA (component 2)", f"HALPHA (component 3)",
-                                  f"sigma_gas (component 1)", f"sigma_gas (component 2)", f"sigma_gas (component 3)"]]):
-        cond_has_3 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
-                     ~np.isnan(df["HALPHA (component 2)"]) & ~np.isnan(df["sigma_gas (component 2)"]) &\
-                     ~np.isnan(df["HALPHA (component 3)"]) & ~np.isnan(df["sigma_gas (component 3)"]) 
-        cond_has_2 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
-                     ~np.isnan(df["HALPHA (component 2)"]) & ~np.isnan(df["sigma_gas (component 2)"]) &\
-                      (np.isnan(df["HALPHA (component 3)"]) | np.isnan(df["sigma_gas (component 3)"]))  
-        cond_has_1 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
-                      (np.isnan(df["HALPHA (component 2)"]) | np.isnan(df["sigma_gas (component 2)"])) &\
-                      (np.isnan(df["HALPHA (component 3)"]) | np.isnan(df["sigma_gas (component 3)"]))
-        cond_has_0 =  (np.isnan(df["HALPHA (component 1)"]) | np.isnan(df["sigma_gas (component 1)"])) &\
-                      (np.isnan(df["HALPHA (component 2)"]) | np.isnan(df["sigma_gas (component 2)"])) &\
-                      (np.isnan(df["HALPHA (component 3)"]) | np.isnan(df["sigma_gas (component 3)"]))
+    if base_missing_flux_components_on_HALPHA:
+        print("In dqcut.apply_flags(): Using HALPHA to determine 'missing components'...")
+        if all([col in df for col in [f"HALPHA (component 1)", f"HALPHA (component 2)", f"HALPHA (component 3)",
+                                    f"sigma_gas (component 1)", f"sigma_gas (component 2)", f"sigma_gas (component 3)"]]):
+            cond_has_3 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
+                        ~np.isnan(df["HALPHA (component 2)"]) & ~np.isnan(df["sigma_gas (component 2)"]) &\
+                        ~np.isnan(df["HALPHA (component 3)"]) & ~np.isnan(df["sigma_gas (component 3)"]) 
+            cond_has_2 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
+                        ~np.isnan(df["HALPHA (component 2)"]) & ~np.isnan(df["sigma_gas (component 2)"]) &\
+                        (np.isnan(df["HALPHA (component 3)"]) | np.isnan(df["sigma_gas (component 3)"]))  
+            cond_has_1 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
+                        (np.isnan(df["HALPHA (component 2)"]) | np.isnan(df["sigma_gas (component 2)"])) &\
+                        (np.isnan(df["HALPHA (component 3)"]) | np.isnan(df["sigma_gas (component 3)"]))
+            cond_has_0 =  (np.isnan(df["HALPHA (component 1)"]) | np.isnan(df["sigma_gas (component 1)"])) &\
+                        (np.isnan(df["HALPHA (component 2)"]) | np.isnan(df["sigma_gas (component 2)"])) &\
+                        (np.isnan(df["HALPHA (component 3)"]) | np.isnan(df["sigma_gas (component 3)"]))
 
-        cond_still_has_1 = cond_has_1 & (df["Number of components (original)"] == 1)
-        cond_still_has_2 = cond_has_2 & (df["Number of components (original)"] == 2)
-        cond_still_has_3 = cond_has_3 & (df["Number of components (original)"] == 3)
-        cond_still_has_0 = cond_has_0 & (df["Number of components (original)"] == 0)
+            cond_still_has_1 = cond_has_1 & (df["Number of components (original)"] == 1)
+            cond_still_has_2 = cond_has_2 & (df["Number of components (original)"] == 2)
+            cond_still_has_3 = cond_has_3 & (df["Number of components (original)"] == 3)
+            cond_still_has_0 = cond_has_0 & (df["Number of components (original)"] == 0)
 
-        # TRUE if the number of components after making DQ cuts matches the "original" number of components
-        cond_has_original = cond_still_has_1 | cond_still_has_2 | cond_still_has_3 | cond_still_has_0
-        df.loc[~cond_has_original, "Missing components flag"] = True
+            # TRUE if the number of components after making DQ cuts matches the "original" number of components
+            cond_has_original = cond_still_has_1 | cond_still_has_2 | cond_still_has_3 | cond_still_has_0
+            df.loc[~cond_has_original, "Missing components flag"] = True
 
-        # Reset the number of components
-        df.loc[cond_has_1, "Number of components"] = 1
-        df.loc[cond_has_2, "Number of components"] = 2
-        df.loc[cond_has_3, "Number of components"] = 3
-        df.loc[cond_has_0, "Number of components"] = 0
+            # Reset the number of components
+            df.loc[cond_has_1, "Number of components"] = 1
+            df.loc[cond_has_2, "Number of components"] = 2
+            df.loc[cond_has_3, "Number of components"] = 3
+            df.loc[cond_has_0, "Number of components"] = 0
 
-    elif all([col in df for col in [f"HALPHA (component 1)", f"HALPHA (component 2)",
-                                  f"sigma_gas (component 1)", f"sigma_gas (component 2)"]]):
-        cond_has_2 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
-                     ~np.isnan(df["HALPHA (component 2)"]) & ~np.isnan(df["sigma_gas (component 2)"])
-        cond_has_1 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
-                      (np.isnan(df["HALPHA (component 2)"]) | np.isnan(df["sigma_gas (component 2)"]))
-        cond_has_0 =  (np.isnan(df["HALPHA (component 1)"]) | np.isnan(df["sigma_gas (component 1)"])) &\
-                      (np.isnan(df["HALPHA (component 2)"]) | np.isnan(df["sigma_gas (component 2)"]))
+        elif all([col in df for col in [f"HALPHA (component 1)", f"HALPHA (component 2)",
+                                    f"sigma_gas (component 1)", f"sigma_gas (component 2)"]]):
+            cond_has_2 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
+                        ~np.isnan(df["HALPHA (component 2)"]) & ~np.isnan(df["sigma_gas (component 2)"])
+            cond_has_1 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
+                        (np.isnan(df["HALPHA (component 2)"]) | np.isnan(df["sigma_gas (component 2)"]))
+            cond_has_0 =  (np.isnan(df["HALPHA (component 1)"]) | np.isnan(df["sigma_gas (component 1)"])) &\
+                        (np.isnan(df["HALPHA (component 2)"]) | np.isnan(df["sigma_gas (component 2)"]))
 
-        cond_still_has_1 = cond_has_1 & (df["Number of components (original)"] == 1)
-        cond_still_has_2 = cond_has_2 & (df["Number of components (original)"] == 2)
-        cond_still_has_0 = cond_has_0 & (df["Number of components (original)"] == 0)
+            cond_still_has_1 = cond_has_1 & (df["Number of components (original)"] == 1)
+            cond_still_has_2 = cond_has_2 & (df["Number of components (original)"] == 2)
+            cond_still_has_0 = cond_has_0 & (df["Number of components (original)"] == 0)
 
-        # TRUE if the number of components after making DQ cuts matches the "original" number of components
-        cond_has_original = cond_still_has_1 | cond_still_has_2 | cond_still_has_0
-        df.loc[~cond_has_original, "Missing components flag"] = True
+            # TRUE if the number of components after making DQ cuts matches the "original" number of components
+            cond_has_original = cond_still_has_1 | cond_still_has_2 | cond_still_has_0
+            df.loc[~cond_has_original, "Missing components flag"] = True
 
-        # Reset the number of components
-        df.loc[cond_has_1, "Number of components"] = 1
-        df.loc[cond_has_2, "Number of components"] = 2
-        df.loc[cond_has_0, "Number of components"] = 0
+            # Reset the number of components
+            df.loc[cond_has_1, "Number of components"] = 1
+            df.loc[cond_has_2, "Number of components"] = 2
+            df.loc[cond_has_0, "Number of components"] = 0
 
-    elif all([col in df for col in [f"HALPHA (component 1)", f"sigma_gas (component 1)"]]):
-        cond_has_1 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"])
-        cond_has_0 =  np.isnan(df["HALPHA (component 1)"]) | np.isnan(df["sigma_gas (component 1)"])
-        
-        cond_still_has_1 = cond_has_1 & (df["Number of components (original)"] == 1)
-        cond_still_has_0 = cond_has_0 & (df["Number of components (original)"] == 0)
+        elif all([col in df for col in [f"HALPHA (component 1)", f"sigma_gas (component 1)"]]):
+            cond_has_1 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"])
+            cond_has_0 =  np.isnan(df["HALPHA (component 1)"]) | np.isnan(df["sigma_gas (component 1)"])
+            
+            cond_still_has_1 = cond_has_1 & (df["Number of components (original)"] == 1)
+            cond_still_has_0 = cond_has_0 & (df["Number of components (original)"] == 0)
 
-        # TRUE if the number of components after making DQ cuts matches the "original" number of components
-        cond_has_original = cond_still_has_1 | cond_has_0
-        df.loc[~cond_has_original, "Missing components flag"] = True
+            # TRUE if the number of components after making DQ cuts matches the "original" number of components
+            cond_has_original = cond_still_has_1 | cond_has_0
+            df.loc[~cond_has_original, "Missing components flag"] = True
 
-        # Reset the number of components
-        df.loc[cond_has_1, "Number of components"] = 1
-        df.loc[cond_has_0, "Number of components"] = 0
+            # Reset the number of components
+            df.loc[cond_has_1, "Number of components"] = 1
+            df.loc[cond_has_0, "Number of components"] = 0
+    
+    else:
+        # Base decision only on sigma_gas.
+        print("In dqcut.apply_flags(): WARNING: using only sigma_gas to define 'missing components'...")
+        if all([col in df for col in [f"sigma_gas (component 1)", f"sigma_gas (component 2)", f"sigma_gas (component 3)"]]):
+            cond_has_3 = ~np.isnan(df["sigma_gas (component 1)"]) &\
+                        ~np.isnan(df["sigma_gas (component 2)"]) &\
+                        ~np.isnan(df["sigma_gas (component 3)"]) 
+            cond_has_2 = ~np.isnan(df["sigma_gas (component 1)"]) &\
+                        ~np.isnan(df["sigma_gas (component 2)"]) &\
+                        np.isnan(df["sigma_gas (component 3)"])  
+            cond_has_1 = ~np.isnan(df["sigma_gas (component 1)"]) &\
+                        np.isnan(df["sigma_gas (component 2)"]) &\
+                        np.isnan(df["sigma_gas (component 3)"])
+            cond_has_0 =  np.isnan(df["sigma_gas (component 1)"]) &\
+                        np.isnan(df["sigma_gas (component 2)"]) &\
+                        np.isnan(df["sigma_gas (component 3)"])
+
+            cond_still_has_1 = cond_has_1 & (df["Number of components (original)"] == 1)
+            cond_still_has_2 = cond_has_2 & (df["Number of components (original)"] == 2)
+            cond_still_has_3 = cond_has_3 & (df["Number of components (original)"] == 3)
+            cond_still_has_0 = cond_has_0 & (df["Number of components (original)"] == 0)
+
+            # TRUE if the number of components after making DQ cuts matches the "original" number of components
+            cond_has_original = cond_still_has_1 | cond_still_has_2 | cond_still_has_3 | cond_still_has_0
+            df.loc[~cond_has_original, "Missing components flag"] = True
+
+            # Reset the number of components
+            df.loc[cond_has_1, "Number of components"] = 1
+            df.loc[cond_has_2, "Number of components"] = 2
+            df.loc[cond_has_3, "Number of components"] = 3
+            df.loc[cond_has_0, "Number of components"] = 0
+
+        elif all([col in df for col in [f"sigma_gas (component 1)", f"sigma_gas (component 2)"]]):
+            cond_has_2 = ~np.isnan(df["sigma_gas (component 1)"]) &\
+                         ~np.isnan(df["sigma_gas (component 2)"])
+            cond_has_1 = ~np.isnan(df["sigma_gas (component 1)"]) &\
+                          np.isnan(df["sigma_gas (component 2)"])
+            cond_has_0 =  np.isnan(df["sigma_gas (component 1)"]) &\
+                          np.isnan(df["sigma_gas (component 2)"])
+
+            cond_still_has_1 = cond_has_1 & (df["Number of components (original)"] == 1)
+            cond_still_has_2 = cond_has_2 & (df["Number of components (original)"] == 2)
+            cond_still_has_0 = cond_has_0 & (df["Number of components (original)"] == 0)
+
+            # TRUE if the number of components after making DQ cuts matches the "original" number of components
+            cond_has_original = cond_still_has_1 | cond_still_has_2 | cond_still_has_0
+            df.loc[~cond_has_original, "Missing components flag"] = True
+
+            # Reset the number of components
+            df.loc[cond_has_1, "Number of components"] = 1
+            df.loc[cond_has_2, "Number of components"] = 2
+            df.loc[cond_has_0, "Number of components"] = 0
+
+        elif all([col in df for col in [f"sigma_gas (component 1)"]]):
+            cond_has_1 = ~np.isnan(df["sigma_gas (component 1)"])
+            cond_has_0 =  np.isnan(df["sigma_gas (component 1)"])
+            
+            cond_still_has_1 = cond_has_1 & (df["Number of components (original)"] == 1)
+            cond_still_has_0 = cond_has_0 & (df["Number of components (original)"] == 0)
+
+            # TRUE if the number of components after making DQ cuts matches the "original" number of components
+            cond_has_original = cond_still_has_1 | cond_has_0
+            df.loc[~cond_has_original, "Missing components flag"] = True
+
+            # Reset the number of components
+            df.loc[cond_has_1, "Number of components"] = 1
+            df.loc[cond_has_0, "Number of components"] = 0
 
     # Count how many spaxels have 'Number of components' != 'Number of components (original)'
     cond_mismatch = df["Number of components"] != df["Number of components (original)"]
