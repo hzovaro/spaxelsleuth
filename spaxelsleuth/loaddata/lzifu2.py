@@ -23,7 +23,7 @@ data_cube_path = Path(settings["lzifu"]["data_cube_path"])
 
 #/////////////////////////////////////////////////////////////////////////////////
 def add_metadata(df, df_metadata):
-    """Merge an input DataFrame with that created using make_lzifu_df."""
+    """Merge an input DataFrame with that was created using make_lzifu_df()."""
     if "ID" not in df_metadata:
         raise ValueError("df_metadata must contain an 'ID' column!")
     
@@ -36,15 +36,23 @@ def _process_lzifu(args):
 
     #######################################################################
     # Parse arguments
+    #######################################################################
     _, gal, ncomponents, bin_type, data_cube_path, _ = args
     #TODO can we get ncomponents from SET?
     lzifu_ncomponents = ncomponents if type(ncomponents) == int else 3
 
     #######################################################################
     # Scrape outputs from LZIFU output
+    #######################################################################
     hdulist_lzifu = fits.open(input_path + f"/{gal}_{ncomponents}_comp.fits")
     hdr = hdulist_lzifu[0].header
-    t = hdulist_lzifu["SET"].data  # Table storing fit parameters
+
+    # NOTE: for some reason, the SET extension is missing from the merge_comp FITS file so we need to get it from one of the others :/
+    if ncomponents == "merge":
+        hdulist_lzifu_1comp = fits.open(input_path + f"/{gal}_1_comp.fits")
+        t = hdulist_lzifu_1comp["SET"].data  # Table storing fit parameters
+    else:
+        t = hdulist_lzifu["SET"].data  # Table storing fit parameters
     
     # Path to data cubes used in the fit 
     if data_cube_path is None:
@@ -77,70 +85,9 @@ def _process_lzifu(args):
     
     # Redshift
     z = t["Z"][0]
-
-    # Get size from one of the extensions
-    nx = t["XSIZE"][0]
-    ny = t["YSIZE"][0]
-    if bin_type == "default":
-        yy, xx = np.meshgrid(np.arange(ny), np.arange(nx), indexing="ij")
-        x_c_list = xx.flatten()
-        y_c_list = yy.flatten()
-    else:
-        # Load the bin map
-        raise ValueError("Other binning methods have not been implemented yet!")
-
-    #/////////////////////////////////////////////////////////////////////////
-    def _2d_map_to_1d_list(colmap):
-        """Returns a 1D array of values extracted from from spaxels in x_c_list and y_c_list in 2D array colmap."""
-        if colmap.ndim != 2:
-            raise ValueError(f"colmap must be a 2D array but has ndim = {colmap.ndim}!")
-        row = np.full_like(x_c_list, np.nan, dtype="float")
-        for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-            x_c, y_c = coords
-            y, x = (int(np.round(y_c)), int(np.round(x_c)))
-            #TODO: replace magic numbers with ENUM or Survey class definitions
-            if x > nx or y > ny:
-                x = min([x, nx])
-                y = min([y, ny])
-            row[jj] = colmap[y, x]
-        return row
-
+    
     #######################################################################
-    # SCRAPE LZIFU MEASUREMENTS
-    #######################################################################
-    # Get extension names
-    extnames = [hdr[e] for e in hdr if e.startswith("EXT") and type(hdr[e]) == str]
-    quantities = [e.rstrip("_ERR") for e in extnames if e.endswith("_ERR")] + ["CHI2", "DOF"]
-    rows_list = []
-    colnames = []
-    eline_list = [q for q in quantities if q not in ["V", "VDISP", "CHI2", "DOF"]]
-    lzifu_ncomponents = hdulist_lzifu["V"].shape[0] - 1
-
-    # Scrape the FITS file: emission line flues, velocity/velocity dispersion, fit quality
-    for quantity in quantities:
-        data = hdulist_lzifu[quantity].data
-        if f"{quantity}_ERR" in hdulist_lzifu:
-            err = hdulist_lzifu[f"{quantity}_ERR"].data
-        # If 'data' has 3 dimensions, then it has been measured for all quantities
-        if data.ndim == 3:
-            # Total fluxes (only for emission lines)
-            if quantity not in ["V", "VDISP"]:
-                rows_list.append(_2d_map_to_1d_list(data[0])); colnames.append(f"{quantity} (total)")
-                if f"{quantity}_ERR" in hdulist_lzifu:
-                    rows_list.append(_2d_map_to_1d_list(err[0])); colnames.append(f"{quantity} error (total)")
-            # Fluxes/values for individual components
-            for nn in range(lzifu_ncomponents):
-                rows_list.append(_2d_map_to_1d_list(data[nn + 1])); colnames.append(f"{quantity} (component {nn + 1})")
-                if f"{quantity}_ERR" in hdulist_lzifu:
-                    rows_list.append(_2d_map_to_1d_list(err[nn + 1])); colnames.append(f"{quantity} error (component {nn + 1})")
-        # Otherwise it's a 2D map
-        elif data.ndim == 2:
-            rows_list.append(_2d_map_to_1d_list(data)); colnames.append(f"{quantity}")
-            if f"{quantity}_ERR" in hdulist_lzifu:
-                rows_list.append(_2d_map_to_1d_list(err)); colnames.append(f"{quantity} error")
-
-    #######################################################################
-    # Scrape data from original data cube
+    # LOAD THE DATACUBES
     #######################################################################
     if onesided:
         with fits.open(datacube_fname) as hdulist_cube:
@@ -201,6 +148,78 @@ def _process_lzifu(args):
     lambda_vals_R_rest_A = lambda_vals_R_A / (1 + z)
     lambda_vals_B_rest_A = lambda_vals_B_A / (1 + z)
 
+    # Create masks of empty pixels
+    im_empty_B = np.all(np.isnan(data_cube_B), axis=0)
+    im_empty_R = np.all(np.isnan(data_cube_R), axis=0)
+    im_empty = np.logical_and(im_empty_B, im_empty_R)
+
+    # Get coordinate lists corresponding to non-empty spaxels
+    ny, nx = im_empty.shape
+    if bin_type == "default":
+        y_c_list, x_c_list = np.where(~im_empty)
+    else:
+        # Load the bin map
+        raise ValueError("Other binning methods have not been implemented yet!")
+
+    #/////////////////////////////////////////////////////////////////////////
+    def _2d_map_to_1d_list(colmap):
+        """Returns a 1D array of values extracted from from spaxels in x_c_list and y_c_list in 2D array colmap."""
+        if colmap.ndim != 2:
+            raise ValueError(f"colmap must be a 2D array but has ndim = {colmap.ndim}!")
+        row = np.full_like(x_c_list, np.nan, dtype="float")
+        for jj, coords in enumerate(zip(x_c_list, y_c_list)):
+            x_c, y_c = coords
+            y, x = (int(np.round(y_c)), int(np.round(x_c)))
+            #TODO: replace magic numbers with ENUM or Survey class definitions
+            if x > nx or y > ny:
+                x = min([x, nx])
+                y = min([y, ny])
+            row[jj] = colmap[y, x]
+        return row
+
+    #######################################################################
+    # SCRAPE LZIFU MEASUREMENTS
+    #######################################################################
+    # Get extension names
+    extnames = [hdr[e] for e in hdr if e.startswith("EXT") and type(hdr[e]) == str]  #TODO check whether the [SII]6716,31 lines are here
+    quantities = [e.rstrip("_ERR") for e in extnames if e.endswith("_ERR")] + ["CHI2", "DOF"]
+    # NOTE: for some stupid reason, the SII6731_ERR extension is MISSING from the FITS file when ncomponents = "merge", so we need to add this in manually.
+    if "SII6731" in extnames and "SII6731_ERR" not in extnames:
+        quantities += ["SII6731"]
+    rows_list = []
+    colnames = []
+    eline_list = [q for q in quantities if q not in ["V", "VDISP", "CHI2", "DOF"]]
+    lzifu_ncomponents = hdulist_lzifu["V"].shape[0] - 1
+
+    # Scrape the FITS file: emission line flues, velocity/velocity dispersion, fit quality
+    for quantity in quantities:
+        data = hdulist_lzifu[quantity].data
+        if f"{quantity}_ERR" in hdulist_lzifu:
+            err = hdulist_lzifu[f"{quantity}_ERR"].data
+        elif quantity == "SII6731" and "SII6731_ERR" not in extnames:
+            # For now, let's just copy the SII6716 error.
+            err = hdulist_lzifu[f"SII6716_ERR"].data
+        # If 'data' has 3 dimensions, then it has been measured for all quantities
+        if data.ndim == 3:
+            # Total fluxes (only for emission lines)
+            if quantity not in ["V", "VDISP"]:
+                rows_list.append(_2d_map_to_1d_list(data[0])); colnames.append(f"{quantity} (total)")
+                if f"{quantity}_ERR" in hdulist_lzifu:
+                    rows_list.append(_2d_map_to_1d_list(err[0])); colnames.append(f"{quantity} error (total)")
+            # Fluxes/values for individual components
+            for nn in range(lzifu_ncomponents):
+                rows_list.append(_2d_map_to_1d_list(data[nn + 1])); colnames.append(f"{quantity} (component {nn + 1})")
+                if f"{quantity}_ERR" in hdulist_lzifu:
+                    rows_list.append(_2d_map_to_1d_list(err[nn + 1])); colnames.append(f"{quantity} error (component {nn + 1})")
+        # Otherwise it's a 2D map
+        elif data.ndim == 2:
+            rows_list.append(_2d_map_to_1d_list(data)); colnames.append(f"{quantity}")
+            if f"{quantity}_ERR" in hdulist_lzifu:
+                rows_list.append(_2d_map_to_1d_list(err)); colnames.append(f"{quantity} error")
+
+    ##########################################################
+    # COMPUTE QUANTITIES DIRECTLY FROM THE DATACUBES
+    ##########################################################
     # Compute the D4000Å break
     if lambda_vals_B_rest_A[0] <= 3850 and lambda_vals_B_rest_A[-1] >= 4100:
         d4000_map, d4000_map_err = compute_d4000(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A)
@@ -296,7 +315,7 @@ def make_lzifu_df(gals,
     # TODO store valid values in settings?
     if (type(ncomponents) not in [int, str]) or (type(ncomponents) == str and ncomponents != "merge"):
         raise ValueError("ncomponents must be either an integer or 'merge'!")
-    if bin_type not in ["default", "voronoi"]:
+    if bin_type not in settings["lzifu"]["bin_types"]:
         raise ValueError("bin_type must be 'default' or 'voronoi'!")
 
     # NOTE: don't worry about metadata for now
@@ -356,6 +375,7 @@ def make_lzifu_df(gals,
         correct_extinction=correct_extinction,
         sigma_inst_kms=sigma_inst_kms,
         nthreads_max=nthreads_max,
+        base_missing_flux_components_on_HALPHA=False,  # NOTE: this is important!!
         debug=True) #TODO fix debug 
 
     ###############################################################################
@@ -368,27 +388,27 @@ def make_lzifu_df(gals,
     ###############################################################################
     print(f"{status_str}: Saving to file...")
     df_spaxels.to_hdf(os.path.join(output_path, df_fname), key=f"{bin_type}, {ncomponents}-comp")
+    print(f"{status_str}: Finished!")
     
     return
 
 #/////////////////////////////////////////////////////////////////////////////////
-def load_lzifu_df(ncomponents,
-                  bin_type,
-                  correct_extinction,
-                  eline_SNR_min,
+def load_lzifu_df(ncomponents=None,
+                  bin_type=None,
+                  correct_extinction=None,
+                  eline_SNR_min=None,
                   debug=False,
-                  df_fname=None):
+                  df_fname=None, key=None):
 
     #######################################################################
     # INPUT CHECKING
     #######################################################################
-    assert bin_type in settings["lzifu"]["bin_types"], "bin_type is invalid for survey lzifu!!"
-
     # Input file name
     if df_fname is not None:
         if not df_fname.endswith(".hd5"):
             df_fname += ".hd5"
     else:
+        assert bin_type in settings["lzifu"]["bin_types"], "bin_type is invalid for survey lzifu!!"
         # Input file name
         df_fname = f"lzifu_{bin_type}_{ncomponents}-comp"
         if correct_extinction:
@@ -404,7 +424,10 @@ def load_lzifu_df(ncomponents,
     # Load the data frame
     t = os.path.getmtime(os.path.join(output_path, df_fname))
     print(f"In load_lzifu_df(): Loading DataFrame from file {os.path.join(output_path, df_fname)} [last modified {datetime.datetime.fromtimestamp(t)}]...")
-    df = pd.read_hdf(os.path.join(output_path, df_fname))
+    if key is not None:
+        df = pd.read_hdf(os.path.join(output_path, df_fname), key=key)
+    else:
+        df = pd.read_hdf(os.path.join(output_path, df_fname))
 
     # Add "metadata" columns to the DataFrame
     df["survey"] = "lzifu"
