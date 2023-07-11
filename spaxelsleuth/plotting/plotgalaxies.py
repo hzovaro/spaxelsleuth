@@ -874,10 +874,13 @@ def plot2dscatter(df,
 
     # If a galaxy is specified (or galaxies), then plot only the galaxy
     if gal is not None:
-        if (type(gal) == int) or (type(gal) == str):
+        #TODO replace "type()" with "isinstance()" elsewhere
+        if isinstance(gal, int) or isinstance(gal, str):
             df_plot = df[df["ID"] == gal]
-        elif type(gal) == list:
+        elif isinstance(gal, list):
             df_plot = df[df["ID"].isin(gal)]
+        else:
+            raise ValueError("gal is not an integer, string or list so I don't know what to do :(")
     else:
         df_plot = df
 
