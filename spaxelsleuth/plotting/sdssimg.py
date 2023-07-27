@@ -26,6 +26,7 @@ import numpy as np
 from urllib.request import urlretrieve
 from astropy.wcs import WCS
 
+from spaxelsleuth.config import settings
 from spaxelsleuth.plotting.plottools import plot_scale_bar
 
 import matplotlib.pyplot as plt
@@ -36,8 +37,7 @@ from IPython.core.debugger import Tracer
 
 ###############################################################################
 # Paths
-assert "SDSS_IM_PATH" in os.environ, "Environment variable SDSS_IM_PATH is not defined!"
-sdss_im_path = os.environ["SDSS_IM_PATH"]
+sdss_im_path = settings["sami"]["sdss_im_path"]
 
 ###############################################################################
 def get_sdss_image(gal, ra_deg, dec_deg,
@@ -92,6 +92,7 @@ def plot_sdss_image(df, gal,
                     axis_labels=True,
                     as_per_px=0.1, width_px=500, height_px=500,
                     reload_image=False,
+                    show_scale_bar=True,
                     ax=None, figsize=(5, 5)):    
 
     """
@@ -154,12 +155,14 @@ def plot_sdss_image(df, gal,
             ra_deg = df_gal["RA (J2000)"].unique()[0]
             dec_deg = df_gal["Dec (J2000)"].unique()[0]
         gal = df_gal["ID"].unique()[0]
-        kpc_per_as = df_gal["kpc per arcsec"].unique()[0]
+        if show_scale_bar:
+            kpc_per_as = df_gal["kpc per arcsec"].unique()[0]
     else:
         assert gal is not None, "gal must be specified!"
         assert ra_deg is not None,  "ra_deg must be specified!"
         assert dec_deg is not None, "dec_deg must be specified!"
-        assert kpc_per_as is not None, "kpc_per_as must be specified!"
+        if show_scale_bar:
+            assert kpc_per_as is not None, "kpc_per_as must be specified!"
 
     # Load image
     if reload_image or (not os.path.exists(os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg"))):
@@ -202,7 +205,8 @@ def plot_sdss_image(df, gal,
     ax.add_patch(c)
 
     # Include scale bar
-    plot_scale_bar(as_per_px=0.1, loffset=0.25, kpc_per_as=kpc_per_as, ax=ax, l=10, units="arcsec", fontsize=10, long_dist_str=False)
+    if show_scale_bar:
+        plot_scale_bar(as_per_px=0.1, loffset=0.25, kpc_per_as=kpc_per_as, ax=ax, l=10, units="arcsec", fontsize=10, long_dist_str=False)
 
     # Axis labels
     if axis_labels:
