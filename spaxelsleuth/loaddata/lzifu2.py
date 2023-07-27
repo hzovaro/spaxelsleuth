@@ -16,7 +16,6 @@ from IPython.core.debugger import Tracer
 
 ###############################################################################
 # Paths
-# TODO make this more flexible? perhaps an input arg?
 input_path = Path(settings["lzifu"]["input_path"])
 output_path = Path(settings["lzifu"]["output_path"])
 data_cube_path = Path(settings["lzifu"]["data_cube_path"])
@@ -170,7 +169,6 @@ def _process_lzifu(args):
         for jj, coords in enumerate(zip(x_c_list, y_c_list)):
             x_c, y_c = coords
             y, x = (int(np.round(y_c)), int(np.round(x_c)))
-            #TODO: replace magic numbers with ENUM or Survey class definitions
             if x > nx or y > ny:
                 x = min([x, nx])
                 y = min([y, ny])
@@ -250,6 +248,9 @@ def _process_lzifu(args):
     ##########################################################
     # Add other stuff
     rows_list.append([gal] * len(x_c_list)); colnames.append("ID")
+    rows_list.append([nx] * len(x_c_list)); colnames.append("N_x")
+    rows_list.append([ny] * len(x_c_list)); colnames.append("N_y")
+    rows_list.append([as_per_px] * len(x_c_list)); colnames.append("as_per_px")
     rows_list.append(np.array(x_c_list).flatten()); colnames.append("x (pixels)")
     rows_list.append(np.array(y_c_list).flatten()); colnames.append("y (pixels)")  
     rows_list.append(np.array(x_c_list).flatten() * as_per_px); colnames.append("x (projected, arcsec)")
@@ -312,15 +313,11 @@ def make_lzifu_df(gals,
             df_fname += "_DEBUG"
         df_fname += ".hd5"
 
-    # TODO store valid values in settings?
     if (type(ncomponents) not in [int, str]) or (type(ncomponents) == str and ncomponents != "merge"):
         raise ValueError("ncomponents must be either an integer or 'merge'!")
-    if bin_type not in settings["lzifu"]["bin_types"]:
-        raise ValueError("bin_type must be 'default' or 'voronoi'!")
+    if bin_type != "default":
+        raise ValueError("bin_types other than 'default' have not yet been implemented!")
 
-    # NOTE: don't worry about metadata for now
-
-    # TODO: scan for galaxies -OR- use inputs
     status_str = f"In lzifu2.make_lzifu_df() [ncomponents={ncomponents}, bin_type={bin_type}, eline_SNR_min={eline_SNR_min}]"
 
     ###############################################################################
@@ -395,7 +392,7 @@ def make_lzifu_df(gals,
 #/////////////////////////////////////////////////////////////////////////////////
 def load_lzifu_df(ncomponents=None,
                   bin_type=None,
-                  correct_extinction=None,
+                  correct_extinction=None,  
                   eline_SNR_min=None,
                   debug=False,
                   df_fname=None, key=None):
@@ -405,10 +402,12 @@ def load_lzifu_df(ncomponents=None,
     #######################################################################
     # Input file name
     if df_fname is not None:
+        print(f"WARNING: loading DataFrame from user-provided filename {os.path.join(output_path, df_fname)} which may not correspond to the provided ncomponents, bin_type, etc. Proceed with caution!")
         if not df_fname.endswith(".hd5"):
             df_fname += ".hd5"
     else:
-        assert bin_type in settings["lzifu"]["bin_types"], "bin_type is invalid for survey lzifu!!"
+        if bin_type not in settings["lzifu"]["bin_types"]:
+            raise ValueError(f"bin_type {bin_type} is invalid for survey lzifu!")
         # Input file name
         df_fname = f"lzifu_{bin_type}_{ncomponents}-comp"
         if correct_extinction:
@@ -418,8 +417,8 @@ def load_lzifu_df(ncomponents=None,
             df_fname += "_DEBUG"
         df_fname += ".hd5"
 
-    assert os.path.exists(os.path.join(output_path, df_fname)),\
-        f"File {os.path.join(output_path, df_fname)} does does not exist!"
+    if not os.path.exists(os.path.join(output_path, df_fname)):
+        raise FileNotFoundError(f"File {os.path.join(output_path, df_fname)} does does not exist!")
 
     # Load the data frame
     t = os.path.getmtime(os.path.join(output_path, df_fname))
