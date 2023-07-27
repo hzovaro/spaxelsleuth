@@ -37,7 +37,7 @@ from IPython.core.debugger import Tracer
 
 ###############################################################################
 # Paths
-sdss_im_path = settings["sami"]["sdss_im_path"]
+sdss_im_path = settings["sdss_im_path"]
 
 ###############################################################################
 def get_sdss_image(gal, ra_deg, dec_deg,
