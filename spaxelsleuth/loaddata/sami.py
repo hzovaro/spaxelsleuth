@@ -398,8 +398,8 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
         "catid": "ID",
         "dec_obj": "Dec (J2000)",
         "ra_obj": "RA (J2000)",
-        "dec_ifu": "Dec (IFU) (J2000)",
-        "ra_ifu": "RA (IFU) (J2000)",
+        "dec_ifu": "Dec (IFU) (J2000)", # NOTE: some galaxies do not have these coordinates, for some reason.
+        "ra_ifu": "RA (IFU) (J2000)", # NOTE: some galaxies do not have these coordinates, for some reason.
         "g_i": "g - i colour",
         "is_mem": "Cluster member",
         "m_r": "M_r",
