@@ -70,7 +70,7 @@ import matplotlib.pyplot as plt
 plt.ion()
 plt.close("all")
 
-from IPython.core.debugger import Tracer
+# from IPython.core.debugger import Tracer
 
 import warnings
 warnings.filterwarnings(action="ignore", message="Mean of empty slice")
@@ -190,8 +190,6 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
 
     PREREQUISITES
     ---------------------------------------------------------------------------
-    SAMI_DIR must be defined as an environment variable.
-
     Tables containing metadata for SAMI galaxies are required for this script. 
     These have been included in the ../data/ directory. 
 
@@ -300,15 +298,14 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     cond &= df_flags["warnskyr"] == 0  # bad sky subtraction residuals
     cond &= df_flags["warnre"] == 0  # significant difference between standard & MGE Re. NOTE: there are actually no entries in this DataFrame with WARNRE = 1!
     df_flags_cut = df_flags[cond]
-    
+
     for gal in df_flags_cut["catid"]:
         if df_flags_cut[df_flags_cut["catid"] == gal].shape[0] > 1:
             # If there are two "best" observations, drop the second one.
             drop_idxs = df_flags_cut.index[df_flags_cut["catid"] == gal][1:]
             df_flags_cut = df_flags_cut.drop(drop_idxs)
 
-    if df_flags_cut.shape[0] != len(df_flags_cut["catid"].unique()):
-        Tracer()()
+    assert df_flags_cut.shape[0] == len(df_flags_cut["catid"].unique())
 
     # Convert to int
     df_metadata["catid"] = df_metadata["catid"].astype(int)
@@ -435,10 +432,10 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     cond_has_no_Tonry_z = df_metadata["z (flow-corrected)"].isna()
     df_metadata.loc[cond_has_no_Tonry_z, "z"] = df_metadata.loc[cond_has_no_Tonry_z, "z (spectroscopic)"]
     df_metadata.loc[~cond_has_no_Tonry_z, "z"] = df_metadata.loc[~cond_has_no_Tonry_z, "z (flow-corrected)"]
-    
+
     # Check that NO cluster members have flow-corrected redshifts
     assert not any((df_metadata["Cluster member"] == 1.0) & ~df_metadata["z (flow-corrected)"].isna())
-    
+
     ###########################################################################
     # Add angular scale info
     ###########################################################################
@@ -618,13 +615,10 @@ def _process_gals(args):
     #######################################################################
     #######################################################################
     # X, Y pixel coordinates
-    
-    
-
     # Compute the spaxel or bin coordinates, depending on the binning scheme
     im = np.nansum(data_cube_B, axis=0)
     ny, nx = im.shape
-    
+
     if bin_type == "default":
         # Create an image from the datacube to figure out where are "good" spaxels
         if np.any(im.flatten() <= 0): # NaN out -ve spaxels. Most galaxies seem to have *some* -ve pixels
@@ -688,7 +682,7 @@ def _process_gals(args):
         PA_deg,
         i_deg,
     )
-    
+
     #######################################################################
     # Open each FITS file, extract the values from the maps in each bin & append
     rows_list = []
@@ -1228,8 +1222,12 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     return
 
 ###############################################################################
-def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
-                 __use_lzifu_fits=False, __lzifu_ncomponents='3',
+def load_sami_df(ncomponents,
+                 bin_type,
+                 correct_extinction,
+                 eline_SNR_min,
+                 __use_lzifu_fits=False,
+                 __lzifu_ncomponents='3',
                  debug=False):
 
     """
@@ -1332,3 +1330,10 @@ def load_sami_df(ncomponents, bin_type, correct_extinction, eline_SNR_min,
     # Return
     print("In load_sami_df(): Finished!")
     return df.sort_index()
+
+###############################################################################
+def load_sami_metadata_df():
+    """Load the SAMI metadata DataFrame, containing "metadata" for each galaxy."""
+    if not os.path.exists(os.path.join(settings["sami"]["output_path"], "sami_dr3_metadata.hd5")):
+        raise FileNotFoundError(f"File {os.path.join(settings['sami']['output_path'], 'sami_dr3_metadata.hd5')} not found. Did you remember to run make_sami_metadata_df() first?")
+    return pd.read_hdf(os.path.join(settings["sami"]["output_path"], "sami_dr3_metadata.hd5"))
