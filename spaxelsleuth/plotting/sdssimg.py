@@ -148,21 +148,26 @@ def plot_sdss_image(df, gal,
     if df is not None:
         df_gal = df[df["ID"] == gal]
         # Get the central coordinates from the DF
-        if "RA (IFU) (J2000)" in df_gal and "Dec (IFU) (J2000)" in df_gal:
+        if ("RA (IFU) (J2000)" in df_gal and "Dec (IFU) (J2000)" in df_gal) and (~np.isnan(df_gal["RA (IFU) (J2000)"].unique()[0])) and (~np.isnan(df_gal["Dec (IFU) (J2000)"].unique()[0])):
             ra_deg = df_gal["RA (IFU) (J2000)"].unique()[0]
             dec_deg = df_gal["Dec (IFU) (J2000)"].unique()[0]
-        else:
+        elif ("RA (J2000)" in df_gal and "Dec (J2000)" in df_gal) and (~np.isnan(df_gal["RA (J2000)"].unique()[0])) and (~np.isnan(df_gal["Dec (J2000)"].unique()[0])):
             ra_deg = df_gal["RA (J2000)"].unique()[0]
             dec_deg = df_gal["Dec (J2000)"].unique()[0]
+        else:
+            raise ValueError("No valid RA and Dec values found in DataFrame!")
         gal = df_gal["ID"].unique()[0]
         if show_scale_bar:
             kpc_per_as = df_gal["kpc per arcsec"].unique()[0]
     else:
-        assert gal is not None, "gal must be specified!"
-        assert ra_deg is not None,  "ra_deg must be specified!"
-        assert dec_deg is not None, "dec_deg must be specified!"
-        if show_scale_bar:
-            assert kpc_per_as is not None, "kpc_per_as must be specified!"
+        if gal is None:
+            raise ValueError("gal must be specified!")
+        if ra_deg is None:
+            raise ValueError("ra_deg must be specified!")
+        if dec_deg is None:
+            raise ValueError("dec_deg must be specified!")
+        if show_scale_bar and kpc_per_as is None:
+                raise ValueError("kpc_per_as must be specified!")
 
     # Load image
     if reload_image or (not os.path.exists(os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg"))):
