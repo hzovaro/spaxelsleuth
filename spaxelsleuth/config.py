@@ -20,18 +20,21 @@ def load_user_config(p, verbose=False):
         if key in settings:
             if verbose:
                 print(f"{key}:")
-            for subkey in user_settings[key]:
-                if verbose:
-                    print(f"\t{subkey}:")
-                new_setting = user_settings[key][subkey]
-                if subkey in settings[key]:
-                    old_setting = settings[key][subkey]
+            if type(settings[key]) == dict:
+                for subkey in user_settings[key]:
                     if verbose:
-                        print(f"\t\t{old_setting} --> {new_setting}")
-                else:
-                    if verbose:
-                        print(f"\t\tAdding new setting {new_setting}")
-                settings[key][subkey] = new_setting
+                        print(f"\t{subkey}:")
+                    new_setting = user_settings[key][subkey]
+                    if subkey in settings[key]:
+                        old_setting = settings[key][subkey]
+                        if verbose:
+                            print(f"\t\t{old_setting} --> {new_setting}")
+                    else:
+                        if verbose:
+                            print(f"\t\tAdding new setting {new_setting}")
+                    settings[key][subkey] = new_setting
+            else:
+                settings[key] = user_settings[key]
         else:
             if verbose:
                 print(f"Adding new key {key}: {user_settings[key]}")
