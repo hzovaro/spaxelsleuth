@@ -1,4 +1,5 @@
-{
+{   
+    "sdss_im_path": "sami/sdss/",
     "sami": {
         "as_per_px": 0.5,
         "N_x": 50,
@@ -24,8 +25,7 @@
         "data_cube_path": "sami/input/",
         "input_path": "sami/input",
         "output_path": "sami/output",
-        "lzifu_products_path": "sami/lzifu/products/",
-        "sdss_im_path": "sami/sdss/"
+        "lzifu_products_path": "sami/lzifu/products/"
     },
     "s7": {
         "as_per_px": 1.0,
@@ -41,7 +41,8 @@
         "as_per_px": null,
         "data_cube_path": "lzifu/input/",
         "input_path": "lzifu/input",
-        "output_path": "lzifu/output"
+        "output_path": "lzifu/output",
+        "bin_types": ["default"]
     },
     "manga": {
         "as_per_px": null,
