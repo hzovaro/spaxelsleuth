@@ -46,14 +46,14 @@ import pandas as pd
 import numpy as np
 from itertools import product
 from scipy import constants
+import warnings
+
 from astropy.cosmology import FlatLambdaCDM
 from astropy.io import fits
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 
 from spaxelsleuth.utils import linefns, dqcut, metallicity, extcorr
-
-from IPython.core.debugger import Tracer
 
 ###############################################################################
 # Paths
@@ -682,7 +682,7 @@ def make_s7_df(bin_type="default", ncomponents="recom",
     FWHM_inst_A = 0.9 # Based on skyline at 6950 A
     sigma_inst_A = FWHM_inst_A / ( 2 * np.sqrt( 2 * np.log(2) ))
     sigma_inst_km_s = sigma_inst_A * constants.c / 1e3 / 6562.8  # Defined at Halpha
-    print(f"{status_str}: WARNING: estimating instrumental dispersion from my own WiFeS observations - may not be consistent with assumed value in LZIFU!")
+    warnings.warn("estimating instrumental dispersion from my own WiFeS observations - may not be consistent with assumed value in LZIFU!")
 
     df_spaxels = dqcut.dqcut(df=df_spaxels, 
                   ncomponents=3 if ncomponents == "recom" else 1,
