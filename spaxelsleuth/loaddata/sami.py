@@ -465,10 +465,10 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     ###############################################################################
     print("In make_sami_metadata_df(): Computing continuum SNRs...")
     if not recompute_continuum_SNRs and os.path.exists(os.path.join(output_path, "sami_dr3_aperture_snrs.hd5")):
-        print(f"In make_sami_metadata_df(): WARNING: file {os.path.join(output_path, 'sami_dr3_aperture_snrs.hd5')} found; loading SNRs from existing DataFrame...")
+        warnings.warn(f"file {os.path.join(output_path, 'sami_dr3_aperture_snrs.hd5')} found; loading SNRs from existing DataFrame...")
         df_snr = pd.read_hdf(os.path.join(output_path, "sami_dr3_aperture_snrs.hd5"), key="SNR")
     else:
-        print(f"In make_sami_metadata_df(): WARNING: computing continuum SNRs on {nthreads} threads...")
+        warnings.warn(f"computing continuum SNRs on {nthreads} threads...")
         print("In make_sami_metadata_df(): Beginning pool...")
         args_list = [[gal, df_metadata] for gal in gal_ids_dq_cut]
         pool = multiprocessing.Pool(nthreads)
