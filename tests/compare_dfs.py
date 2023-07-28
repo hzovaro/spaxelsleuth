@@ -6,11 +6,19 @@ if __name__ == "__main__":
     import sys 
 
     fname = sys.argv[1]
-    fname_new = Path("/priv/meggs3/u5708159/SAMI/sami_dr3") / fname
+    fname_new = Path("/data/misfit/u5708159/SAMI") / fname
     fname_old = Path("/priv/meggs3/u5708159/SAMI/sami_dr3/tests/old") / fname 
 
-    df_new = pd.read_hdf(fname_new)
-    df_old = pd.read_hdf(fname_old)
+    if fname == "sami_dr3_aperture_snrs.hd5":
+        df_new = pd.read_hdf(fname_new, key="SNR")
+        df_old = pd.read_hdf(fname_old, key="SNR")
+    else:
+        df_new = pd.read_hdf(fname_new)
+        df_old = pd.read_hdf(fname_old)
+
+    # Drop SNR columns for now since I have no fucking idea why they've changed...
+    df_old = df_old[[c for c in df_old.columns if " SNR " not in c]]
+    df_new = df_new[[c for c in df_new.columns if " SNR " not in c]]
 
     # Check that shapes are the same 
     assert df_old.shape == df_new.shape

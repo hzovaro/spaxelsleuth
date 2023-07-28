@@ -1,4 +1,5 @@
 {   
+    "comments": "NOTE: for large surveys with a fixed, well-defined data format such as SAMI, we define variables such as the cube size (N_x, N_y), centre coordinates (x0_px, y0_px) and plate scale (as_per_px) here because we can safely assume that they will be the same for all objects. For others such as S7 and lzifu, it makes more sense to measure these from the data directly as they can change from object to object. That is why these variables are not defined here. But we have to make sure they are measured and recorded in the DataFrame in a consistent format!!",
     "sdss_im_path": "sami/sdss/",
     "sami": {
         "as_per_px": 0.5,
@@ -20,7 +21,7 @@
         "bin_types": [
             "default",
             "adaptive",
-            "recom"
+            "sectors"
         ],
         "data_cube_path": "sami/input/",
         "input_path": "sami/input",
@@ -29,23 +30,25 @@
     },
     "s7": {
         "as_per_px": 1.0,
-        "N_x": 25,
-        "N_y": 38,
-        "x0_px": 12.5,
-        "y0_px": 19,
+        "bin_types": [
+            "default"
+        ],
         "data_cube_path": "s7/input/",
         "input_path": "s7/input",
         "output_path": "s7/output"
     },
     "lzifu": {
-        "as_per_px": null,
+        "bin_types": [
+            "default"
+        ],
         "data_cube_path": "lzifu/input/",
         "input_path": "lzifu/input",
-        "output_path": "lzifu/output",
-        "bin_types": ["default"]
+        "output_path": "lzifu/output"
     },
     "manga": {
-        "as_per_px": null,
+        "bin_types": [
+            "default"
+        ],
         "data_cube_path": "manga/input/",
         "input_path": "manga/input",
         "output_path": "manga/output"

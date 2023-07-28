@@ -306,6 +306,12 @@ def add_columns(df, **kwargs):
     df = dqcut.compute_extra_columns(df)
 
     ######################################################################
+    # COMPUTE THE SFR
+    ######################################################################
+    if kwargs["compute_sfr"]:
+        df = linefns.sfr_fn(df, s=f" (total)")
+
+    ######################################################################
     # EVALUATE METALLICITY (only for spaxels with extinction correction)
     ######################################################################
     if not kwargs["debug"]:
@@ -326,6 +332,7 @@ def add_columns(df, **kwargs):
     else:
         df = metallicity.calculate_metallicity(met_diagnostic="N2Ha_PP04", compute_errors=True, niters=1000, df=df, s=" (total)")
         df = metallicity.calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df, s=" (total)")
+        # df = metallicity.calculate_metallicity(met_diagnostic="R23_KK04", compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df, s=" (total)")
 
     ###############################################################################
     # Save input flags to the DataFrame

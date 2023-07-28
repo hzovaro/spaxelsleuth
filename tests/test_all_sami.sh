@@ -1,7 +1,9 @@
 # Make DataFrames 
-python make_sami_test_dfs.py
+# python make_sami_test_dfs.py
 
 # Compare with old verions
+python compare_dfs.py sami_dr3_metadata.hd5
+python compare_dfs.py sami_dr3_aperture_snrs.hd5
 python compare_dfs.py sami_default_recom-comp_extcorr_minSNR=5_DEBUG.hd5
 python compare_dfs.py sami_adaptive_recom-comp_extcorr_minSNR=5_DEBUG.hd5
 python compare_dfs.py sami_sectors_recom-comp_extcorr_minSNR=5_DEBUG.hd5

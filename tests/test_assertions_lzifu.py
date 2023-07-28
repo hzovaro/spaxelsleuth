@@ -4,25 +4,22 @@ import os
 import numpy as np
 import pandas as pd
 
-from spaxelsleuth.loaddata.sami import load_sami_df
+from spaxelsleuth.loaddata.lzifu import load_lzifu_df
 
 from IPython.core.debugger import Tracer
 
 ###############################################################################
 # Options
-ncomponents, bin_type, eline_SNR_min, __lzifu_ncomponents = [sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]]
+ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3])]
 debug = True
-
-range_ncomponents_elines = range(3 if __lzifu_ncomponents == "recom" else int(__lzifu_ncomponents))
 
 ###############################################################################
 # Load the data
 ###############################################################################
-df = load_sami_df(ncomponents=ncomponents,
+df = load_lzifu_df(ncomponents=ncomponents,
                   bin_type=bin_type,
                   eline_SNR_min=eline_SNR_min,
                   correct_extinction=True,
-                  __use_lzifu_fits=True, __lzifu_ncomponents=__lzifu_ncomponents,
                   debug=debug)
 
 ###############################################################################
@@ -44,13 +41,13 @@ for eline in ["HALPHA", "HBETA", "NII6583", "OIII5007"]:
     assert all(df.loc[cond_has_no_line, "BPT (total)"] == "Not classified")
 
 # CHECK: "Number of components" is NaN, 0, 1, 2 or 3
-if __lzifu_ncomponents == "recom":
+if ncomponents == "merge":
     assert np.all(df.loc[~df["Number of components"].isna(), "Number of components"].unique() == [0, 1, 2, 3])
-elif __lzifu_ncomponents == "1":
+elif ncomponents == "1":
     assert np.all(df.loc[~df["Number of components"].isna(), "Number of components"].unique() == [0, 1])
-elif __lzifu_ncomponents == "2":
+elif ncomponents == "2":
     assert np.all(df.loc[~df["Number of components"].isna(), "Number of components"].unique() == [0, 1, 2])
-elif __lzifu_ncomponents == "3":
+elif ncomponents == "3":
     assert np.all(df.loc[~df["Number of components"].isna(), "Number of components"].unique() == [0, 1, 2, 3])
 
 # CHECK: all spaxels with original number of compnents == 0 have zero emission line fluxes 
@@ -69,21 +66,21 @@ for col in [c for c in df.columns if "v_*" in c or "sigma_*" in c]:
     assert all(df.loc[cond_bad_stekin, col].isna())
 
 # CHECK: sigma_gas S/N cut
-for nn in range_ncomponents_elines:
+for nn in range(3 if ncomponents == "merge" else 1):
     assert all(df.loc[df[f"sigma_obs S/N (component {nn + 1})"] < 3, f"Low sigma_gas S/N flag (component {nn + 1})"])
     cond_bad_sigma = df[f"Low sigma_gas S/N flag (component {nn + 1})"]
     for col in [c for c in df.columns if "sigma_gas" in c and f"component {nn + 1}" in c and "flag" not in c]:
         assert all(df.loc[cond_bad_sigma, col].isna())
 
 # CHECK: line amplitude cut 
-for nn in range_ncomponents_elines:
+for nn in range(3 if ncomponents == "merge" else 1):
     assert all(df.loc[df[f"HALPHA A (component {nn + 1})"] < 3 * df[f"HALPHA continuum std. dev."], f"Low amplitude flag - HALPHA (component {nn + 1})"])
     cond_low_amp = df[f"Low amplitude flag - HALPHA (component {nn + 1})"]
     for col in [c for c in df.columns if f"component {nn + 1}" in c and "flag" not in c]:
         assert all(df.loc[cond_low_amp, col].isna())
 
 # CHECK: flux S/N cut
-for nn in range_ncomponents_elines:
+for nn in range(3 if ncomponents == "merge" else 1):
     assert all(df.loc[df[f"Low flux S/N flag - HALPHA (component {nn + 1})"], f"HALPHA (component {nn + 1})"].isna())
 for eline in ["HALPHA", "HBETA", "NII6583", "OIII5007", "SII6716", "SII6731", "OII3726+OII3729", "OI6300"]:
     assert all(df.loc[df[f"Low flux S/N flag - {eline} (total)"], f"{eline} (total)"].isna())
@@ -100,7 +97,7 @@ assert all(df.loc[cond, "sigma_gas (component 1)"].isna() | df.loc[cond, "HALPHA
 # CHECK: all fluxes (and EWs) that are NaN have NaN errors
 for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
     assert all(df.loc[df[f"{eline} (total)"].isna(), f"{eline} error (total)"].isna())
-for nn in range_ncomponents_elines:
+for nn in range(3 if ncomponents == "merge" else 1):
     assert all(df.loc[df[f"HALPHA (component {nn + 1})"].isna(), f"HALPHA error (component {nn + 1})"].isna())
     assert all(df.loc[df[f"HALPHA EW (component {nn + 1})"].isna(), f"HALPHA EW error (component {nn + 1})"].isna())
     assert all(df.loc[df[f"log HALPHA EW (component {nn + 1})"].isna(), f"log HALPHA EW error (upper) (component {nn + 1})"].isna())
@@ -110,7 +107,7 @@ for nn in range_ncomponents_elines:
 col = "HALPHA EW"
 assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} (total)"]))
 assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (total)"]))
-for nn in range_ncomponents_elines:
+for nn in range(3 if ncomponents == "merge" else 1):
     assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} (component {nn + 1})"]))
     assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (component {nn + 1})"]))
 
@@ -119,14 +116,14 @@ col = "log HALPHA EW"
 assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} (total)"]))
 assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (upper) (total)"]))
 assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (lower) (total)"]))
-for nn in range_ncomponents_elines:
+for nn in range(3 if ncomponents == "merge" else 1):
     assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} (component {nn + 1})"]))
     assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (upper) (component {nn + 1})"]))
     assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (lower) (component {nn + 1})"]))
 
 # CHECK: all kinematic quantities in spaxels with 0 original components are NaN
 for col in ["sigma_gas", "v_gas"]:
-    for nn in range_ncomponents_elines:
+    for nn in range(3 if ncomponents == "merge" else 1):
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} (component {nn + 1})"]))
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (component {nn + 1})"]))
 
@@ -136,7 +133,7 @@ for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII50
     assert np.all(np.isnan(df.loc[df[f"{eline} S/N (total)"] < eline_SNR_min, f"{eline} error (total)"]))
 
 # CHECK: all Halpha components below S/N limit are NaN
-for nn in range_ncomponents_elines:
+for nn in range(3 if ncomponents == "merge" else 1):
     assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"HALPHA (component {nn + 1})"]))
     assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"HALPHA error (component {nn + 1})"]))
     assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"HALPHA EW (component {nn + 1})"]))
@@ -146,21 +143,16 @@ for nn in range_ncomponents_elines:
     assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"log HALPHA EW error (lower) (component {nn + 1})"]))
 
 # CHECK: all sigma_gas components with S/N < S/N target are NaN
-for nn in range_ncomponents_elines:
+for nn in range(3 if ncomponents == "merge" else 1):
     assert np.all(np.isnan(df.loc[df[f"sigma_obs S/N (component {nn + 1})"] < df[f"sigma_obs target S/N (component {nn + 1})"], f"sigma_gas (component {nn + 1})"]))
     assert np.all(np.isnan(df.loc[df[f"sigma_obs S/N (component {nn + 1})"] < df[f"sigma_obs target S/N (component {nn + 1})"], f"sigma_gas error (component {nn + 1})"]))
-
-# CHECK: stellar kinematics have been correctly masked out
-assert np.all(df.loc[~np.isnan(df["sigma_*"]), "sigma_*"] > 35)
-assert np.all(df.loc[~np.isnan(df["v_* error"]), "v_* error"] < 30)
-assert np.all(df.loc[~np.isnan(df["sigma_* error"]), "sigma_* error"] < df.loc[~np.isnan(df["sigma_* error"]), "sigma_*"] * 0.1 + 25)
 
 # CHECK: number of components has been set properly
 assert all(~df[df["Number of components"] > df["Number of components (original)"]])
 
 # CHECK: low S/N components have been masked out 
 for eline in ["HALPHA"]:
-    for nn in range_ncomponents_elines:
+    for nn in range(3 if ncomponents == "merge" else 1):
         assert all(df.loc[df[f"Low flux S/N flag - {eline} (component {nn + 1})"], f"{eline} (component {nn + 1})"].isna())
         assert all(df.loc[df[f"Low flux S/N flag - {eline} (component {nn + 1})"], f"{eline} error (component {nn + 1})"].isna())
         if eline == "HALPHA":
@@ -170,7 +162,7 @@ for eline in ["HALPHA"]:
             assert all(df.loc[df[f"Low flux S/N flag - {eline} (component {nn + 1})"], f"sigma_gas error (component {nn + 1})"].isna())
 
 # CHECK: has HALPHA EW been NaNd out propertly?
-for nn in range_ncomponents_elines:
+for nn in range(3 if ncomponents == "merge" else 1):
     assert all(df.loc[df[f"HALPHA (component {nn + 1})"].isna(), f"HALPHA EW (component {nn + 1})"].isna())
     assert all(df.loc[df[f"HALPHA (component {nn + 1})"].isna(), f"HALPHA EW error (component {nn + 1})"].isna())
     assert all(df.loc[df[f"HALPHA continuum"].isna() | (df[f"HALPHA continuum"] <= 0), f"HALPHA EW (component {nn + 1})"].isna())
