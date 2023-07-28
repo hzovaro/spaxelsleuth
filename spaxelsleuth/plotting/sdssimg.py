@@ -24,6 +24,8 @@ Copyright (C) 2022 Henry Zovaro
 import os
 import numpy as np
 from urllib.request import urlretrieve
+import warnings
+
 from astropy.wcs import WCS
 
 from spaxelsleuth.config import settings
@@ -172,7 +174,7 @@ def plot_sdss_image(df, gal,
     # Load image
     if reload_image or (not os.path.exists(os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg"))):
         # Download the image
-        print(f"WARNING: file {os.path.join(sdss_im_path, f'{gal}_{width_px}x{height_px}.jpg')} not found. Retrieving image from SDSS...")
+        warnings.warn(f"file {os.path.join(sdss_im_path, f'{gal}_{width_px}x{height_px}.jpg')} not found. Retrieving image from SDSS...")
         if not get_sdss_image(gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
                        as_per_px=as_per_px, width_px=width_px, height_px=height_px):
             return None
