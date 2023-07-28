@@ -48,12 +48,15 @@ ratio_fn():
     The column OIII4959+OIII5007 will also be added (and similar for other 
     emission lines, e.g. SIII9531 and SIII9051, NII6548 and NII6583).
 
+sfr_fn():
+    Compute the star formation rate (SFR) from the HALPHA flux.
+
 ------------------------------------------------------------------------------
 Copyright (C) 2022 Henry Zovaro
 """
 ###############################################################################
 import numpy as np
-from IPython.core.debugger import Tracer
+import warnings
 
 ###############################################################################
 # Reference lines from literature
@@ -597,7 +600,7 @@ def whav_fn(df, ncomponents):
         for cat in cats:
             df.loc[df["WHAV*"] == cat, "WHAV* (numeric)"] = num_dict[cat]
     else:
-        print("WARNING: not computing WHAV* categories because ncomponents is not 3")
+        warnings.warn("not computing WHAV* categories because ncomponents is not 3")
 
     return df
 
@@ -965,3 +968,34 @@ def ratio_fn(df, s=None):
 
     return df
 
+###############################################################################
+def sfr_fn(df, s=f" (total)"):
+
+    # Remove suffixes on columns
+    if s is not None:
+        df_old = df
+        suffix_cols = [c for c in df.columns if c.endswith(s)]
+        suffix_removed_cols = [c.split(s)[0] for c in suffix_cols]
+        df = df_old.rename(columns=dict(zip(suffix_cols, suffix_removed_cols)))
+    old_cols = df.columns
+    
+    # Check whether SFR measurements already exist in the DataFrame
+    sfr_cols = [col for col in df if "SFR" in col]
+    if len(sfr_cols) > 0:
+        warnings.warn(f"the following columns already exist in the DataFrame: {', '.join(sfr_cols)}")
+
+    # Use the Calzetti relation to calculate the SFR
+    if "HALPHA luminosity" in df:
+        df["SFR"] = df["HALPHA luminosity"] * 5.5e-42  # Taken from Calzetti (2013); assumes stellar mass range 0.1–100 M⊙, τ ≥6 Myr, Te=104 k, ne=100 cm−3
+
+    # Rename columns
+    if s is not None:
+        # Get list of new columns that have been added
+        added_cols = [c for c in df.columns if c not in old_cols]
+        suffix_added_cols = [f"{c}{s}" for c in added_cols]
+        # Rename the new columns
+        df = df.rename(columns=dict(zip(added_cols, suffix_added_cols)))
+        # Replace the suffix in the column names
+        df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
+
+    return df
