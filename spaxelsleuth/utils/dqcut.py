@@ -44,7 +44,7 @@ Copyright (C) 2022 Henry Zovaro
 ###############################################################################
 import numpy as np
 from scipy import constants
-from IPython.core.debugger import Tracer
+import warnings
 
 from spaxelsleuth.utils.extcorr import eline_lambdas_A
 
@@ -554,7 +554,7 @@ def apply_flags(df,
     
     else:
         # Base decision only on sigma_gas.
-        print("In dqcut.apply_flags(): WARNING: using only sigma_gas to define 'missing components'...")
+        warnings.warn("using only sigma_gas to define 'missing components'...")
         if all([col in df for col in [f"sigma_gas (component 1)", f"sigma_gas (component 2)", f"sigma_gas (component 3)"]]):
             cond_has_3 = ~np.isnan(df["sigma_gas (component 1)"]) &\
                         ~np.isnan(df["sigma_gas (component 2)"]) &\
@@ -756,7 +756,6 @@ def compute_extra_columns(df):
      - log quantities + errors:
         - Halpha EW
         - sigma_gas
-        - SFR
      - offsets between gas & stellar kinematics
      - offsets in Halpha EW, sigma_gas, v_gas between adjacent components
      - fraction of Halpha EW in each component
