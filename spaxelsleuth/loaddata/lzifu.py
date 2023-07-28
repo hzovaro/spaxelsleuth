@@ -1,13 +1,13 @@
 import os
 from path import Path
+import warnings
 
 import datetime
 from astropy.io import fits
+from astropy.cosmology import FlatLambdaCDM
 import multiprocessing
-import numbers
 import numpy as np
 import pandas as pd
-from scipy import constants
 
 from spaxelsleuth.config import settings
 from .generic import add_columns, compute_d4000, compute_continuum_intensity, compute_HALPHA_amplitude_to_noise, compute_v_grad
@@ -84,7 +84,13 @@ def _process_lzifu(args):
     
     # Redshift
     z = t["Z"][0]
-    
+
+    # Calculate cosmological distances from the redshift
+    cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
+    D_A_Mpc = cosmo.angular_diameter_distance(z).value
+    D_L_Mpc = cosmo.luminosity_distance(z).value
+    kpc_per_arcsec = D_A_Mpc * 1e3 * np.pi / 180.0 / 3600.0
+
     #######################################################################
     # LOAD THE DATACUBES
     #######################################################################
@@ -248,9 +254,14 @@ def _process_lzifu(args):
     ##########################################################
     # Add other stuff
     rows_list.append([gal] * len(x_c_list)); colnames.append("ID")
+    rows_list.append([D_A_Mpc] * len(x_c_list)); colnames.append("D_A (Mpc)")
+    rows_list.append([D_L_Mpc] * len(x_c_list)); colnames.append("D_L (Mpc)")
+    rows_list.append([as_per_px] * len(x_c_list)); colnames.append("as_per_px")
+    rows_list.append([kpc_per_arcsec] * len(x_c_list)); colnames.append("kpc per arcsec")
+    rows_list.append([as_per_px**2] * len(x_c_list)); colnames.append("Bin size (square arcsec)")
+    rows_list.append([(as_per_px * kpc_per_arcsec)**2] * len(x_c_list)); colnames.append("Bin size (square kpc)")
     rows_list.append([nx] * len(x_c_list)); colnames.append("N_x")
     rows_list.append([ny] * len(x_c_list)); colnames.append("N_y")
-    rows_list.append([as_per_px] * len(x_c_list)); colnames.append("as_per_px")
     rows_list.append(np.array(x_c_list).flatten()); colnames.append("x (pixels)")
     rows_list.append(np.array(y_c_list).flatten()); colnames.append("y (pixels)")  
     rows_list.append(np.array(x_c_list).flatten() * as_per_px); colnames.append("x (projected, arcsec)")
@@ -284,7 +295,7 @@ def make_lzifu_df(gals,
                   ncomponents,
                   sigma_inst_kms,
                   df_fname=None,
-                  bin_type="default",
+                  bin_type=None,
                   eline_SNR_min=5,
                   sigma_gas_SNR_min=3,
                   line_flux_SNR_cut=True,
@@ -370,6 +381,7 @@ def make_lzifu_df(gals,
         vgrad_cut=vgrad_cut,
         stekin_cut=stekin_cut,
         correct_extinction=correct_extinction,
+        compute_sfr=True,
         sigma_inst_kms=sigma_inst_kms,
         nthreads_max=nthreads_max,
         base_missing_flux_components_on_HALPHA=False,  # NOTE: this is important!!
@@ -383,7 +395,7 @@ def make_lzifu_df(gals,
     ###############################################################################
     # Save to file
     ###############################################################################
-    print(f"{status_str}: Saving to file...")
+    print(f"{status_str}: Saving to file {df_fname}...")
     df_spaxels.to_hdf(os.path.join(output_path, df_fname), key=f"{bin_type}, {ncomponents}-comp")
     print(f"{status_str}: Finished!")
     
@@ -402,7 +414,7 @@ def load_lzifu_df(ncomponents=None,
     #######################################################################
     # Input file name
     if df_fname is not None:
-        print(f"WARNING: loading DataFrame from user-provided filename {os.path.join(output_path, df_fname)} which may not correspond to the provided ncomponents, bin_type, etc. Proceed with caution!")
+        warnings.warn(f"Loading DataFrame from user-provided filename {os.path.join(output_path, df_fname)} which may not correspond to the provided ncomponents, bin_type, etc. Proceed with caution!", RuntimeWarning)
         if not df_fname.endswith(".hd5"):
             df_fname += ".hd5"
     else:

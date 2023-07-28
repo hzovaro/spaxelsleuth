@@ -53,26 +53,21 @@ Copyright (C) 2022 Henry Zovaro
 # Imports
 import datetime
 import os
+import warnings
 import pandas as pd
+import multiprocessing
 import numpy as np
-from itertools import product
-from scipy import constants
+
 from astropy.cosmology import FlatLambdaCDM
 from astropy.io import fits
-from tqdm import tqdm
-import multiprocessing
 
 from spaxelsleuth.config import settings
-from spaxelsleuth.utils import dqcut, linefns, metallicity, extcorr
 from .generic import add_columns, compute_d4000, compute_continuum_intensity, compute_HALPHA_amplitude_to_noise, compute_v_grad, deproject_coordinates
 
 import matplotlib.pyplot as plt
 plt.ion()
 plt.close("all")
 
-# from IPython.core.debugger import Tracer
-
-import warnings
 warnings.filterwarnings(action="ignore", message="Mean of empty slice")
 warnings.filterwarnings(action="ignore", message="invalid value encountered in sqrt")
 
@@ -1079,7 +1074,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     if __use_lzifu_fits:
         assert __lzifu_ncomponents in ["recom", "1", "2", "3"], "__lzifu_ncomponents must be 'recom', '1', '2' or '3'!!"
         assert os.path.exists(__lzifu_products_path), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
-        print(f"WARNING: using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!")
+        warnings.warn("using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!", RuntimeWarning)
 
     # Component indices for emission line-derived quantities
     range_ncomponents_elines =\
@@ -1204,6 +1199,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         vgrad_cut=vgrad_cut,
         stekin_cut=stekin_cut,
         correct_extinction=correct_extinction,
+        compute_sfr=False,
         sigma_inst_kms=settings["sami"]["sigma_inst_kms"],
         nthreads_max=nthreads_max,
         debug=debug,
@@ -1294,11 +1290,11 @@ def load_sami_df(ncomponents,
     # INPUT CHECKING
     #######################################################################
     assert (ncomponents == "recom") | (ncomponents == "1"), "ncomponents must be 'recom' or '1'!!"
-    assert bin_type in ["default", "adaptive", "sectors"], "bin_type must be 'default' or 'adaptive' or 'sectors'!!"
+    assert bin_type in settings["sami"]["bin_types"], f"bin_type must be one of {', '.join(settings['sami']['bin_types'])}"
     if __use_lzifu_fits:
         assert __lzifu_ncomponents in ["recom", "1", "2", "3"], "__lzifu_ncomponents must be 'recom', '1', '2' or '3'!!"
         assert os.path.exists(__lzifu_products_path), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
-        print(f"WARNING: using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!")
+        warnings.warn("using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!", RuntimeWarning)
 
     # Input file name
     df_fname = f"sami_{bin_type}_{ncomponents}-comp"
@@ -1321,6 +1317,11 @@ def load_sami_df(ncomponents,
 
     # Add "metadata" columns to the DataFrame
     df["survey"] = "sami"
+    df["as_per_px"] = settings["sami"]["as_per_px"]
+    df["N_x"] = settings["sami"]["N_x"]
+    df["N_y"] = settings["sami"]["N_y"]
+    df["x0_px"] = settings["sami"]["x0_px"]
+    df["y0_px"] = settings["sami"]["y0_px"]
     df["ncomponents"] = ncomponents
     df["bin_type"] = bin_type
     df["__use_lzifu_fits"] = __use_lzifu_fits
