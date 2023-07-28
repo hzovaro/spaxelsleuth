@@ -32,6 +32,7 @@ import pandas as pd
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
+import warnings
 
 from spaxelsleuth.plotting.plottools import get_cmap, get_vmin, get_vmax, get_label
 
@@ -868,14 +869,12 @@ def plot2dscatter(df,
         raise ValueError(
             "cax_orientation must be either 'horizontal' or 'vertical'!")
     if col_z is None and plot_colorbar == True:
-        # TODO replace with logger
-        print(
-            "WARNING: not plotting colourbar because col_z is not specified!")
+        warnings.warn("not plotting colourbar because col_z is not specified!")
 
     # If a galaxy is specified (or galaxies), then plot only the galaxy
     if gal is not None:
         #TODO replace "type()" with "isinstance()" elsewhere
-        if isinstance(gal, int) or isinstance(gal, str):
+        if isinstance(gal, int) or isinstance(gal, np.integer) or isinstance(gal, str):
             df_plot = df[df["ID"] == gal]
         elif isinstance(gal, list):
             df_plot = df[df["ID"].isin(gal)]
