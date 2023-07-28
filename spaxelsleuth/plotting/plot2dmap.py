@@ -19,6 +19,7 @@ Copyright (C) 2022 Henry Zovaro
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import warnings
 
 from astropy import units as u
 from astropy.io import fits
@@ -37,7 +38,7 @@ def plot2dmap(df,
               col_z,
               bin_type=None,
               survey=None,
-              PA_deg=0,
+              PA_deg=0, #TODO get rid of this?
               as_per_px=None,
               plot_ra_dec=False,
               ra_deg=None, dec_deg=None,
@@ -157,11 +158,16 @@ def plot2dmap(df,
     ###########################################################################
     # Input verification
     ###########################################################################
-    if col_z not in df.columns:
+    # Extract the subset of the DataFrame belonging to this galaxy
+    df_gal = df[df["ID"] == gal]
+    if df_gal.shape == 0:
+        raise ValueError("df_gal is an empty DataFrame!")
+
+    if col_z not in df_gal.columns:
         raise ValueError(f"{col_z} is not a valid column!")
     
-    if df[col_z].dtype == "O":
-        if f"{col_z} (numeric)" in df:
+    if df_gal[col_z].dtype == "O":
+        if f"{col_z} (numeric)" in df_gal:
             col_z = f"{col_z} (numeric)"
             print("")
         else:
@@ -173,59 +179,71 @@ def plot2dmap(df,
         raise ValueError(
             "cax_orientation must be either 'horizontal' or 'vertical'!")
 
-    # Validate: survey
-    if "survey" in df:
+    # Validate: survey (optional)
+    # NOTE: we only need survey so that we can access the SAMI data cube path if bin_type is not default.
+    if "survey" in df_gal:
         if survey is not None:
-            print(f"WARNING: defaulting to 'survey' found in df rather than supplied value of '{survey}'")
-        if len(df["survey"].unique()) > 1:
+            warnings.warn(f"defaulting to 'survey' found in df rather than supplied value of '{survey}'")
+        if len(df_gal["survey"].unique()) > 1:
                 raise ValueError(f"There appear to be multiple 'survey' values in df!")
-        survey = df["survey"].unique()[0]
+        survey = df_gal["survey"].unique()[0]
     elif survey is not None:
         survey = survey.lower()
         if survey not in settings:
             raise ValueError(f"survey '{survey}' was not found in settings!")
     else:
-        raise ValueError("'survey' must be specified if it does not exist in 'df'!")
+        warnings.warn("'survey' not specified!")
     
-    # Validate: bin_type
-    if "bin_type" in df:
+    # Validate: bin_type (optional)
+    if "bin_type" in df_gal:
         if bin_type is not None:
-            print(f"WARNING: defaulting to 'bin_type' found in df rather than supplied value of '{bin_type}'")
+            warnings.warn(f"defaulting to 'bin_type' found in df rather than supplied value of '{bin_type}'")
         if len(df["bin_type"].unique()) > 1:
-            raise ValueError(f"There appear to be multiple 'bin_type' values in df!")
+            raise ValueError(f"There appear to be multiple 'bin_type' values in df for galaxy {gal}!")
         bin_type = df["bin_type"].unique()[0]
+        if bin_type is None:
+            raise ValueError("Not sure how this happened, but the value of 'bin_type' in the DataFrame is None!")
     elif bin_type is not None:
         bin_type = bin_type.lower()
-        if "bin_types" in settings[survey]:
-            if bin_type not in settings[survey]["bin_types"]:
-                raise ValueError(f"bin_type '{bin_type}' is not valid for survey '{survey}'!")
+        if survey is not None: 
+            if "bin_types" in settings[survey]:
+                if bin_type not in settings[survey]["bin_types"]:
+                    raise ValueError(f"bin_type '{bin_type}' is not valid for survey '{survey}'!")
+            else:
+                if bin_type is not "default":
+                    raise ValueError(f"bin_type must be 'default' for survey '{survey}'!")
         else:
             if bin_type is not "default":
-                raise ValueError("bin_type must be 'default' for survey '{survey}'!")
+                raise ValueError(f"bin_type must be 'default' if no survey is specified!")
     else:
-        raise ValueError("'bin_type' must be specified if it does not exist in 'df'!")
-
-    # Extract the subset of the DataFrame belonging to this galaxy
-    df_gal = df[df["ID"] == gal]
+        warnings.warn("'bin_type' not specified - assuming 'default'")
+        bin_type = "default"
 
     ###########################################################################
     # Get geometry
     ###########################################################################
-    as_per_px = settings[survey]["as_per_px"] if as_per_px is None else as_per_px
+    #TODO: move these to the DataFrame rather than getting them from settings
+    # Think of it as: use config settings to MAKE the dataframes but store all necessary info in the dataframe itself
+    if "as_per_px" in df_gal:
+        as_per_px = df_gal["as_per_px"].unique()[0]
+    else:
+        raise ValueError("as_per_px was not found in the DataFrame!")
 
     # Get size of image
-    if "N_x" in settings[survey] and "N_y" in settings[survey]:
-        nx = settings[survey]["N_x"]
-        ny = settings[survey]["N_y"]
+    if "N_x" in df_gal and "N_y" in df_gal:
+        nx = int(df_gal["N_x"].unique()[0])
+        ny = int(df_gal["N_y"].unique()[0])
     else:
-        nx = df_gal["x (pixels)"].max()
-        ny = df_gal["y (pixels)"].max()
+        warnings.warn("nx and ny were not found in the DataFrame so I am assuming their values from the shape of the data")
+        nx = int(np.nanmax(df_gal["x (pixels)"].values) + 1)
+        ny = int(np.nanmax(df_gal["y (pixels)"].values) + 1)
 
     # Get centre coordinates of image 
-    if "x0_px" in settings[survey] and "y0_px" in settings[survey]:
-        x0_px = settings[survey]["x0_px"]
-        y0_px = settings[survey]["y0_px"]
+    if "x0_px" in df_gal and "y0_px" in df_gal:
+        x0_px = int(df_gal["x0_px"].unique()[0])
+        y0_px = int(df_gal["y0_px"].unique()[0])
     else:
+        warnings.warn("x0_px and y0_px were not found in the DataFrame so I am assuming their values from the shape of the data")
         x0_px = nx / 2.
         y0_px = ny / 2.
 
@@ -237,9 +255,15 @@ def plot2dmap(df,
     # Bin type
     if bin_type == "default":
         for rr in range(df_gal.shape[0]):
-            xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
+            if "x (pixels)" in df_gal and "y (pixels)" in df_gal:
+                xx = int(df_gal.iloc[rr]["x (pixels)"])
+                yy = int(df_gal.iloc[rr]["y (pixels)"])
+            elif "x, y (pixels)" in df:
+                xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
+            else:
+                raise ValueError
             col_z_map[yy, xx] = df_gal.iloc[rr][col_z]
-    elif (bin_type == "adaptive" or bin_type == "sectors"):
+    else:
         if survey == "sami":
             hdulist = fits.open(
                 os.path.join(settings["sami"]["input_path"],
@@ -355,9 +379,11 @@ def plot2dmap(df,
                     df_gal["Bin number"] == nn, col_z_contours]
         elif bin_type == "default":
             for rr in range(df_gal.shape[0]):
-                xx, yy = [
-                    int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]
-                ]
+                if "x (pixels)" in df_gal and "y (pixels)" in df_gal:
+                    xx = int(df_gal.iloc[rr]["x (pixels)"])
+                    yy = int(df_gal.iloc[rr]["y (pixels)"])
+                elif "x, y (pixels)" in df_gal:
+                    xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
                 col_z_contour_map[yy, xx] = df_gal.iloc[rr][col_z_contours]
 
         # Draw contours
@@ -403,7 +429,7 @@ def plot2dmap(df,
     # Decorations
     ###########################################################################
     # Include scale bar
-    if show_scale_bar:
+    if show_scale_bar and "kpc per arcsec" in df_gal:
         plot_scale_bar(as_per_px=as_per_px,
                        kpc_per_as=df_gal["kpc per arcsec"].unique()[0],
                        fontsize=10,
@@ -418,7 +444,7 @@ def plot2dmap(df,
 
     # Title
     if show_title:
-        ax.set_title(f"{gal}") if survey == "sami" else ax.set_title(gal)
+       ax.set_title(str(gal))
 
     # Axis labels
     if axis_labels and plot_ra_dec:
