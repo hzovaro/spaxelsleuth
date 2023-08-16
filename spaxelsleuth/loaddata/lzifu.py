@@ -224,23 +224,25 @@ def _process_lzifu(args):
     ##########################################################
     # COMPUTE QUANTITIES DIRECTLY FROM THE DATACUBES
     ##########################################################
+    # NOTE: because we do not have access to stellar velocities, we assume no peculiar velocities within the object when calculating continuum quantities
+    v_star_map = np.zeros(data_cube_B.shape[1:])
     # Compute the D4000Å break
     if lambda_vals_B_rest_A[0] <= 3850 and lambda_vals_B_rest_A[-1] >= 4100:
-        d4000_map, d4000_map_err = compute_d4000(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A)
+        d4000_map, d4000_map_err = compute_d4000(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A, v_star_map=v_star_map)
         rows_list.append(_2d_map_to_1d_list(d4000_map));     colnames.append(f"D4000")
         rows_list.append(_2d_map_to_1d_list(d4000_map_err)); colnames.append(f"D4000 error")
 
     # Compute the continuum intensity so that we can compute the Halpha equivalent width.
     # Continuum wavelength range taken from here: https://ui.adsabs.harvard.edu/abs/2019MNRAS.485.4024V/abstract
     if lambda_vals_R_rest_A[0] <= 6500 and lambda_vals_R_rest_A[-1] >= 6540:
-        cont_HALPHA_map, cont_HALPHA_map_std, cont_HALPHA_map_err = compute_continuum_intensity(data_cube=data_cube_R, var_cube=var_cube_R, lambda_vals_rest_A=lambda_vals_R_rest_A, start_A=6500, stop_A=6540)
+        cont_HALPHA_map, cont_HALPHA_map_std, cont_HALPHA_map_err = compute_continuum_intensity(data_cube=data_cube_R, var_cube=var_cube_R, lambda_vals_rest_A=lambda_vals_R_rest_A, start_A=6500, stop_A=6540, v_map=v_star_map)
         rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map));     colnames.append(f"HALPHA continuum")
         rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_std)); colnames.append(f"HALPHA continuum std. dev.")
         rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_err)); colnames.append(f"HALPHA continuum error")
 
     # Compute the approximate B-band continuum
     if lambda_vals_B_rest_A[0] <= 4000 and lambda_vals_B_rest_A[-1] >= 5000:
-        cont_B_map, cont_B_map_std, cont_B_map_err = compute_continuum_intensity(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A, start_A=4000, stop_A=5000)
+        cont_B_map, cont_B_map_std, cont_B_map_err = compute_continuum_intensity(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A, start_A=4000, stop_A=5000, v_map=v_star_map)
         rows_list.append(_2d_map_to_1d_list(cont_B_map));     colnames.append(f"B-band continuum")
         rows_list.append(_2d_map_to_1d_list(cont_B_map_std)); colnames.append(f"B-band continuum std. dev.")
         rows_list.append(_2d_map_to_1d_list(cont_B_map_err)); colnames.append(f"B-band continuum error")
@@ -248,7 +250,7 @@ def _process_lzifu(args):
     # Compute the HALPHA amplitude-to-noise
     if lambda_vals_R_rest_A[0] <= 6562.8 and lambda_vals_R_rest_A[-1] >= 6562.8:
         v_map = hdulist_lzifu["V"].data  # Get velocity field from LZIFU fit
-        AN_HALPHA_map = compute_HALPHA_amplitude_to_noise(data_cube=data_cube_R, var_cube=var_cube_R, lambda_vals_rest_A=lambda_vals_R_rest_A, v_map=v_map[0], dv=300)
+        AN_HALPHA_map = compute_HALPHA_amplitude_to_noise(data_cube=data_cube_R, var_cube=var_cube_R, lambda_vals_rest_A=lambda_vals_R_rest_A, v_star_map=v_star_map, v_map=v_map[0], dv=300)
         rows_list.append(_2d_map_to_1d_list(AN_HALPHA_map)); colnames.append(f"HALPHA A/N (measured)")
 
     ##########################################################
