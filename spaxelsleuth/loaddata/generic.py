@@ -23,6 +23,8 @@ from itertools import product
 import numpy as np
 from scipy import constants
 
+from IPython.core.debugger import Tracer
+
 # TODO: figure out how to tidy up this import
 from spaxelsleuth.utils import dqcut, linefns, metallicity, extcorr
 
@@ -108,6 +110,23 @@ def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A
     cont_map = np.nanmean(data_cube[start_idx:stop_idx], axis=0)
     cont_map_std = np.nanstd(data_cube[start_idx:stop_idx], axis=0)
     cont_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube[start_idx:stop_idx], axis=0))
+
+    # DEBUGGING
+    # Check: is wavelength range for emission lines reasonable?
+    import matplotlib.pyplot as plt; plt.ion()
+    plt.close("all")
+
+    # fig,axs=plt.subplots(nrows=3,ncols=3)
+    # x0,y0=24,24
+    # for rr in [-1, 0, 1]:
+    #     for cc in [-1, 0, 1]:
+    #         y= y0 + rr * 10
+    #         x=x0 + cc * 10
+    #         axs[rr][cc].plot(lambda_vals_rest_A, data_cube[:, y, x], "k")
+    #         axs[rr][cc].axvline(start_A)
+    #         axs[rr][cc].axvline(stop_A)
+    # # plt.xlim([6562.8 - 150, 6562.8 + 150])
+    # Tracer()()
     return cont_map, cont_map_std, cont_map_err
 
 #//////////////////////////////////////////////////////////////////////////////
@@ -132,6 +151,17 @@ def compute_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_rest_A, v
     data_cube_masked_R[~A_HALPHA_mask] = np.nan
     A_HALPHA_map = np.nanmax(data_cube_masked_R, axis=0)
     AN_HALPHA_map = (A_HALPHA_map - cont_HALPHA_map) / cont_HALPHA_map_std
+
+    # DEBUGGING
+    # Check: is wavelength range for emission lines reasonable?
+    # import matplotlib.pyplot as plt; plt.ion()
+    # plt.close("all")
+    # plt.plot(lambda_vals_rest_A, data_cube[:, 24, 24], "k")
+    # plt.axvline(lambda_min_A[24, 24])
+    # plt.axvline(lambda_max_A[24, 24])
+    # plt.xlim([6562.8 - 150, 6562.8 + 150])
+    # Tracer()()
+
     return AN_HALPHA_map
 
 #//////////////////////////////////////////////////////////////////////////////
