@@ -81,7 +81,6 @@ def deproject_coordinates(x_c_list,
 
     return x_prime_list, y_prime_list, r_prime_list
 
-
 #//////////////////////////////////////////////////////////////////////////////
 def get_slices_in_velocity_range(data_cube, var_cube, lambda_vals_rest_A, lambda_rest_start_A, lambda_rest_stop_A, v_map):
     """Returns a copy of the data/variance cubes with slices outside those in a specified wavelength range masked out."""
@@ -132,28 +131,6 @@ def compute_d4000(data_cube, var_cube, lambda_vals_rest_A, v_star_map):
     return d4000_map, d4000_map_err
 
 #//////////////////////////////////////////////////////////////////////////////
-def compute_d4000_old(data_cube, var_cube, lambda_vals_rest_A):
-    start_b_idx = np.nanargmin(np.abs(lambda_vals_rest_A - 3850))
-    stop_b_idx = np.nanargmin(np.abs(lambda_vals_rest_A - 3950))
-    start_r_idx = np.nanargmin(np.abs(lambda_vals_rest_A - 4000))
-    stop_r_idx = np.nanargmin(np.abs(lambda_vals_rest_A - 4100))
-    N_b = stop_b_idx - start_b_idx
-    N_r = stop_r_idx - start_r_idx
-
-    # Convert datacube & variance cubes to units of F_nu
-    data_cube_Hz = data_cube * lambda_vals_rest_A[:, None, None]**2 / (constants.c * 1e10)
-    var_cube_Hz2 = var_cube * (lambda_vals_rest_A[:, None, None]**2 / (constants.c * 1e10))**2
-
-    num = np.nanmean(data_cube_Hz[start_r_idx:stop_r_idx], axis=0)
-    denom = np.nanmean(data_cube_Hz[start_b_idx:stop_b_idx], axis=0)
-    err_num = 1 / N_r * np.sqrt(np.nansum(var_cube_Hz2[start_r_idx:stop_r_idx], axis=0))
-    err_denom = 1 / N_b * np.sqrt(np.nansum(var_cube_Hz2[start_b_idx:stop_b_idx], axis=0))
-
-    d4000_map = num / denom
-    d4000_map_err = d4000_map * np.sqrt((err_num / num)**2 + (err_denom / denom)**2)
-    return d4000_map, d4000_map_err
-
-#//////////////////////////////////////////////////////////////////////////////
 def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A, stop_A, v_map):
     """Compute the mean, std. dev. and error of the mean of the continuum between start_A and stop_A."""
     data_cube_masked, var_cube_masked = get_slices_in_velocity_range(data_cube, var_cube, lambda_vals_rest_A, start_A, stop_A, v_map)
@@ -162,16 +139,6 @@ def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A
     N = np.nansum(~np.isnan(data_cube_masked), axis=0)
     cont_map_err = 1 / N * np.sqrt(np.nansum(var_cube_masked, axis=0))
     # NOTE: N = 0 in the outskirts of the image, so dividing by 1 / N replaces these elements with NaN (which is what we want!)
-    return cont_map, cont_map_std, cont_map_err
-
-#//////////////////////////////////////////////////////////////////////////////
-def compute_continuum_intensity_old(data_cube, var_cube, lambda_vals_rest_A, start_A, stop_A):
-    """Compute the mean, std. dev. and error of the mean of the continuum between start_A and stop_A."""
-    start_idx = np.nanargmin(np.abs(lambda_vals_rest_A - start_A))
-    stop_idx = np.nanargmin(np.abs(lambda_vals_rest_A - stop_A))
-    cont_map = np.nanmean(data_cube[start_idx:stop_idx], axis=0)
-    cont_map_std = np.nanstd(data_cube[start_idx:stop_idx], axis=0)
-    cont_map_err = 1 / (stop_idx - start_idx) * np.sqrt(np.nansum(var_cube[start_idx:stop_idx], axis=0))
     return cont_map, cont_map_std, cont_map_err
 
 #//////////////////////////////////////////////////////////////////////////////
@@ -196,41 +163,6 @@ def compute_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_rest_A, v
     data_cube_masked_R[~A_HALPHA_mask] = np.nan
     A_HALPHA_map = np.nanmax(data_cube_masked_R, axis=0)
     AN_HALPHA_map = (A_HALPHA_map - cont_HALPHA_map) / cont_HALPHA_map_std
-
-    return AN_HALPHA_map
-
-#//////////////////////////////////////////////////////////////////////////////
-def compute_HALPHA_amplitude_to_noise_old(data_cube, var_cube, lambda_vals_rest_A, v_map, dv):
-    """Measure the HALPHA amplitude-to-noise.
-        We measure this as
-              (peak spectral value in window around Ha - mean R continuum flux density) / standard deviation in R continuum flux density
-        As such, this value can be negative."""
-    lambda_vals_rest_A_cube = np.zeros(data_cube.shape)
-    lambda_vals_rest_A_cube[:] = lambda_vals_rest_A[:, None, None]
-
-    # Get the HALPHA continuum & std. dev.
-    cont_HALPHA_map, cont_HALPHA_map_std, cont_HALPHA_map_err = compute_continuum_intensity_old(data_cube=data_cube, var_cube=var_cube, lambda_vals_rest_A=lambda_vals_rest_A, start_A=6500, stop_A=6540)
-
-    # Wavelength window in which to compute A/N
-    lambda_max_A = dqcut.get_wavelength_from_velocity(6562.8, v_map + dv, units="km/s")
-    lambda_min_A = dqcut.get_wavelength_from_velocity(6562.8, v_map - dv, units="km/s")
-
-    # Measure HALPHA amplitude-to-noise
-    A_HALPHA_mask = (lambda_vals_rest_A_cube > lambda_min_A) & (lambda_vals_rest_A_cube < lambda_max_A)
-    data_cube_masked_R = np.copy(data_cube)
-    data_cube_masked_R[~A_HALPHA_mask] = np.nan
-    A_HALPHA_map = np.nanmax(data_cube_masked_R, axis=0)
-    AN_HALPHA_map = (A_HALPHA_map - cont_HALPHA_map) / cont_HALPHA_map_std
-
-    # DEBUGGING
-    # Check: is wavelength range for emission lines reasonable?
-    # import matplotlib.pyplot as plt; plt.ion()
-    # plt.close("all")
-    # plt.plot(lambda_vals_rest_A, data_cube[:, 24, 24], "k")
-    # plt.axvline(lambda_min_A[24, 24])
-    # plt.axvline(lambda_max_A[24, 24])
-    # plt.xlim([6562.8 - 150, 6562.8 + 150])
-    # Tracer()()
 
     return AN_HALPHA_map
 
