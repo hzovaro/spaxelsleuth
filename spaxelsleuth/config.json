@@ -5,8 +5,8 @@
         "as_per_px": 0.5,
         "N_x": 50,
         "N_y": 50,
-        "x0_px": 25.5,
-        "y0_px": 25.5,
+        "x0_px": 24.5,
+        "y0_px": 24.5,
         "sigma_inst_kms": 29.6,
         "eline_list": [
             "HALPHA",
