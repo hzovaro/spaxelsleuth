@@ -1,30 +1,18 @@
 import numpy as np
 
-from spaxelsleuth.utils import dqcut, linefns, metallicity, extcorr, misc
+from spaxelsleuth.utils import continuum, dqcut, linefns, metallicity, extcorr, misc
+from spaxelsleuth.utils.misc import in_dataframe
 
 ###############################################################################
 def add_columns(df, **kwargs):
     """Computes quantities such as metallicities, extinctions, etc. for each row in df."""
 
-    # Utility function for checking necessary columns
-    def in_dataframe(cols) -> bool:
-        """Returns True if all colums in cols are present in DataFrame df."""
-        if type(cols) == list:
-            return all([c in df for c in cols])
-        elif type(cols) == str:
-            return cols in df
-        else:
-            raise ValueError("cols must be str or list of str!")
-
     status_str = "In generic.add_columns():"
 
-    ###############################################################################
-    # Compute the ORIGINAL number of components
-    ###############################################################################
     # Figure out the maximum number of components that has been fitted to each spaxel
     ncomponents_max = 0
     while True:
-        if not in_dataframe(f"sigma_gas (component {ncomponents_max + 1})"):
+        if not in_dataframe(df, f"sigma_gas (component {ncomponents_max + 1})"):
             break
         ncomponents_max += 1
 
@@ -34,55 +22,13 @@ def add_columns(df, **kwargs):
         ncomponents_original += (~df[f"sigma_gas (component {nn + 1})"].isna()).astype(int)
     df["Number of components (original)"] = ncomponents_original
 
-    ###############################################################################
     # Calculate equivalent widths
-    ###############################################################################
-    if in_dataframe(["HALPHA continuum"]):
-        # Zero out -ve continuum values
-        df.loc[df["HALPHA continuum"] < 0, "HALPHA continuum"] = 0
-
-        # Compute EW in each component
-        for nn in range(ncomponents_max):
-            if in_dataframe(f"HALPHA (component {nn + 1})"):
-                df[f"HALPHA EW (component {nn + 1})"] = df[f"HALPHA (component {nn + 1})"] / df["HALPHA continuum"]
-                # Compute associated errors
-                if in_dataframe([f"HALPHA error (component {nn + 1})", "HALPHA continuum error"]):
-                    df[f"HALPHA EW error (component {nn + 1})"] = df[f"HALPHA EW (component {nn + 1})"] *\
-                        np.sqrt((df[f"HALPHA error (component {nn + 1})"] / df[f"HALPHA (component {nn + 1})"])**2 +\
-                                (df[f"HALPHA continuum error"] / df[f"HALPHA continuum"])**2)
-
-                # If the continuum level <= 0, then the EW is undefined, so set to NaN.
-                df.loc[df["HALPHA continuum"] <= 0, [f"HALPHA EW (component {nn + 1})"]] = np.nan
-                if in_dataframe([f"HALPHA EW error (component {nn + 1})"]):
-                    df.loc[df["HALPHA continuum"] <= 0, [f"HALPHA EW error (component {nn + 1})"]] = np.nan
-
-        # Calculate total EW
-        if in_dataframe("HALPHA (total)"):
-            df[f"HALPHA EW (total)"] = df[f"HALPHA (total)"] / df["HALPHA continuum"]
-            if in_dataframe(["HALPHA error (total)", "HALPHA continuum error"]):
-                df[f"HALPHA EW error (total)"] = df[f"HALPHA EW (total)"] *\
-                    np.sqrt((df[f"HALPHA error (total)"] / df[f"HALPHA (total)"])**2 +\
-                            (df[f"HALPHA continuum error"] / df[f"HALPHA continuum"])**2)
-
-            # If the continuum level <= 0, then the EW is undefined, so set to NaN.
-            df.loc[df["HALPHA continuum"] <= 0, [f"HALPHA EW (total)", f"HALPHA EW error (total)"]] = np.nan
-
-    ######################################################################
+    df = continuum.compute_EW(df, ncomponents_max, eline_list=["HALPHA"])
+    
     # Compute S/N in all lines
-    ######################################################################
-    for eline in kwargs["eline_list"]:
-        # Compute S/N
-        for nn in range(ncomponents_max):
-            if in_dataframe([f"{eline} (component {nn + 1})", f"{eline} error (component {nn + 1})"]):
-                df[f"{eline} S/N (component {nn + 1})"] = df[f"{eline} (component {nn + 1})"] / df[f"{eline} error (component {nn + 1})"]
+    df = dqcut.compute_SN(df, ncomponents_max, kwargs["eline_list"])
 
-        # Compute the S/N in the TOTAL line flux
-        if in_dataframe([f"{eline} (total)", f"{eline} error (total)"]):
-            df[f"{eline} S/N (total)"] = df[f"{eline} (total)"] / df[f"{eline} error (total)"]
-
-    ######################################################################
     # DQ and S/N CUTS
-    ######################################################################
     df = dqcut.set_flags(df=df, **kwargs)
     df = dqcut.apply_flags(df=df, **kwargs)
 
@@ -90,7 +36,7 @@ def add_columns(df, **kwargs):
     # Fix SFR columns
     ######################################################################
     # NaN the SFR surface density if the inclination is undefined
-    if in_dataframe("i (degrees)"):
+    if in_dataframe(df, "i (degrees)"):
         cond_NaN_inclination = np.isnan(df["i (degrees)"])
         cols = [c for c in df.columns if "SFR surface density" in c]
         df.loc[cond_NaN_inclination, cols] = np.nan
@@ -98,14 +44,14 @@ def add_columns(df, **kwargs):
     # NaN the SFR if the SFR == 0
     # Note: I'm not entirely sure why there are spaxels with SFR == 0
     # in the first place.
-    if in_dataframe("SFR (total)"):
+    if in_dataframe(df, "SFR (total)"):
         cond_zero_SFR = df["SFR (total)"]  == 0
         cols = [c for c in df.columns if "SFR" in c]
         df.loc[cond_zero_SFR, cols] = np.nan
 
     # NaN out SFR quantities if the HALPHA flux is NaN
     # need to do this AFTER applying S/N and DQ cuts above.
-    if in_dataframe("HALPHA (total)"):
+    if in_dataframe(df, "HALPHA (total)"):
         cond_Ha_isnan = df["HALPHA (total)"].isna()
         cols_sfr = [c for c in df.columns if "SFR" in c]
         for col in cols_sfr:
@@ -154,13 +100,12 @@ def add_columns(df, **kwargs):
     ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
     ######################################################################
-    # df = dqcut.compute_extra_columns(df)
-    df = misc.compute_continuum_luminosity(df)
-    df = misc.compute_eline_luminosity(df, eline_list=["HALPHA"])
-    df = misc.compute_FWHM(df)
-    df = misc.compute_gas_stellar_offsets(df)
-    df = misc.compute_log_columns(df)
-    df = misc.compute_component_offsets(df)
+    df = continuum.compute_continuum_luminosity(df)
+    df = linefns.compute_eline_luminosity(df, ncomponents_max, eline_list=["HALPHA"])
+    df = linefns.compute_FWHM(df, ncomponents_max)
+    df = misc.compute_gas_stellar_offsets(df, ncomponents_max)
+    df = misc.compute_log_columns(df, ncomponents_max)
+    df = misc.compute_component_offsets(df, ncomponents_max)
 
     ######################################################################
     # COMPUTE THE SFR
