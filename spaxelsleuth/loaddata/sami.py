@@ -1,55 +1,3 @@
-"""
-File:       sami.py
-Author:     Henry Zovaro
-Email:      henry.zovaro@anu.edu.au
-
-DESCRIPTION
-------------------------------------------------------------------------------
-This script contains the following functions:
-
-    make_sami_metadata_df():
-        This function is used to create a DataFrame containing "metadata", including
-        stellar masses, spectroscopic redshifts, morphologies and other information
-        for each galaxy in SAMI.
-
-        This script must be run before make_sami_df() as the resulting DataFrame
-        is used there.
-
-        The information used is from the catalogues are available at 
-        https://datacentral.org.au/. See the function docstring for details
-        on which catalogues are needed.
-    
-    make_sami_df():     
-        This function is used to create a Pandas DataFrame containing emission line 
-        fluxes & kinematics, stellar kinematics, extinction, star formation rates, 
-        and other quantities for individual spaxels in SAMI galaxies as taken from 
-        SAMI DR3.
-
-        The output is stored in HDF format as a Pandas DataFrame in which each row 
-        corresponds to a given spaxel (or Voronoi bin) for every galaxy. 
-
-    _process_gals():
-        A helper function used in make_sami_df() to multithread processing of
-        individual galaxies.
-
-    _compute_snr():
-        A helper function used in make_sami_metadata_df() to multithread 
-        continuum SNR computations.
-
-    load_sami_df():
-        load a DataFrame containing emission line fluxes, etc. that was created 
-        using make_sami_df().
-
-PREREQUISITES
-------------------------------------------------------------------------------
-SAMI_DIR and SAMI_DATACUBE_DIR must be defined as an environment variable.
-
-See function docstrings for specific prerequisites.
-
-------------------------------------------------------------------------------
-Copyright (C) 2022 Henry Zovaro
-"""
-###############################################################################
 # Imports
 import datetime
 import os
@@ -62,14 +10,8 @@ from astropy.cosmology import FlatLambdaCDM
 from astropy.io import fits
 
 from spaxelsleuth.config import settings
-from .generic import add_columns, compute_d4000, compute_continuum_intensity, compute_HALPHA_amplitude_to_noise, compute_v_grad, deproject_coordinates
-
-import matplotlib.pyplot as plt
-plt.ion()
-plt.close("all")
-
-warnings.filterwarnings(action="ignore", message="Mean of empty slice")
-warnings.filterwarnings(action="ignore", message="invalid value encountered in sqrt")
+from spaxelsleuth.utils.misc import compute_d4000, compute_continuum_intensity, compute_HALPHA_amplitude_to_noise, compute_v_grad, deproject_coordinates
+from spaxelsleuth.loaddata.generic import add_columns
 
 ###############################################################################
 # Paths
@@ -242,7 +184,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     df_metadata_gama = pd.read_csv(os.path.join(data_path, gama_metadata_fname))  # ALL possible GAMA targets
     df_metadata_cluster = pd.read_csv(os.path.join(data_path, cluster_metadata_fname))  # ALL possible cluster targets
     df_metadata_filler = pd.read_csv(os.path.join(data_path, filler_metadata_fname))  # ALL possible filler targets
-    df_metadata = pd.concat([df_metadata_gama, df_metadata_cluster, df_metadata_filler]).drop(["Unnamed: 0"], axis=1)
+    df_metadata = pd.concat([df_metadata_gama, df_metadata_cluster, df_metadata_filler], sort=True).drop(["Unnamed: 0"], axis=1)
     gal_ids_metadata = list(np.sort(list(df_metadata["catid"])))
 
     ###########################################################################
@@ -465,10 +407,10 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
     ###############################################################################
     print("In make_sami_metadata_df(): Computing continuum SNRs...")
     if not recompute_continuum_SNRs and os.path.exists(os.path.join(output_path, "sami_dr3_aperture_snrs.hd5")):
-        warnings.warn(f"file {os.path.join(output_path, 'sami_dr3_aperture_snrs.hd5')} found; loading SNRs from existing DataFrame...")
+        w = warnings.warn(f"file {os.path.join(output_path, 'sami_dr3_aperture_snrs.hd5')} found; loading SNRs from existing DataFrame...")
         df_snr = pd.read_hdf(os.path.join(output_path, "sami_dr3_aperture_snrs.hd5"), key="SNR")
     else:
-        warnings.warn(f"computing continuum SNRs on {nthreads} threads...")
+        w = warnings.warn(f"computing continuum SNRs on {nthreads} threads...")
         print("In make_sami_metadata_df(): Beginning pool...")
         args_list = [[gal, df_metadata] for gal in gal_ids_dq_cut]
         pool = multiprocessing.Pool(nthreads)
@@ -584,17 +526,11 @@ def _process_gals(args):
         lambda_vals_R_rest_A = lambda_vals_R_A / (1 + df_metadata.loc[gal, "z (spectroscopic)"]) #NOTE: we use the spectroscopic redshift here, because when it comes to measuring e.g. continuum levels, it's important that the wavelength range we use is consistent between galaxies. For some galaxies the flow-corrected redshift is sufficiently different from the spectroscopic redshift that when we use it to define wavelength windows for computing the continuum level for instance we end up enclosing an emission line which throws the measurement way out of whack (e.g. for 572402)
 
     #######################################################################
-    # Compute the d4000 Angstrom break.
-    d4000_map, d4000_map_err = compute_d4000(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A)
+    # Compute continuum quantities
 
-    # Compute the continuum intensity so that we can compute the Halpha equivalent width. Units of 10**(-16) erg /s /cm**2 /angstrom /pixel
-    # Continuum wavelength range taken from here: https://ui.adsabs.harvard.edu/abs/2019MNRAS.485.4024V/abstract
-    cont_HALPHA_map, cont_HALPHA_map_std, cont_HALPHA_map_err = compute_continuum_intensity(data_cube=data_cube_R, var_cube=var_cube_R, lambda_vals_rest_A=lambda_vals_R_rest_A, start_A=6500, stop_A=6540)
-
-    # Compute the approximate B-band continuum. Units of 10**(-16) erg /s /cm**2 /angstrom /pixel
-    cont_B_map, cont_B_map_std, cont_B_map_err = compute_continuum_intensity(data_cube=data_cube_B, var_cube=var_cube_B, lambda_vals_rest_A=lambda_vals_B_rest_A, start_A=4000, stop_A=5000)
-
-    # Compute v_grad using eqn. 1 of Zhou+2017
+    # Load gas/stellar velocity maps so that we can window in around wavelength ranges accounting for velocity shifts
+    with fits.open(os.path.join(input_path, f"ifs/{gal}/{gal}_A_stellar-velocity_{bin_type}_two-moment.fits")) as hdulist_v_star:
+        v_star_map = hdulist_v_star[0].data.astype(np.float64)
     if not use_lzifu_fits:
         with fits.open(os.path.join(input_path, f"ifs/{gal}/{gal}_A_gas-velocity_{bin_type}_{ncomponents}-comp.fits")) as hdulist_v:
             v_map = hdulist_v[0].data.astype(np.float64)
@@ -602,10 +538,38 @@ def _process_gals(args):
         lzifu_fname = [f for f in os.listdir(__lzifu_products_path) if f.startswith(str(gal)) and f"{lzifu_ncomponents}_comp" in f][0]
         with fits.open(os.path.join(__lzifu_products_path, lzifu_fname)) as hdu_lzifu:
             v_map = hdu_lzifu["V"].data.astype(np.float64)
+    
+    # Compute the d4000 Angstrom break.
+    d4000_map, d4000_map_err = compute_d4000(data_cube=data_cube_B, 
+                                             var_cube=var_cube_B, 
+                                             lambda_vals_rest_A=lambda_vals_B_rest_A,
+                                             v_star_map=v_star_map)
+
+    # Compute the continuum intensity so that we can compute the Halpha equivalent width. Units of 10**(-16) erg /s /cm**2 /angstrom /pixel
+    # Continuum wavelength range taken from here: https://ui.adsabs.harvard.edu/abs/2019MNRAS.485.4024V/abstract
+    cont_HALPHA_map, cont_HALPHA_map_std, cont_HALPHA_map_err = compute_continuum_intensity(data_cube=data_cube_R, 
+                                                                                            var_cube=var_cube_R, 
+                                                                                            lambda_vals_rest_A=lambda_vals_R_rest_A, 
+                                                                                            start_A=6500, stop_A=6540,
+                                                                                            v_map=v_map[0])
+
+    # Compute the approximate B-band continuum. Units of 10**(-16) erg /s /cm**2 /angstrom /pixel
+    cont_B_map, cont_B_map_std, cont_B_map_err = compute_continuum_intensity(data_cube=data_cube_B, 
+                                                                             var_cube=var_cube_B, 
+                                                                             lambda_vals_rest_A=lambda_vals_B_rest_A, 
+                                                                             start_A=4000, stop_A=5000,
+                                                                             v_map=v_star_map)
+
+    # Compute v_grad using eqn. 1 of Zhou+2017
     v_grad = compute_v_grad(v_map)
 
     # Compute the HALPHA amplitude-to-noise. Store as "meas" to distinguish from A/N measurements for individual emission line components
-    AN_HALPHA_map = compute_HALPHA_amplitude_to_noise(data_cube=data_cube_R, var_cube=var_cube_R, lambda_vals_rest_A=lambda_vals_R_rest_A, v_map=v_map[0], dv=300)
+    AN_HALPHA_map = compute_HALPHA_amplitude_to_noise(data_cube=data_cube_R, 
+                                                      var_cube=var_cube_R, 
+                                                      lambda_vals_rest_A=lambda_vals_R_rest_A, 
+                                                      v_star_map=v_star_map,
+                                                      v_map=v_map[0], 
+                                                      dv=300)
 
     #######################################################################
     #######################################################################
@@ -1100,7 +1064,7 @@ def make_sami_df(bin_type="default", ncomponents="recom",
         df_fname += "_DEBUG"
     df_fname += ".hd5"
 
-    print(f"{status_str}: saving to files {df_fname}...")
+    print(f"{status_str}: saving to file {df_fname}...")
 
     ###############################################################################
     # Read metadata
@@ -1209,7 +1173,8 @@ def make_sami_df(bin_type="default", ncomponents="recom",
     ###############################################################################
     # Save
     ###############################################################################
-    print(f"{status_str}: Saving to file...")
+    print(f"{status_str}: Saving to file {df_fname}...")
+    
     try:
         df_spaxels.to_hdf(os.path.join(output_path, df_fname), key=f"{bin_type}, {ncomponents}-comp")
     except:
