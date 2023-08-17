@@ -18,8 +18,9 @@ kwargs = {
     "vgrad_cut": False,
     "stekin_cut": False,
     "correct_extinction": False,
+    "bin_type": "default",
 }
-make_lzifu_df(gals=gals, ncomponents=1, sigma_inst_kms=29.6, nthreads_max=1, df_fname="test_lzifu.hd5", **kwargs)
+# make_lzifu_df(gals=gals, ncomponents=1, sigma_inst_kms=29.6, nthreads_max=1, df_fname="test_lzifu.hd5", **kwargs)
 
 df = load_lzifu_df(ncomponents=1, bin_type="default", df_fname="test_lzifu.hd5")
 
@@ -30,4 +31,5 @@ from spaxelsleuth.plotting.plot2dmap import plot2dmap
 plt.ion()
 
 plot2dmap(df, gal=int(gals[0]), col_z="HALPHA (total)")
+plot2dmap(df, gal=int(gals[0]), col_z="D4000")
 
