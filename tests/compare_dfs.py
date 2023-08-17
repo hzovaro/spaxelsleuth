@@ -7,7 +7,7 @@ if __name__ == "__main__":
 
     fname = sys.argv[1]
     fname_new = Path("/data/misfit/u5708159/SAMI") / fname
-    fname_old = Path("/priv/meggs3/u5708159/SAMI/sami_dr3/tests/old") / fname 
+    fname_old = Path("/data/misfit/u5708159/SAMI/reference") / fname
 
     if fname == "sami_dr3_aperture_snrs.hd5":
         df_new = pd.read_hdf(fname_new, key="SNR")
@@ -15,10 +15,6 @@ if __name__ == "__main__":
     else:
         df_new = pd.read_hdf(fname_new)
         df_old = pd.read_hdf(fname_old)
-
-    # Drop SNR columns for now since I have no fucking idea why they've changed...
-    df_old = df_old[[c for c in df_old.columns if " SNR " not in c]]
-    df_new = df_new[[c for c in df_new.columns if " SNR " not in c]]
 
     # Check that shapes are the same 
     assert df_old.shape == df_new.shape
@@ -31,16 +27,33 @@ if __name__ == "__main__":
 
     # Since the order of the columns might change, we need to check them one by one.
     # We don't consider metallicity/ionisation parameter columns because these are computed in a non-deterministic way and won't agree between runs.
+    cols_where_nans_are_inconsistent = []
+    cols_where_values_are_different = []
     for c in [c for c in df_old if "log(O/H) + 12" not in c and "log(U)" not in c]:
-        
-        # Check that the NaNs agree
-        all(df_new[c].isna() == df_old[c].isna())
-        
-        # Check that values agree 
-        cond_not_nan = ~df_old[c].isna()
-        if df_old[c].dtype != "object":
-            assert np.allclose(df_old.loc[cond_not_nan, c], df_new.loc[cond_not_nan, c]) 
-        else:
-            assert df_old[c].equals(df_new[c])
 
-    print(f"Comparison test passed ({fname})")
+        # Check that values agree 
+        # cond_not_nan = ~df_old[c].isna()
+        if df_old[c].dtype != "object":
+
+            # Check that the NaNs agree
+            if not all(df_new[c].isna() == df_old[c].isna()):
+                cols_where_nans_are_inconsistent.append(c)
+
+            cond_new_is_nan = (df_new[c].isna()) & (~df_old[c].isna())
+            cond_old_is_nan = (~df_new[c].isna()) & (df_old[c].isna())
+            cond_both_are_nan =  (df_new[c].isna()) & (df_old[c].isna())
+            cond_neither_are_nan = (~df_new[c].isna()) & (~df_old[c].isna())
+            cond_neither_are_nan_and_they_dont_agree = cond_neither_are_nan & (~np.isclose(df_new[c], df_old[c]))
+            cond_neither_are_nan_and_they_agree = cond_neither_are_nan & (np.isclose(df_new[c], df_old[c]))
+
+            if not np.allclose(df_new.loc[cond_neither_are_nan, c].values, df_old.loc[cond_neither_are_nan, c].values):
+                cols_where_values_are_different.append(c)
+
+        else:
+            if not df_old[c].equals(df_new[c]):
+                cols_where_values_are_different.append(c)
+
+    if len(cols_where_values_are_different) == 0 and len(cols_where_nans_are_inconsistent) == 0:
+        print(f"Comparison test passed ({fname})")
+    else:
+        raise ValueError(f"Comparison test FAILED ({fname})")
