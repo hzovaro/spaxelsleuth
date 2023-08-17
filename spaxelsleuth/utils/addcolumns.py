@@ -98,6 +98,12 @@ def add_columns(df, **kwargs):
     df = linefns.bpt_fn(df, s=f" (total)")
 
     ######################################################################
+    # COMPUTE THE SFR
+    ######################################################################
+    if kwargs["compute_sfr"]:
+        df = linefns.sfr_fn(df, s=f" (total)")
+
+    ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
     ######################################################################
     df = continuum.compute_continuum_luminosity(df)
@@ -106,12 +112,6 @@ def add_columns(df, **kwargs):
     df = misc.compute_gas_stellar_offsets(df, ncomponents_max)
     df = misc.compute_log_columns(df, ncomponents_max)
     df = misc.compute_component_offsets(df, ncomponents_max)
-
-    ######################################################################
-    # COMPUTE THE SFR
-    ######################################################################
-    if kwargs["compute_sfr"]:
-        df = linefns.sfr_fn(df, s=f" (total)")
 
     ######################################################################
     # EVALUATE METALLICITY (only for spaxels with extinction correction)
