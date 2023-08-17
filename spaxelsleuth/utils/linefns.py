@@ -940,7 +940,7 @@ def ratio_fn(df, s=None):
 
 ###############################################################################
 def sfr_fn(df, s=f" (total)"):
-
+    """Compute the SFR from the Halpha luminosity using the relation of Calzetti 2013."""
     # Remove suffixes on columns
     if s is not None:
         df_old = df
@@ -968,4 +968,12 @@ def sfr_fn(df, s=f" (total)"):
         # Replace the suffix in the column names
         df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
 
+    return df
+
+###############################################################################
+def compute_SFR(df, ncomponents_max):
+    """Comptue the SFR from the Halpha luminosity in each kinematic component."""
+    df = sfr_fn(df, s=f" (total)")
+    for nn in range(ncomponents_max):
+        df = sfr_fn(df, s=f" (component {nn + 1})")
     return df
