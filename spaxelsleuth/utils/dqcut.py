@@ -1,68 +1,9 @@
-"""
-File:       dqcut.py
-Author:     Henry Zovaro
-Email:      henry.zovaro@anu.edu.au
-
-DESCRIPTION
-------------------------------------------------------------------------------
-This script contains utility functions useful for manipulating the DataFrames
-created using make_df_sami.py.
-
-The following functions are included:
-
-get_wavelength_from_velocity()
-    Convenience function for computing a Doppler-shifted wavelength given a 
-    velocity and a rest-frame wavelength.
-
-set_flags()
-    A function for flagging cells affected by data quality & S/N cuts in a 
-    given DataFrame.
-
-apply_flags()
-    Applies cuts to the flagged cells determined in set_flags().
-
-compute_log_columns()
-    Compute log quantities + errors for Halpha EW, sigma_gas, SFRs and [SII]
-    ratios (for computing electron densities).
-
-compute_gas_stellar_offsets()
-    Compute the kinematic offsets between gas and stellar velocities and 
-    velocity dispersions.
-
-compute_component_offsets()
-    Compute offsets in various quantities between successive kinematic 
-    components - e.g. the difference in EW between components 1 and 2.
-
-compute_extra_columns()
-    Calls compute_log_columns(), compute_gas_stellar_offsets() and 
-    compute_component_offsets(), plus computes emission line FWHMs and HALPHA
-    emission line and continuum luminosities.
-
-------------------------------------------------------------------------------
-Copyright (C) 2022 Henry Zovaro
-"""
-###############################################################################
 import numpy as np
 from scipy import constants
 import warnings
 
-from spaxelsleuth.utils.extcorr import eline_lambdas_A
-
-###############################################################################
-def get_wavelength_from_velocity(lambda_rest, v, units):
-    """
-    Convenience function for computing a Doppler-shifted wavelength given a 
-    velocity and a rest-frame wavelength - used for converting SAMI fluxes 
-    into amplitudes
-    """
-    assert units == 'm/s' or units == 'km/s', "units must be m/s or km/s!"
-    if units == 'm/s':
-        v_m_s = v
-    elif units == 'km/s':
-        v_m_s = v * 1e3
-    lambda_obs = lambda_rest * np.sqrt((1 + v_m_s / constants.c) /
-                                       (1 - v_m_s / constants.c))
-    return lambda_obs
+from spaxelsleuth.utils.elines import eline_lambdas_A
+from spaxelsleuth.utils.misc import get_wavelength_from_velocity
 
 ###############################################################################
 def set_flags(df, eline_SNR_min, eline_list,
@@ -638,168 +579,58 @@ def apply_flags(df,
 
     return df
 
-######################################################################
-# Compute log quantities + errors for Halpha EW, sigma_gas and SFRs
-def compute_log_columns(df):
 
-    # Halpha flux and EW for individual components
-    for col in ["HALPHA luminosity", "HALPHA continuum", "HALPHA EW", "sigma_gas", "S2 ratio"]:
-        for s in ["(total)"] + [f"(component {nn})" for nn in [1, 2, 3]]:
-            # Compute log quantities for total 
-            if f"{col} {s}" in df:
-                df[f"log {col} {s}"] = np.log10(df[f"{col} {s}"])
-            if f"{col} error {s}" in df:
-                df[f"log {col} error (lower) {s}"] = df[f"log {col} {s}"] - np.log10(df[f"{col} {s}"] - df[f"{col} error {s}"])
-                df[f"log {col} error (upper) {s}"] = np.log10(df[f"{col} {s}"] + df[f"{col} error {s}"]) -  df[f"log {col} {s}"]
+# #########################################################################
+# def compute_extra_columns(df):
+#     """
+#     Add the following extra columns to the DataFrame:
+#      - log quantities + errors:
+#         - Halpha EW
+#         - sigma_gas
+#      - offsets between gas & stellar kinematics
+#      - offsets in Halpha EW, sigma_gas, v_gas between adjacent components
+#      - fraction of Halpha EW in each component
+#      - FWHM of emission lines
 
-    # Compute log quantities for total SFR
-    for col in ["SFR", "SFR surface density", "sSFR"]:
-        for s in ["(total)"] + [f"(component {nn})" for nn in [1, 2, 3]]:
-            if f"{col} {s}" in df:
-                cond = ~np.isnan(df[f"{col} {s}"])
-                cond &= df[f"{col} {s}"] > 0
-                df.loc[cond, f"log {col} {s}"] = np.log10(df.loc[cond, f"{col} {s}"])
-                if f"{col} error {s}" in df:
-                    df.loc[cond, f"log {col} error (lower) {s}"] = df.loc[cond, f"log {col} {s}"] - np.log10(df.loc[cond, f"{col} {s}"] - df.loc[cond, f"{col} error {s}"])
-                    df.loc[cond, f"log {col} error (upper) {s}"] = np.log10(df.loc[cond, f"{col} {s}"] + df.loc[cond, f"{col} error {s}"]) -  df.loc[cond, f"log {col} {s}"]
-                
-    return df
+#     This function should be called AFTER calling df_dqcut because it relies 
+#     on quantities that may be masked out due to S/N and DQ cuts.
+#     Technically we could make sure these columns get masked out in that 
+#     function but it would be cumbersome to do so...
 
-######################################################################
-# Compute offsets between gas & stellar kinematics
-def compute_gas_stellar_offsets(df):    
-    if "v_*" in df and "sigma_*" in df:
-        for nn in range(3):
-            #//////////////////////////////////////////////////////////////////////
-            # Velocity offsets
-            if f"v_gas (component {nn + 1})" in df:
-                df[f"v_gas - v_* (component {nn + 1})"] = df[f"v_gas (component {nn + 1})"] - df["v_*"]
-            if f"v_gas error (component {nn + 1})" in df:
-                df[f"v_gas - v_* error (component {nn + 1})"] = np.sqrt(df[f"v_gas error (component {nn + 1})"]**2 + df["v_* error"]**2)
-
-            #//////////////////////////////////////////////////////////////////////
-            # Velocity dispersion offsets
-            if f"sigma_gas (component {nn + 1})" in df:
-                df[f"sigma_gas - sigma_* (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] - df["sigma_*"]
-                df[f"sigma_gas^2 - sigma_*^2 (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"]**2 - df["sigma_*"]**2
-                df[f"sigma_gas/sigma_* (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] / df["sigma_*"]
-
-            if f"sigma_gas error (component {nn + 1})" in df:
-                df[f"sigma_gas - sigma_* error (component {nn + 1})"] = np.sqrt(df[f"sigma_gas error (component {nn + 1})"]**2 + df["sigma_* error"]**2)
-                df[f"sigma_gas^2 - sigma_*^2 error (component {nn + 1})"] = 2 * np.sqrt(df[f"sigma_gas (component {nn + 1})"]**2 * df[f"sigma_gas error (component {nn + 1})"]**2 +\
-                                                                                df["sigma_*"]**2 * df["sigma_* error"]**2)
-                df[f"sigma_gas/sigma_* error (component {nn + 1})"] =\
-                    df[f"sigma_gas/sigma_* (component {nn + 1})"] *\
-                    np.sqrt((df[f"sigma_gas error (component {nn + 1})"] / df[f"sigma_gas (component {nn + 1})"])**2 +\
-                            (df["sigma_* error"] / df["sigma_*"])**2)
-        
-    return df
-
-######################################################################
-# Compute differences in Halpha EW, sigma_gas between different components
-def compute_component_offsets(df):
+#     """
     
-    for nn_2, nn_1 in ([2, 1], [3, 2], [3, 1]):
+#     # Halpha & continuum luminosity
+#     # HALPHA luminosity: units of erg s^-1 kpc^-2
+#     # HALPHA cont. luminosity: units of erg s^-1 Å-1 kpc^-2
+#     if all([col in df for col in ["D_L (Mpc)", "Bin size (square kpc)"]]):
+#         if all([col in df for col in ["HALPHA continuum", "HALPHA continuum error"]]):
+#             df[f"HALPHA continuum luminosity"] = df[f"HALPHA continuum"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+#             df[f"HALPHA continuum luminosity error"] = df[f"HALPHA continuum error"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
 
-        #//////////////////////////////////////////////////////////////////////
-        # Difference between gas velocity dispersion between components
-        if all([col in df for col in [f"sigma_gas (component {nn_1})", f"sigma_gas (component {nn_2})"]]):
-            df[f"delta sigma_gas ({nn_2}/{nn_1})"] = df[f"sigma_gas (component {nn_2})"] - df[f"sigma_gas (component {nn_1})"]
-        
-        # Error in the difference between gas velocity dispersion between components   
-        if all([col in df for col in [f"sigma_gas error (component {nn_1})", f"sigma_gas error (component {nn_2})"]]):
-            df[f"delta sigma_gas error ({nn_2}/{nn_1})"] = np.sqrt(df[f"sigma_gas error (component {nn_2})"]**2 +\
-                                                                   df[f"sigma_gas error (component {nn_1})"]**2)
+#         if all([col in df for col in ["HALPHA (total)", "HALPHA error (total)"]]):
+#             df[f"HALPHA luminosity (total)"] = df[f"HALPHA (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+#             df[f"HALPHA luminosity error (total)"] = df[f"HALPHA error (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+#         for nn in range(3):
+#             if all([col in df for col in [f"HALPHA (component {nn + 1})", f"HALPHA error (component {nn + 1})"]]):
+#                 df[f"HALPHA luminosity (component {nn + 1})"] = df[f"HALPHA (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+#                 df[f"HALPHA luminosity error (component {nn + 1})"] = df[f"HALPHA error (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
 
-        #//////////////////////////////////////////////////////////////////////
-        # DIfference between gas velocity between components
-        if all([col in df for col in [f"v_gas (component {nn_1})", f"v_gas (component {nn_2})"]]):     
-            df[f"delta v_gas ({nn_2}/{nn_1})"] = df[f"v_gas (component {nn_2})"] - df[f"v_gas (component {nn_1})"]
-        if all([col in df for col in [f"v_gas error (component {nn_2})", f"v_gas error (component {nn_1})"]]):  
-            df[f"delta v_gas error ({nn_2}/{nn_1})"] = np.sqrt(df[f"v_gas error (component {nn_2})"]**2 +\
-                                                               df[f"v_gas error (component {nn_1})"]**2)
-        
-        #//////////////////////////////////////////////////////////////////////
-        # Ratio of HALPHA EWs between components   
-        if all([col in df for col in [f"HALPHA EW (component {nn_1})", f"HALPHA EW (component {nn_2})"]]):     
-            df[f"HALPHA EW ratio ({nn_2}/{nn_1})"] = df[f"HALPHA EW (component {nn_2})"] / df[f"HALPHA EW (component {nn_1})"]
-        if all([col in df for col in [f"HALPHA EW error (component {nn_1})", f"HALPHA EW error (component {nn_2})"]]):     
-            df[f"HALPHA EW ratio error ({nn_2}/{nn_1})"] = df[f"HALPHA EW ratio ({nn_2}/{nn_1})"] *\
-                np.sqrt((df[f"HALPHA EW error (component {nn_2})"] / df[f"HALPHA EW (component {nn_2})"])**2 +\
-                        (df[f"HALPHA EW error (component {nn_1})"] / df[f"HALPHA EW (component {nn_1})"])**2)
+#     # Compute FWHM
+#     for nn in range(3):
+#         if f"sigma_gas (component {nn + 1})" in df:
+#             df[f"FWHM_gas (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
+#         if f"sigma_gas error (component {nn + 1})" in df:
+#             df[f"FWHM_gas error (component {nn + 1})"] = df[f"sigma_gas error (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
 
-        #//////////////////////////////////////////////////////////////////////
-        # Ratio of HALPHA EWs between components (log)
-        if all([col in df for col in [f"log HALPHA EW (component {nn_2})", f"log HALPHA EW (component {nn_1})"]]):     
-            df[f"Delta HALPHA EW ({nn_2}/{nn_1})"] = df[f"log HALPHA EW (component {nn_2})"] - df[f"log HALPHA EW (component {nn_1})"]
+#     # Stellar & gas kinematic offsets
+#     df = compute_gas_stellar_offsets(df)
 
-        #//////////////////////////////////////////////////////////////////////
-        # Forbidden line ratios:
-        for col in ["log O3", "log N2", "log S2", "log O1"]:
-            if f"{col} (component {nn_1})" in df and f"{col} (component {nn_2})" in df:
-                df[f"delta {col} ({nn_2}/{nn_1})"] = df[f"{col} (component {nn_2})"] - df[f"{col} (component {nn_1})"]
-            if f"{col} error (component {nn_2})" in df and f"{col} error (component {nn_1})" in df:
-                df[f"delta {col} ({nn_2}/{nn_1}) error"] = np.sqrt(df[f"{col} error (component {nn_2})"]**2 + df[f"{col} error (component {nn_1})"]**2)
-
-    #//////////////////////////////////////////////////////////////////////
-    # Fractional of total Halpha EW in each component
-    for nn in range(3):
-        if all([col in df.columns for col in [f"HALPHA EW (component {nn + 1})", f"HALPHA EW (total)"]]):
-            df[f"HALPHA EW/HALPHA EW (total) (component {nn + 1})"] = df[f"HALPHA EW (component {nn + 1})"] / df[f"HALPHA EW (total)"]
-
-    return df
-
-#########################################################################
-def compute_extra_columns(df):
-    """
-    Add the following extra columns to the DataFrame:
-     - log quantities + errors:
-        - Halpha EW
-        - sigma_gas
-     - offsets between gas & stellar kinematics
-     - offsets in Halpha EW, sigma_gas, v_gas between adjacent components
-     - fraction of Halpha EW in each component
-     - FWHM of emission lines
-
-    This function should be called AFTER calling df_dqcut because it relies 
-    on quantities that may be masked out due to S/N and DQ cuts.
-    Technically we could make sure these columns get masked out in that 
-    function but it would be cumbersome to do so...
-
-    """
+#     # Compute logs
+#     df = compute_log_columns(df)
     
-    # Halpha & continuum luminosity
-    # HALPHA luminosity: units of erg s^-1 kpc^-2
-    # HALPHA cont. luminosity: units of erg s^-1 Å-1 kpc^-2
-    if all([col in df for col in ["D_L (Mpc)", "Bin size (square kpc)"]]):
-        if all([col in df for col in ["HALPHA continuum", "HALPHA continuum error"]]):
-            df[f"HALPHA continuum luminosity"] = df[f"HALPHA continuum"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-            df[f"HALPHA continuum luminosity error"] = df[f"HALPHA continuum error"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+#     # Comptue component offsets
+#     df = compute_component_offsets(df)
 
-        if all([col in df for col in ["HALPHA (total)", "HALPHA error (total)"]]):
-            df[f"HALPHA luminosity (total)"] = df[f"HALPHA (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-            df[f"HALPHA luminosity error (total)"] = df[f"HALPHA error (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-        for nn in range(3):
-            if all([col in df for col in [f"HALPHA (component {nn + 1})", f"HALPHA error (component {nn + 1})"]]):
-                df[f"HALPHA luminosity (component {nn + 1})"] = df[f"HALPHA (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-                df[f"HALPHA luminosity error (component {nn + 1})"] = df[f"HALPHA error (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-
-    # Compute FWHM
-    for nn in range(3):
-        if f"sigma_gas (component {nn + 1})" in df:
-            df[f"FWHM_gas (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
-        if f"sigma_gas error (component {nn + 1})" in df:
-            df[f"FWHM_gas error (component {nn + 1})"] = df[f"sigma_gas error (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
-
-    # Stellar & gas kinematic offsets
-    df = compute_gas_stellar_offsets(df)
-
-    # Compute logs
-    df = compute_log_columns(df)
-    
-    # Comptue component offsets
-    df = compute_component_offsets(df)
-
-    return df
+#     return df
 
 

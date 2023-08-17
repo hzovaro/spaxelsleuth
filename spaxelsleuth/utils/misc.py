@@ -1,7 +1,6 @@
 from itertools import product
 import numpy as np
 from scipy import constants
-import warnings
 
 ###############################################################################
 def get_wavelength_from_velocity(lambda_rest, v, units):

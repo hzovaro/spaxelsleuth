@@ -1,57 +1,8 @@
-"""
-File:       metallicity.py
-Author:     Henry Zovaro
-Email:      henry.zovaro@anu.edu.au
-
-DESCRIPTION
-------------------------------------------------------------------------------
-A collection of functions used to compute metallicities and ionisation 
-parameters using strong-line diagnostics.
-
-The following functions are included:
-
-    _compute_logOH12()
-        This is the bottom-leven function which actually implementes the 
-        metallicity calculation using strong-line diagnostics (plus the 
-        ionisation parameter if required).
-
-    _get_metallicity()
-        This function computes the metallicity (plus ionisation parameter)
-        and optionally associated errors in all rows of a DataFrame. 
-
-        If desired, errors are computed using a Monte Carlo approach based on 
-        the uncertainties on the emission line fluxes contained in the 
-        DataFrame: in each MC iterations, random noise is added to the flux of 
-        each emission line used in the metallicity/ionisation parameter
-        calculation, where the noise is drawn from a Gaussian distribution 
-        with standard deviation equal to the 1sigma uncertainties on the 
-        emission line fluxes. The final value returned is the mean of the 
-        resulting distribution of metallcity (plus ionisation parameter)
-        values, and upper and lower error bars are computed from the 16% and 
-        84% quantiles of the distribution.
-
-    calculate_metallicity()
-        This is the top-level function that can be called on a DataFrame 
-        obtained using load_sami_df() (or similar) to compute the 
-        metallicity, ionisation parameter, and associated errors in each row.
-
-
-------------------------------------------------------------------------------
-Copyright (C) 2022 Henry Zovaro 
-"""
-###############################################################################
 import numpy as np
 import pandas as pd
 from scipy import constants
-import sys
 from time import time
 from tqdm import tqdm
-
-from IPython.core.debugger import Tracer
-
-import matplotlib.pyplot as plt
-plt.ion()
-plt.close("all")
 
 #//////////////////////////////////////////////////////////////////////////////
 # Dict containing the line lists for each metallicity/ionisation parameter diagnostic
