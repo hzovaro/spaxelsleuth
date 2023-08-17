@@ -3,19 +3,57 @@ from scipy import constants
 import warnings
 
 from spaxelsleuth.utils.elines import eline_lambdas_A
-from spaxelsleuth.utils.misc import get_wavelength_from_velocity
+from spaxelsleuth.utils.continuum import compute_continuum_intensity
+from spaxelsleuth.utils.misc import in_dataframe
+from spaxelsleuth.utils.velocity import get_wavelength_from_velocity
+
+###############################################################################
+def compute_SN(df, ncomponents_max, eline_list):
+    """Compute the flux S/N in the provided emission lines."""
+    for eline in eline_list:
+        # Compute S/N
+        for nn in range(ncomponents_max):
+            if in_dataframe(df, [f"{eline} (component {nn + 1})", f"{eline} error (component {nn + 1})"]):
+                df[f"{eline} S/N (component {nn + 1})"] = df[f"{eline} (component {nn + 1})"] / df[f"{eline} error (component {nn + 1})"]
+
+        # Compute the S/N in the TOTAL line flux
+        if in_dataframe(df, [f"{eline} (total)", f"{eline} error (total)"]):
+            df[f"{eline} S/N (total)"] = df[f"{eline} (total)"] / df[f"{eline} error (total)"]
+
+    return df
+
+###############################################################################
+def compute_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_rest_A, v_star_map, v_map, dv):
+    """Measure the HALPHA amplitude-to-noise.
+        We measure this as
+              (peak spectral value in window around Ha - mean R continuum flux density) / standard deviation in R continuum flux density
+        As such, this value can be negative."""
+    lambda_vals_rest_A_cube = np.zeros(data_cube.shape)
+    lambda_vals_rest_A_cube[:] = lambda_vals_rest_A[:, None, None]
+
+    # Get the HALPHA continuum & std. dev.
+    cont_HALPHA_map, cont_HALPHA_map_std, cont_HALPHA_map_err = compute_continuum_intensity(data_cube=data_cube, var_cube=var_cube, lambda_vals_rest_A=lambda_vals_rest_A, start_A=6500, stop_A=6540, v_map=v_star_map)
+
+    # Wavelength window in which to compute A/N
+    lambda_max_A = get_wavelength_from_velocity(6562.8, v_map + dv, units="km/s")
+    lambda_min_A = get_wavelength_from_velocity(6562.8, v_map - dv, units="km/s")
+
+    # Measure HALPHA amplitude-to-noise
+    A_HALPHA_mask = (lambda_vals_rest_A_cube > lambda_min_A) & (lambda_vals_rest_A_cube < lambda_max_A)
+    data_cube_masked_R = np.copy(data_cube)
+    data_cube_masked_R[~A_HALPHA_mask] = np.nan
+    A_HALPHA_map = np.nanmax(data_cube_masked_R, axis=0)
+    AN_HALPHA_map = (A_HALPHA_map - cont_HALPHA_map) / cont_HALPHA_map_std
+
+    return AN_HALPHA_map
 
 ###############################################################################
 def set_flags(df, eline_SNR_min, eline_list,
               sigma_gas_SNR_min=3, sigma_inst_kms=29.6, **kwargs):
-    """
-    A function for making data quality & S/N cuts on rows of a given DataFrame.
-
+    """Set data quality & S/N flags.
     This function can be used to determine whether certain cells pass or fail 
     a number of data quality and S/N criteria. 
-
     """
-
     ######################################################################
     # INITIALISE FLAGS: these will get set below.
     ###################################################################### 
@@ -205,9 +243,7 @@ def apply_flags(df,
                 stekin_cut,
                 base_missing_flux_components_on_HALPHA=True,
                 **kwargs):
-    """
-    Apply the data quality & S/N cuts on cells of a given DataFrame based on
-    the flags that were defined in set_flags().
+    """Apply the data quality & S/N cuts based on the flags that were defined in set_flags().
 
     The following flags control whether affected cells are masked or not (i.e., 
     set to NaN). 
