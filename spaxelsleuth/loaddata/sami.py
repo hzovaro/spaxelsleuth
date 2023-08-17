@@ -14,7 +14,7 @@ from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intens
 from spaxelsleuth.utils.geometry import deproject_coordinates
 from spaxelsleuth.utils.dqcut import compute_HALPHA_amplitude_to_noise
 from spaxelsleuth.utils.velocity import compute_v_grad
-from spaxelsleuth.loaddata.generic import add_columns
+from spaxelsleuth.utils.addcolumns import add_columns
 
 ###############################################################################
 # Paths

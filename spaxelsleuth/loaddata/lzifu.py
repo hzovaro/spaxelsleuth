@@ -10,7 +10,9 @@ import numpy as np
 import pandas as pd
 
 from spaxelsleuth.config import settings
-from spaxelsleuth.utils.misc import add_columns, compute_d4000, compute_continuum_intensity, compute_HALPHA_amplitude_to_noise
+from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
+from spaxelsleuth.utils.dqcut import compute_HALPHA_amplitude_to_noise
+from spaxelsleuth.utils.addcolumns import add_columns
 
 ###############################################################################
 # Paths
