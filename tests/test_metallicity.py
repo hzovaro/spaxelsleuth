@@ -2,7 +2,10 @@
 import numpy as np
 from time import time
 
+from spaxelsleuth import load_user_config
+load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 from spaxelsleuth.loaddata.sami import load_sami_df
+
 from spaxelsleuth.utils.metallicity import calculate_metallicity, line_list_dict
 
 from spaxelsleuth.plotting.plotgalaxies import plot2dscatter
@@ -45,8 +48,6 @@ def assertion_checks(df):
 df = load_sami_df(ncomponents="recom", bin_type="default", correct_extinction=True, eline_SNR_min=5, debug=True)
 assertion_checks(df)
 
-Tracer()()
-
 # Remove prior metallicity calculation results 
 cols_to_remove = [c for c in df.columns if "log(O/H) + 12" in c]
 cols_to_remove += [c for c in df.columns if "log(U)" in c]
@@ -76,8 +77,6 @@ dt = time() - t
 print(f"Total time elapsed: {dt / 60} minutes")
 
 assertion_checks(df)
-
-sys.exit()
 
 ##############################################################################
 # TEST: metallicity calculation w/o errors, w/o log(U) calculation
@@ -127,7 +126,7 @@ ax.scatter(df["log(O/H) + 12 (O3N2_PP04) (total)"], df["O3N2 (total)"], label="O
 ax.scatter(df["log(O/H) + 12 (O3N2_M13) (total)"], df["O3N2 (total)"], label="O3N2_M13")
 ax.scatter(df["log(O/H) + 12 (O3N2_K19) (total)"], df["O3N2 (total)"], label="O3N2_K19")
 ax.set_xlabel("log(O/H) + 12")
-ax.set_ylabel(r"$\log(R)$ (N2Ha)")
+ax.set_ylabel(r"$\log(R)$ (O3N2)")
 ax.legend()
 ax.grid()
 
@@ -224,7 +223,6 @@ ax.set_xlabel("log(O/H) + 12")
 ax.set_ylabel(r"$\log(R)$ (N2Ha)")
 ax.legend()
 ax.grid()
-
 
 ##############################################################################
 # Make a big corner plot 
