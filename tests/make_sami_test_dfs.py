@@ -9,7 +9,7 @@ if __name__ == "__main__":
     ###########################################################################
     # Create the metadata DataFrame
     ###########################################################################
-    make_sami_metadata_df(recompute_continuum_SNRs=True)
+    make_sami_metadata_df(recompute_continuum_SNRs=False)
 
     ###########################################################################
     # Create the DataFrames
@@ -22,6 +22,7 @@ if __name__ == "__main__":
                          bin_type=bin_type,
                          eline_SNR_min=5,
                          correct_extinction=correct_extinction,
+                         nthreads_max=10,
                          debug=True)
         except:
             print(
