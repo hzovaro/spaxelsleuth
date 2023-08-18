@@ -1,6 +1,4 @@
-from itertools import product
 import numpy as np
-from scipy import constants
 
 ###############################################################################
 def in_dataframe(df, cols) -> bool:
