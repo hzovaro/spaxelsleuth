@@ -1,19 +1,17 @@
 # Imports
 import numpy as np
 from time import time
+import sys
 
 from spaxelsleuth import load_user_config
 load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 from spaxelsleuth.loaddata.sami import load_sami_df
-
 from spaxelsleuth.utils.metallicity import calculate_metallicity, line_list_dict
-
 from spaxelsleuth.plotting.plotgalaxies import plot2dscatter
+
 import matplotlib.pyplot as plt
 plt.ion()
 plt.close("all")
-
-from IPython.core.debugger import Tracer
 
 ##############################################################################
 # CHECK: only SF-like spaxels have nonzero metallicities.
@@ -43,9 +41,17 @@ def assertion_checks(df):
 
     print("Passed assertion checks!")
 
+###########################################################################
+# Options
+ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3])]
+
 ##############################################################################
 # Load DataFrame
-df = load_sami_df(ncomponents="recom", bin_type="default", correct_extinction=True, eline_SNR_min=5, debug=True)
+df = load_sami_df(ncomponents=ncomponents,
+                        bin_type=bin_type,
+                        eline_SNR_min=eline_SNR_min, 
+                        correct_extinction=True,
+                        debug=True)
 assertion_checks(df)
 
 # Remove prior metallicity calculation results 

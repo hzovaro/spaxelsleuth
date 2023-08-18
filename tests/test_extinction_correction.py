@@ -1,19 +1,14 @@
 # Imports
 import sys
-import os 
 import numpy as np
-import pandas as pd
 
-from spaxelsleuth.loaddata.sami import make_sami_df, load_sami_df
+from spaxelsleuth import load_user_config
+load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
+from spaxelsleuth.loaddata.sami import load_sami_df
 from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
-from spaxelsleuth.plotting.plotgalaxies import plot2dscatter, plot2dhistcontours
+from spaxelsleuth.plotting.plotgalaxies import plot2dscatter
 
-from IPython.core.debugger import Tracer
-
-import matplotlib
-from matplotlib import rc, rcParams
 import matplotlib.pyplot as plt
-
 plt.ion()
 plt.close("all")
 
@@ -129,4 +124,6 @@ cond_low_SN = df_extcorr["HALPHA S/N (total)"] < 5
 cond_low_SN |= df_extcorr["HBETA S/N (total)"] < 5
 assert np.all(df_extcorr.loc[cond_low_SN, "A_V (total)"].isna())
 assert np.all(df_extcorr.loc[cond_low_SN, "A_V error (total)"].isna())
+
+print("Passed assertion checks!")
 
