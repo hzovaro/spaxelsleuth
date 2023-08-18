@@ -202,6 +202,26 @@ for met_col in met_cols:
 # cond_low_SN |= df["NII6583 S/N (total)"] < eline_SNR_min
 # assert all(df.loc[cond_low_SN, f"log(O/H) + 12 ({met_diagnostic}) (total)"].isna())
 
+# CHECK: rows with NaN in any required emission lines have NaN metallicities and ionisation parameters. 
+from spaxelsleuth.utils.metallicity import line_list_dict
+for met_diagnostic in line_list_dict.keys():
+    for line in [l for l in line_list_dict[met_diagnostic] if f"{l} (total)" in df.columns]:
+        cond_isnan = np.isnan(df[f"{line} (total)"])
+        cols = [c for c in df.columns if met_diagnostic in c]
+        for c in cols:
+            assert all(df.loc[cond_isnan, c].isna())
+        
+# CHECK: all rows with NaN metallicities also have NaN log(U).
+for c in [c for c in df.columns if "log(O/H) + 12" in c and "error" not in c]:
+    diagnostic_str = c.split("log(O/H) + 12 (")[1].split(")")[0]
+    cond_nan_logOH12 = df[c].isna()
+    if f"log(U) ({diagnostic_str}) (total)" in df.columns:
+        assert all(df.loc[cond_nan_logOH12, f"log(U) ({diagnostic_str}) (total)"].isna())
+        # Also check the converse 
+        cond_finite_logU = ~df[f"log(U) ({diagnostic_str}) (total)"].isna()
+        assert all(~df.loc[cond_finite_logU, f"log(O/H) + 12 ({diagnostic_str}) (total)"].isna())
+
+
 #//////////////////////////////////////////////////////////////////////////////
 # EXTINCTION CORRECTION TESTS 
 #//////////////////////////////////////////////////////////////////////////////
