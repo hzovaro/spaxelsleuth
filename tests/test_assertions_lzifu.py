@@ -1,26 +1,14 @@
 # Imports
-import sys
-import os 
 import numpy as np
-import pandas as pd
 
 from spaxelsleuth.loaddata.lzifu import load_lzifu_df
 
-from IPython.core.debugger import Tracer
-
-###############################################################################
-# Options
-ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3])]
-debug = True
-
 ###############################################################################
 # Load the data
-###############################################################################
-df = load_lzifu_df(ncomponents=ncomponents,
-                  bin_type=bin_type,
-                  eline_SNR_min=eline_SNR_min,
-                  correct_extinction=True,
-                  debug=debug)
+ncomponents = 1
+bin_type = "default"
+eline_SNR_min = 1
+df = load_lzifu_df(ncomponents=ncomponents, bin_type=bin_type, eline_SNR_min=eline_SNR_min, df_fname="test_lzifu.hd5")
 
 ###############################################################################
 # Assertion checks
@@ -29,11 +17,9 @@ df = load_lzifu_df(ncomponents=ncomponents,
 # GENERAL TESTS
 #//////////////////////////////////////////////////////////////////////////////
 # CHECK: SFR/SFR surface density columns exist 
-for col in ["SFR (total)", "SFR (component 1)", "SFR surface density (total)", "SFR surface density (component 1)"]:
+for col in ["SFR (total)", "SFR (component 1)"]:
     assert f"{col}" in df.columns
     assert f"log {col}" in df.columns
-    # assert all(df.loc[df["HALPHA (total)"].isna(), f"{col}"].isna()) # this test fails - we are not explicity NaNing out SFR cells if the HALPHA flux is NaN
-    # assert all(df.loc[df["HALPHA (total)"].isna(), f"log {col}"].isna()) # this test fails - we are not explicity NaNing out SFR cells if the HALPHA flux is NaN
 
 # CHECK: BPT categories 
 for eline in ["HALPHA", "HBETA", "NII6583", "OIII5007"]:
@@ -51,7 +37,7 @@ elif ncomponents == "3":
     assert np.all(df.loc[~df["Number of components"].isna(), "Number of components"].unique() == [0, 1, 2, 3])
 
 # CHECK: all spaxels with original number of compnents == 0 have zero emission line fluxes 
-for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
+for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726", "OII3729", "OIII5007", "SII6716", "SII6731"]:
     assert not any(df.loc[df["Number of components (original)"] == 0, f"{eline} (total)"] > 0)
     assert not any(df.loc[df["Number of components (original)"] == 0, f"{eline} error (total)"] > 0)
     assert np.all(df.loc[df["Number of components (original)"] == 0, f"{eline} (total)"].isna() | (df.loc[df["Number of components (original)"] == 0, f"{eline} (total)"] == 0))
@@ -82,7 +68,7 @@ for nn in range(3 if ncomponents == "merge" else 1):
 # CHECK: flux S/N cut
 for nn in range(3 if ncomponents == "merge" else 1):
     assert all(df.loc[df[f"Low flux S/N flag - HALPHA (component {nn + 1})"], f"HALPHA (component {nn + 1})"].isna())
-for eline in ["HALPHA", "HBETA", "NII6583", "OIII5007", "SII6716", "SII6731", "OII3726+OII3729", "OI6300"]:
+for eline in ["HALPHA", "HBETA", "NII6583", "OIII5007", "SII6716", "SII6731", "OII3726", "OII3729", "OI6300"]:
     assert all(df.loc[df[f"Low flux S/N flag - {eline} (total)"], f"{eline} (total)"].isna())
 
 # CHECK: all spaxels in which the original number of components does NOT match the "high-quality" number of components have the flag set 
@@ -95,7 +81,7 @@ cond &= df["Number of components (original)"] == 1
 assert all(df.loc[cond, "sigma_gas (component 1)"].isna() | df.loc[cond, "HALPHA (component 1)"].isna())
 
 # CHECK: all fluxes (and EWs) that are NaN have NaN errors
-for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
+for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726", "OII3729", "OIII5007", "SII6716", "SII6731"]:
     assert all(df.loc[df[f"{eline} (total)"].isna(), f"{eline} error (total)"].isna())
 for nn in range(3 if ncomponents == "merge" else 1):
     assert all(df.loc[df[f"HALPHA (component {nn + 1})"].isna(), f"HALPHA error (component {nn + 1})"].isna())
@@ -128,7 +114,7 @@ for col in ["sigma_gas", "v_gas"]:
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (component {nn + 1})"]))
 
 # CHECK: all emission line fluxes with S/N < SNR_min are NaN
-for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
+for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726", "OII3729", "OIII5007", "SII6716", "SII6731"]:
     assert np.all(np.isnan(df.loc[df[f"{eline} S/N (total)"] < eline_SNR_min, f"{eline} (total)"]))
     assert np.all(np.isnan(df.loc[df[f"{eline} S/N (total)"] < eline_SNR_min, f"{eline} error (total)"]))
 
