@@ -3,6 +3,8 @@ import numpy as np
 from spaxelsleuth.utils import continuum, dqcut, linefns, metallicity, extcorr, misc
 from spaxelsleuth.utils.misc import in_dataframe
 
+from IPython.core.debugger import Tracer
+
 ###############################################################################
 def add_columns(df, **kwargs):
     """Computes quantities such as metallicities, extinctions, etc. for each row in df."""
@@ -22,19 +24,21 @@ def add_columns(df, **kwargs):
         ncomponents_original += (~df[f"sigma_gas (component {nn + 1})"].isna()).astype(int)
     df["Number of components (original)"] = ncomponents_original
 
+    ######################################################################
     # Calculate equivalent widths
     df = continuum.compute_EW(df, ncomponents_max, eline_list=["HALPHA"])
     
+    ######################################################################
     # Compute S/N in all lines
     df = dqcut.compute_SN(df, ncomponents_max, kwargs["eline_list"])
 
+    ######################################################################
     # DQ and S/N CUTS
     df = dqcut.set_flags(df=df, **kwargs)
     df = dqcut.apply_flags(df=df, **kwargs)
 
     ######################################################################
     # Fix SFR columns
-    ######################################################################
     # NaN the SFR surface density if the inclination is undefined
     if in_dataframe(df, "i (degrees)"):
         cond_NaN_inclination = np.isnan(df["i (degrees)"])
@@ -60,7 +64,6 @@ def add_columns(df, **kwargs):
     ######################################################################
     # EXTINCTION CORRECTION
     # Compute A_V & correct emission line fluxes (but not EWs!)
-    ######################################################################
     if kwargs["correct_extinction"]:
         print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
         # Compute A_V using total Halpha and Hbeta emission line fluxes
@@ -93,21 +96,15 @@ def add_columns(df, **kwargs):
 
     ######################################################################
     # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
-    ######################################################################
     df = linefns.ratio_fn(df, s=f" (total)")
     df = linefns.bpt_fn(df, s=f" (total)")
 
     ######################################################################
-    # COMPUTE THE SFR
-    ######################################################################
-    if kwargs["compute_sfr"]:
-        df = linefns.sfr_fn(df, s=f" (total)")
-
-    ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
-    ######################################################################
     df = continuum.compute_continuum_luminosity(df)
     df = linefns.compute_eline_luminosity(df, ncomponents_max, eline_list=["HALPHA"])
+    if kwargs["compute_sfr"]:
+        df = linefns.compute_SFR(df, ncomponents_max)
     df = linefns.compute_FWHM(df, ncomponents_max)
     df = misc.compute_gas_stellar_offsets(df, ncomponents_max)
     df = misc.compute_log_columns(df, ncomponents_max)
@@ -115,30 +112,16 @@ def add_columns(df, **kwargs):
 
     ######################################################################
     # EVALUATE METALLICITY (only for spaxels with extinction correction)
-    ######################################################################
-    if not kwargs["debug"]:
-        df = metallicity.calculate_metallicity(met_diagnostic="N2Ha_PP04", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="N2Ha_M13", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="O3N2_PP04", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="O3N2_M13", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="N2S2Ha_D16", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="N2O2_KD02", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="Rcal_PG16", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="Scal_PG16", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="ON_P10", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="ONS_P10", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="O3N2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="N2O2_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="R23_KK04", compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df, s=" (total)")
-    else:
-        df = metallicity.calculate_metallicity(met_diagnostic="N2Ha_PP04", compute_errors=True, niters=1000, df=df, s=" (total)")
-        df = metallicity.calculate_metallicity(met_diagnostic="N2Ha_K19", compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df, s=" (total)")
-        # df = metallicity.calculate_metallicity(met_diagnostic="R23_KK04", compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df, s=" (total)")
+    for diagnostic in kwargs["metallicity_diagnostics"]:        
+        if diagnostic.endswith("K19"):
+            df = metallicity.calculate_metallicity(met_diagnostic=diagnostic, compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df, s=" (total)")
+        elif diagnostic.endswith("KK04"):
+            df = metallicity.calculate_metallicity(met_diagnostic=diagnostic, compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df, s=" (total)")
+        else:
+            df = metallicity.calculate_metallicity(met_diagnostic=diagnostic, compute_errors=True, niters=1000, df=df, s=" (total)")        
 
     ###############################################################################
     # Save input flags to the DataFrame
-    ###############################################################################
     for flag in ["eline_SNR_min", "sigma_gas_SNR_min",
                  "line_flux_SNR_cut", "missing_fluxes_cut", "line_amplitude_SNR_cut",
                  "flux_fraction_cut", "vgrad_cut", "sigma_gas_SNR_cut", "stekin_cut"]:
