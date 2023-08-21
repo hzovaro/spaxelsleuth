@@ -30,10 +30,17 @@ def _compute_snr(args, plotit=False):
     gal, df_metadata = args
 
     # Load the red & blue data cubes.
-    hdulist_R_cube = fits.open(
-        os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
-    hdulist_B_cube = fits.open(
-        os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
+    try:
+        hdulist_R_cube = fits.open(
+            os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
+        hdulist_B_cube = fits.open(
+            os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
+    except FileNotFoundError:
+        warnings.warn(f"Data cubes not found for galaxy {gal} - cannot compute S/N")
+        return [
+            gal, np.nan, np.nan, np.nan, np.nan, np.nan,
+            np.nan, np.nan, np.nan
+        ]
     data_cube_B = hdulist_B_cube[0].data
     var_cube_B = hdulist_B_cube[1].data
     data_cube_R = hdulist_R_cube[0].data
