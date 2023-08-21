@@ -100,7 +100,7 @@ def _compute_snr(args, plotit=False):
 
 
 ###############################################################################
-def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
+def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     """
     DESCRIPTION
     ---------------------------------------------------------------------------
@@ -175,6 +175,12 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
 
     """
     print("In make_sami_metadata_df(): Creating metadata DataFrame...")
+
+    # Determine number of threads
+    if nthreads is None:
+        nthreads = os.cpu_count()
+        warnings.warn(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
+
     ###########################################################################
     # Filenames
     df_fname = f"sami_dr3_metadata.hd5"
@@ -1038,7 +1044,7 @@ def make_sami_df(bin_type,
                      "N2O2_K19",
                      "R23_KK04",
                  ],
-                 nthreads=20,
+                 nthreads=None,
                  debug=False,
                  __use_lzifu_fits=False,
                  __lzifu_ncomponents=None):
@@ -1253,13 +1259,13 @@ def make_sami_df(bin_type,
             "using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!",
             RuntimeWarning)
 
-    # Component indices for emission line-derived quantities
-    range_ncomponents_elines =\
-        range(3 if ncomponents == "recom" else 1) if not __use_lzifu_fits \
-        else range(3 if __lzifu_ncomponents == "recom" else int(__lzifu_ncomponents))
-
     # For printing to stdout
     status_str = f"In sami.make_df_sami() [bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}]"
+
+    # Determine number of threads
+    if nthreads is None:
+        nthreads = os.cpu_count()
+        warnings.warn(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
 
     ###############################################################################
     # Filenames
