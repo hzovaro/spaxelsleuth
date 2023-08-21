@@ -237,11 +237,17 @@ def apply_extinction_correction(df, eline_list, a_v_col_name,
 
     # Multithreading 
     args_list = [[rr, df_extcorr, eline_list, a_v_col_name, ext_fn] for rr in df_extcorr.index.values]
-    print(f"In extcorr.extinction_corr_fn(): Multithreading A_V computation across {nthreads} threads...")
-    pool = multiprocessing.Pool(nthreads)
-    res_list = pool.map(extcorr_helper_fn, args_list)
-    pool.close()
-    pool.join()
+    if nthreads > 1:
+        print(f"In extcorr.extinction_corr_fn(): Multithreading A_V computation across {nthreads} threads...")
+        pool = multiprocessing.Pool(nthreads)
+        res_list = pool.map(extcorr_helper_fn, args_list)
+        pool.close()
+        pool.join()
+    else:
+        print(f"In extcorr.extinction_corr_fn(): computing A_V sequentially...")
+        res_list = []
+        for arg in args_list:
+            res_list.append(extcorr_helper_fn(arg))
     
     # Turn warning back on 
     pd.options.mode.chained_assignment = "warn"
