@@ -484,12 +484,18 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=20):
                              key="SNR")
     else:
         w = warnings.warn(f"computing continuum SNRs on {nthreads} threads...")
-        print("In make_sami_metadata_df(): Beginning pool...")
         args_list = [[gal, df_metadata] for gal in gal_ids_dq_cut]
-        pool = multiprocessing.Pool(nthreads)
-        res_list = np.array((pool.map(_compute_snr, args_list)))
-        pool.close()
-        pool.join()
+        if nthreads > 1:
+            print("In make_sami_metadata_df(): Beginning pool...")
+            pool = multiprocessing.Pool(nthreads)
+            res_list = np.array((pool.map(_compute_snr, args_list)))
+            pool.close()
+            pool.join()
+        else:
+            res_list = []
+            print("In make_sami_metadata_df(): Beginning pool...")
+            for arg in args_list:
+                res_list.append(_compute_snr(arg))
 
         ###########################################################################
         # Create DataFrame from results
