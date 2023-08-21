@@ -1009,9 +1009,10 @@ def _process_gals(args):
 
 
 ###############################################################################
-def make_sami_df(bin_type="default",
-                 ncomponents="recom",
-                 eline_SNR_min=5,
+def make_sami_df(bin_type, 
+                 ncomponents,
+                 eline_SNR_min,
+                 correct_extinction,
                  sigma_gas_SNR_min=3,
                  eline_list=settings["sami"]["eline_list"],
                  line_flux_SNR_cut=True,
@@ -1021,7 +1022,6 @@ def make_sami_df(bin_type="default",
                  sigma_gas_SNR_cut=True,
                  vgrad_cut=False,
                  stekin_cut=True,
-                 correct_extinction=True,
                  metallicity_diagnostics=[
                      "N2Ha_PP04",
                      "N2Ha_M13",
@@ -1094,14 +1094,14 @@ def make_sami_df(bin_type="default",
     eline_SNR_min:      int 
         Minimum emission line flux S/N to assume.
 
-    sigma_gas_SNR_min:          int
-        Minimum velocity dipersion S/N to accept.
-
     correct_extinction:         bool
         If True, correct emission line fluxes for extinction. 
         NOTE: metallicities are ONLY computed if correct_extinction is True,
         due to the large spacing in wavelength between the emission lines 
         used in some diagnostics.
+
+    sigma_gas_SNR_min:          int
+        Minimum velocity dipersion S/N to accept.
 
     line_flux_SNR_cut:          bool
         Whether to NaN emission line components AND total fluxes 
