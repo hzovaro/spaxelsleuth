@@ -1038,7 +1038,7 @@ def make_sami_df(bin_type,
                      "N2O2_K19",
                      "R23_KK04",
                  ],
-                 nthreads_max=20,
+                 nthreads=20,
                  debug=False,
                  __use_lzifu_fits=False,
                  __lzifu_ncomponents=None):
@@ -1070,7 +1070,7 @@ def make_sami_df(bin_type,
 
     Running this function on the full sample takes some time (~10-20 minutes 
     when threaded across 20 threads). Execution time can be sped up by tweaking 
-    the NTHREADS_MAX parameter. 
+    the nthreads parameter. 
 
     If you wish to run in debug mode, set the DEBUG flag to True: this will run 
     the script on a subset (by default 10) galaxies to speed up execution. 
@@ -1146,7 +1146,7 @@ def make_sami_df(bin_type,
     eline_list:                 list of str
         Default SAMI emission lines - don't change this!
 
-    nthreads_max:               int            
+    nthreads:               int            
         Maximum number of threds to use. 
 
     __use_lzifu_fits:           bool (optional)
@@ -1323,10 +1323,10 @@ def make_sami_df(bin_type,
     if len(gal_ids_dq_cut) == 1:
         res_list = [_process_gals(args_list[0])]
     else:
-        if nthreads_max > 1:
+        if nthreads > 1:
             print(f"{status_str}: Beginning pool...")
             pool = multiprocessing.Pool(
-                min([nthreads_max, len(gal_ids_dq_cut)]))
+                min([nthreads, len(gal_ids_dq_cut)]))
             res_list = np.array((pool.map(_process_gals, args_list)))
             pool.close()
             pool.join()
@@ -1401,7 +1401,7 @@ def make_sami_df(bin_type,
                              metallicity_diagnostics=metallicity_diagnostics,
                              compute_sfr=False,
                              sigma_inst_kms=settings["sami"]["sigma_inst_kms"],
-                             nthreads_max=nthreads_max,
+                             nthreads=nthreads,
                              debug=debug,
                              __use_lzifu_fits=__use_lzifu_fits,
                              __lzifu_ncomponents=__lzifu_ncomponents)

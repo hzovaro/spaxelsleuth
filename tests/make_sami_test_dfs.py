@@ -22,7 +22,7 @@ if __name__ == "__main__":
                          bin_type=bin_type,
                          eline_SNR_min=5,
                          correct_extinction=correct_extinction,
-                         nthreads_max=10,
+                         nthreads=10,
                          debug=True)
         except:
             print(

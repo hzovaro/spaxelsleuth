@@ -19,5 +19,5 @@ kwargs = {
     "correct_extinction": False,
     "bin_type": "default",
 }
-make_lzifu_df(gals=gals, ncomponents=1, sigma_inst_kms=29.6, nthreads_max=1, df_fname="test_lzifu.hd5", **kwargs)
+make_lzifu_df(gals=gals, ncomponents=1, sigma_inst_kms=29.6, nthreads=1, df_fname="test_lzifu.hd5", **kwargs)
 

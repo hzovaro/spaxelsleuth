@@ -189,7 +189,7 @@ def make_s7_df(bin_type="default", ncomponents="recom",
                stekin_cut=True,
                met_diagnostic_list=["Dopita+2016", "N2O2"], logU = -3.0,
                eline_list=["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"],
-               nthreads_max=20, debug=False):
+               nthreads=20, debug=False):
     """
     DESCRIPTION
     ---------------------------------------------------------------------------
@@ -217,7 +217,7 @@ def make_s7_df(bin_type="default", ncomponents="recom",
 
     Note that due to the relatively small sample size, multithreading is NOT
     used to process the galaxies, unlike in the equivalent function in sami.py
-    (make_df_sami()). Here, the nthreads_max only controls the number of 
+    (make_df_sami()). Here, the nthreads only controls the number of 
     threads used during the extinction computation.
 
     If you wish to run in debug mode, set the DEBUG flag to True: this will run 
@@ -282,7 +282,7 @@ def make_s7_df(bin_type="default", ncomponents="recom",
         Constant ionisation parameter to assume in metallicity calculation.
         Default value is -3.0.
 
-    nthreads_max:               int            
+    nthreads:               int            
         Maximum number of threds to use. 
 
     debug:                      bool
@@ -707,7 +707,7 @@ def make_s7_df(bin_type="default", ncomponents="recom",
     df_spaxels_extcorr = extcorr.extinction_corr_fn(df_spaxels_extcorr, 
                                     eline_list=eline_list,
                                     reddening_curve="fm07", 
-                                    balmer_SNR_min=5, nthreads=nthreads_max,
+                                    balmer_SNR_min=5, nthreads=nthreads,
                                     s=f" (total)")
     df_spaxels_extcorr["Corrected for extinction?"] = True
     df_spaxels["Corrected for extinction?"] = False

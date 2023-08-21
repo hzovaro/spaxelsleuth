@@ -77,7 +77,7 @@ def add_columns(df, **kwargs):
                                         reddening_curve="fm07",
                                         eline_list=[e for e in kwargs["eline_list"] if f"{e} (total)" in df],
                                         a_v_col_name="A_V (total)",
-                                        nthreads=kwargs["nthreads_max"],
+                                        nthreads=kwargs["nthreads"],
                                         s=f" (total)")
 
         # Apply the extinction correction to fluxes of  individual components
@@ -86,7 +86,7 @@ def add_columns(df, **kwargs):
                                             reddening_curve="fm07",
                                             eline_list=[e for e in kwargs["eline_list"] if f"{e} (component {nn + 1})" in df],
                                             a_v_col_name="A_V (total)",
-                                            nthreads=kwargs["nthreads_max"],
+                                            nthreads=kwargs["nthreads"],
                                             s=f" (component {nn + 1})")
 
         df["Corrected for extinction?"] = True

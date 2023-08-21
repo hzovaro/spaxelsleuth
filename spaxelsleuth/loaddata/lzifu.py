@@ -410,7 +410,7 @@ def make_lzifu_df(gals,
                       "N2Ha_K19",
                       "R23_KK04",
                   ],
-                  nthreads_max=20,
+                  nthreads=20,
                   debug=False):
     """TODO: WRITE DOCSTRING"""
 
@@ -446,9 +446,9 @@ def make_lzifu_df(gals,
     if len(gals) == 1:
         res_list = [_process_lzifu(args_list[0])]
     else:
-        if nthreads_max > 1:
+        if nthreads > 1:
             print(f"{status_str}: Beginning pool...")
-            pool = multiprocessing.Pool(min([nthreads_max, len(gals)]))
+            pool = multiprocessing.Pool(min([nthreads, len(gals)]))
             res_list = np.array((pool.map(_process_lzifu, args_list)))
             pool.close()
             pool.join()
@@ -492,7 +492,7 @@ def make_lzifu_df(gals,
         metallicity_diagnostics=metallicity_diagnostics,
         compute_sfr=True,
         sigma_inst_kms=sigma_inst_kms,
-        nthreads_max=nthreads_max,
+        nthreads=nthreads,
         base_missing_flux_components_on_HALPHA=
         False,  # NOTE: this is important!!
         debug=debug)

@@ -35,7 +35,7 @@ def make_sami_aperture_df(eline_SNR_min,
                           line_flux_SNR_cut=True,
                           missing_fluxes_cut=True,
                           sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
-                          nthreads_max=20, correct_extinction=True):
+                          nthreads=20, correct_extinction=True):
     """
     This is a convenience function for extracting the data products obtained 
     from the single-component emission line fits to the aperture spectra 
@@ -76,7 +76,7 @@ def make_sami_aperture_df(eline_SNR_min,
         If True, correct emission line fluxes for extinction.
         NOTE: if False, then metallicities are NOT computed. 
 
-    nthreads_max:               int            
+    nthreads:               int            
         Maximum number of threds to use during extinction correction 
         calculation.    
 
@@ -412,7 +412,7 @@ def make_sami_aperture_df(eline_SNR_min,
                                             reddening_curve="fm07",
                                             eline_list=[e for e in eline_list if f"{e} ({ap})" in df_ap],
                                             a_v_col_name=f"A_V ({ap})",
-                                            nthreads=nthreads_max,
+                                            nthreads=nthreads,
                                             s=f" ({ap})")
     df_ap["Corrected for extinction?"] = correct_extinction
     df_ap = df_ap.sort_index()
