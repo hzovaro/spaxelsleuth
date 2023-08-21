@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import warnings
 
 ######################################################################
@@ -402,7 +403,7 @@ def bpt_fn(df, s=None):
             df_ambiguous.loc[:, "BPT (numeric)"] = 4
 
         # Smoosh them back together
-        df = df_not_classified.append([df_SF, df_Comp, df_LINER, df_Seyfert, df_ambiguous])
+        df = pd.concat([df_not_classified, df_SF, df_Comp, df_LINER, df_Seyfert, df_ambiguous])
         df = df.astype({"BPT (numeric)": float})
     else:
         df.loc[:, "BPT"] = "Not classified"
@@ -686,9 +687,8 @@ def law2021_fn(df, s=None):
             df_ambiguous.loc[:, "Law+2021 (numeric)"] = 3
 
         # Smoosh them back together
-        df = df_not_classified.append([df_cold, df_intermediate, df_warm, df_ambiguous])
+        df = pd.concat([df_not_classified, df_cold, df_intermediate, df_warm, df_ambiguous])
         df = df.astype({"Law+2021 (numeric)": float})
-
 
     # Rename columns
     if s is not None:
