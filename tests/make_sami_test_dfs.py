@@ -9,7 +9,7 @@ if __name__ == "__main__":
     ###########################################################################
     # Create the metadata DataFrame
     ###########################################################################
-    make_sami_metadata_df(recompute_continuum_SNRs=False)
+    make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=10)
 
     ###########################################################################
     # Create the DataFrames
