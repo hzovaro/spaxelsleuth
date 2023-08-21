@@ -19,8 +19,6 @@ import matplotlib.pyplot as plt
 plt.ion()
 plt.close("all")
 
-from IPython.core.debugger import Tracer
-
 import warnings
 warnings.filterwarnings(action="ignore", message="Mean of empty slice")
 warnings.filterwarnings(action="ignore", message="invalid value encountered in sqrt")

@@ -30,8 +30,6 @@ from astropy.wcs import WCS
 from spaxelsleuth.plotting.plottools import get_vmin, get_vmax, get_cmap, get_label, plot_scale_bar, plot_compass
 from spaxelsleuth.config import settings
 
-from IPython.core.debugger import Tracer
-
 ###############################################################################
 def plot2dmap(df,
               gal,

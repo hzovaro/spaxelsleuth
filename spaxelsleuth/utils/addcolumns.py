@@ -3,8 +3,6 @@ import numpy as np
 from spaxelsleuth.utils import continuum, dqcut, linefns, metallicity, extcorr, misc
 from spaxelsleuth.utils.misc import in_dataframe
 
-from IPython.core.debugger import Tracer
-
 ###############################################################################
 def add_columns(df, **kwargs):
     """Computes quantities such as metallicities, extinctions, etc. for each row in df."""

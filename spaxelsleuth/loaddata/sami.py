@@ -1383,12 +1383,6 @@ def make_sami_df(bin_type,
         morph_dict[str(m)] for m in df_spaxels["Morphology (numeric)"]
     ]
 
-    # Leave this here for debugging to check for Object data types
-    # for col in df_spaxels.columns:
-    #     if df_spaxels[col].dtypes != "float64":
-    #         print(f"{col}: {df_spaxels[col].dtypes}")
-    # Tracer()()
-
     ###############################################################################
     # Generic stuff: compute additional columns - extinction, metallicity, etc.
     ###############################################################################

@@ -9,8 +9,6 @@ from typing import Tuple
 from spaxelsleuth import config
 from spaxelsleuth.utils.linefns import Kewley2001, Kewley2006, Kauffman2003, Law2021_1sigma, Law2021_3sigma
 
-from IPython.core.debugger import Tracer
-
 #/////////////////////////////////////////
 # Load the plotting settings
 plot_settings = config.settings["plotting"]

@@ -29,26 +29,26 @@ from spaxelsleuth.loaddata.sami_apertures import make_sami_aperture_df
 ###########################################################################
 # Create the metadata DataFrame
 ###########################################################################
-# make_sami_metadata_df()
+make_sami_metadata_df()
 
 ###########################################################################
 # Create the DataFrames
 ###########################################################################
 # Make test data 
-# make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=True)
-# make_sami_df(ncomponents="1", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=True)
-# make_sami_df(ncomponents="recom", bin_type="adaptive", eline_SNR_min=5, correct_extinction=True, debug=True)
-# make_sami_df(ncomponents="1", bin_type="adaptive", eline_SNR_min=5, correct_extinction=True, debug=True)
-# make_sami_df(ncomponents="recom", bin_type="sectors", eline_SNR_min=5, correct_extinction=True, debug=True)
-# make_sami_df(ncomponents="1", bin_type="sectors", eline_SNR_min=5, correct_extinction=True, debug=True)
+make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=True)
+make_sami_df(ncomponents="1", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=True)
+make_sami_df(ncomponents="recom", bin_type="adaptive", eline_SNR_min=5, correct_extinction=True, debug=True)
+make_sami_df(ncomponents="1", bin_type="adaptive", eline_SNR_min=5, correct_extinction=True, debug=True)
+make_sami_df(ncomponents="recom", bin_type="sectors", eline_SNR_min=5, correct_extinction=True, debug=True)
+make_sami_df(ncomponents="1", bin_type="sectors", eline_SNR_min=5, correct_extinction=True, debug=True)
 
 # Make full data set
-# make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=False)
-# make_sami_df(ncomponents="1", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=False)
-# make_sami_df(ncomponents="recom", bin_type="adaptive", eline_SNR_min=5, correct_extinction=True, debug=False)
-# make_sami_df(ncomponents="1", bin_type="adaptive", eline_SNR_min=5, correct_extinction=True, debug=False)
-# make_sami_df(ncomponents="recom", bin_type="sectors", eline_SNR_min=5, correct_extinction=True, debug=False)
-# make_sami_df(ncomponents="1", bin_type="sectors", eline_SNR_min=5, correct_extinction=True, debug=False)
+make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=False)
+make_sami_df(ncomponents="1", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=False)
+make_sami_df(ncomponents="recom", bin_type="adaptive", eline_SNR_min=5, correct_extinction=True, debug=False)
+make_sami_df(ncomponents="1", bin_type="adaptive", eline_SNR_min=5, correct_extinction=True, debug=False)
+make_sami_df(ncomponents="recom", bin_type="sectors", eline_SNR_min=5, correct_extinction=True, debug=False)
+make_sami_df(ncomponents="1", bin_type="sectors", eline_SNR_min=5, correct_extinction=True, debug=False)
 
 # Make LZIFU data set 
 make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, correct_extinction=True, __use_lzifu_fits=True, __lzifu_ncomponents="2", debug=True)
@@ -69,7 +69,7 @@ make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, correct_e
              sigma_gas_SNR_cut=False, 
              vgrad_cut=False,
              stekin_cut=False,
-             nthreads_max=20)
+             nthreads=20)
 make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, correct_extinction=False, __use_lzifu_fits=True, __lzifu_ncomponents="2", debug=False,
              line_flux_SNR_cut=False,
              missing_fluxes_cut=False,
@@ -78,7 +78,7 @@ make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, correct_e
              sigma_gas_SNR_cut=False, 
              vgrad_cut=False,
              stekin_cut=False,
-             nthreads_max=20)
+             nthreads=20)
 
 
 ###########################################################################
@@ -88,4 +88,9 @@ make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, correct_e
 #                       line_flux_SNR_cut=True,
 #                       missing_fluxes_cut=True,
 #                       sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
-#                       nthreads_max=8, correct_extinction=True)
+#                       nthreads=8, correct_extinction=True)
+# make_sami_aperture_df(eline_SNR_min=0, 
+#                       line_flux_SNR_cut=True,
+#                       missing_fluxes_cut=True,
+#                       sigma_gas_SNR_cut=True, sigma_gas_SNR_min=3,
+#                       nthreads=8, correct_extinction=False)

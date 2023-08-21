@@ -6,8 +6,6 @@ import copy
 from spaxelsleuth.utils.linefns import Kewley2001, Kewley2006, Kauffman2003, Law2021_1sigma, Law2021_3sigma, ratio_fn
 from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram
 
-from IPython.core.debugger import Tracer
-
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors

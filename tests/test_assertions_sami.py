@@ -8,8 +8,6 @@ from spaxelsleuth import load_user_config
 load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 from spaxelsleuth.loaddata.sami import load_sami_df
 
-from IPython.core.debugger import Tracer
-
 ###############################################################################
 # Options
 ncomponents, bin_type, eline_SNR_min = [sys.argv[1], sys.argv[2], int(sys.argv[3])]

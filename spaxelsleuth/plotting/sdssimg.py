@@ -35,8 +35,6 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.patches import Circle
 
-from IPython.core.debugger import Tracer
-
 ###############################################################################
 # Paths
 sdss_im_path = settings["sdss_im_path"]
