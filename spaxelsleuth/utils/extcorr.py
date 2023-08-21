@@ -6,8 +6,6 @@ import warnings
 
 from spaxelsleuth.utils.elines import eline_lambdas_A
 
-from IPython.core.debugger import Tracer
-
 ################################################################################
 def extcorr_helper_fn(args):
     """
@@ -257,10 +255,7 @@ def apply_extinction_correction(df, eline_list, a_v_col_name,
 
     # Cast back to previous data types
     for col in df.columns:
-        try:
-            df_results_extcorr[col] = df_results_extcorr[col].astype(df[col].dtype)
-        except AttributeError:
-            Tracer()()
+        df_results_extcorr[col] = df_results_extcorr[col].astype(df[col].dtype)
     df_extcorr = df_results_extcorr
 
     # Merge back with original DataFrame
