@@ -1543,6 +1543,8 @@ def load_sami_df(ncomponents,
     df["__use_lzifu_fits"] = __use_lzifu_fits
     df["__lzifu_ncomponents"] = __lzifu_ncomponents
     df["debug"] = debug
+    df["flux units"] = "E-16 erg/cm^2/s"  # Units of continuum & emission line flux
+    df["continuum units"] = "E-16 erg/cm^2/Å/s"  # Units of continuum & emission line flux
 
     # Return
     print("In load_sami_df(): Finished!")
