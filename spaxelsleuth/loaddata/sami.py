@@ -3,6 +3,7 @@ import datetime
 import os
 import warnings
 import pandas as pd
+from pathlib import Path
 import multiprocessing
 import numpy as np
 
@@ -18,10 +19,10 @@ from spaxelsleuth.utils.addcolumns import add_columns
 
 ###############################################################################
 # Paths
-input_path = settings["sami"]["input_path"]
-output_path = settings["sami"]["output_path"]
-data_cube_path = settings["sami"]["data_cube_path"]
-__lzifu_products_path = settings["sami"]["lzifu_products_path"]
+input_path = Path(settings["sami"]["input_path"])
+output_path = Path(settings["sami"]["output_path"])
+data_cube_path = Path(settings["sami"]["data_cube_path"])
+__lzifu_products_path = Path(settings["sami"]["lzifu_products_path"])
 
 
 ###############################################################################
@@ -32,9 +33,9 @@ def _compute_snr(args, plotit=False):
     # Load the red & blue data cubes.
     try:
         hdulist_R_cube = fits.open(
-            os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
+            Path(data_cube_path) / f"ifs/{gal}/{gal}_A_cube_red.fits.gz")
         hdulist_B_cube = fits.open(
-            os.path.join(data_cube_path, f"ifs/{gal}/{gal}_A_cube_blue.fits.gz"))
+            Path(data_cube_path) / f"ifs/{gal}/{gal}_A_cube_blue.fits.gz")
     except FileNotFoundError:
         warnings.warn(f"Data cubes not found for galaxy {gal} - cannot compute S/N")
         return [
@@ -192,35 +193,27 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     mge_fits_metadata_fname = "sami_MGEPhotomUnregDR3.csv"
 
     # Get the data path
-    data_path = os.path.join(__file__.split("loaddata")[0], "data")
+    data_path = Path(__file__.split("loaddata")[0]) / "data"
     for fname in [
             gama_metadata_fname, cluster_metadata_fname, filler_metadata_fname,
             morphologies_fname, flag_metadata_fname, mge_fits_metadata_fname
     ]:
-        assert os.path.exists(os.path.join(data_path, fname)),\
-            f"File {os.path.join(data_path, fname)} not found!"
+        assert os.path.exists(data_path / fname),\
+            f"File {data_path / fname} not found!"
 
     ###########################################################################
     # Read in galaxy metadata
     ###########################################################################
-    df_metadata_gama = pd.read_csv(os.path.join(
-        data_path, gama_metadata_fname))  # ALL possible GAMA targets
-    df_metadata_cluster = pd.read_csv(
-        os.path.join(data_path,
-                     cluster_metadata_fname))  # ALL possible cluster targets
-    df_metadata_filler = pd.read_csv(
-        os.path.join(data_path,
-                     filler_metadata_fname))  # ALL possible filler targets
-    df_metadata = pd.concat(
-        [df_metadata_gama, df_metadata_cluster, df_metadata_filler],
-        sort=True).drop(["Unnamed: 0"], axis=1)
+    df_metadata_gama = pd.read_csv(data_path / gama_metadata_fname)  # ALL possible GAMA targets
+    df_metadata_cluster = pd.read_csv(data_path / cluster_metadata_fname)  # ALL possible cluster targets
+    df_metadata_filler = pd.read_csv(data_path / filler_metadata_fname)  # ALL possible filler targets
+    df_metadata = pd.concat([df_metadata_gama, df_metadata_cluster, df_metadata_filler], sort=True).drop(["Unnamed: 0"], axis=1)
     gal_ids_metadata = list(np.sort(list(df_metadata["catid"])))
 
     ###########################################################################
     # Append morphology data
     ###########################################################################
-    df_morphologies = pd.read_csv(os.path.join(
-        data_path, morphologies_fname)).drop(["Unnamed: 0"], axis=1)
+    df_morphologies = pd.read_csv(data_path / morphologies_fname).drop(["Unnamed: 0"], axis=1)
     df_morphologies = df_morphologies.rename(
         columns={"type": "Morphology (numeric)"})
 
@@ -259,7 +252,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     ###########################################################################
     # Read in flag metadata
     ###########################################################################
-    df_flags = pd.read_csv(os.path.join(data_path, flag_metadata_fname)).drop(
+    df_flags = pd.read_csv(data_path / flag_metadata_fname).drop(
         ["Unnamed: 0"], axis=1)
     df_flags = df_flags.astype(
         {col: "int64"
@@ -306,10 +299,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     # Add R_e and other parameters derived from MGE fits
     # Note: these are based on SDSS and VST photometry, not GAMA.
     ###########################################################################
-    df_mge = pd.read_csv(os.path.join(
-        data_path,
-        mge_fits_metadata_fname)).drop(["Unnamed: 0"], axis=1).set_index(
-            "catid")  # Data from multi-expansion fits
+    df_mge = pd.read_csv(data_path / mge_fits_metadata_fname).drop(["Unnamed: 0"], axis=1).set_index("catid")  # Data from multi-expansion fits
 
     # Drop duplicated rows: those with both SDSS and VST photometry
     df_mge_vst = df_mge[df_mge["photometry"] == "VST"]
@@ -480,14 +470,11 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     # Compute continuum SNRs from the data cubes
     ###############################################################################
     print("In make_sami_metadata_df(): Computing continuum SNRs...")
-    if not recompute_continuum_SNRs and os.path.exists(
-            os.path.join(output_path, "sami_dr3_aperture_snrs.hd5")):
+    if not recompute_continuum_SNRs and os.path.exists(output_path / "sami_dr3_aperture_snrs.hd5"):
         w = warnings.warn(
-            f"file {os.path.join(output_path, 'sami_dr3_aperture_snrs.hd5')} found; loading SNRs from existing DataFrame..."
+            f"file {output_path / 'sami_dr3_aperture_snrs.hd5'} found; loading SNRs from existing DataFrame..."
         )
-        df_snr = pd.read_hdf(os.path.join(output_path,
-                                          "sami_dr3_aperture_snrs.hd5"),
-                             key="SNR")
+        df_snr = pd.read_hdf(output_path / "sami_dr3_aperture_snrs.hd5", key="SNR")
     else:
         w = warnings.warn(f"computing continuum SNRs on {nthreads} threads...")
         args_list = [[gal, df_metadata] for gal in gal_ids_dq_cut]
@@ -522,8 +509,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
         print(
             "In make_sami_metadata_df(): Saving aperture SNR DataFrame to file..."
         )
-        df_snr.to_hdf(os.path.join(output_path, "sami_dr3_aperture_snrs.hd5"),
-                      key="SNR")
+        df_snr.to_hdf(output_path / "sami_dr3_aperture_snrs.hd5", key="SNR")
 
     ###############################################################################
     # Merge with the metadata DataFrame
@@ -536,9 +522,9 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     # Save to file
     ###########################################################################
     print(
-        f"In make_sami_metadata_df(): Saving metadata DataFrame to file {os.path.join(output_path, df_fname)}..."
+        f"In make_sami_metadata_df(): Saving metadata DataFrame to file {output_path / df_fname}..."
     )
-    df_metadata.to_hdf(os.path.join(output_path, df_fname), key="metadata")
+    df_metadata.to_hdf(output_path / df_fname, key="metadata")
 
     print(f"In make_sami_metadata_df(): Finished!")
     return
@@ -556,7 +542,7 @@ def _process_gals(args):
     ---------------------------------------------------------------------------
     args:       list 
         List containing gal_idx, gal, ncomponents, bin_type, df_metadata, 
-        status_str.
+        status_str, use_lzifu_fits, lzifu_ncomponents.
 
     OUTPUTS
     ---------------------------------------------------------------------------
@@ -588,16 +574,12 @@ def _process_gals(args):
             f"gas-velocity_{bin_type}_{ncomponents}-comp",
         ]
     fnames = [
-        os.path.join(input_path, f"ifs/{gal}/{gal}_A_{f}.fits")
-        for f in fname_list
+        str(input_path / f"ifs/{gal}/{gal}_A_{f}.fits") for f in fname_list
     ]
 
     #######################################################################
     # Open the red & blue cubes.
-    with fits.open(
-            os.path.join(
-                data_cube_path,
-                f"ifs/{gal}/{gal}_A_cube_blue.fits.gz")) as hdulist_B_cube:
+    with fits.open(data_cube_path / f"ifs/{gal}/{gal}_A_cube_blue.fits.gz") as hdulist_B_cube:
         header_R = hdulist_B_cube[0].header
         data_cube_B = hdulist_B_cube[0].data
         var_cube_B = hdulist_B_cube[1].data
@@ -613,10 +595,7 @@ def _process_gals(args):
             1 + df_metadata.loc[gal, "z (spectroscopic)"]
         )  #NOTE: we use the spectroscopic redshift here, because when it comes to measuring e.g. continuum levels, it's important that the wavelength range we use is consistent between galaxies. For some galaxies the flow-corrected redshift is sufficiently different from the spectroscopic redshift that when we use it to define wavelength windows for computing the continuum level for instance we end up enclosing an emission line which throws the measurement way out of whack (e.g. for 572402)
 
-    with fits.open(
-            os.path.join(
-                data_cube_path,
-                f"ifs/{gal}/{gal}_A_cube_red.fits.gz")) as hdulist_R_cube:
+    with fits.open(data_cube_path / f"ifs/{gal}/{gal}_A_cube_red.fits.gz") as hdulist_R_cube:
         header_R = hdulist_R_cube[0].header
         data_cube_R = hdulist_R_cube[0].data
         var_cube_R = hdulist_R_cube[1].data
@@ -635,26 +614,17 @@ def _process_gals(args):
     # Compute continuum quantities
 
     # Load gas/stellar velocity maps so that we can window in around wavelength ranges accounting for velocity shifts
-    with fits.open(
-            os.path.join(
-                input_path,
-                f"ifs/{gal}/{gal}_A_stellar-velocity_{bin_type}_two-moment.fits"
-            )) as hdulist_v_star:
+    with fits.open(input_path / f"ifs/{gal}/{gal}_A_stellar-velocity_{bin_type}_two-moment.fits") as hdulist_v_star:
         v_star_map = hdulist_v_star[0].data.astype(np.float64)
     if not use_lzifu_fits:
-        with fits.open(
-                os.path.join(
-                    input_path,
-                    f"ifs/{gal}/{gal}_A_gas-velocity_{bin_type}_{ncomponents}-comp.fits"
-                )) as hdulist_v:
+        with fits.open(input_path / f"ifs/{gal}/{gal}_A_gas-velocity_{bin_type}_{ncomponents}-comp.fits") as hdulist_v:
             v_map = hdulist_v[0].data.astype(np.float64)
     else:
         lzifu_fname = [
             f for f in os.listdir(__lzifu_products_path)
             if f.startswith(str(gal)) and f"{lzifu_ncomponents}_comp" in f
         ][0]
-        with fits.open(os.path.join(__lzifu_products_path,
-                                    lzifu_fname)) as hdu_lzifu:
+        with fits.open(__lzifu_products_path / lzifu_fname) as hdu_lzifu:
             v_map = hdu_lzifu["V"].data.astype(np.float64)
 
     # Compute the d4000 Angstrom break.
@@ -722,9 +692,7 @@ def _process_gals(args):
     elif bin_type == "adaptive" or bin_type == "sectors":
         ys, xs = np.meshgrid(np.arange(ny), np.arange(nx), indexing="ij")
         # Open the binned blue cube. Get the bin mask extension.
-        hdulist_binned_cube = fits.open(
-            os.path.join(input_path,
-                         f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
+        hdulist_binned_cube = fits.open(input_path / f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz")
         bin_map = hdulist_binned_cube[2].data.astype("float")
         bin_map[bin_map == 0] = np.nan
 
@@ -863,7 +831,7 @@ def _process_gals(args):
             f for f in os.listdir(__lzifu_products_path)
             if f.startswith(str(gal)) and f"{lzifu_ncomponents}_comp" in f
         ][0]
-        hdu_lzifu = fits.open(os.path.join(__lzifu_products_path, lzifu_fname))
+        hdu_lzifu = fits.open(__lzifu_products_path / lzifu_fname)
 
         # Load emission line fluxes & kinematics (except for [OII])
         for quantity in ["HBETA", "OIII5007", "OI6300",
@@ -1289,18 +1257,18 @@ def make_sami_df(bin_type,
     # Read metadata
     ###############################################################################
     try:
-        df_metadata = pd.read_hdf(os.path.join(output_path, df_metadata_fname),
+        df_metadata = pd.read_hdf(output_path / df_metadata_fname,
                                   key="metadata")
     except FileNotFoundError:
         print(
-            f"ERROR: metadata DataFrame file not found ({os.path.join(output_path, df_metadata_fname)}). Please run make_sami_metadata_df.py first!"
+            f"ERROR: metadata DataFrame file not found ({output_path / df_metadata_fname}). Please run make_sami_metadata_df.py first!"
         )
 
     # Only include galaxies flagged as "good" & for which we have data
     gal_ids_dq_cut = df_metadata[df_metadata["Good?"] == True].index.values
     gal_ids_dq_cut = [
         g for g in gal_ids_dq_cut
-        if os.path.exists(os.path.join(input_path, f"ifs/{g}/"))
+        if os.path.exists(input_path / f"ifs/{g}/")
     ]
 
     # If running in DEBUG mode, run on a subset to speed up execution time
@@ -1412,15 +1380,13 @@ def make_sami_df(bin_type,
     print(f"{status_str}: Saving to file {df_fname}...")
 
     try:
-        df_spaxels.to_hdf(os.path.join(output_path, df_fname),
+        df_spaxels.to_hdf(output_path / df_fname,
                           key=f"{bin_type}, {ncomponents}-comp")
     except:
         print(
             f"{status_str}: ERROR: Unable to save to HDF file! Saving to .csv instead"
         )
-        df_spaxels.to_csv(
-            os.path.join(output_path,
-                         df_fname.split("hd5")[0] + "csv"))
+        df_spaxels.to_csv(output_path / df_fname.split("hd5")[0] + "csv")
     return
 
 
@@ -1521,15 +1487,15 @@ def load_sami_df(ncomponents,
         df_fname += "_DEBUG"
     df_fname += ".hd5"
 
-    assert os.path.exists(os.path.join(output_path, df_fname)),\
-        f"File {os.path.join(output_path, df_fname)} does does not exist!"
+    assert os.path.exists(output_path / df_fname),\
+        f"File {output_path / df_fname} does does not exist!"
 
     # Load the data frame
-    t = os.path.getmtime(os.path.join(output_path, df_fname))
+    t = os.path.getmtime(output_path / df_fname)
     print(
-        f"In load_sami_df(): Loading DataFrame from file {os.path.join(output_path, df_fname)} [last modified {datetime.datetime.fromtimestamp(t)}]..."
+        f"In load_sami_df(): Loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
     )
-    df = pd.read_hdf(os.path.join(output_path, df_fname))
+    df = pd.read_hdf(output_path / df_fname)
 
     # Add "metadata" columns to the DataFrame
     df["survey"] = "sami"
@@ -1554,11 +1520,8 @@ def load_sami_df(ncomponents,
 ###############################################################################
 def load_sami_metadata_df():
     """Load the SAMI metadata DataFrame, containing "metadata" for each galaxy."""
-    if not os.path.exists(
-            os.path.join(settings["sami"]["output_path"],
-                         "sami_dr3_metadata.hd5")):
+    if not os.path.exists(output_path / "sami_dr3_metadata.hd5"):
         raise FileNotFoundError(
-            f"File {os.path.join(settings['sami']['output_path'], 'sami_dr3_metadata.hd5')} not found. Did you remember to run make_sami_metadata_df() first?"
+            f"File {output_path / 'sami_dr3_metadata.hd5'} not found. Did you remember to run make_sami_metadata_df() first?"
         )
-    return pd.read_hdf(
-        os.path.join(settings["sami"]["output_path"], "sami_dr3_metadata.hd5"))
+    return pd.read_hdf(output_path / "sami_dr3_metadata.hd5")
