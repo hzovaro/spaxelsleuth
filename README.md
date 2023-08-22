@@ -90,15 +90,15 @@ plot2dhistcontours(df=df,
 
 ## Prerequisites 
 
-### Required packages
+Required packages:
 
-* numpy
-* scipy
-* pandas
-* matplotlib
 * astropy
+* extinction
+* matplotlib
+* pandas
+* pytables
 * scipy
-* tqdm 
+* tqdm
 
 ### Config file 
 
@@ -211,8 +211,28 @@ A Jupyter notebook showing you how to get up and running with `spaxelsleuth` usi
 1. Create LZIFU spaxel DataFrames by running `loaddaata.lzifu.make_lzifu_df()`. See the docstrings within for details on how to process data with different emission line fitting and/or binning schemes, how to apply different S/N cuts, etc.
 2. After running `make_lzifu_df()`, the DataFrame can be loaded using `loaddata.lzifu.load_lzifu_df()`. 
 
-# Citing this work
-Please contact me at `henry.zovaro@anu.edu.au` if you decide to use `spaxelsleuth` for your science or are interested in adding new features!
+
+
+# Using `spaxelsleuth` with S7 data
+
+`spaxelsleuth` also works with data from the [Siding Spring Southern Seyfert Spectroscopic Snapshot Survey (S7)](https://miocene.anu.edu.au/S7/). Simply modify your configuration file to point to your S7 data products as follows:
+```
+{
+    "s7": {
+        "output_path": "/some/path/spaxelsleuth_outputs/",
+        "input_path": "/some/path/s7_data_products/",
+        "data_cube_path": "/some/path/s7_data_cubes/",
+    },
+    ...
+}
+```
+## Usage
+
+A Jupyter notebook showing you how to get up and running with `spaxelsleuth` using S7 data is provided in examples/Examples - S7.ipynb. This notebook shows you how to create the necessary DataFrames and how to create plots. *I highly recommend you start here*. The most basic way to use `spaxelsleuth` with S7 data is as follows:
+
+1. Create the S7 metadata DataFrame by running `loaddata.s7.make_s7_metadata_df()`. 
+1. Create S7 spaxel DataFrames by running `loaddaata.s7.make_s7_df()`. See the docstrings within for details on how to process data with different emission line fitting and/or binning schemes, how to apply different S/N cuts, etc.
+2. After running `make_s7_df()`, the DataFrame can be loaded using `loaddata.s7.load_s7_df()`. 
 
 
 # Using `spaxelsleuth` with other data 
@@ -251,3 +271,5 @@ To apply all of these functions to a DataFrame, you can simply use `add_columns(
 
 The only requirement is that the data is presented in the correct format. 
 
+# Citing this work
+Please contact me at `henry.zovaro@anu.edu.au` if you decide to use `spaxelsleuth` for your science or are interested in adding new features!
