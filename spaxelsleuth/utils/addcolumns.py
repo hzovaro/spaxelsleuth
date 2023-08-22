@@ -32,8 +32,8 @@ def add_columns(df, **kwargs):
 
     ######################################################################
     # DQ and S/N CUTS
-    df = dqcut.set_flags(df=df, **kwargs)
-    df = dqcut.apply_flags(df=df, **kwargs)
+    df = dqcut.set_flags(df=df, ncomponents_max=ncomponents_max, **kwargs)
+    df = dqcut.apply_flags(df=df, ncomponents_max=ncomponents_max, **kwargs)
 
     ######################################################################
     # Fix SFR columns
