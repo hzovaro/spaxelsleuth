@@ -60,17 +60,19 @@ def make_s7_metadata_df():
     ---------------------------------------------------------------------------
     The DataFrame is saved to 
 
-        S7_DIR/s7_metadata.hd5
+        settings["s7"]["output_path"]/s7_metadata.hd5
 
     PREREQUISITES
     ---------------------------------------------------------------------------
-    S7_DIR must be defined as an environment variable.
 
     The table containing metadata for S7 galaxies is required for this script. 
     This has been included in the ../data/ directory but can be downloaded in 
     CSV format from 
         
         https://miocene.anu.edu.au/S7/Data_release_2/S7_DR2_Table_2_Catalogue.csv
+
+    NOTE: the version downloaded from the website has some problematic whitespace
+    which has been removed from the version included with spaxelsleuth.
     
     """
     print("In make_s7_metadata_df(): Creating metadata DataFrame...")
@@ -124,9 +126,6 @@ def make_s7_metadata_df():
     good_cols = [rename_dict[k] for k in rename_dict.keys()] + ["RA (J2000)", "Dec (J2000)"]
     df_metadata = df_metadata[good_cols]
 
-    # Cast everything to float 
-    
-
     ###############################################################################
     # Add angular scale info
     ###############################################################################
@@ -166,12 +165,9 @@ def _process_s7(args):
     hdulist_best_components = fits.open(input_path / f"{gal}_best_components.fits")
     hdr = hdulist_best_components[0].header
 
-    # Redshift
+    # Angular scale
     z = hdr["Z"]
-    # Calculate cosmological distances from the redshift
-    cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
-    D_A_Mpc = cosmo.angular_diameter_distance(z).value
-    D_L_Mpc = cosmo.luminosity_distance(z).value
+    D_A_Mpc = df_metadata.loc[gal, "D_A (Mpc)"]
     kpc_per_arcsec = D_A_Mpc * 1e3 * np.pi / 180.0 / 3600.0
 
     # Angular scale
