@@ -35,7 +35,8 @@
         ],
         "data_cube_path": "s7/input/",
         "input_path": "s7/input",
-        "output_path": "s7/output"
+        "output_path": "s7/output",
+        "sigma_inst_kms": 17.45887754671766
     },
     "lzifu": {
         "bin_types": [
