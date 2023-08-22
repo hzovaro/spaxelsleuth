@@ -48,8 +48,8 @@ def compute_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_rest_A, v
     return AN_HALPHA_map
 
 ###############################################################################
-def set_flags(df, eline_SNR_min, eline_list,
-              sigma_gas_SNR_min=3, sigma_inst_kms=29.6, **kwargs):
+def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
+              sigma_gas_SNR_min=3, **kwargs):
     """Set data quality & S/N flags.
     This function can be used to determine whether certain cells pass or fail 
     a number of data quality and S/N criteria. 
@@ -57,7 +57,7 @@ def set_flags(df, eline_SNR_min, eline_list,
     ######################################################################
     # INITIALISE FLAGS: these will get set below.
     ###################################################################### 
-    for nn in range(3):
+    for nn in range(ncomponents_max):
         if f"v_gas (component {nn + 1})" in df:
             df[f"Beam smearing flag (component {nn + 1})"] = False
         if f"sigma_gas (component {nn + 1})" in df:
@@ -65,7 +65,7 @@ def set_flags(df, eline_SNR_min, eline_list,
     df[f"Bad stellar kinematics"] = False
 
     for eline in eline_list:
-        for nn in range(3):
+        for nn in range(ncomponents_max):
             if f"{eline} (component {nn + 1})" in df:
                 df[f"Low flux S/N flag - {eline} (component {nn + 1})"] = False
                 df[f"Low flux fraction flag - {eline} (component {nn + 1})"] = False
@@ -92,7 +92,7 @@ def set_flags(df, eline_SNR_min, eline_list,
     print("In dqcut.set_flags(): Flagging low S/N components and spaxels...")
     for eline in eline_list:
         # Fluxes in individual components
-        for nn in range(3):
+        for nn in range(ncomponents_max):
             if f"{eline} (component {nn + 1})" in df.columns:
                 cond_low_SN = df[f"{eline} S/N (component {nn + 1})"] < eline_SNR_min
                 df.loc[cond_low_SN, f"Low flux S/N flag - {eline} (component {nn + 1})"] = True
@@ -109,7 +109,7 @@ def set_flags(df, eline_SNR_min, eline_list,
     print("In dqcut.set_flags(): Flagging components and spaxels with NaN fluxes and finite errors...")
     for eline in eline_list:
         # Fluxes in individual components
-        for nn in range(3):
+        for nn in range(ncomponents_max):
             # Should we change this to include fluxes that are NaN?
             if f"{eline} (component {nn + 1})" in df.columns:
                 cond_missing_flux = df[f"{eline} (component {nn + 1})"].isna() & ~df[f"{eline} error (component {nn + 1})"].isna()
@@ -140,7 +140,7 @@ def set_flags(df, eline_SNR_min, eline_list,
     print("In dqcut.set_flags(): Flagging components with amplitude < 3 * rms continuum noise...")
     for eline in eline_list:
         lambda_rest_A = eline_lambdas_A[eline]
-        for nn in range(3):
+        for nn in range(ncomponents_max):
             if f"{eline} (component {nn + 1})" in df.columns:
                 # Compute the amplitude of the line
                 lambda_obs_A = get_wavelength_from_velocity(lambda_rest=lambda_rest_A, 
@@ -173,7 +173,7 @@ def set_flags(df, eline_SNR_min, eline_list,
     # Flag rows where the flux ratio of the broad:narrow component < 0.05 (using the method of Avery+2021)
     ######################################################################
     print("In dqcut.set_flags(): Flagging spaxels where the flux ratio of the broad:narrow component < 0.05...")
-    for nn in range(1, 3):
+    for nn in range(1, ncomponents_max):
         for eline in eline_list:
             if f"{eline} (component {nn + 1})" in df:
                 cond_low_flux = df[f"{eline} A (component {nn + 1})"] < 0.05 * df[f"{eline} A (component 1)"]
@@ -184,7 +184,7 @@ def set_flags(df, eline_SNR_min, eline_list,
     ######################################################################
     print("In dqcut.set_flags(): Flagging components likely to be affected by beam smearing...")
     # Gas kinematics: beam semaring criteria of Federrath+2017 and Zhou+2017.
-    for nn in range(3):
+    for nn in range(ncomponents_max):
         if f"v_grad (component {nn + 1})" in df and f"sigma_gas (component {nn + 1})" in df:
             cond_beam_smearing = df[f"sigma_gas (component {nn + 1})"] < 2 * df[f"v_grad (component {nn + 1})"]
             df.loc[cond_beam_smearing, f"Beam smearing flag (component {nn + 1})"] = True
@@ -195,10 +195,10 @@ def set_flags(df, eline_SNR_min, eline_list,
     print("In dqcut.set_flags(): Flagging components with low sigma_gas S/N...")
     # Gas kinematics: NaN out cells w/ sigma_gas S/N ratio < sigma_gas_SNR_min 
     # (For SAMI, the red arm resolution is 29.6 km/s - see p6 of Croom+2021)
-    for nn in range(3):
+    for nn in range(ncomponents_max):
         if f"sigma_gas (component {nn + 1})" in df:
             # 1. Define sigma_obs = sqrt(sigma_gas**2 + sigma_inst_kms**2).
-            df[f"sigma_obs (component {nn + 1})"] = np.sqrt(df[f"sigma_gas (component {nn + 1})"]**2 + sigma_inst_kms**2)
+            df[f"sigma_obs (component {nn + 1})"] = np.sqrt(df[f"sigma_gas (component {nn + 1})"]**2 + kwargs["sigma_inst_kms"]**2)
 
             # 2. Define the S/N ratio of sigma_obs.
             # NOTE: here we assume that sigma_gas error (as output by LZIFU) 
@@ -208,7 +208,7 @@ def set_flags(df, eline_SNR_min, eline_list,
 
                 # 3. Given our target SNR_gas, compute the target SNR_obs,
                 # using the method in section 2.2.2 of Zhou+2017.
-                df[f"sigma_obs target S/N (component {nn + 1})"] = sigma_gas_SNR_min * (1 + sigma_inst_kms**2 / df[f"sigma_gas (component {nn + 1})"]**2)
+                df[f"sigma_obs target S/N (component {nn + 1})"] = sigma_gas_SNR_min * (1 + kwargs["sigma_inst_kms"]**2 / df[f"sigma_gas (component {nn + 1})"]**2)
                 cond_bad_sigma = df[f"sigma_obs S/N (component {nn + 1})"] < df[f"sigma_obs target S/N (component {nn + 1})"]
                 df.loc[cond_bad_sigma, f"Low sigma_gas S/N flag (component {nn + 1})"] = True
 
@@ -233,6 +233,7 @@ def set_flags(df, eline_SNR_min, eline_list,
 ######################################################################
 # Function for NaNing out cells based on the flags applied in dqcut()
 def apply_flags(df,
+                ncomponents_max,
                 eline_list,
                 line_flux_SNR_cut, 
                 missing_fluxes_cut,
@@ -296,7 +297,7 @@ def apply_flags(df,
         print("In dqcut.apply_flags(): Masking components that don't meet the S/N requirements...")
         for eline in eline_list:
             # Individual fluxes
-            for nn in range(3):
+            for nn in range(ncomponents_max):
                 if f"{eline} (component {nn + 1})" in df:
                     cond_low_SN = df[f"Low flux S/N flag - {eline} (component {nn + 1})"]
 
@@ -324,7 +325,7 @@ def apply_flags(df,
         print("In dqcut.apply_flags(): Masking components with missing fluxes...")
         for eline in eline_list:
             # Individual fluxes
-            for nn in range(3):
+            for nn in range(ncomponents_max):
                 if f"{eline} (component {nn + 1})" in df:
                     cond_missing_flux = df[f"Missing flux flag - {eline} (component {nn + 1})"]
 
@@ -354,7 +355,7 @@ def apply_flags(df,
     if line_amplitude_SNR_cut:
         print("In dqcut.apply_flags(): Masking components that don't meet the amplitude requirements...")
         for eline in eline_list:
-            for nn in range(3):
+            for nn in range(ncomponents_max):
                 if f"{eline} (component {nn + 1})" in df:
                     cond_low_amp = df[f"Low amplitude flag - {eline} (component {nn + 1})"]
 
@@ -380,7 +381,7 @@ def apply_flags(df,
 
     if flux_fraction_cut:
         print("In dqcut.apply_flags(): Masking components 1, 2 where the flux ratio of this component:component 1 < 0.05...")
-        for nn in range(1, 3):
+        for nn in range(1, ncomponents_max):
             for eline in eline_list:
                 if f"{eline} (component {nn + 1})" in df:
                     cond_low_flux_fraction = df[f"Low flux fraction flag - {eline} (component {nn + 1})"]
@@ -395,7 +396,7 @@ def apply_flags(df,
 
     if vgrad_cut:
         print("In dqcut.apply_flags(): Masking components that don't meet the beam smearing requirement...")
-        for nn in range(3):
+        for nn in range(ncomponents_max):
             if f"v_grad (component {nn + 1})" in df:
                 cond_beam_smearing = df[f"Beam smearing flag (component {nn + 1})"]
 
@@ -406,7 +407,7 @@ def apply_flags(df,
 
     if sigma_gas_SNR_cut:
         print("In dqcut.apply_flags(): Masking components with insufficient S/N in sigma_gas...")
-        for nn in range(3):
+        for nn in range(ncomponents_max):
             if f"sigma_obs S/N (component {nn + 1})" in df:
                 cond_bad_sigma = df[f"Low sigma_gas S/N flag (component {nn + 1})"]
                 
@@ -614,59 +615,3 @@ def apply_flags(df,
             df["ID"] = df["ID"].astype(int)
 
     return df
-
-
-# #########################################################################
-# def compute_extra_columns(df):
-#     """
-#     Add the following extra columns to the DataFrame:
-#      - log quantities + errors:
-#         - Halpha EW
-#         - sigma_gas
-#      - offsets between gas & stellar kinematics
-#      - offsets in Halpha EW, sigma_gas, v_gas between adjacent components
-#      - fraction of Halpha EW in each component
-#      - FWHM of emission lines
-
-#     This function should be called AFTER calling df_dqcut because it relies 
-#     on quantities that may be masked out due to S/N and DQ cuts.
-#     Technically we could make sure these columns get masked out in that 
-#     function but it would be cumbersome to do so...
-
-#     """
-    
-#     # Halpha & continuum luminosity
-#     # HALPHA luminosity: units of erg s^-1 kpc^-2
-#     # HALPHA cont. luminosity: units of erg s^-1 Å-1 kpc^-2
-#     if all([col in df for col in ["D_L (Mpc)", "Bin size (square kpc)"]]):
-#         if all([col in df for col in ["HALPHA continuum", "HALPHA continuum error"]]):
-#             df[f"HALPHA continuum luminosity"] = df[f"HALPHA continuum"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-#             df[f"HALPHA continuum luminosity error"] = df[f"HALPHA continuum error"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-
-#         if all([col in df for col in ["HALPHA (total)", "HALPHA error (total)"]]):
-#             df[f"HALPHA luminosity (total)"] = df[f"HALPHA (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-#             df[f"HALPHA luminosity error (total)"] = df[f"HALPHA error (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-#         for nn in range(3):
-#             if all([col in df for col in [f"HALPHA (component {nn + 1})", f"HALPHA error (component {nn + 1})"]]):
-#                 df[f"HALPHA luminosity (component {nn + 1})"] = df[f"HALPHA (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-#                 df[f"HALPHA luminosity error (component {nn + 1})"] = df[f"HALPHA error (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-
-#     # Compute FWHM
-#     for nn in range(3):
-#         if f"sigma_gas (component {nn + 1})" in df:
-#             df[f"FWHM_gas (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
-#         if f"sigma_gas error (component {nn + 1})" in df:
-#             df[f"FWHM_gas error (component {nn + 1})"] = df[f"sigma_gas error (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
-
-#     # Stellar & gas kinematic offsets
-#     df = compute_gas_stellar_offsets(df)
-
-#     # Compute logs
-#     df = compute_log_columns(df)
-    
-#     # Comptue component offsets
-#     df = compute_component_offsets(df)
-
-#     return df
-
-
