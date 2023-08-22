@@ -507,7 +507,7 @@ def make_lzifu_df(gals,
     # Save to file
     ###############################################################################
     print(f"{status_str}: Saving to file {df_fname}...")
-    df_spaxels.to_hdf(os.path.join(output_path, df_fname),
+    df_spaxels.to_hdf(output_path / df_fname,
                       key=f"{bin_type}, {ncomponents}-comp")
     print(f"{status_str}: Finished!")
 
@@ -529,7 +529,7 @@ def load_lzifu_df(ncomponents=None,
     # Input file name
     if df_fname is not None:
         warnings.warn(
-            f"Loading DataFrame from user-provided filename {os.path.join(output_path, df_fname)} which may not correspond to the provided ncomponents, bin_type, etc. Proceed with caution!",
+            f"Loading DataFrame from user-provided filename {output_path / df_fname} which may not correspond to the provided ncomponents, bin_type, etc. Proceed with caution!",
             RuntimeWarning)
         if not df_fname.endswith(".hd5"):
             df_fname += ".hd5"
@@ -546,19 +546,19 @@ def load_lzifu_df(ncomponents=None,
             df_fname += "_DEBUG"
         df_fname += ".hd5"
 
-    if not os.path.exists(os.path.join(output_path, df_fname)):
+    if not os.path.exists(output_path / df_fname):
         raise FileNotFoundError(
-            f"File {os.path.join(output_path, df_fname)} does does not exist!")
+            f"File {output_path / df_fname} does does not exist!")
 
     # Load the data frame
-    t = os.path.getmtime(os.path.join(output_path, df_fname))
+    t = os.path.getmtime(output_path / df_fname)
     print(
-        f"In load_lzifu_df(): Loading DataFrame from file {os.path.join(output_path, df_fname)} [last modified {datetime.datetime.fromtimestamp(t)}]..."
+        f"In load_lzifu_df(): Loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
     )
     if key is not None:
-        df = pd.read_hdf(os.path.join(output_path, df_fname), key=key)
+        df = pd.read_hdf(output_path / df_fname, key=key)
     else:
-        df = pd.read_hdf(os.path.join(output_path, df_fname))
+        df = pd.read_hdf(output_path / df_fname)
 
     # Add "metadata" columns to the DataFrame
     df["survey"] = "lzifu"
