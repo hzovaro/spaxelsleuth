@@ -286,7 +286,7 @@ def bpt_fn(df, s=None):
         to any new columns that are added) before being returned. For 
         example, using the above example, the new added columns will be 
 
-            "BPT (total)", "BPT (numeric) (total)"
+            "BPT (numeric) (total)"
 
     OUTPUTS
     -----------------------------------------------------------------------
