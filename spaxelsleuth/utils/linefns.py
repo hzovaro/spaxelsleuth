@@ -2,6 +2,17 @@ import numpy as np
 import pandas as pd
 import warnings
 
+bpt_dict = {
+     "0.0": "SF",
+     "1.0": "Composite",
+     "2.0": "LINER",
+     "3.0": "Seyfert",
+     "4.0": "Ambiguous",
+     "-1.0": "Not classified",
+}
+def bpt_num_to_str(s):
+    return [bpt_dict[str(a)] for a in s]
+
 ######################################################################
 def compute_eline_luminosity(df, ncomponents_max, eline_list):
     """Compute emission line luminosities."""
@@ -281,12 +292,8 @@ def bpt_fn(df, s=None):
     -----------------------------------------------------------------------
     The original DataFrame with the following columns added:
 
-        BPT             str
-            BPT classification.
-
         BPT (numeric)   int
-            Integer code corresponding to the BPT classification. Useful 
-            in plotting.
+            Integer code corresponding to the BPT classification. 
 
     PREREQUISITES 
     -----------------------------------------------------------------------
@@ -350,20 +357,19 @@ def bpt_fn(df, s=None):
         cond_not_classified |= np.isnan(df["log S2"])
         df_not_classified = df[cond_not_classified]
         if not df_not_classified.empty:
-            df_not_classified.loc[:, "BPT"] = "Not classified"
             df_not_classified.loc[:, "BPT (numeric)"] = -1
 
         # Everything that can be classified
         df_classified = df[~cond_not_classified]
         if not df_classified.empty:
-            df_classified.loc[:, "BPT"] = "Ambiguous"
+            #TODO why is this line here???
+            df_classified.loc[:, "BPT (numeric)"] = 4 ## NEW LINE
 
         # SF
         cond_SF  = df_classified["log O3"] < Kauffman2003("log N2", df_classified["log N2"])
         cond_SF &= df_classified["log O3"] < Kewley2001("log S2", df_classified["log S2"])
         df_SF = df_classified[cond_SF]
         if not df_SF.empty:
-            df_SF.loc[:, "BPT"] = "SF"
             df_SF.loc[:, "BPT (numeric)"] = 0
         df_classified = df_classified[~cond_SF]
 
@@ -373,7 +379,6 @@ def bpt_fn(df, s=None):
         cond_Comp &= df_classified["log O3"] <  Kewley2001("log S2", df_classified["log S2"])
         df_Comp = df_classified[cond_Comp]
         if not df_Comp.empty:
-            df_Comp.loc[:, "BPT"] = "Composite"
             df_Comp.loc[:, "BPT (numeric)"] = 1
         df_classified = df_classified[~cond_Comp]
 
@@ -383,7 +388,6 @@ def bpt_fn(df, s=None):
         cond_LINER &= df_classified["log O3"] < Kewley2006("log S2", df_classified["log S2"])
         df_LINER = df_classified[cond_LINER]
         if not df_LINER.empty:
-            df_LINER.loc[:, "BPT"] = "LINER"
             df_LINER.loc[:, "BPT (numeric)"] = 2
         df_classified = df_classified[~cond_LINER]
 
@@ -393,20 +397,17 @@ def bpt_fn(df, s=None):
         cond_Seyfert &= df_classified["log O3"] >= Kewley2006("log S2", df_classified["log S2"])
         df_Seyfert = df_classified[cond_Seyfert]
         if not df_Seyfert.empty:
-            df_Seyfert.loc[:, "BPT"] = "Seyfert"
             df_Seyfert.loc[:, "BPT (numeric)"] = 3
 
         # Ambiguous
         df_ambiguous = df_classified[~cond_Seyfert]
         if not df_ambiguous.empty:
-            df_ambiguous.loc[:, "BPT"] = "Ambiguous"
             df_ambiguous.loc[:, "BPT (numeric)"] = 4
 
         # Smoosh them back together
         df = pd.concat([df_not_classified, df_SF, df_Comp, df_LINER, df_Seyfert, df_ambiguous])
         df = df.astype({"BPT (numeric)": float})
     else:
-        df.loc[:, "BPT"] = "Not classified"
         df.loc[:, "BPT (numeric)"] = -1
     
     # Rename columns
