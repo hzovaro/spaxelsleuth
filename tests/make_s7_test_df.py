@@ -6,7 +6,7 @@ from spaxelsleuth.loaddata.s7 import make_s7_metadata_df, make_s7_df, load_s7_me
 make_s7_metadata_df()
 df_metadata = load_s7_metadata_df()
 
-# TODO: merge metadata DataFrame onto the final one
+# Make the S7 DataFrame on a subset of galaxies
 make_s7_df(gals=["NGC1068", "MARK573",], metallicity_diagnostics=["N2Ha_PP04",], eline_SNR_min=3, nthreads=1)
 
 # Load 
@@ -27,7 +27,7 @@ from spaxelsleuth.plotting.plot2dmap import plot2dmap
 plot2dmap(df=df, gal="MARK573", col_z="HALPHA (total)")
 plot2dmap(df=df, gal="MARK573", col_z="OII3726 (total)")
 plot2dmap(df=df, gal="MARK573", col_z="HALPHA EW (total)")
-plot2dmap(df=df, gal="MARK573", col_z="BPT (numeric) (total)")
+plot2dmap(df=df, gal="MARK573", col_z="BPT (total)")
 plot2dmap(df=df, gal="MARK573", col_z="D4000")
 
 # Plot a 2D histogram showing the distribution of SAMI spaxels in the WHAN diagram
