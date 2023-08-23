@@ -1,20 +1,3 @@
-"""
-File:       plot2dmap.py
-Author:     Henry Zovaro
-Email:      henry.zovaro@anu.edu.au
-
-DESCRIPTION
-------------------------------------------------------------------------------
-Contains the following functions:
-
-    plot2dmap():
-        Plot a reconstructed 2D map of the quantity specified by col_z in a 
-        single galaxy, e.g. gas velocity dispersion.
-
-------------------------------------------------------------------------------
-Copyright (C) 2022 Henry Zovaro 
-"""
-################################################################################
 # Imports
 import os
 import numpy as np
@@ -27,7 +10,7 @@ from matplotlib.transforms import Affine2D
 from astropy.visualization.wcsaxes import WCSAxes
 from astropy.wcs import WCS
 
-from spaxelsleuth.plotting.plottools import get_vmin, get_vmax, get_cmap, get_label, plot_scale_bar, plot_compass
+from spaxelsleuth.plotting.plottools import get_vmin, get_vmax, get_cmap, get_label, plot_scale_bar, plot_compass, trim_suffix
 from spaxelsleuth.config import settings
 
 ###############################################################################
@@ -71,9 +54,6 @@ def plot2dmap(df,
     
     col_z:              str
         Quantity used to colour the image. Must be a column in df.
-        NOTE: if you want to plot discrete quantities, such as BPT category,
-        then you must specify the numeric option for these, i.e. set 
-        col_z = "BPT (numeric)" rather than "BPT".
     
     bin_type:           str 
         The binning scheme (if any) that was used to derive the quantities in
@@ -165,8 +145,9 @@ def plot2dmap(df,
         raise ValueError(f"{col_z} is not a valid column!")
     
     if df_gal[col_z].dtype == "O":
-        if f"{col_z} (numeric)" in df_gal:
-            col_z = f"{col_z} (numeric)"
+        col, suffix = trim_suffix(col_z)
+        if f"{col} (numeric)" + suffix in df_gal:
+            col_z = f"{col} (numeric)" + suffix
             print("")
         else:
             raise ValueError(

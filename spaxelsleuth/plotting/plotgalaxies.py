@@ -1,32 +1,3 @@
-"""
-File:       plotgalaxies.py
-Author:     Henry Zovaro
-Email:      henry.zovaro@anu.edu.au
-
-DESCRIPTION
-------------------------------------------------------------------------------
-A series of functions used to plot 2D histograms, contours and scatter plots.
-
-Contains the following functions:
-
-    plot2dhist():
-        Used in plot2dhistcontours().
-
-    plot2dcontours():
-        Used in plot2dhistcontours().
-
-    plot2dhistcontours():
-        Plot a 2D histogram of the data in columns col_x and col_y in a 
-        provided DataFrame. Optionally, overlay contours showing the 
-        corresponding number distribution.
-
-    plot2dscatter():
-        Make a 2D scatter plot based on two columns in the provided DataFrame.
-
-------------------------------------------------------------------------------
-Copyright (C) 2022 Henry Zovaro 
-"""
-################################################################################
 # Imports
 import pandas as pd
 from matplotlib.colors import LogNorm
@@ -34,8 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 
-from spaxelsleuth.plotting.plottools import get_cmap, get_vmin, get_vmax, get_label
-
+from spaxelsleuth.plotting.plottools import get_cmap, get_vmin, get_vmax, get_label, trim_suffix
 
 ###############################################################################
 def plot2dhist(df, col_x, col_y, col_z, ax, log_z, vmin, vmax, xmin, xmax,
@@ -550,9 +520,14 @@ def plot2dhistcontours(df,
         raise ValueError("if hist is True then col_z must be specified!")
     else:
         if col_z is not "count" and df[col_z].dtype == "O":
-            raise ValueError(
-                f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
-            )
+            col, suffix = trim_suffix(col_z)
+            if f"{col} (numeric)" + suffix in df:
+                col_z = f"{col} (numeric)" + suffix
+                print("")
+            else:
+                raise ValueError(
+                    f"{col_z} has an object data type and no numeric counterpart exists in df!"
+                )
     if cax_orientation not in ["horizontal", "vertical"]:
         raise ValueError(
             "cax_orientation must be either 'horizontal' or 'vertical'!")
@@ -862,9 +837,14 @@ def plot2dscatter(df,
                     (f"{col} (total)" in df.columns)):
                 raise ValueError(f"{col} is not a valid column!")
         if df[col_z].dtype == "O":
-            raise ValueError(
-                f"{col_z} has an object data type - if you want to use discrete quantities, you must use the 'numeric' version of this column instead!"
-            )
+            col, suffix = trim_suffix(col_z)
+            if f"{col} (numeric)" + suffix in df:
+                col_z = f"{col} (numeric)" + suffix
+                print("")
+            else:
+                raise ValueError(
+                    f"{col_z} has an object data type and no numeric counterpart exists in df!"
+                )
     if cax_orientation not in ["horizontal", "vertical"]:
         raise ValueError(
             "cax_orientation must be either 'horizontal' or 'vertical'!")
