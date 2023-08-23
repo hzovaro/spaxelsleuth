@@ -289,7 +289,51 @@ def apply_flags(df,
         "missing" or not. i.e. - if HALPHA is NaN in component 1 but sigma_gas 
         is not, then this component is counted as "missing". If false,
         only sigma_gas is used in this determination, so this component would 
-        NOT be counted as missing.
+        NOT be counted as missing. See below for more details.
+
+    MISSING COMPONENTS 
+    --------------------------------------------------------------------------
+    In datasets where emission lines have been fitted with multiple Gaussian 
+    components, it is important to consider how to handle spaxels where one 
+    or more individual components fails to meet S/N or data quality criteria. 
+    We refer to these as "**missing components**".
+
+    For example, a 2-component spaxel in which the 2nd component is a low-S/N 
+    component may still have high S/N *total* fluxes, in which case things 
+    like e.g. line ratios for the *total* flux are most likely still reliable. 
+    In this case, you would probably want to mask out the fluxes and kinematics 
+    of the low-S/N component, but keep the total fluxes.
+
+    By default, (i.e. when base_missing_flux_components_on_HALPHA = True), 
+    we define a "missing component" as one in which both the HALPHA flux and 
+    velocity dispersion have been masked out for any reason. 
+    
+    If base_missing_flux_components_on_HALPHA = False, it is based only on 
+    the velocity dispersion. 
+
+    Note that while spaxelsleuth will flag affected spaxels (denoted by the 
+    Missing components flag column), it will not automatically mask out 
+    anything out based on this criterion, allowing the user to control how 
+    spaxels with missing components are handled based on their specific use 
+    case. 
+
+    `utils.dqcut.apply_flags()` adds an additional `Number of components` column 
+    to the DataFrame (not to be confused with the `Number of components (original)`
+    column, which records the number of kinematic components in each spaxel that 
+    were originally fitted to the data). `Number of components` records the number 
+    of *reliable* components ONLY IF they are in the right order. For example, 
+    consider a spaxel that originally has 2 components. Say that component 1 has a
+    low S/N in the gas velocity dispersion, so sigma_gas (component 1) is masked 
+    out, but HALPHA (component 1) is not, and that component 2 passes all DQ and S/N 
+    cuts. In this case, the spaxel will NOT be recorded as having `Number of 
+    components = 1 or 2` because component 1 fails to meet the DQ and S/N criteria. 
+    It will therefore have an undefined `Number of components` and will be set to NaN. 
+
+    Spaxels that still retain their original number of components after making all 
+    DQ and S/N cuts can be selected as follows:
+
+        df_good_quality_components = df[~df["Missing components flag"]]
+ 
 
     """
     print("////////////////////////////////////////////////////////////////////")
@@ -431,32 +475,43 @@ def apply_flags(df,
     print("////////////////////////////////////////////////////////////////////")
     print("In dqcut.apply_flags(): Flagging spaxels with 'missing components'...")
     """
-    We define a "missing component" as one in which both the HALPHA flux and 
-    velocity dispersion have been NaN'd for any reason, but we do NOT NaN 
-    anything out based on this criterion, so that the user can NaN them out 
-    if they need to based on their specific use case. 
-    
-    For example, a 2-component spaxel in which the 2nd component is a low-S/N
+    In datasets where emission lines have been fitted with multiple Gaussian 
+    components, it is important to consider how to handle spaxels where one 
+    or more individual components fails to meet S/N or data quality criteria. 
+    We refer to these as "missing components".
+
+    For example, a 2-component spaxel in which the 2nd component is a low-S/N 
     component may still have high S/N *total* fluxes, in which case things 
     like e.g. line ratios for the *total* flux are most likely still reliable. 
+    In this case, you would probably want to mask out the fluxes and kinematics 
+    of the low-S/N component, but keep the total fluxes.
+
+    By default, (i.e. when base_missing_flux_components_on_HALPHA = True), 
+    we define a "missing component" as one in which both the HALPHA flux and 
+    velocity dispersion have been masked out for any reason. 
     
-    NOTE: for datasets other than SAMI, this criterion may pose a problem
-    if e.g. there is a spaxel in which, say, [NII] is not NaN in component 1,
-    but HALPHA is. 
+    If base_missing_flux_components_on_HALPHA = False, it is based only on 
+    the velocity dispersion. 
 
-    NOTE 2: The "Number of components" column really records the number of 
-    *reliable* components ONLY IF they are in the right order, for lack of a 
-    better phrase - take, for example, a spaxel that originally has 2 components.
-    Say that component 1 (the narrowest component) has a low S/N in the gas 
-    velocity dispersion, so sigma_gas (component 2) is masked out, but 
-    HALPHA (component 2) is not, and that component 2 (the broad component)
-    passes all DQ and S/N cuts. In this case, the spaxel will NOT be recorded
-    as having "Number of components" = 1 or 2 because it fails cond_has_1 and
-    cond_has_2 below. It will therefore have an undefined "Number of 
-    components" and will be set to NaN. 
+    Note that while `spaxelsleuth` will flag affected spaxels (denoted by the 
+    `Missing components flag` column), it will not automatically mask out 
+    anything out based on this criterion, allowing the user to control how spaxels 
+    with missing components are handled based on their specific use case. 
 
-    Spaxels that still retain their original number of components after making 
-    all DQ and S/N cuts can be selected as follows:
+    `utils.dqcut.apply_flags()` adds an additional `Number of components` column 
+    to the DataFrame (not to be confused with the `Number of components (original)`
+    column, which records the number of kinematic components in each spaxel that 
+    were originally fitted to the data). `Number of components` records the number 
+    of *reliable* components ONLY IF they are in the right order. For example, 
+    consider a spaxel that originally has 2 components. Say that component 1 has a
+    low S/N in the gas velocity dispersion, so sigma_gas (component 1) is masked 
+    out, but HALPHA (component 1) is not, and that component 2 passes all DQ and S/N 
+    cuts. In this case, the spaxel will NOT be recorded as having `Number of 
+    components = 1 or 2` because component 1 fails to meet the DQ and S/N criteria. 
+    It will therefore have an undefined `Number of components` and will be set to NaN. 
+
+    Spaxels that still retain their original number of components after making all 
+    DQ and S/N cuts can be selected as follows:
 
         df_good_quality_components = df[~df["Missing components flag"]]
 
