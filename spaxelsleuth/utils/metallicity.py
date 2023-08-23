@@ -710,7 +710,10 @@ def _get_metallicity(met_diagnostic, df,
     status_str = "In _get_metallicity()"
 
     # Speed up execution by only passing rows where the metallicity can be calculated
-    cond_nomet = df["BPT"] != "SF"
+    if "BPT" in df:
+        cond_nomet = df["BPT"] != "SF"
+    elif "BPT (numeric)" in df:
+        cond_nomet = df["BPT (numeric)"] != 0
     for eline in line_list_dict[met_diagnostic]:
         cond_nomet |= df[f"{eline}"].isna()
         cond_nomet |= df[f"{eline} error"].isna()
