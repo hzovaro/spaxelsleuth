@@ -665,7 +665,6 @@ def _met_helper_fn(args):
         else:
             res = _compute_logOH12(met_diagnostic=met_diagnostic, df=df_tmp, 
                                                 logU=None, compute_logU=False)
-            # logOH12_vals.append(res)
             logOH12_vals[nn] = res
 
     # Add to DataFrame
