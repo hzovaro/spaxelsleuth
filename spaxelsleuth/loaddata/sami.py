@@ -225,12 +225,8 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
                         "Morphology (numeric)"] = -0.5
     df_morphologies.loc[df_morphologies["Morphology (numeric)"] == np.nan,
                         "Morphology (numeric)"] = -0.5
-    # df_morphologies["Morphology"] = [
-        # morph_dict[str(m)] for m in df_morphologies["Morphology (numeric)"]
-    # ]
 
-    # merge with metadata, but do NOT include the morphology column as it
-    # causes all data to be cast to "object" type which is extremely slow!!!
+    # merge with metadata
     # Note: this step trims df_metadata to include only those objects with morphologies (9949 --> 3068)
     df_metadata = df_metadata.merge(
         df_morphologies[["catid", "Morphology (numeric)"]],
