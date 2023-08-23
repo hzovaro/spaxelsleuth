@@ -1,5 +1,21 @@
 import numpy as np
 
+# Key: Morphological Type
+morph_dict = {
+    "0.0": "E",
+    "0.5": "E/S0",
+    "1.0": "S0",
+    "1.5": "S0/Early-spiral",
+    "2.0": "Early-spiral",
+    "2.5": "Early/Late spiral",
+    "3.0": "Late spiral",
+    "5.0": "?",
+    "-9.0": "no agreement",
+    "-0.5": "Unknown"
+}
+def morph_num_to_str(s):
+    return [morph_dict[str(a)] for a in s]
+
 ###############################################################################
 def in_dataframe(df, cols) -> bool:
     """Returns True if all colums in cols are present in DataFrame df."""
