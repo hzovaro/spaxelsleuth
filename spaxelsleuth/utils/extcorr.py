@@ -44,7 +44,8 @@ def compute_A_V(df,
         defined by s.
 
     reddening_curve:    str
-        Reddening curve to assume. Defaults to Fitzpatrick & Massa (2007).
+        Reddening curve to assume. Defaults to 'fm07' (Fitzpatrick & Massa 2007).
+        Other options are 'fitzpatrick99', 'ccm89' or 'calzetti00'.
 
     R_V:                float
         R_V to assume (in magnitudes). Ignored if Fitzpatrick & Massa (2007) is 
@@ -55,11 +56,38 @@ def compute_A_V(df,
         A_V.
 
     balmer_decrement_intrinsic:   float
-        Intrinsic Ha/Hb ratio to assume. 
+        Intrinsic Ha/Hb ratio to assume. In rows where the measured Balmer decrement 
+        is less than this value, it is assumed that A_V = 0.
 
+    s:                   str 
+        Column suffix to trim before carrying out computation - e.g. if 
+        you want to compute the extinction using the "total" fluxes, and the 
+        columns of the DataFrame look like 
+
+            "HALPHA (total)", "HALPHA error (total)", etc.,
+
+        then setting s=" (total)" will mean that this function "sees"
+
+            "HALPHA", "HALPHA error".
+
+        Useful for running this function on different emission line 
+        components. The suffix is added back to the columns (and appended
+        to any new columns that are added) before being returned. For 
+        example, using the above example, the new added columns will be 
+
+            "A_V (total)", 
+            "A_V error (total)"
 
     RETURNS
     ------------------------------------------------------------------------
+
+    The input DataFrame with the following additional columns added:
+        
+        Balmer decrement        Hɑ/Hβ ratio
+        Balmer decrement error  1-sigma uncertainty on the Balmer decrement
+        A_V                     Total extinction in the V-band (mag)
+        A_V error               1-sigma uncertainty on A_V (mag)
+
 
     """
     #//////////////////////////////////////////////////////////////////////////
