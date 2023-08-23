@@ -104,7 +104,8 @@ def _compute_snr(args, plotit=False):
 
 ###############################################################################
 def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
-    """
+    """Create the SAMI "metadata" DataFrame.
+
     DESCRIPTION
     ---------------------------------------------------------------------------
     This function is used to create a DataFrame containing "metadata", including
@@ -118,6 +119,17 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
 
     The information used here is from the catalogues are available at 
     https://datacentral.org.au/. 
+
+    Details:
+        - Distances are computed from the redshifts assuming a flat ΛCDM cosmology 
+    with H0 = 70 km/s/Mpc, ΩM = 0.3 and ΩΛ = 0.7. Flow-corrected redshifts are 
+    used to compute distances when available. 
+        - Morphologies are taken from the `VisualMorphologyDR3` catalogue. For 
+    simplicity, the `?`, `No agreement` and `Unknown` categories are all merged 
+    into a single category labelled `Unknown`.
+        - MGE effective radius measurements are taken from the `MGEPhotomUnregDR3` 
+    catalogue. For galaxies for which measurements from both VST and SDSS 
+    photometry are available, only the VST measurements are kept.
 
     USAGE
     ---------------------------------------------------------------------------
