@@ -9,7 +9,9 @@ def deproject_coordinates(x_c_list,
                           i_deg,
                           plotit=False,
                           im=None):
-    """Deproject coordinates x_c_list, y_c_list given a galaxy inclination, PA and centre coordinates."""
+    """Deproject coordinates x_c_list, y_c_list given a galaxy inclination (i_deg), PA (PA_deg) and centre coordinates (x0_px, y0_px).
+       If plotit is set to True, creates a plot showing the projected and de-projected coordinates overlaid onto the provided image im.
+    """
     i_rad = np.deg2rad(i_deg)
     beta_rad = np.deg2rad(PA_deg - 90)
 
