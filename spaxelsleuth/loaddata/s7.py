@@ -36,6 +36,8 @@ def add_metadata(df, df_metadata):
 ###############################################################################
 def make_s7_metadata_df():
     """
+    Create a DataFrame containing "metadata" for all S7 galaxies.
+
     DESCRIPTION
     ---------------------------------------------------------------------------
     This function is used to create a DataFrame containing "metadata", including
@@ -157,7 +159,7 @@ def make_s7_metadata_df():
 
 #/////////////////////////////////////////////////////////////////////////////////
 def _process_s7(args):
-
+    """Helper function that is used in make_s7_df() to process S7 galaxies across multiple threads."""
     gal, df_metadata = args
 
     #######################################################################
