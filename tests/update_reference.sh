@@ -1,0 +1,12 @@
+cp sami_sectors_1-comp_minSNR=5_DEBUG.hd5 reference/
+cp sami_sectors_1-comp_extcorr_minSNR=5_DEBUG.hd5 reference/
+cp sami_adaptive_1-comp_minSNR=5_DEBUG.hd5 reference/
+cp sami_adaptive_1-comp_extcorr_minSNR=5_DEBUG.hd5 reference/
+cp sami_default_1-comp_minSNR=5_DEBUG.hd5 reference/
+cp sami_default_1-comp_extcorr_minSNR=5_DEBUG.hd5 reference/
+cp sami_sectors_recom-comp_minSNR=5_DEBUG.hd5 reference/
+cp sami_sectors_recom-comp_extcorr_minSNR=5_DEBUG.hd5 reference/
+cp sami_adaptive_recom-comp_minSNR=5_DEBUG.hd5 reference/
+cp sami_adaptive_recom-comp_extcorr_minSNR=5_DEBUG.hd5 reference/
+cp sami_default_recom-comp_minSNR=5_DEBUG.hd5 reference/
+cp sami_default_recom-comp_extcorr_minSNR=5_DEBUG.hd5 reference/
