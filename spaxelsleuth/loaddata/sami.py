@@ -16,6 +16,8 @@ from spaxelsleuth.utils.geometry import deproject_coordinates
 from spaxelsleuth.utils.dqcut import compute_HALPHA_amplitude_to_noise
 from spaxelsleuth.utils.velocity import compute_v_grad
 from spaxelsleuth.utils.addcolumns import add_columns
+from spaxelsleuth.utils.misc import morph_dict, morph_num_to_str
+from spaxelsleuth.utils.linefns import bpt_num_to_str
 
 ###############################################################################
 # Paths
@@ -208,7 +210,6 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     df_metadata_cluster = pd.read_csv(data_path / cluster_metadata_fname)  # ALL possible cluster targets
     df_metadata_filler = pd.read_csv(data_path / filler_metadata_fname)  # ALL possible filler targets
     df_metadata = pd.concat([df_metadata_gama, df_metadata_cluster, df_metadata_filler], sort=True).drop(["Unnamed: 0"], axis=1)
-    gal_ids_metadata = list(np.sort(list(df_metadata["catid"])))
 
     ###########################################################################
     # Append morphology data
@@ -224,29 +225,15 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
                         "Morphology (numeric)"] = -0.5
     df_morphologies.loc[df_morphologies["Morphology (numeric)"] == np.nan,
                         "Morphology (numeric)"] = -0.5
-
-    # Key: Morphological Type
-    morph_dict = {
-        "0.0": "E",
-        "0.5": "E/S0",
-        "1.0": "S0",
-        "1.5": "S0/Early-spiral",
-        "2.0": "Early-spiral",
-        "2.5": "Early/Late spiral",
-        "3.0": "Late spiral",
-        "5.0": "?",
-        "-9.0": "no agreement",
-        "-0.5": "Unknown"
-    }
-    df_morphologies["Morphology"] = [
-        morph_dict[str(m)] for m in df_morphologies["Morphology (numeric)"]
-    ]
+    # df_morphologies["Morphology"] = [
+        # morph_dict[str(m)] for m in df_morphologies["Morphology (numeric)"]
+    # ]
 
     # merge with metadata, but do NOT include the morphology column as it
     # causes all data to be cast to "object" type which is extremely slow!!!
     # Note: this step trims df_metadata to include only those objects with morphologies (9949 --> 3068)
     df_metadata = df_metadata.merge(
-        df_morphologies[["catid", "Morphology (numeric)", "Morphology"]],
+        df_morphologies[["catid", "Morphology (numeric)"]],
         on="catid")
 
     ###########################################################################
@@ -352,7 +339,6 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     z                 Spectroscopic redshift - keep 
     z_tonry           Flow-corrected redshift  
     Morphology (numeric)  - keep
-    Morphology        keep   
     Good?             keep 
     photometry        Denotes which images were used. - keep
     remge             Circularised effective radius from MGE fit. - keep
@@ -372,10 +358,10 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     Inclination i (degrees)  Inclination (computed from ellpiticity)
     """
     ###############################################################################
-    # Drop unnecessary columns & rename others for readability
+    # Drop unnecessary columns (including object-type columns) & rename others for readability
     cols_to_remove = [
         "r_auto", "r_petro", "surv_sami", "rextinction", "dist2nneigh", "chi2",
-        "fillflag"
+        "fillflag", "MGE photometry"
     ]
     rename_dict = {
         "a_g": "A_g",
@@ -969,8 +955,7 @@ def _process_gals(args):
 
     # Append a column with the galaxy ID & other properties
     safe_cols = [
-        c for c in df_metadata.columns
-        if c != "Morphology" and c != "MGE photometry"
+        c for c in df_metadata.columns if df_metadata[c].dtype != "object"
     ]
     gal_metadata = np.tile(
         df_metadata.loc[df_metadata.loc[:, "ID"] == gal][safe_cols].values,
@@ -1317,8 +1302,7 @@ def make_sami_df(bin_type,
     rows_list_all = [r[0] for r in res_list]
     colnames = res_list[0][1]
     safe_cols = [
-        c for c in df_metadata.columns
-        if c != "Morphology" and c != "MGE photometry"
+        c for c in df_metadata.columns if df_metadata[c].dtype != "object"
     ]
     df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)),
                               columns=safe_cols + colnames)
@@ -1329,27 +1313,6 @@ def make_sami_df(bin_type,
     df_spaxels["r/R_e"] = df_spaxels[
         "r (relative to galaxy centre, deprojected, arcsec)"] / df_spaxels[
             "R_e (arcsec)"]
-    df_spaxels["x, y (pixels)"] = list(
-        zip(df_spaxels["x (projected, arcsec)"] / 0.5,
-            df_spaxels["y (projected, arcsec)"] / 0.5))
-
-    # Add the morphology column back in
-    # TODO make this an enum
-    morph_dict = {
-        "0.0": "E",
-        "0.5": "E/S0",
-        "1.0": "S0",
-        "1.5": "S0/Early-spiral",
-        "2.0": "Early-spiral",
-        "2.5": "Early/Late spiral",
-        "3.0": "Late spiral",
-        "5.0": "?",
-        "-9.0": "no agreement",
-        "-0.5": "Unknown"
-    }
-    df_spaxels["Morphology"] = [
-        morph_dict[str(m)] for m in df_spaxels["Morphology (numeric)"]
-    ]
 
     ###############################################################################
     # Generic stuff: compute additional columns - extinction, metallicity, etc.
@@ -1378,6 +1341,11 @@ def make_sami_df(bin_type,
     # Save
     ###############################################################################
     print(f"{status_str}: Saving to file {df_fname}...")
+
+    # Remove object-type columns
+    bad_cols = [c for c in df_spaxels if df_spaxels[c].dtype == "object"]
+    if len(bad_cols) > 0:
+        warnings.warn(f"The following object-type columns are present in the DataFrame: {','.join(bad_cols)}")
 
     try:
         df_spaxels.to_hdf(output_path / df_fname,
@@ -1512,6 +1480,13 @@ def load_sami_df(ncomponents,
     df["flux units"] = "E-16 erg/cm^2/s"  # Units of continuum & emission line flux
     df["continuum units"] = "E-16 erg/cm^2/Å/s"  # Units of continuum & emission line flux
 
+    #TODO: add back in object columns: morphology, MGE photometry, BPT??
+    df["x, y (pixels)"] = list(
+    zip(df["x (projected, arcsec)"] / 0.5,
+        df["y (projected, arcsec)"] / 0.5))
+    df["Morphology"] = morph_num_to_str(df["Morphology (numeric)"])
+    df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
+
     # Return
     print("In load_sami_df(): Finished!")
     return df.sort_index()
@@ -1524,4 +1499,9 @@ def load_sami_metadata_df():
         raise FileNotFoundError(
             f"File {output_path / 'sami_dr3_metadata.hd5'} not found. Did you remember to run make_sami_metadata_df() first?"
         )
-    return pd.read_hdf(output_path / "sami_dr3_metadata.hd5")
+    df_metadata = pd.read_hdf(output_path / "sami_dr3_metadata.hd5")
+
+    # Add back in object-type columns
+    df_metadata["Morphology"] = morph_num_to_str(df_metadata["Morphology (numeric)"])
+
+    return df_metadata
