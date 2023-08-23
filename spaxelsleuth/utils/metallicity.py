@@ -234,9 +234,7 @@ def _compute_logOH12(met_diagnostic, df,
                      compute_logU=False, ion_diagnostic=None, 
                      max_niters=10):
     """
-
-    This function implements strong-line metallicity diagnostics to compute the 
-    metallicity given a DataFrame containing emission line fluxes. 
+    Use strong-line metallicity diagnostics to compute the metallicity given a DataFrame containing emission line fluxes. 
 
     Note that this function ONLY calculates the metallicity (and ionisation
     parameter if required) - NO errors are calculated in this function.
@@ -622,7 +620,7 @@ def _compute_logOH12(met_diagnostic, df,
 
 ###############################################################################
 def _met_helper_fn(args):
-
+    """Helper function used in _get_metallicity() to compute metallicities across multiple threads."""
     met_diagnostic, df, logU, compute_logU, ion_diagnostic, niters = args
     compute_errors = True if niters > 1 else False
 
@@ -698,13 +696,71 @@ def _get_metallicity(met_diagnostic, df,
                      compute_logU=False, ion_diagnostic=None,
                      niters=1000):
     """
-
+    A helper function that is used in calculate_metallicity().
     
     INPUTS 
     ---------------------------------------------------------------------------
 
+    met_diagnostic:     str
+        Strong-line metallicity diagnostic to use. Options:
+            N2Ha_K19    N2Ha diagnostic from Kewley (2019).
+            S2Ha_K19    S2Ha diagnostic from Kewley (2019).
+            N2S2_K19    N2S2 diagnostic from Kewley (2019).
+            S23_K19     S23 diagnostic from Kewley (2019).
+            O3N2_K19    O3N2 diagnostic from Kewley (2019).
+            O2S2_K19    O2S2 diagnostic from Kewley (2019).
+            O2Hb_K19    O2Hb diagnostic from Kewley (2019).
+            N2O2_K19    N2O2 diagnostic from Kewley (2019).
+            R23_K19     R23 diagnostic from Kewley (2019).
+            N2Ha_PP04   N2Ha diagnostic from Pilyugin & Peimbert (2004).
+            N2Ha_M13    N2Ha diagnostic from Marino et al. (2013).
+            O3N2_PP04   O3N2 diagnostic from Pilyugin & Peimbert (2004).
+            O3N2_M13    O3N2 diagnostic from Marino et al. (2013).
+            R23_KK04    R23 diagnostic from Kobulnicky & Kewley (2004).
+            N2S2Ha_D16  N2S2Ha diagnostic from Dopita et al. (2016).
+            N2O2_KD02   N2O2 diagnostic from Kewley & Dopita (2002).
+            Rcal_PG16   Rcal diagnostic from Pilyugin & Grebel (2016).
+            Scal_PG16   Scal diagnostic from Pilyugin & Grebel (2016).
+            ONS_P10     ONS diagnostic from Pilyugin et al. (2010).
+            ON_P10      ON diagnostic from Pilyugin et al. (2010).
+        
+    df:                  pandas DataFrame
+        Pandas DataFrame containing emission line fluxes.
+
+    logU:                float
+        Constant dimensionless ionisation parameter (where U = q / c) to 
+        assume in diagnostics that require log(U) to be specified. These 
+        include all Kewley (2019) diagnostics and the R23 calibration of 
+        Kobulnicky & Kewley (2004).
+
+    compute_logU:        bool
+        If True, iteratively compute self-consistent metallicities and 
+        ionisation parameters using a strong-line ionisation parameter 
+        diagnostic. This parameter ignores the logU input parameter.
+
+    ion_diagnostic:      str 
+        If compute_logU is set, ion_diagnostic specifies the strong-line 
+        ionisation parameter diagnostic to use. If the metallicity diagnostic
+        is from Kewley (2019) then ion_diagnostic may be "O3O2_K19" or 
+        "S32_K19". If the metallicity diagnostic is "R23_KD04" then 
+        ion_diagnostic must be "O3O2_KD04".
+
+    compute_errors:      bool
+        If True, estimate 1-sigma errors on log(O/H) + 12 and log(U) using a 
+        Monte Carlo approach, in which the 1-sigma uncertainties on the 
+        emission line fluxes are used generate a distribution in log(O/H) + 12 
+        values, the mean and standard deviation of which are used to 
+        evaluate the metallicity and corresponding uncertainty.
+
+    niters:              int
+        Number of MC iterations. 1000 is recommended.
+
     OUTPUTS 
     ---------------------------------------------------------------------------
+
+    The input DataFrame with additional columns added containing the computed 
+    metallicity (plus ionisation parameter) and associated errors if 
+    compute_errors is set to True.
 
     """
     status_str = "In _get_metallicity()"
@@ -753,9 +809,7 @@ def calculate_metallicity(df, met_diagnostic,
                           compute_errors=True, niters=1000,
                           s=None):
     """
-    Compute metallicities 
-
-
+    Compute metallicities using strong-line diagnostics.
 
     INPUTS 
     ---------------------------------------------------------------------------
