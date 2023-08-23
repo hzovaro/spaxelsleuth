@@ -68,7 +68,8 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
         for nn in range(ncomponents_max):
             if f"{eline} (component {nn + 1})" in df:
                 df[f"Low flux S/N flag - {eline} (component {nn + 1})"] = False
-                df[f"Low flux fraction flag - {eline} (component {nn + 1})"] = False
+                if nn >= 1:
+                    df[f"Low flux fraction flag - {eline} (component {nn + 1})"] = False
                 df[f"Low amplitude flag - {eline} (component {nn + 1})"] = False
                 df[f"Missing flux flag - {eline} (component {nn + 1})"] = False
         if f"{eline} (total)" in df:
