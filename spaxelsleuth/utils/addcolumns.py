@@ -87,9 +87,9 @@ def add_columns(df, **kwargs):
                                             nthreads=kwargs["nthreads"],
                                             s=f" (component {nn + 1})")
 
-        df["Corrected for extinction?"] = True
+        df["Extinction correction applied"] = True
     else:
-        df["Corrected for extinction?"] = False
+        df["Extinction correction applied"] = False
     df = df.sort_index()
 
     ######################################################################
@@ -124,6 +124,5 @@ def add_columns(df, **kwargs):
                  "line_flux_SNR_cut", "missing_fluxes_cut", "line_amplitude_SNR_cut",
                  "flux_fraction_cut", "vgrad_cut", "sigma_gas_SNR_cut", "stekin_cut"]:
         df[flag] = kwargs[flag]
-    df["Extinction correction applied"] = kwargs["correct_extinction"]
 
     return df
