@@ -1191,7 +1191,7 @@ def make_sami_df(bin_type,
 
     and stored as follows: 
 
-        settings["sami"]["output_path"]/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits
+        settings["sami"]["input_path"]/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits
 
     This is essentially the default file structure when data products are 
     downloaded from DataCentral and unzipped:
@@ -1220,8 +1220,7 @@ def make_sami_df(bin_type,
 
         settings["sami"]["data_cube_path"]/ifs/<gal>/<gal>_A_cube_<blue/red>.fits.gz
 
-    settings["sami"]["data_cube_path"] can be the same as settings["sami"]["output_path"] (I just have them differently
-    in my setup due to storage space limitations).
+    settings["sami"]["data_cube_path"] can be the same as settings["sami"]["output_path"].
     """
 
     #######################################################################
