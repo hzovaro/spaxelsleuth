@@ -695,8 +695,6 @@ def make_s7_df(gals=None,
         df_fname += "_DEBUG"
     df_fname += ".hd5"
 
-    status_str = f"In lzifu2.make_s7_df() [eline_SNR_min={eline_SNR_min}]"
-
     # Load metadata DataFrame
     try:
         df_metadata = pd.read_hdf(output_path / "s7_metadata.hd5", key="metadata")
