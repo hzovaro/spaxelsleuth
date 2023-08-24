@@ -435,7 +435,7 @@ def make_lzifu_df(gals,
         raise ValueError(
             "bin_types other than 'default' have not yet been implemented!")
 
-    status_str = f"In lzifu2.make_lzifu_df() [ncomponents={ncomponents}, bin_type={bin_type}, eline_SNR_min={eline_SNR_min}]"
+    status_str = f"In lzifu.make_lzifu_df() [ncomponents={ncomponents}, bin_type={bin_type}, eline_SNR_min={eline_SNR_min}]"
 
     ###############################################################################
     # Scrape measurements for each galaxy from FITS files
@@ -508,7 +508,7 @@ def make_lzifu_df(gals,
     ###############################################################################
     print(f"{status_str}: Saving to file {df_fname}...")
     df_spaxels.to_hdf(output_path / df_fname,
-                      key=f"{bin_type}, {ncomponents}-comp")
+                      key=f"{bin_type}{ncomponents}-comp")
     print(f"{status_str}: Finished!")
 
     return
