@@ -13,6 +13,7 @@ from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
 from spaxelsleuth.utils.dqcut import compute_HALPHA_amplitude_to_noise
 from spaxelsleuth.utils.addcolumns import add_columns
+from spaxelsleuth.utils.linefns import bpt_num_to_str
 
 ###############################################################################
 # Paths
@@ -498,12 +499,6 @@ def make_lzifu_df(gals,
         debug=debug)
 
     ###############################################################################
-    # Add extra columns
-    ###############################################################################
-    df_spaxels["x, y (pixels)"] = list(
-        zip(df_spaxels["x (pixels)"], df_spaxels["y (pixels)"]))
-
-    ###############################################################################
     # Save to file
     ###############################################################################
     print(f"{status_str}: Saving to file {df_fname}...")
@@ -565,6 +560,12 @@ def load_lzifu_df(ncomponents=None,
     df["ncomponents"] = ncomponents
     df["bin_type"] = bin_type
     df["debug"] = debug
+
+    # Add back in object-type columns
+    df["x, y (pixels)"] = list(
+    zip(df["x (projected, arcsec)"] / 0.5,
+        df["y (projected, arcsec)"] / 0.5))
+    df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
 
     # Return
     print("In load_lzifu_df(): Finished!")
