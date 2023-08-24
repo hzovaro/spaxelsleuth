@@ -1069,6 +1069,11 @@ def make_sami_df(bin_type,
     correct_extinction:         bool
         If True, correct emission line fluxes for extinction. 
 
+        Note that the Halpha equivalent widths are NOT corrected for extinction if 
+        correct_extinction is True. This is because stellar continuum extinction 
+        measurements are not available, and so applying the correction only to the 
+        Halpha fluxes may over-estimate the true EW.
+
     sigma_gas_SNR_min:          float (optional)
         Minimum velocity dipersion S/N to accept. Defaults to 3.
 
@@ -1175,11 +1180,6 @@ def make_sami_df(bin_type,
 
     The DataFrame will be stored in CSV format in case saving in HDF format 
     fails for any reason.
-
-    Note that the Halpha equivalent widths are NOT corrected for extinction if 
-    correct_extinction is True. This is because stellar continuum extinction 
-    measurements are not available, and so applying the correction only to the 
-    Halpha fluxes may over-estimate the true EW.
 
     PREREQUISITES
     ---------------------------------------------------------------------------
