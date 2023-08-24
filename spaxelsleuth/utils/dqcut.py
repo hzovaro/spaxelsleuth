@@ -42,7 +42,9 @@ def compute_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_rest_A, v
     A_HALPHA_mask = (lambda_vals_rest_A_cube > lambda_min_A) & (lambda_vals_rest_A_cube < lambda_max_A)
     data_cube_masked_R = np.copy(data_cube)
     data_cube_masked_R[~A_HALPHA_mask] = np.nan
-    A_HALPHA_map = np.nanmax(data_cube_masked_R, axis=0)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action="ignore", message="All-NaN slice encountered")
+        A_HALPHA_map = np.nanmax(data_cube_masked_R, axis=0)
     AN_HALPHA_map = (A_HALPHA_map - cont_HALPHA_map) / cont_HALPHA_map_std
 
     return AN_HALPHA_map

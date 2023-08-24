@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+import warnings
 
 # Key: Morphological Type
 morph_dict = {
@@ -60,58 +62,60 @@ def compute_gas_stellar_offsets(df, ncomponents_max):
 # Compute differences in Halpha EW, sigma_gas between different components
 def compute_component_offsets(df, ncomponents_max):
 
-    component_combinations = []
-    for ii in range(ncomponents_max):
-        for jj in range(ii):
-            component_combinations.append([ii + 1, jj + 1])
-    
-    for nn_2, nn_1 in component_combinations:
-
-        #//////////////////////////////////////////////////////////////////////
-        # Difference between gas velocity dispersion between components
-        if all([col in df for col in [f"sigma_gas (component {nn_1})", f"sigma_gas (component {nn_2})"]]):
-            df[f"delta sigma_gas ({nn_2}/{nn_1})"] = df[f"sigma_gas (component {nn_2})"] - df[f"sigma_gas (component {nn_1})"]
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action="ignore", category=pd.errors.PerformanceWarning)
+        component_combinations = []
+        for ii in range(ncomponents_max):
+            for jj in range(ii):
+                component_combinations.append([ii + 1, jj + 1])
         
-        # Error in the difference between gas velocity dispersion between components   
-        if all([col in df for col in [f"sigma_gas error (component {nn_1})", f"sigma_gas error (component {nn_2})"]]):
-            df[f"delta sigma_gas error ({nn_2}/{nn_1})"] = np.sqrt(df[f"sigma_gas error (component {nn_2})"]**2 +\
-                                                                   df[f"sigma_gas error (component {nn_1})"]**2)
+        for nn_2, nn_1 in component_combinations:
+
+            #//////////////////////////////////////////////////////////////////////
+            # Difference between gas velocity dispersion between components
+            if all([col in df for col in [f"sigma_gas (component {nn_1})", f"sigma_gas (component {nn_2})"]]):
+                df[f"delta sigma_gas ({nn_2}/{nn_1})"] = df[f"sigma_gas (component {nn_2})"] - df[f"sigma_gas (component {nn_1})"]
+            
+            # Error in the difference between gas velocity dispersion between components   
+            if all([col in df for col in [f"sigma_gas error (component {nn_1})", f"sigma_gas error (component {nn_2})"]]):
+                df[f"delta sigma_gas error ({nn_2}/{nn_1})"] = np.sqrt(df[f"sigma_gas error (component {nn_2})"]**2 +\
+                                                                    df[f"sigma_gas error (component {nn_1})"]**2)
+
+            #//////////////////////////////////////////////////////////////////////
+            # DIfference between gas velocity between components
+            if all([col in df for col in [f"v_gas (component {nn_1})", f"v_gas (component {nn_2})"]]):     
+                df[f"delta v_gas ({nn_2}/{nn_1})"] = df[f"v_gas (component {nn_2})"] - df[f"v_gas (component {nn_1})"]
+            if all([col in df for col in [f"v_gas error (component {nn_2})", f"v_gas error (component {nn_1})"]]):  
+                df[f"delta v_gas error ({nn_2}/{nn_1})"] = np.sqrt(df[f"v_gas error (component {nn_2})"]**2 +\
+                                                                df[f"v_gas error (component {nn_1})"]**2)
+            
+            #//////////////////////////////////////////////////////////////////////
+            # Ratio of HALPHA EWs between components   
+            if all([col in df for col in [f"HALPHA EW (component {nn_1})", f"HALPHA EW (component {nn_2})"]]):     
+                df[f"HALPHA EW ratio ({nn_2}/{nn_1})"] = df[f"HALPHA EW (component {nn_2})"] / df[f"HALPHA EW (component {nn_1})"]
+            if all([col in df for col in [f"HALPHA EW error (component {nn_1})", f"HALPHA EW error (component {nn_2})"]]):     
+                df[f"HALPHA EW ratio error ({nn_2}/{nn_1})"] = df[f"HALPHA EW ratio ({nn_2}/{nn_1})"] *\
+                    np.sqrt((df[f"HALPHA EW error (component {nn_2})"] / df[f"HALPHA EW (component {nn_2})"])**2 +\
+                            (df[f"HALPHA EW error (component {nn_1})"] / df[f"HALPHA EW (component {nn_1})"])**2)
+
+            #//////////////////////////////////////////////////////////////////////
+            # Ratio of HALPHA EWs between components (log)
+            if all([col in df for col in [f"log HALPHA EW (component {nn_2})", f"log HALPHA EW (component {nn_1})"]]):     
+                df[f"Delta HALPHA EW ({nn_2}/{nn_1})"] = df[f"log HALPHA EW (component {nn_2})"] - df[f"log HALPHA EW (component {nn_1})"]
+
+            #//////////////////////////////////////////////////////////////////////
+            # Forbidden line ratios:
+            for col in ["log O3", "log N2", "log S2", "log O1"]:
+                if f"{col} (component {nn_1})" in df and f"{col} (component {nn_2})" in df:
+                    df[f"delta {col} ({nn_2}/{nn_1})"] = df[f"{col} (component {nn_2})"] - df[f"{col} (component {nn_1})"]
+                if f"{col} error (component {nn_2})" in df and f"{col} error (component {nn_1})" in df:
+                    df[f"delta {col} ({nn_2}/{nn_1}) error"] = np.sqrt(df[f"{col} error (component {nn_2})"]**2 + df[f"{col} error (component {nn_1})"]**2)
 
         #//////////////////////////////////////////////////////////////////////
-        # DIfference between gas velocity between components
-        if all([col in df for col in [f"v_gas (component {nn_1})", f"v_gas (component {nn_2})"]]):     
-            df[f"delta v_gas ({nn_2}/{nn_1})"] = df[f"v_gas (component {nn_2})"] - df[f"v_gas (component {nn_1})"]
-        if all([col in df for col in [f"v_gas error (component {nn_2})", f"v_gas error (component {nn_1})"]]):  
-            df[f"delta v_gas error ({nn_2}/{nn_1})"] = np.sqrt(df[f"v_gas error (component {nn_2})"]**2 +\
-                                                               df[f"v_gas error (component {nn_1})"]**2)
-        
-        #//////////////////////////////////////////////////////////////////////
-        # Ratio of HALPHA EWs between components   
-        if all([col in df for col in [f"HALPHA EW (component {nn_1})", f"HALPHA EW (component {nn_2})"]]):     
-            df[f"HALPHA EW ratio ({nn_2}/{nn_1})"] = df[f"HALPHA EW (component {nn_2})"] / df[f"HALPHA EW (component {nn_1})"]
-        if all([col in df for col in [f"HALPHA EW error (component {nn_1})", f"HALPHA EW error (component {nn_2})"]]):     
-            df[f"HALPHA EW ratio error ({nn_2}/{nn_1})"] = df[f"HALPHA EW ratio ({nn_2}/{nn_1})"] *\
-                np.sqrt((df[f"HALPHA EW error (component {nn_2})"] / df[f"HALPHA EW (component {nn_2})"])**2 +\
-                        (df[f"HALPHA EW error (component {nn_1})"] / df[f"HALPHA EW (component {nn_1})"])**2)
-
-        #//////////////////////////////////////////////////////////////////////
-        # Ratio of HALPHA EWs between components (log)
-        if all([col in df for col in [f"log HALPHA EW (component {nn_2})", f"log HALPHA EW (component {nn_1})"]]):     
-            df[f"Delta HALPHA EW ({nn_2}/{nn_1})"] = df[f"log HALPHA EW (component {nn_2})"] - df[f"log HALPHA EW (component {nn_1})"]
-
-        #//////////////////////////////////////////////////////////////////////
-        # Forbidden line ratios:
-        for col in ["log O3", "log N2", "log S2", "log O1"]:
-            if f"{col} (component {nn_1})" in df and f"{col} (component {nn_2})" in df:
-                df[f"delta {col} ({nn_2}/{nn_1})"] = df[f"{col} (component {nn_2})"] - df[f"{col} (component {nn_1})"]
-            if f"{col} error (component {nn_2})" in df and f"{col} error (component {nn_1})" in df:
-                df[f"delta {col} ({nn_2}/{nn_1}) error"] = np.sqrt(df[f"{col} error (component {nn_2})"]**2 + df[f"{col} error (component {nn_1})"]**2)
-
-    #//////////////////////////////////////////////////////////////////////
-    # Fractional of total Halpha EW in each component
-    for nn in range(ncomponents_max):
-        if all([col in df.columns for col in [f"HALPHA EW (component {nn + 1})", f"HALPHA EW (total)"]]):
-            df[f"HALPHA EW/HALPHA EW (total) (component {nn + 1})"] = df[f"HALPHA EW (component {nn + 1})"] / df[f"HALPHA EW (total)"]
+        # Fractional of total Halpha EW in each component
+        for nn in range(ncomponents_max):
+            if all([col in df.columns for col in [f"HALPHA EW (component {nn + 1})", f"HALPHA EW (total)"]]):
+                df[f"HALPHA EW/HALPHA EW (total) (component {nn + 1})"] = df[f"HALPHA EW (component {nn + 1})"] / df[f"HALPHA EW (total)"]
 
     return df
 

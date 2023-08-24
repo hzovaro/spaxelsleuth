@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import constants
+import warnings
 
 from spaxelsleuth.utils.velocity import get_slices_in_velocity_range
 from spaxelsleuth.utils.misc import in_dataframe
@@ -19,23 +20,36 @@ def compute_d4000(data_cube, var_cube, lambda_vals_rest_A, v_star_map):
     N_b = np.nansum(~np.isnan(data_cube_b_masked), axis=0)
     N_r = np.nansum(~np.isnan(data_cube_r_masked), axis=0)
 
-    num = np.nanmean(data_cube_r_masked, axis=0)
-    denom = np.nanmean(data_cube_b_masked, axis=0)
-    err_num = 1 / N_r * np.sqrt(np.nansum(var_cube_r_masked, axis=0))
-    err_denom = 1 / N_b * np.sqrt(np.nansum(var_cube_b_masked, axis=0))
-
-    d4000_map = num / denom
-    d4000_map_err = d4000_map * np.sqrt((err_num / num)**2 + (err_denom / denom)**2)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action="ignore", message="Mean of empty slice")
+        num = np.nanmean(data_cube_r_masked, axis=0)
+        denom = np.nanmean(data_cube_b_masked, axis=0)
+        
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action="ignore", message="divide by zero encountered in true_divide")
+        warnings.filterwarnings(action="ignore", message="invalid value encountered in multiply")
+        err_num = 1 / N_r * np.sqrt(np.nansum(var_cube_r_masked, axis=0))
+        err_denom = 1 / N_b * np.sqrt(np.nansum(var_cube_b_masked, axis=0))
+        d4000_map = num / denom
+        d4000_map_err = d4000_map * np.sqrt((err_num / num)**2 + (err_denom / denom)**2)
+    
     return d4000_map, d4000_map_err
 
 ###############################################################################
 def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A, stop_A, v_map):
     """Compute the mean, std. dev. and error of the mean of the continuum between start_A and stop_A."""
     data_cube_masked, var_cube_masked = get_slices_in_velocity_range(data_cube, var_cube, lambda_vals_rest_A, start_A, stop_A, v_map)
-    cont_map = np.nanmean(data_cube_masked, axis=0)
-    cont_map_std = np.nanstd(data_cube_masked, axis=0)
-    N = np.nansum(~np.isnan(data_cube_masked), axis=0)
-    cont_map_err = 1 / N * np.sqrt(np.nansum(var_cube_masked, axis=0))
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action="ignore", message="Mean of empty slice")
+        warnings.filterwarnings(action="ignore", message="RuntimeWarning: Degrees of freedom <= 0 for slice.")
+        cont_map = np.nanmean(data_cube_masked, axis=0)
+        cont_map_std = np.nanstd(data_cube_masked, axis=0)
+        N = np.nansum(~np.isnan(data_cube_masked), axis=0)
+        
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action="ignore", message="invalid value encountered in multiply")
+        warnings.filterwarnings(action="ignore", message="divide by zero encountered in true_divide")
+        cont_map_err = 1 / N * np.sqrt(np.nansum(var_cube_masked, axis=0))
     # NOTE: N = 0 in the outskirts of the image, so dividing by 1 / N replaces these elements with NaN (which is what we want!)
     return cont_map, cont_map_std, cont_map_err
 

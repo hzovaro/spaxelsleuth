@@ -3,6 +3,7 @@ import pandas as pd
 from scipy import constants
 from time import time
 from tqdm import tqdm
+import warnings
 
 #//////////////////////////////////////////////////////////////////////////////
 # Dict containing the line lists for each metallicity/ionisation parameter diagnostic
@@ -668,24 +669,26 @@ def _met_helper_fn(args):
             logOH12_vals[nn] = res
 
     # Add to DataFrame
-    pd.options.mode.chained_assignment = None
-    if compute_logU:
-        df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
-        df[f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logU_vals, axis=0)
-        if compute_errors:
-            df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
-            df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
-            df[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logU_vals, axis=0) - np.quantile(logU_vals, q=0.16, axis=0)
-            df[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logU_vals, q=0.84, axis=0) - np.nanmean(logU_vals, axis=0)
-    
-    else:
-        df[f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
-        if compute_errors:
-            df[f"log(O/H) + 12 ({met_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
-            df[f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
-        if logU is not None:
-            df[f"log(U) ({met_diagnostic})"] = np.nanmean(logU_vals, axis=0)
-    pd.options.mode.chained_assignment = "warn"
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning)
+        pd.options.mode.chained_assignment = None
+        if compute_logU:
+            df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
+            df[f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logU_vals, axis=0)
+            if compute_errors:
+                df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
+                df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
+                df[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logU_vals, axis=0) - np.quantile(logU_vals, q=0.16, axis=0)
+                df[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logU_vals, q=0.84, axis=0) - np.nanmean(logU_vals, axis=0)
+        
+        else:
+            df[f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
+            if compute_errors:
+                df[f"log(O/H) + 12 ({met_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
+                df[f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
+            if logU is not None:
+                df[f"log(U) ({met_diagnostic})"] = np.nanmean(logU_vals, axis=0)
+        pd.options.mode.chained_assignment = "warn"
 
     return df 
 
