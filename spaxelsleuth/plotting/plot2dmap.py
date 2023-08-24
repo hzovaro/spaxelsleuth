@@ -202,7 +202,6 @@ def plot2dmap(df,
     ###########################################################################
     # Get geometry
     ###########################################################################
-    #TODO: move these to the DataFrame rather than getting them from settings
     # Think of it as: use config settings to MAKE the dataframes but store all necessary info in the dataframe itself
     if "as_per_px" in df_gal:
         as_per_px = df_gal["as_per_px"].unique()[0]
