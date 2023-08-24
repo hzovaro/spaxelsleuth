@@ -1,6 +1,9 @@
 # Imports
 import numpy as np
 
+
+from spaxelsleuth import load_user_config
+load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 from spaxelsleuth.loaddata.lzifu import load_lzifu_df
 
 ###############################################################################
