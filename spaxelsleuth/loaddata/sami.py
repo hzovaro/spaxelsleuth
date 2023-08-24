@@ -149,11 +149,11 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     ---------------------------------------------------------------------------
     The DataFrame is saved to 
 
-        SAMI_DIR/sami_dr3_metadata.hd5
+        settings["sami"]["output_path"]/sami_dr3_metadata.hd5
 
     The DataFrame containing continuum S/N values is saved to 
 
-        SAMI_DIR/sami_dr3_aperture_snrs.hd5
+        settings["sami"]["output_path"]/sami_dr3_aperture_snrs.hd5
 
     PREREQUISITES
     ---------------------------------------------------------------------------
@@ -1142,11 +1142,11 @@ def make_sami_df(bin_type,
 
     The resulting DataFrame will be stored as 
 
-        SAMI_DIR/sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5
+        settings["sami"]["output_path"]/sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5
 
     if correct_extinction is True, or else
 
-        SAMI_DIR/sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5
+        settings["sami"]["output_path"]/sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5
 
     The DataFrame will be stored in CSV format in case saving in HDF format 
     fails     for any reason.
@@ -1158,7 +1158,7 @@ def make_sami_df(bin_type,
 
     PREREQUISITES
     ---------------------------------------------------------------------------
-    SAMI_DIR and SAMI_DATACUBE_DIR must be defined as an environment variable.
+    settings["sami"]["output_path"] and SAMI_DATACUBE_DIR must be defined as an environment variable.
 
     make_sami_metadata_df() must be run first.
 
@@ -1168,7 +1168,7 @@ def make_sami_df(bin_type,
 
     and stored as follows: 
 
-        SAMI_DIR/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits
+        settings["sami"]["output_path"]/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits
 
     This is essentially the default file structure when data products are 
     downloaded from DataCentral and unzipped:
@@ -1197,7 +1197,7 @@ def make_sami_df(bin_type,
 
         SAMI_DATACUBE_DIR/ifs/<gal>/<gal>_A_cube_<blue/red>.fits.gz
 
-    SAMI_DATACUBE_DIR can be the same as SAMI_DIR (I just have them differently
+    SAMI_DATACUBE_DIR can be the same as settings["sami"]["output_path"] (I just have them differently
     in my setup due to storage space limitations).
     """
 
