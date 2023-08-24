@@ -1294,7 +1294,7 @@ def make_sami_df(bin_type,
             print(f"{status_str}: Beginning pool...")
             pool = multiprocessing.Pool(
                 min([nthreads, len(gal_ids_dq_cut)]))
-            res_list = np.array((pool.map(_process_gals, args_list)))
+            res_list = np.array((pool.map(_process_gals, args_list)), dtype=object)
             pool.close()
             pool.join()
         else:
@@ -1357,7 +1357,7 @@ def make_sami_df(bin_type,
 
     try:
         df_spaxels.to_hdf(output_path / df_fname,
-                          key=f"{bin_type}, {ncomponents}-comp")
+                          key=f"{bin_type}{ncomponents}comp")
     except:
         print(
             f"{status_str}: ERROR: Unable to save to HDF file! Saving to .csv instead"
