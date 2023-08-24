@@ -1160,8 +1160,6 @@ def make_sami_df(bin_type,
 
     PREREQUISITES
     ---------------------------------------------------------------------------
-    settings["sami"]["output_path"] and SAMI_DATACUBE_DIR must be defined as an environment variable.
-
     make_sami_metadata_df() must be run first.
 
     SAMI data products must be downloaded from DataCentral
@@ -1197,9 +1195,9 @@ def make_sami_df(bin_type,
 
     SAMI data cubes must also be downloaded from DataCentral and stored as follows: 
 
-        SAMI_DATACUBE_DIR/ifs/<gal>/<gal>_A_cube_<blue/red>.fits.gz
+        settings["sami"]["data_cube_path"]/ifs/<gal>/<gal>_A_cube_<blue/red>.fits.gz
 
-    SAMI_DATACUBE_DIR can be the same as settings["sami"]["output_path"] (I just have them differently
+    settings["sami"]["data_cube_path"] can be the same as settings["sami"]["output_path"] (I just have them differently
     in my setup due to storage space limitations).
     """
 
