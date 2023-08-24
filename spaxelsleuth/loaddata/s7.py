@@ -454,7 +454,6 @@ def make_s7_df(gals=None,
                 flux_fraction_cut=False,
                 sigma_gas_SNR_cut=True,
                 vgrad_cut=False,
-                stekin_cut=False,
                 correct_extinction=True,
                 metallicity_diagnostics=[
                     "N2Ha_PP04",
@@ -576,10 +575,6 @@ def make_s7_df(gals=None,
         reliably remove spaxels with quite large beam smearing components.
         Default: False.
 
-    stekin_cut:                 bool (optional)
-        If True, mask stellar kinematic quantities that do not meet the DQ and 
-        S/N requirements specified in Croom et al. (2021). Default: True.
-
     metallicity_diagnostics:    list of str (optional)
         List of strong-line metallicity diagnostics to compute. 
         Options:
@@ -603,10 +598,6 @@ def make_s7_df(gals=None,
             Scal_PG16   Scal diagnostic from Pilyugin & Grebel (2016).
             ONS_P10     ONS diagnostic from Pilyugin et al. (2010).
             ON_P10      ON diagnostic from Pilyugin et al. (2010).
-
-    eline_list:                 list of str (optional)
-        List of emission lines to use. Defaults to the full list of lines fitted 
-        in SAMI DR3.
 
     nthreads:                   int (optional)           
         Maximum number of threads to use. Defaults to os.cpu_count().
@@ -745,7 +736,7 @@ def make_s7_df(gals=None,
         flux_fraction_cut=flux_fraction_cut,
         sigma_gas_SNR_cut=sigma_gas_SNR_cut,
         vgrad_cut=vgrad_cut,
-        stekin_cut=stekin_cut,
+        stekin_cut=False,
         correct_extinction=correct_extinction,
         metallicity_diagnostics=metallicity_diagnostics,
         compute_sfr=True,
