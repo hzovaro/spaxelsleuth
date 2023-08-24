@@ -450,9 +450,6 @@ def make_sami_aperture_df(eline_SNR_min,
                 c for c in df_ap.columns
                 if f"({ap})" in c and "sigma_gas" in c and "flag" not in c
             ]
-            cols_sigma_gas_SNR_cut += [
-                c for c in df_ap.columns if "delta" in c and str(nn + 1) in c
-            ]
             df_ap.loc[cond_bad_sigma, cols_sigma_gas_SNR_cut] = np.nan
 
     ######################################################################
