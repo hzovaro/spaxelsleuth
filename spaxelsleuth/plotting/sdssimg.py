@@ -23,6 +23,7 @@ Copyright (C) 2022 Henry Zovaro
 # Imports
 import os
 import numpy as np
+from pathlib import Path
 from urllib.request import urlretrieve
 import warnings
 
@@ -37,7 +38,7 @@ from matplotlib.patches import Circle
 
 ###############################################################################
 # Paths
-sdss_im_path = settings["sdss_im_path"]
+sdss_im_path = Path(settings["sdss_im_path"])
 
 ###############################################################################
 def get_sdss_image(gal, ra_deg, dec_deg,
@@ -75,7 +76,7 @@ def get_sdss_image(gal, ra_deg, dec_deg,
     url = f"https://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/getjpeg?TaskName=Skyserver.Explore.Image&ra={ra_deg}&dec={dec_deg}&scale={as_per_px:.1f}&width={width_px}&height={height_px}&opt=G"
     
     # Download the image
-    imname = os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg")
+    imname = sdss_im_path / f"{gal}_{width_px}x{height_px}.jpg"
     
     try:
         urlretrieve(url, imname)
@@ -170,14 +171,14 @@ def plot_sdss_image(df, gal,
                 raise ValueError("kpc_per_as must be specified!")
 
     # Load image
-    if reload_image or (not os.path.exists(os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg"))):
+    if reload_image or (not os.path.exists(sdss_im_path / f"{gal}_{width_px}x{height_px}.jpg")):
         # Download the image
-        warnings.warn(f"file {os.path.join(sdss_im_path, f'{gal}_{width_px}x{height_px}.jpg')} not found. Retrieving image from SDSS...")
+        warnings.warn(f"file {sdss_im_path / f'{gal}_{width_px}x{height_px}.jpg'} not found. Retrieving image from SDSS...")
         if not get_sdss_image(gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
                        as_per_px=as_per_px, width_px=width_px, height_px=height_px):
             return None
             
-    im = mpimg.imread(os.path.join(sdss_im_path, f"{gal}_{width_px}x{height_px}.jpg"))
+    im = mpimg.imread(sdss_im_path / f"{gal}_{width_px}x{height_px}.jpg")
 
     # Make a WCS for the image
     wcs = WCS(naxis=2)

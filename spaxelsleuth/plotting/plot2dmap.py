@@ -245,8 +245,7 @@ def plot2dmap(df,
     else:
         if survey == "sami":
             hdulist = fits.open(
-                os.path.join(settings["sami"]["input_path"],
-                            f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
+                settings["sami"]["input_path"] / f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz")
             bin_map = hdulist[2].data.astype("float")
             bin_map[bin_map == 0] = np.nan
             for nn in df_gal["Bin number"]:
@@ -348,8 +347,7 @@ def plot2dmap(df,
         col_z_contour_map = np.full((ny, nx), np.nan)        
         if survey == "sami" and (bin_type == "adaptive" or bin_type == "sectors"):
             hdulist = fits.open(
-                os.path.join(settings["sami"]["input_path"],
-                                f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz"))
+                settings["sami"]["input_path"] / f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz")
             bin_map = hdulist[2].data.astype("float")
             bin_map[bin_map == 0] = np.nan
             for nn in df_gal["Bin number"]:
