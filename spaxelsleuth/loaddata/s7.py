@@ -1,5 +1,5 @@
 import os
-from path import Path
+from pathlib import Path
 import warnings
 
 import datetime
@@ -472,9 +472,220 @@ def make_s7_df(gals=None,
                     "N2O2_K19",
                     "R23_KK04",
                 ],
-                nthreads=20,
+                nthreads=None,
                 debug=False):
-    """TODO: WRITE DOCSTRING"""
+    """
+    Make the SAMI DataFrame, where each row represents a single spaxel in a SAMI galaxy.
+
+    DESCRIPTION
+    ---------------------------------------------------------------------------
+    This function is used to create a Pandas DataFrame containing emission line 
+    fluxes & kinematics, stellar kinematics, extinction, star formation rates, 
+    and other quantities for individual spaxels in SAMI galaxies as taken from 
+    SAMI DR3.
+
+    The output is stored in HDF format as a Pandas DataFrame in which each row 
+    corresponds to a given spaxel (or Voronoi/sector bin) for every galaxy. 
+
+    USAGE
+    ---------------------------------------------------------------------------
+    
+        >>> from spaxelsleuth.loaddata.sami import make_sami_df()
+        >>> make_sami_df(ncomponents="1", bin_type="default", correct_extinction=True, eline_SNR_min=5)
+
+    will create a DataFrame using the data products from 1-component Gaussian 
+    fits to the unbinned datacubes, and will adopt a minimum S/N threshold of 
+    5 to mask out unreliable emission line fluxes and associated quantities.
+
+    Other input arguments may be configured to control other aspects of the data 
+    quality and S/N cuts made.
+
+    Running this function on the full sample takes some time (~10-20 minutes 
+    when threaded across 20 threads). Execution time can be sped up by tweaking 
+    the nthreads parameter. 
+
+    If you wish to run in debug mode, set the DEBUG flag to True: this will run 
+    the script on a subset (by default 10) galaxies to speed up execution. 
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    ncomponents:                str
+        Controls which data products are used, depending on the number of 
+        Gaussian components fitted to the emission lines. 
+        Options are "recom" (the recommended multi-component fits) or "1" 
+        (1-component fits).
+        
+        NOTE: if __use_lzifu_fits is True, then ncomponents is ONLY used in  
+        loading data products that are NOT contained in the output LZIFU files -
+        i.e., SFRs/SFR surface densities and HALPHA extinction correction 
+        factors. Use parameter __lzifu_ncomponents to control which data 
+        derived from the LZIFU fits is loaded. 
+
+    bin_type:                   str
+        Spatial binning strategy. Options are "default" (unbinned), "adaptive"
+        (Voronoi binning) or "sectors" (sector binning)
+
+    eline_SNR_min:              int 
+        Minimum emission line flux S/N to adopt when making S/N and data 
+        quality cuts.
+
+    correct_extinction:         bool
+        If True, correct emission line fluxes for extinction. 
+
+        Note that the Halpha equivalent widths are NOT corrected for extinction if 
+        correct_extinction is True. This is because stellar continuum extinction 
+        measurements are not available, and so applying the correction only to the 
+        Halpha fluxes may over-estimate the true EW.
+
+    sigma_gas_SNR_min:          float (optional)
+        Minimum velocity dipersion S/N to accept. Defaults to 3.
+
+    line_flux_SNR_cut:          bool (optional)
+        Whether to NaN emission line components AND total fluxes 
+        (corresponding to emission lines in eline_list) below a specified S/N 
+        threshold, given by eline_SNR_min. The S/N is simply the flux dividied 
+        by the formal 1sigma uncertainty on the flux. Default: True.
+
+    missing_fluxes_cut:         bool (optional)
+        Whether to NaN out "missing" fluxes - i.e., cells in which the flux
+        of an emission line (total or per component) is NaN, but the error 
+        is not for some reason. Default: True.
+
+    line_amplitude_SNR_cut:     bool (optional)
+        If True, removes components with Gaussian amplitudes < 3 * RMS of the 
+        continuum in the vicinity of Halpha. By default this is set to True
+        because this does well at removing shallow components which are most 
+        likely due to errors in the stellar continuum fit. Default: True.
+
+    flux_fraction_cut:          bool (optional)
+        If True, and if ncomponents > 1, remove intermediate and broad 
+        components with line amplitudes < 0.05 that of the narrow componet.
+        Set to False by default b/c it's unclear whether this is needed to 
+        reject unreliable components. Default: False.
+
+    sigma_gas_SNR_cut:          bool (optional)
+        If True, mask component velocity dispersions where the S/N on the 
+        velocity dispersion measurement is below sigma_gas_SNR_min. 
+        By default this is set to True as it's a robust way to account for 
+        emission line widths < instrumental.  Default: True.
+
+    vgrad_cut:                  bool (optional)     
+        If True, mask component kinematics (velocity and velocity dispersion)
+        that are likely to be affected by beam smearing.
+        By default this is set to False because it tends to remove nuclear spaxels 
+        which may be of interest to your science case, & because it doesn't 
+        reliably remove spaxels with quite large beam smearing components.
+        Default: False.
+
+    stekin_cut:                 bool (optional)
+        If True, mask stellar kinematic quantities that do not meet the DQ and 
+        S/N requirements specified in Croom et al. (2021). Default: True.
+
+    metallicity_diagnostics:    list of str (optional)
+        List of strong-line metallicity diagnostics to compute. 
+        Options:
+            N2Ha_K19    N2Ha diagnostic from Kewley (2019).
+            S2Ha_K19    S2Ha diagnostic from Kewley (2019).
+            N2S2_K19    N2S2 diagnostic from Kewley (2019).
+            S23_K19     S23 diagnostic from Kewley (2019).
+            O3N2_K19    O3N2 diagnostic from Kewley (2019).
+            O2S2_K19    O2S2 diagnostic from Kewley (2019).
+            O2Hb_K19    O2Hb diagnostic from Kewley (2019).
+            N2O2_K19    N2O2 diagnostic from Kewley (2019).
+            R23_K19     R23 diagnostic from Kewley (2019).
+            N2Ha_PP04   N2Ha diagnostic from Pilyugin & Peimbert (2004).
+            N2Ha_M13    N2Ha diagnostic from Marino et al. (2013).
+            O3N2_PP04   O3N2 diagnostic from Pilyugin & Peimbert (2004).
+            O3N2_M13    O3N2 diagnostic from Marino et al. (2013).
+            R23_KK04    R23 diagnostic from Kobulnicky & Kewley (2004).
+            N2S2Ha_D16  N2S2Ha diagnostic from Dopita et al. (2016).
+            N2O2_KD02   N2O2 diagnostic from Kewley & Dopita (2002).
+            Rcal_PG16   Rcal diagnostic from Pilyugin & Grebel (2016).
+            Scal_PG16   Scal diagnostic from Pilyugin & Grebel (2016).
+            ONS_P10     ONS diagnostic from Pilyugin et al. (2010).
+            ON_P10      ON diagnostic from Pilyugin et al. (2010).
+
+    eline_list:                 list of str (optional)
+        List of emission lines to use. Defaults to the full list of lines fitted 
+        in SAMI DR3.
+
+    nthreads:                   int (optional)           
+        Maximum number of threads to use. Defaults to os.cpu_count().
+
+    __use_lzifu_fits:           bool (optional)
+        If True, load the DataFrame containing emission line quantities
+        (including fluxes, kinematics, etc.) derived directly from the LZIFU
+        output FITS files, rather than those included in DR3. Default: False.
+
+    __lzifu_ncomponents:        str  (optional)
+        Number of components corresponding to the LZIFU fit, if 
+        __use_lzifu_fits is specified. May be '1', '2', '3' or 'recom'. Note 
+        that this keyword ONLY affects emission line fluxes and gas kinematics;
+        other quantities including SFR/SFR surface densities and HALPHA 
+        extinction correction factors are loaded from DR3 data products as per
+        the ncomponents keyword. Default: False.
+
+    debug:                      bool (optional)
+        If True, run on a subset of the entire sample (10 galaxies) and save
+        the output with "_DEBUG" appended to the filename. This is useful for
+        tweaking S/N and DQ cuts since running the function on the entire 
+        sample is quite slow.  Default: False.
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    The resulting DataFrame will be stored as 
+
+        settings["sami"]["output_path"]/sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5
+
+    if correct_extinction is True, or else
+
+        settings["sami"]["output_path"]/sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5
+
+    The DataFrame will be stored in CSV format in case saving in HDF format 
+    fails for any reason.
+
+    PREREQUISITES
+    ---------------------------------------------------------------------------
+    make_sami_metadata_df() must be run first.
+
+    SAMI data products must be downloaded from DataCentral
+
+        https://datacentral.org.au/services/download/
+
+    and stored as follows: 
+
+        settings["sami"]["output_path"]/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits
+
+    This is essentially the default file structure when data products are 
+    downloaded from DataCentral and unzipped:
+
+        sami/dr3/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits
+
+    The following data products are required to run this script:
+
+        Halpha_{bin_type}_{ncomponents}-comp.fits,
+        Hbeta_{bin_type}_{ncomponents}-comp.fits,
+        NII6583_{bin_type}_{ncomponents}-comp.fits,
+        OI6300_{bin_type}_{ncomponents}-comp.fits,
+        OII3728_{bin_type}_{ncomponents}-comp.fits,
+        OIII5007_{bin_type}_{ncomponents}-comp.fits,
+        SII6716_{bin_type}_{ncomponents}-comp.fits,
+        SII6731_{bin_type}_{ncomponents}-comp.fits,
+        gas-vdisp_{bin_type}_{ncomponents}-comp.fits,
+        gas-velocity_{bin_type}_{ncomponents}-comp.fits,
+        stellar-velocity-dispersion_{bin_type}_two-moment.fits,
+        stellar-velocity_{bin_type}_two-moment.fits,
+        extinct-corr_{bin_type}_{ncomponents}-comp.fits,
+        sfr-dens_{bin_type}_{ncomponents}-comp.fits,
+        sfr_{bin_type}_{ncomponents}-comp.fits
+
+    SAMI data cubes must also be downloaded from DataCentral and stored as follows: 
+
+        settings["sami"]["data_cube_path"]/ifs/<gal>/<gal>_A_cube_<blue/red>.fits.gz
+
+    settings["sami"]["data_cube_path"] can be the same as settings["sami"]["output_path"] (I just have them differently
+    in my setup due to storage space limitations).
+    """
 
     df_fname = f"s7_default_merge-comp"
     if correct_extinction:
@@ -499,6 +710,11 @@ def make_s7_df(gals=None,
         for gal in gals:
             if gal not in df_metadata["ID"].unique():
                 raise ValueError(f"Galaxy {gal} is not a valid S7 galaxy!")
+
+    # Determine number of threads
+    if nthreads is None:
+        nthreads = os.cpu_count()
+        logger.warning(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
 
     ###############################################################################
     # Scrape measurements for each galaxy from FITS files
