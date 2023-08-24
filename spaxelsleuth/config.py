@@ -1,6 +1,25 @@
 import json
 from pathlib import Path
 
+import logging
+logger = logging.getLogger(__name__)
+
+# Load the default config file
+def configure_logger(logfile_name=None):
+    """Configure the logger for spaxelsleuth."""
+    if logfile_name is None:
+        logging.basicConfig(
+            format='%(filename)s (line %(lineno)s) %(funcName)s(): %(message)s', 
+            level=logging.INFO, 
+            force=True)
+    else:
+        logging.basicConfig(
+            filename=logfile_name, filemode="w",
+            format='%(filename)s (line %(lineno)s) %(funcName)s(): %(message)s', 
+            level=logging.INFO, 
+            force=True)
+    
+
 # Load the default config file
 def load_default_config():
     """Load the default config file."""
@@ -15,27 +34,27 @@ def load_user_config(p, verbose=False):
         user_settings = json.load(f)
     # Merge with existing settings
     if verbose:
-        print(f"Updating settings from {p}:")
+        logger.info(f"updating settings from {p}:")
     for key in user_settings:
         if key in settings:
             if verbose:
-                print(f"{key}:")
+                logger.info(f"{key}:")
             if type(settings[key]) == dict:
                 for subkey in user_settings[key]:
                     if verbose:
-                        print(f"\t{subkey}:")
+                        logger.info(f"\t{subkey}:")
                     new_setting = user_settings[key][subkey]
                     if subkey in settings[key]:
                         old_setting = settings[key][subkey]
                         if verbose:
-                            print(f"\t\t{old_setting} --> {new_setting}")
+                            logger.info(f"\t\t{old_setting} --> {new_setting}")
                     else:
                         if verbose:
-                            print(f"\t\tAdding new setting {new_setting}")
+                            logger.info(f"\t\tadding new setting {new_setting}")
                     settings[key][subkey] = new_setting
             else:
                 settings[key] = user_settings[key]
         else:
             if verbose:
-                print(f"Adding new key {key}: {user_settings[key]}")
+                logger.info(f"adding new key {key}: {user_settings[key]}")
             settings[key] = user_settings[key]
