@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import logging
+logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
 
 # Load the default config file
