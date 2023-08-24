@@ -3,6 +3,7 @@ import pandas as pd
 from scipy import constants
 from time import time
 from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 import warnings
 
 import logging
@@ -637,7 +638,14 @@ def _met_helper_fn(args):
     #//////////////////////////////////////////////////////////////////////////
     # Evaluate log(O/H) + 12 (and log(U) if compute_logU is True) niters times 
     # with random noise added to the emission line fluxes each time
-    for nn in tqdm(range(niters)):
+    if compute_errors and compute_logU:
+        logger.info(f"computing log(O/H) + 12 and log(U) (+ errors) using diagnostics {met_diagnostic} and {ion_diagnostic} with {niters} iterations...")
+    elif compute_errors:
+        logger.info(f"computing log(O/H) + 12 (+ errors) using diagnostic {met_diagnostic} with {niters} iterations...")
+    else:
+        logger.info(f"computing log(O/H) + 12 using diagnostic {met_diagnostic}...")
+    
+    for nn in range(niters):
         # Make a copy of the row
         df_tmp = df.copy()
         
@@ -656,13 +664,13 @@ def _met_helper_fn(args):
         # Compute corresponding metallicity
         if compute_logU:
             res = _compute_logOH12(met_diagnostic=met_diagnostic, df=df_tmp, 
-                                   compute_logU=compute_logU, ion_diagnostic=ion_diagnostic)
+                                compute_logU=compute_logU, ion_diagnostic=ion_diagnostic)
             logOH12_vals[nn] = res[0]
             logU_vals[nn] = res[1]
 
         elif logU is not None:
             res = _compute_logOH12(met_diagnostic=met_diagnostic, df=df_tmp, 
-                                   logU=logU)
+                                logU=logU)
             logOH12_vals[nn] = res[0]
             logU_vals[nn] = res[1]
 
