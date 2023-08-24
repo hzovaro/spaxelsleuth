@@ -510,7 +510,6 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     ###############################################################################
     # Merge with the metadata DataFrame
     ###############################################################################
-    common_cols = [c for c in df_metadata.columns if c not in df_snr.columns]
     df_snr = df_snr.set_index("ID")
     df_metadata = pd.concat([df_snr, df_metadata], axis=1)
 
@@ -520,6 +519,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     logger.info(
         f"saving metadata DataFrame to file {output_path / df_fname}..."
     )
+    df_metadata = df_metadata.sort_index()
     df_metadata.to_hdf(output_path / df_fname, key="metadata")
 
     logger.info(f"finished!")
