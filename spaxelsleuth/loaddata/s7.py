@@ -472,8 +472,7 @@ def make_s7_df(gals=None,
                     "N2O2_K19",
                     "R23_KK04",
                 ],
-                nthreads=None,
-                debug=False):
+                nthreads=None):
     """
     Make the SAMI DataFrame, where each row represents a single spaxel in a SAMI galaxy.
 
@@ -612,34 +611,15 @@ def make_s7_df(gals=None,
     nthreads:                   int (optional)           
         Maximum number of threads to use. Defaults to os.cpu_count().
 
-    __use_lzifu_fits:           bool (optional)
-        If True, load the DataFrame containing emission line quantities
-        (including fluxes, kinematics, etc.) derived directly from the LZIFU
-        output FITS files, rather than those included in DR3. Default: False.
-
-    __lzifu_ncomponents:        str  (optional)
-        Number of components corresponding to the LZIFU fit, if 
-        __use_lzifu_fits is specified. May be '1', '2', '3' or 'recom'. Note 
-        that this keyword ONLY affects emission line fluxes and gas kinematics;
-        other quantities including SFR/SFR surface densities and HALPHA 
-        extinction correction factors are loaded from DR3 data products as per
-        the ncomponents keyword. Default: False.
-
-    debug:                      bool (optional)
-        If True, run on a subset of the entire sample (10 galaxies) and save
-        the output with "_DEBUG" appended to the filename. This is useful for
-        tweaking S/N and DQ cuts since running the function on the entire 
-        sample is quite slow.  Default: False.
-
     OUTPUTS
     ---------------------------------------------------------------------------
     The resulting DataFrame will be stored as 
 
-        settings["sami"]["output_path"]/sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5
+        settings["s7"]["output_path"]/s7_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5
 
     if correct_extinction is True, or else
 
-        settings["sami"]["output_path"]/sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5
+        settings["s7"]["output_path"]/s7_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5
 
     The DataFrame will be stored in CSV format in case saving in HDF format 
     fails for any reason.
@@ -687,13 +667,13 @@ def make_s7_df(gals=None,
     in my setup due to storage space limitations).
     """
 
+    ###############################################################################
+    # input checking
+    ###############################################################################
     df_fname = f"s7_default_merge-comp"
     if correct_extinction:
         df_fname += "_extcorr"
-    df_fname += f"_minSNR={eline_SNR_min}"
-    if debug:
-        df_fname += "_DEBUG"
-    df_fname += ".hd5"
+    df_fname += f"_minSNR={eline_SNR_min}.hd5"
 
     # Load metadata DataFrame
     try:
@@ -773,7 +753,7 @@ def make_s7_df(gals=None,
         nthreads=nthreads,
         base_missing_flux_components_on_HALPHA=
         False,  # NOTE: this is important!!
-        debug=debug)
+        )
 
     ###############################################################################
     # Save to file
@@ -787,8 +767,7 @@ def make_s7_df(gals=None,
 
 #/////////////////////////////////////////////////////////////////////////////////
 def load_s7_df(correct_extinction=None,
-                  eline_SNR_min=None,
-                  debug=False):
+                  eline_SNR_min=None):
 
     #######################################################################
     # INPUT CHECKING
@@ -797,10 +776,7 @@ def load_s7_df(correct_extinction=None,
     df_fname = f"s7_default_merge-comp"
     if correct_extinction:
         df_fname += "_extcorr"
-    df_fname += f"_minSNR={eline_SNR_min}"
-    if debug:
-        df_fname += "_DEBUG"
-    df_fname += ".hd5"
+    df_fname += f"_minSNR={eline_SNR_min}.hd5"
 
     if not os.path.exists(output_path / df_fname):
         raise FileNotFoundError(
@@ -817,7 +793,6 @@ def load_s7_df(correct_extinction=None,
     df["survey"] = "s7"
     df["ncomponents"] = "merge"
     df["bin_type"] = "default"
-    df["debug"] = debug
     df["flux units"] = "E-16 erg/cm^2/s"  # Units of continuum & emission line flux
     df["continuum units"] = "E-16 erg/cm^2/Å/s"  # Units of continuum & emission line flux
 
