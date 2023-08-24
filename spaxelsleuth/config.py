@@ -10,13 +10,13 @@ def configure_logger(logfile_name=None):
     """Configure the logger for spaxelsleuth."""
     if logfile_name is None:
         logging.basicConfig(
-            format='%(filename)s (line %(lineno)s) %(funcName)s(): %(message)s', 
+            format='%(filename)s (%(lineno)s) %(funcName)s(): %(message)s', 
             level=logging.INFO, 
             force=True)
     else:
         logging.basicConfig(
             filename=logfile_name, filemode="w",
-            format='%(filename)s (line %(lineno)s) %(funcName)s(): %(message)s', 
+            format='%(filename)s (%(lineno)s) %(funcName)s(): %(message)s', 
             level=logging.INFO, 
             force=True)
     
