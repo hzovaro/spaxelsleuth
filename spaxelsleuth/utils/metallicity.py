@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 from scipy import constants
 from time import time
-from tqdm import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 import warnings
 
 import logging
@@ -941,7 +939,7 @@ def calculate_metallicity(df, met_diagnostic,
     #//////////////////////////////////////////////////////////////////////////
     # Remove suffixes on columns
     #//////////////////////////////////////////////////////////////////////////
-    logger.info(f"removing column suffixes...")
+    logger.debug(f"removing column suffixes...")
     if s is not None:
         df_old = df
         suffix_cols = [c for c in df.columns if c.endswith(s)]
@@ -962,7 +960,7 @@ def calculate_metallicity(df, met_diagnostic,
     #//////////////////////////////////////////////////////////////////////////
     # Rename columns
     #//////////////////////////////////////////////////////////////////////////
-    logger.info(f"adding column suffixes...")
+    logger.debug(f"adding column suffixes...")
     if s is not None:
         # Get list of new columns that have been added
         added_cols = [c for c in df.columns if c not in old_cols]
