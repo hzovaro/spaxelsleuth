@@ -78,9 +78,8 @@ def plot_sdss_image(df, gal,
 
     """
     Download and plot the SDSS image of a galaxy with RA and Dec in the supplied 
-    pandas DataFrame. The images are stored in environment variable 
-    SDSS_IM_PATH. Note that if the galaxy is outside the SDSS footprint, 
-    no image is plotted.
+    pandas DataFrame. The images are stored in settings["sdss_im_path"]. Note 
+    that if the galaxy is outside the SDSS footprint, no image is plotted.
     
     INPUTS
     --------------------------------------------------------------------------
