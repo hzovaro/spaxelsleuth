@@ -1,11 +1,11 @@
 # Imports
 import datetime
-import os
-import warnings
-import pandas as pd
-from pathlib import Path
 import multiprocessing
 import numpy as np
+import os
+import pandas as pd
+from pathlib import Path
+import warnings
 
 from astropy.cosmology import FlatLambdaCDM
 from astropy.io import fits
@@ -18,6 +18,9 @@ from spaxelsleuth.utils.velocity import compute_v_grad
 from spaxelsleuth.utils.addcolumns import add_columns
 from spaxelsleuth.utils.misc import morph_dict, morph_num_to_str
 from spaxelsleuth.utils.linefns import bpt_num_to_str
+
+import logging
+logger = logging.getLogger(__name__)
 
 ###############################################################################
 # Paths
@@ -39,7 +42,7 @@ def _compute_snr(args, plotit=False):
         hdulist_B_cube = fits.open(
             Path(data_cube_path) / f"ifs/{gal}/{gal}_A_cube_blue.fits.gz")
     except FileNotFoundError:
-        warnings.warn(f"Data cubes not found for galaxy {gal} - cannot compute S/N")
+        logger.warning(f"data cubes not found for galaxy {gal} - cannot compute S/N")
         return [
             gal, np.nan, np.nan, np.nan, np.nan, np.nan,
             np.nan, np.nan, np.nan
@@ -95,7 +98,7 @@ def _compute_snr(args, plotit=False):
 
     #######################################################################
     # End
-    print(f"In make_sami_metadata_df(): Finished processing {gal}")
+    logger.info(f"finished processing {gal}")
     return [
         gal, SNR_full_B, SNR_full_R, SNR_1Re_B, SNR_1Re_R, SNR_15Re_B,
         SNR_15Re_R, SNR_2Re_B, SNR_2Re_R
@@ -189,12 +192,12 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
         sami_MGEPhotomUnregDR3.csv.
 
     """
-    print("In make_sami_metadata_df(): Creating metadata DataFrame...")
+    logger.info("creating metadata DataFrame...")
 
     # Determine number of threads
     if nthreads is None:
         nthreads = os.cpu_count()
-        warnings.warn(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
+        logger.warning(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
 
     ###########################################################################
     # Filenames
@@ -425,7 +428,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     ###########################################################################
     # Add angular scale info
     ###########################################################################
-    print(f"In make_sami_metadata_df(): Computing distances...")
+    logger.info(f"computing distances...")
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
     for gal in gal_ids_dq_cut:
         D_A_Mpc = cosmo.angular_diameter_distance(df_metadata.loc[gal,
@@ -463,24 +466,23 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     ###############################################################################
     # Compute continuum SNRs from the data cubes
     ###############################################################################
-    print("In make_sami_metadata_df(): Computing continuum SNRs...")
+    logger.info("computing continuum SNRs...")
     if not recompute_continuum_SNRs and os.path.exists(output_path / "sami_dr3_aperture_snrs.hd5"):
-        w = warnings.warn(
+        logger.warning(
             f"file {output_path / 'sami_dr3_aperture_snrs.hd5'} found; loading SNRs from existing DataFrame..."
         )
         df_snr = pd.read_hdf(output_path / "sami_dr3_aperture_snrs.hd5", key="SNR")
     else:
-        w = warnings.warn(f"computing continuum SNRs on {nthreads} threads...")
         args_list = [[gal, df_metadata] for gal in gal_ids_dq_cut]
         if nthreads > 1:
-            print("In make_sami_metadata_df(): Beginning pool...")
+            logger.info(f"computing continuum SNRs on {nthreads} threads...")
             pool = multiprocessing.Pool(nthreads)
             res_list = np.array((pool.map(_compute_snr, args_list)))
             pool.close()
             pool.join()
         else:
             res_list = []
-            print("In make_sami_metadata_df(): Beginning pool...")
+            logger.info("computing continuum SNRs sequentially...")
             for arg in args_list:
                 res_list.append(_compute_snr(arg))
 
@@ -500,8 +502,8 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
         df_snr.set_index("ID")
 
         # Save
-        print(
-            "In make_sami_metadata_df(): Saving aperture SNR DataFrame to file..."
+        logger.info(
+            "saving aperture SNR DataFrame to file..."
         )
         df_snr.to_hdf(output_path / "sami_dr3_aperture_snrs.hd5", key="SNR")
 
@@ -515,12 +517,12 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     ###########################################################################
     # Save to file
     ###########################################################################
-    print(
-        f"In make_sami_metadata_df(): Saving metadata DataFrame to file {output_path / df_fname}..."
+    logger.info(
+        f"saving metadata DataFrame to file {output_path / df_fname}..."
     )
     df_metadata.to_hdf(output_path / df_fname, key="metadata")
 
-    print(f"In make_sami_metadata_df(): Finished!")
+    logger.info(f"finished!")
     return
 
 
@@ -536,7 +538,7 @@ def _process_gals(args):
     ---------------------------------------------------------------------------
     args:       list 
         List containing gal_idx, gal, ncomponents, bin_type, df_metadata, 
-        status_str, use_lzifu_fits, lzifu_ncomponents.
+        use_lzifu_fits, lzifu_ncomponents.
 
     OUTPUTS
     ---------------------------------------------------------------------------
@@ -544,7 +546,7 @@ def _process_gals(args):
 
     """
     # Extract input arguments
-    gal_idx, gal, ncomponents, bin_type, df_metadata, status_str, use_lzifu_fits, lzifu_ncomponents = args
+    gal_idx, gal, ncomponents, bin_type, df_metadata, use_lzifu_fits, lzifu_ncomponents = args
 
     # List of filenames for SAMI data products
     fname_list = [
@@ -970,7 +972,7 @@ def _process_gals(args):
         (ngood_bins, 1))
     rows_good = np.hstack((gal_metadata, rows_good))
 
-    print(f"{status_str}: Finished processing {gal} ({gal_idx})")
+    logger.info(f"Finished processing {gal} ({gal_idx})")
 
     return rows_good, colnames
 
@@ -1216,17 +1218,16 @@ def make_sami_df(bin_type,
         assert os.path.exists(
             __lzifu_products_path
         ), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
-        warnings.warn(
+        logger.warning(
             "using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!",
             RuntimeWarning)
 
-    # For printing to stdout
-    status_str = f"In sami.make_df_sami() [bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}]"
+    logger.info(f"input parameters: bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, correct_extinction={correct_extinction}")
 
     # Determine number of threads
     if nthreads is None:
         nthreads = os.cpu_count()
-        warnings.warn(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
+        logger.warning(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
 
     ###############################################################################
     # Filenames
@@ -1244,7 +1245,7 @@ def make_sami_df(bin_type,
         df_fname += "_DEBUG"
     df_fname += ".hd5"
 
-    print(f"{status_str}: saving to file {df_fname}...")
+    logger.info(f"saving to file {df_fname}...")
 
     ###############################################################################
     # Read metadata
@@ -1253,8 +1254,8 @@ def make_sami_df(bin_type,
         df_metadata = pd.read_hdf(output_path / df_metadata_fname,
                                   key="metadata")
     except FileNotFoundError:
-        print(
-            f"ERROR: metadata DataFrame file not found ({output_path / df_metadata_fname}). Please run make_sami_metadata_df.py first!"
+        logger.error(
+            f"metadata DataFrame file not found ({output_path / df_metadata_fname}). Please run make_sami_metadata_df.py first!"
         )
 
     # Only include galaxies flagged as "good" & for which we have data
@@ -1283,7 +1284,7 @@ def make_sami_df(bin_type,
     # Scrape measurements for each galaxy from FITS files
     ###############################################################################
     args_list = [[
-        gg, gal, ncomponents, bin_type, df_metadata, status_str,
+        gg, gal, ncomponents, bin_type, df_metadata,
         __use_lzifu_fits, __lzifu_ncomponents
     ] for gg, gal in enumerate(gal_ids_dq_cut)]
 
@@ -1291,14 +1292,14 @@ def make_sami_df(bin_type,
         res_list = [_process_gals(args_list[0])]
     else:
         if nthreads > 1:
-            print(f"{status_str}: Beginning pool...")
+            logger.info(f"Beginning pool...")
             pool = multiprocessing.Pool(
                 min([nthreads, len(gal_ids_dq_cut)]))
             res_list = np.array((pool.map(_process_gals, args_list)), dtype=object)
             pool.close()
             pool.join()
         else:
-            print(f"{status_str}: Running sequentially...")
+            logger.info(f"Running sequentially...")
             res_list = []
             for args in args_list:
                 res = _process_gals(args)
@@ -1348,21 +1349,23 @@ def make_sami_df(bin_type,
     ###############################################################################
     # Save
     ###############################################################################
-    print(f"{status_str}: Saving to file {df_fname}...")
+    logger.info(f"saving to file {df_fname}...")
 
     # Remove object-type columns
     bad_cols = [c for c in df_spaxels if df_spaxels[c].dtype == "object"]
     if len(bad_cols) > 0:
-        warnings.warn(f"The following object-type columns are present in the DataFrame: {','.join(bad_cols)}")
+        logger.warning(f"The following object-type columns are present in the DataFrame: {','.join(bad_cols)}")
 
     try:
         df_spaxels.to_hdf(output_path / df_fname,
                           key=f"{bin_type}{ncomponents}comp")
     except:
-        print(
-            f"{status_str}: ERROR: Unable to save to HDF file! Saving to .csv instead"
+        logger.error(
+            f"unable to save to HDF file! Saving to .csv instead"
         )
         df_spaxels.to_csv(output_path / df_fname.split("hd5")[0] + "csv")
+    
+    logger.info("finished!")
     return
 
 
@@ -1448,7 +1451,7 @@ def load_sami_df(ncomponents,
         assert os.path.exists(
             __lzifu_products_path
         ), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
-        warnings.warn(
+        logger.warning(
             "using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!",
             RuntimeWarning)
 
@@ -1468,8 +1471,8 @@ def load_sami_df(ncomponents,
 
     # Load the data frame
     t = os.path.getmtime(output_path / df_fname)
-    print(
-        f"In load_sami_df(): Loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
+    logger.info(
+        f"Loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
     )
     df = pd.read_hdf(output_path / df_fname)
 
@@ -1496,7 +1499,7 @@ def load_sami_df(ncomponents,
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
 
     # Return
-    print("In load_sami_df(): Finished!")
+    logger.info("Finished!")
     return df.sort_index()
 
 

@@ -1,6 +1,5 @@
 import os
 from path import Path
-import warnings
 
 import datetime
 from astropy.io import fits
@@ -14,6 +13,9 @@ from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intens
 from spaxelsleuth.utils.dqcut import compute_HALPHA_amplitude_to_noise
 from spaxelsleuth.utils.addcolumns import add_columns
 from spaxelsleuth.utils.linefns import bpt_num_to_str
+
+import logging
+logger = logging.getLogger(__name__)
 
 ###############################################################################
 # Paths
@@ -40,7 +42,6 @@ def _process_lzifu(args):
     # Parse arguments
     #######################################################################
     _, gal, ncomponents, bin_type, data_cube_path, _ = args
-    #TODO can we get ncomponents from SET?
     lzifu_ncomponents = ncomponents if type(ncomponents) == int else 3
 
     #######################################################################
@@ -415,7 +416,9 @@ def make_lzifu_df(gals,
                   debug=False):
     """TODO: WRITE DOCSTRING"""
 
-    # TODO: input checking
+    ###############################################################################
+    # input checking
+    ###############################################################################
     if df_fname is not None:
         if not df_fname.endswith(".hd5"):
             df_fname += ".hd5"
@@ -436,25 +439,25 @@ def make_lzifu_df(gals,
         raise ValueError(
             "bin_types other than 'default' have not yet been implemented!")
 
-    status_str = f"In lzifu.make_lzifu_df() [ncomponents={ncomponents}, bin_type={bin_type}, eline_SNR_min={eline_SNR_min}]"
+    logger.info(f"input parameters: bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, correct_extinction={correct_extinction}")
 
     ###############################################################################
     # Scrape measurements for each galaxy from FITS files
     ###############################################################################
-    args_list = [[gg, gal, ncomponents, bin_type, data_cube_path, status_str]
+    args_list = [[gg, gal, ncomponents, bin_type, data_cube_path]
                  for gg, gal in enumerate(gals)]
 
     if len(gals) == 1:
         res_list = [_process_lzifu(args_list[0])]
     else:
         if nthreads > 1:
-            print(f"{status_str}: Beginning pool...")
+            logger.info(f"beginning pool...")
             pool = multiprocessing.Pool(min([nthreads, len(gals)]))
             res_list = np.array((pool.map(_process_lzifu, args_list)))
             pool.close()
             pool.join()
         else:
-            print(f"{status_str}: Running sequentially...")
+            logger.info(f"running sequentially...")
             res_list = []
             for args in args_list:
                 res = _process_lzifu(args)
@@ -501,10 +504,10 @@ def make_lzifu_df(gals,
     ###############################################################################
     # Save to file
     ###############################################################################
-    print(f"{status_str}: Saving to file {df_fname}...")
+    logger.info(f"saving to file {df_fname}...")
     df_spaxels.to_hdf(output_path / df_fname,
                       key=f"{bin_type}{ncomponents}-comp")
-    print(f"{status_str}: Finished!")
+    logger.info(f"finished!")
 
     return
 
@@ -523,8 +526,8 @@ def load_lzifu_df(ncomponents=None,
     #######################################################################
     # Input file name
     if df_fname is not None:
-        warnings.warn(
-            f"Loading DataFrame from user-provided filename {output_path / df_fname} which may not correspond to the provided ncomponents, bin_type, etc. Proceed with caution!",
+        logger.warning(
+            f"loading DataFrame from user-provided filename {output_path / df_fname} which may not correspond to the provided ncomponents, bin_type, etc. Proceed with caution!",
             RuntimeWarning)
         if not df_fname.endswith(".hd5"):
             df_fname += ".hd5"
@@ -547,8 +550,8 @@ def load_lzifu_df(ncomponents=None,
 
     # Load the data frame
     t = os.path.getmtime(output_path / df_fname)
-    print(
-        f"In load_lzifu_df(): Loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
+    logger.info(
+        f"loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
     )
     if key is not None:
         df = pd.read_hdf(output_path / df_fname, key=key)
@@ -568,5 +571,5 @@ def load_lzifu_df(ncomponents=None,
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
 
     # Return
-    print("In load_lzifu_df(): Finished!")
+    logger.info("finished!")
     return df.sort_index()

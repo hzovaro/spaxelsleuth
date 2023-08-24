@@ -1,31 +1,8 @@
-"""
-File:       sdssimg.py
-Author:     Henry Zovaro
-Email:      henry.zovaro@anu.edu.au
-
-DESCRIPTION
-------------------------------------------------------------------------------
-Contains the following functions:
-
-    get_sdss_image():
-        Download an SDSS cutout image. Used in plot_sdss_image().
-
-    plot_sdss_image():
-        Download and plot the SDSS image of a galaxy with RA and Dec in the 
-        supplied pandas DataFrame. The images are stored in environment 
-        variable SDSS_IM_PATH. Note that if the galaxy is outside the SDSS 
-        footprint, no image is plotted.
-
-------------------------------------------------------------------------------
-Copyright (C) 2022 Henry Zovaro 
-"""
-################################################################################
 # Imports
 import os
 import numpy as np
 from pathlib import Path
 from urllib.request import urlretrieve
-import warnings
 
 from astropy.wcs import WCS
 
@@ -35,6 +12,9 @@ from spaxelsleuth.plotting.plottools import plot_scale_bar
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.patches import Circle
+
+import logging
+logger = logging.getLogger(__name__)
 
 ###############################################################################
 # Paths
@@ -81,7 +61,7 @@ def get_sdss_image(gal, ra_deg, dec_deg,
     try:
         urlretrieve(url, imname)
     except Exception as e:
-        print(f"{gal} not in SDSS footprint!")
+        logger.warning(f"{gal} not in SDSS footprint!")
         return False
 
     return True
@@ -173,7 +153,7 @@ def plot_sdss_image(df, gal,
     # Load image
     if reload_image or (not os.path.exists(sdss_im_path / f"{gal}_{width_px}x{height_px}.jpg")):
         # Download the image
-        warnings.warn(f"file {sdss_im_path / f'{gal}_{width_px}x{height_px}.jpg'} not found. Retrieving image from SDSS...")
+        logger.warn(f"file {sdss_im_path / f'{gal}_{width_px}x{height_px}.jpg'} not found. Retrieving image from SDSS...")
         if not get_sdss_image(gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
                        as_per_px=as_per_px, width_px=width_px, height_px=height_px):
             return None

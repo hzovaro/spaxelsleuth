@@ -26,8 +26,8 @@ def compute_d4000(data_cube, var_cube, lambda_vals_rest_A, v_star_map):
         denom = np.nanmean(data_cube_b_masked, axis=0)
         
     with warnings.catch_warnings():
-        warnings.filterwarnings(action="ignore", message="divide by zero encountered in true_divide")
-        warnings.filterwarnings(action="ignore", message="invalid value encountered in multiply")
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="divide by zero encountered in true_divide")
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="invalid value encountered in multiply")
         err_num = 1 / N_r * np.sqrt(np.nansum(var_cube_r_masked, axis=0))
         err_denom = 1 / N_b * np.sqrt(np.nansum(var_cube_b_masked, axis=0))
         d4000_map = num / denom
@@ -47,8 +47,8 @@ def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A
         N = np.nansum(~np.isnan(data_cube_masked), axis=0)
         
     with warnings.catch_warnings():
-        warnings.filterwarnings(action="ignore", message="invalid value encountered in multiply")
-        warnings.filterwarnings(action="ignore", message="divide by zero encountered in true_divide")
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="invalid value encountered in multiply")
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="divide by zero encountered in true_divide")
         cont_map_err = 1 / N * np.sqrt(np.nansum(var_cube_masked, axis=0))
     # NOTE: N = 0 in the outskirts of the image, so dividing by 1 / N replaces these elements with NaN (which is what we want!)
     return cont_map, cont_map_std, cont_map_err

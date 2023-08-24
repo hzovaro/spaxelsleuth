@@ -5,6 +5,9 @@ from time import time
 from tqdm import tqdm
 import warnings
 
+import logging
+logger = logging.getLogger(__name__)
+
 #//////////////////////////////////////////////////////////////////////////////
 # Dict containing the line lists for each metallicity/ionisation parameter diagnostic
 line_list_dict = {
@@ -376,7 +379,7 @@ def _compute_logOH12(met_diagnostic, df,
                 # Compute the consistency between this and the previous iteration
                 diff_logOH12 = np.abs(logOH12_new - logOH12_old)
                 diff_logU = np.abs(logU_new - logU_old)
-                # print(f"After {n} iterations: {len(diff_logOH12[diff_logOH12 >= 0.001])}/{len(diff_logOH12)} unconverged log(O/H) + 12 measurements, {len(diff_logU[diff_logU >= 0.001])}/{len(diff_logU)} unconverged log(U) measurements")
+                logger.debug(f"After {n} iterations: {len(diff_logOH12[diff_logOH12 >= 0.001])}/{len(diff_logOH12)} unconverged log(O/H) + 12 measurements, {len(diff_logU[diff_logU >= 0.001])}/{len(diff_logU)} unconverged log(U) measurements")
                 if all(diff_logU < 0.001) and all(diff_logOH12 < 0.001):
                     break
 
@@ -455,7 +458,7 @@ def _compute_logOH12(met_diagnostic, df,
                 # Compute the consistency between this and the previous iteration
                 diff_logOH12 = np.abs(logOH12_new - logOH12_old)
                 diff_logq = np.abs(logq_new - logq_old)
-                # print(f"After {n} iterations: {len(diff_logOH12[diff_logOH12 >= 0.001])}/{len(diff_logOH12)} unconverged log(O/H) + 12 measurements, {len(diff_logq[diff_logq >= 0.001])}/{len(diff_logq)} unconverged log(q) measurements")
+                # logger.info(f"After {n} iterations: {len(diff_logOH12[diff_logOH12 >= 0.001])}/{len(diff_logOH12)} unconverged log(O/H) + 12 measurements, {len(diff_logq[diff_logq >= 0.001])}/{len(diff_logq)} unconverged log(q) measurements")
                 if all(diff_logq < 0.001) and all(diff_logOH12 < 0.001):
                     break
 
@@ -783,9 +786,9 @@ def _get_metallicity(met_diagnostic, df,
     df_nomet = df[cond_nomet]
     df_met = df[~cond_nomet]
     if ion_diagnostic is None:
-        print(f"{status_str}: able to calculate {met_diagnostic} log(O/H) + 12  in {df_met.shape[0]:d}/{df.shape[0]:d} ({df_met.shape[0] / df.shape[0] * 100:.2f}%) of rows")
+        logger.info(f"able to calculate {met_diagnostic} log(O/H) + 12  in {df_met.shape[0]:d}/{df.shape[0]:d} ({df_met.shape[0] / df.shape[0] * 100:.2f}%) of rows")
     else:
-        print(f"{status_str}: able to calculate {met_diagnostic}/{ion_diagnostic} log(O/H) + 12  in {df_met.shape[0]:d}/{df.shape[0]:d} ({df_met.shape[0] / df.shape[0] * 100:.2f}%) of rows")
+        logger.info(f"able to calculate {met_diagnostic}/{ion_diagnostic} log(O/H) + 12  in {df_met.shape[0]:d}/{df.shape[0]:d} ({df_met.shape[0] / df.shape[0] * 100:.2f}%) of rows")
 
     # Compute metallicities in the subset of rows with valid line fluxes & BPT classifications
     df_met = _met_helper_fn([met_diagnostic, df_met, logU, compute_logU, ion_diagnostic, niters])
@@ -798,10 +801,10 @@ def _get_metallicity(met_diagnostic, df,
     pd.options.mode.chained_assignment = "warn"
 
     # Merge back with original DataFrame
-    print(f"{status_str}: Concatenating DataFrames...")
+    logger.info(f"concatenating DataFrames...")
     df = pd.concat([df_nomet, df_met])
 
-    print(f"{status_str}: Done!")
+    logger.info(f"done!")
     return df
 
 ###############################################################################
@@ -930,7 +933,7 @@ def calculate_metallicity(df, met_diagnostic,
     #//////////////////////////////////////////////////////////////////////////
     # Remove suffixes on columns
     #//////////////////////////////////////////////////////////////////////////
-    print(f"{status_str}: Removing column suffixes...")
+    logger.info(f"removing column suffixes...")
     if s is not None:
         df_old = df
         suffix_cols = [c for c in df.columns if c.endswith(s)]
@@ -942,16 +945,16 @@ def calculate_metallicity(df, met_diagnostic,
     # Calculate the metallicity
     #//////////////////////////////////////////////////////////////////////////
     if compute_errors:
-        print(f"{status_str}: Computing metallicities with errors...")
+        logger.info(f"computing metallicities with errors...")
         df = _get_metallicity(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=niters)
     else:
-        print(f"{status_str}: Computing metallicities without errors...")
+        logger.info(f"computing metallicities without errors...")
         df = _get_metallicity(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=1)
 
     #//////////////////////////////////////////////////////////////////////////
     # Rename columns
     #//////////////////////////////////////////////////////////////////////////
-    print(f"{status_str}: Adding column suffixes...")
+    logger.info(f"adding column suffixes...")
     if s is not None:
         # Get list of new columns that have been added
         added_cols = [c for c in df.columns if c not in old_cols]
@@ -961,5 +964,5 @@ def calculate_metallicity(df, met_diagnostic,
         # Replace the suffix in the column names
         df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
 
-    print(f"{status_str}: Done! Total time = {int(np.floor((time() - t) / 3600)):d}:{int(np.floor((time() - t) / 60)):d}:{np.mod(time() - t, 60):02.5f}")
+    logger.info(f"done! Total time = {int(np.floor((time() - t) / 3600)):d}:{int(np.floor((time() - t) / 60)):d}:{np.mod(time() - t, 60):02.5f}")
     return df 

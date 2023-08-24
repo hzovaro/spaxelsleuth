@@ -2,9 +2,11 @@ import numpy as np
 import extinction
 import pandas as pd
 import multiprocessing
-import warnings
 
 from spaxelsleuth.utils.elines import eline_lambdas_A
+
+import logging
+logger = logging.getLogger(__name__)
 
 ################################################################################
 def extcorr_helper_fn(args):
@@ -102,13 +104,13 @@ def compute_A_V(df,
 
     # Check that HALPHA and HBETA are in the DataFrame 
     if ("HALPHA" not in df) or ("HBETA" not in df):
-        warnings.warn(f"HALPHA and/or HBETA are not in the DataFrame, so extinction cannot be calculated.")
+        logger.warn(f"HALPHA and/or HBETA are not in the DataFrame, so extinction cannot be calculated.")
     else:
         # Determine which reddening curve to use
         if reddening_curve.lower() == "fm07":
             ext_fn = extinction.fm07
             if R_V != 3.1:
-                warnings.warn(f"R_V is fixed at 3.1 in the FM07 reddening curve. Ignoring supplied R_V value of {R_V:.2f}...")
+                logger.warn(f"R_V is fixed at 3.1 in the FM07 reddening curve. Ignoring supplied R_V value of {R_V:.2f}...")
         elif reddening_curve.lower() == "ccm89":
             ext_fn = extinction.ccm89
         elif reddening_curve.lower() == "fitzpatrick99":
@@ -116,7 +118,7 @@ def compute_A_V(df,
         elif reddening_curve.lower() == "calzetti00":
             ext_fn = extinction.calzetti00
             if R_V != 4.05:
-                warnings.warn(f"R_V should be set to 4.05 for the calzetti00 reddening curve. Using supplied R_V value of {R_V:.2f}...")
+                logger.warn(f"R_V should be set to 4.05 for the calzetti00 reddening curve. Using supplied R_V value of {R_V:.2f}...")
         else:  
             raise ValueError("For now, 'reddening_curve' must be one of 'fm07', 'fitzpatrick99', 'ccm89' or 'calzetti00'!")
 
@@ -246,7 +248,7 @@ def apply_extinction_correction(df, eline_list, a_v_col_name,
     df_extcorr = df[cond_extcorr]
     df_noextcorr = df[~cond_extcorr]
     if df_extcorr.shape[0] == 0:
-        print(f"In extcorr.extinction_corr_fn(): no cells found with A_V > 0 - not applying correction!")
+        logger.info(f"no cells found with A_V > 0 - not applying correction!")
         if s is not None:
             # Get list of new columns that have been added
             added_cols = [c for c in df.columns if c not in old_cols]
@@ -264,13 +266,13 @@ def apply_extinction_correction(df, eline_list, a_v_col_name,
     # Multithreading 
     args_list = [[rr, df_extcorr, eline_list, a_v_col_name, ext_fn] for rr in df_extcorr.index.values]
     if nthreads > 1:
-        print(f"In extcorr.extinction_corr_fn(): Multithreading A_V computation across {nthreads} threads...")
+        logger.info(f"multithreading A_V computation across {nthreads} threads...")
         pool = multiprocessing.Pool(nthreads)
         res_list = pool.map(extcorr_helper_fn, args_list)
         pool.close()
         pool.join()
     else:
-        print(f"In extcorr.extinction_corr_fn(): computing A_V sequentially...")
+        logger.info(f"computing A_V sequentially...")
         res_list = []
         for arg in args_list:
             res_list.append(extcorr_helper_fn(arg))

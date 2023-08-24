@@ -6,6 +6,9 @@ import numpy as np
 from spaxelsleuth.config import settings
 from spaxelsleuth import utils
 
+import logging
+logger = logging.getLogger(__name__)
+
 ###############################################################################
 # Paths
 input_path = Path(settings["sami"]["input_path"])
@@ -98,7 +101,7 @@ def make_sami_aperture_df(eline_SNR_min,
         df_fname = f"sami_apertures_extcorr_minSNR={eline_SNR_min}.hd5"
     else:
         df_fname = f"sami_apertures_minSNR={eline_SNR_min}.hd5"
-    print(f"{status_str}: saving to files {df_fname}...")
+    logger.info(f"saving to files {df_fname}...")
 
     ###########################################################################
     # Open the .csv file containing the table
@@ -108,19 +111,19 @@ def make_sami_aperture_df(eline_SNR_min,
     df_ap_elines = pd.read_csv(data_path / "sami_EmissionLine1compDR3.csv")
     df_ap_elines = df_ap_elines.set_index("catid").drop("Unnamed: 0", axis=1)
     df_ap_elines = df_ap_elines.rename(columns={"catid": "ID"})
-    print(f"df_ap_elines has {len(df_ap_elines.index.unique())} galaxies")
+    logger.info(f"df_ap_elines has {len(df_ap_elines.index.unique())} galaxies")
 
     # SSP info
     df_ap_ssp = pd.read_csv(data_path / "sami_SSPAperturesDR3.csv")
     df_ap_ssp = df_ap_ssp.set_index("catid").drop("Unnamed: 0", axis=1)
     df_ap_ssp = df_ap_ssp.rename(columns={"catid": "ID"})
-    print(f"df_ap_ssp has {len(df_ap_ssp.index.unique())} galaxies")
+    logger.info(f"df_ap_ssp has {len(df_ap_ssp.index.unique())} galaxies")
 
     # Stellar indices
     df_ap_indices = pd.read_csv(data_path / "sami_IndexAperturesDR3.csv")
     df_ap_indices = df_ap_indices.set_index("catid").drop("Unnamed: 0", axis=1)
     df_ap_indices = df_ap_indices.rename(columns={"catid": "ID"})
-    print(f"df_ap_indices has {len(df_ap_indices.index.unique())} galaxies")
+    logger.info(f"df_ap_indices has {len(df_ap_indices.index.unique())} galaxies")
 
     # Merge
     df_ap = df_ap_elines.merge(df_ap_ssp,
@@ -133,7 +136,7 @@ def make_sami_aperture_df(eline_SNR_min,
                         how="outer",
                         left_index=True,
                         right_index=True)
-    print(f"After merging, df_ap has {len(df_ap.index.unique())} galaxies")
+    logger.info(f"after merging, df_ap has {len(df_ap.index.unique())} galaxies")
 
     # Drop duplicate rows
     df_ap = df_ap[~df_ap.index.duplicated(keep="first")]
@@ -141,11 +144,11 @@ def make_sami_aperture_df(eline_SNR_min,
     ###########################################################################
     # Merge with metadata DataFrame
     df_metadata = pd.read_hdf(output_path / df_metadata_fname, key="metadata")
-    print(
-        f"Before merging, there are {len([g for g in df_metadata.index if g not in df_ap.index])} galaxies in df_metadata that are missing from df_ap"
+    logger.info(
+        f"before merging, there are {len([g for g in df_metadata.index if g not in df_ap.index])} galaxies in df_metadata that are missing from df_ap"
     )
-    print(
-        f"Before merging, there are {len([g for g in df_ap.index if g not in df_metadata.index])} galaxies in df_ap that are missing from df_metadata"
+    logger.info(
+        f"before merging, there are {len([g for g in df_ap.index if g not in df_metadata.index])} galaxies in df_ap that are missing from df_metadata"
     )
     df_ap = df_ap.merge(df_metadata,
                         how="outer",
@@ -168,7 +171,7 @@ def make_sami_aperture_df(eline_SNR_min,
                 new_col = old_col.split(
                     ap)[0].upper() + f" ({ap.replace('_', ' ')[1:]})"
             rename_dict[old_col] = new_col
-            print(f"{old_col} --> {new_col}")
+            logger.info(f"{old_col} --> {new_col}")
         df_ap = df_ap.rename(columns=rename_dict)
 
     old_cols_v = [col for col in df_ap.columns if "V_GAS" in col]
@@ -337,7 +340,7 @@ def make_sami_aperture_df(eline_SNR_min,
     # DQ and S/N CUTS
     ######################################################################
     # Flag low S/N emission lines
-    print(f"{status_str}: Flagging low S/N components and spaxels...")
+    logger.info(f"flagging low S/N components and spaxels...")
     for eline in eline_list:
         # Fluxes in individual components
         for ap in aps:
@@ -349,8 +352,8 @@ def make_sami_aperture_df(eline_SNR_min,
     ######################################################################
     # Flag emission lines with "missing" (i.e. NaN) fluxes in which the
     # ERROR on the flux is not NaN
-    print(
-        f"{status_str}: Flagging components and galaxies with NaN fluxes and finite errors..."
+    logger.info(
+        f"flagging components and galaxies with NaN fluxes and finite errors..."
     )
     for eline in eline_list:
         # Fluxes in individual components
@@ -360,13 +363,13 @@ def make_sami_aperture_df(eline_SNR_min,
                 ) & ~df_ap[f"{eline} error ({ap})"].isna()
                 df_ap.loc[cond_missing_flux,
                           f"Missing flux flag - {eline} ({ap})"] = True
-                print(
+                logger.info(
                     f"{eline} ({ap}): {df_ap[cond_missing_flux].shape[0]:d} galaxies have missing fluxes in this component"
                 )
 
     ######################################################################
     # Flag rows with insufficient S/N in sigma_gas
-    print(f"{status_str}: Flagging components with low sigma_gas S/N...")
+    logger.info(f"flagging components with low sigma_gas S/N...")
     sigma_gas_SNR_min = 3
     # Gas kinematics: NaN out cells w/ sigma_gas S/N ratio < sigma_gas_SNR_min
     # (For SAMI, the red arm resolution is 29.6 km/s - see p6 of Croom+2021)
@@ -394,8 +397,8 @@ def make_sami_aperture_df(eline_SNR_min,
     ######################################################################
     # NaN out offending cells
     if line_flux_SNR_cut:
-        print(
-            f"{status_str}: Masking components that don't meet the S/N requirements..."
+        logger.info(
+            f"masking components that don't meet the S/N requirements..."
         )
         for eline in eline_list:
             # Individual fluxes
@@ -417,7 +420,7 @@ def make_sami_aperture_df(eline_SNR_min,
                 df_ap.loc[cond_low_SN, cols_low_SN] = np.nan
 
     if missing_fluxes_cut:
-        print(f"{status_str}: Masking components with missing fluxes...")
+        logger.info(f"masking components with missing fluxes...")
         for eline in eline_list:
             # Individual fluxes
             for ap in aps:
@@ -439,8 +442,8 @@ def make_sami_aperture_df(eline_SNR_min,
                 df_ap.loc[cond_missing_flux, cols_missing_fluxes] = np.nan
 
     if sigma_gas_SNR_cut:
-        print(
-            f"{status_str}: Masking components with insufficient S/N in sigma_gas..."
+        logger.info(
+            f"masking components with insufficient S/N in sigma_gas..."
         )
         for ap in aps:
             cond_bad_sigma = df_ap[f"Low sigma_gas S/N flag ({ap})"]
@@ -455,8 +458,8 @@ def make_sami_aperture_df(eline_SNR_min,
     ######################################################################
     # Correct emission line fluxes for extinction (but not EWs!)
     if correct_extinction:
-        print(
-            f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction..."
+        logger.info(
+            f"correcting emission line fluxes (but not EWs) for extinction..."
         )
         for ap in aps:
             # Compute A_V using total Halpha and Hbeta emission line fluxes
@@ -522,7 +525,7 @@ def make_sami_aperture_df(eline_SNR_min,
 
     ###############################################################################
     # Save to .hd5 & .csv
-    print(f"{status_str}: Saving to file...")
+    logger.info(f"saving to file {output_path / df_fname}...")
     df_ap.to_hdf(output_path / df_fname, key=f"1-comp aperture fit")
-    print(f"{status_str}: Finished!")
+    logger.info(f"finished!")
     return

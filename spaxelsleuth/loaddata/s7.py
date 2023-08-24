@@ -17,6 +17,9 @@ from spaxelsleuth.utils.dqcut import compute_HALPHA_amplitude_to_noise
 from spaxelsleuth.utils.addcolumns import add_columns
 from spaxelsleuth.utils.linefns import bpt_num_to_str
 
+import logging
+logger = logging.getLogger(__name__)
+
 ###############################################################################
 # Paths
 input_path = Path(settings["s7"]["input_path"])
@@ -78,7 +81,7 @@ def make_s7_metadata_df():
     which has been removed from the version included with spaxelsleuth.
     
     """
-    print("In make_s7_metadata_df(): Creating metadata DataFrame...")
+    logger.info("creating metadata DataFrame...")
     ###############################################################################
     # Filenames
     input_catalogue_fname = "S7_DR2_Table_2_Catalogue.csv"
@@ -132,7 +135,7 @@ def make_s7_metadata_df():
     ###############################################################################
     # Add angular scale info
     ###############################################################################
-    print(f"In make_s7_metadata_df(): Computing distances...")
+    logger.info(f"computing distances...")
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
     for gal in gals:
         D_A_Mpc = cosmo.angular_diameter_distance(df_metadata.loc[gal, "z"]).value
@@ -151,10 +154,10 @@ def make_s7_metadata_df():
     ###############################################################################
     # Save to file
     ###############################################################################
-    print(f"In make_s7_metadata_df(): Saving metadata DataFrame to file {output_path / df_metadata_fname}...")
+    logger.info(f"saving metadata DataFrame to file {output_path / df_metadata_fname}...")
     df_metadata.to_hdf(output_path / df_metadata_fname, key="metadata")
 
-    print(f"In make_s7_metadata_df(): Finished!")
+    logger.info(f"finished!")
     return
 
 #/////////////////////////////////////////////////////////////////////////////////
@@ -436,7 +439,7 @@ def _process_s7(args):
         (len(x_c_list), 1))
     rows_good = np.hstack((gal_metadata, rows_good))
 
-    print(f"In _process_s7(): Finished processing {gal}")
+    logger.info(f"finished processing {gal}")
 
     return rows_good, colnames, eline_list
 
@@ -505,13 +508,13 @@ def make_s7_df(gals=None,
         res_list = [_process_s7(args_list[0])]
     else:
         if nthreads > 1:
-            print(f"{status_str}: Beginning pool...")
+            logger.info(f"beginning pool...")
             pool = multiprocessing.Pool(min([nthreads, len(gals)]))
             res_list = np.array((pool.map(_process_s7, args_list)))
             pool.close()
             pool.join()
         else:
-            print(f"{status_str}: Running sequentially...")
+            logger.info(f"running sequentially...")
             res_list = []
             for args in args_list:
                 res = _process_s7(args)
@@ -561,9 +564,9 @@ def make_s7_df(gals=None,
     ###############################################################################
     # Save to file
     ###############################################################################
-    print(f"{status_str}: Saving to file {df_fname}...")
+    logger.info(f"saving to file {df_fname}...")
     df_spaxels.to_hdf(output_path / df_fname, key=f"s7")
-    print(f"{status_str}: Finished!")
+    logger.info(f"finished!")
 
     return
 
@@ -591,8 +594,8 @@ def load_s7_df(correct_extinction=None,
 
     # Load the data frame
     t = os.path.getmtime(output_path / df_fname)
-    print(
-        f"In load_s7_df(): Loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
+    logger.info(
+        f"loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
     )
     df = pd.read_hdf(output_path / df_fname)
 
@@ -610,7 +613,7 @@ def load_s7_df(correct_extinction=None,
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
 
     # Return
-    print("In load_s7_df(): Finished!")
+    logger.info("finished!")
     return df.sort_index()
 
 ###############################################################################

@@ -3,6 +3,9 @@ import numpy as np
 from spaxelsleuth.utils import continuum, dqcut, linefns, metallicity, extcorr, misc
 from spaxelsleuth.utils.misc import in_dataframe
 
+import logging
+logger = logging.getLogger(__name__)
+
 ###############################################################################
 def add_columns(df, **kwargs):
     """Computes quantities such as metallicities, extinctions, etc. for each row in df."""
@@ -63,7 +66,7 @@ def add_columns(df, **kwargs):
     # EXTINCTION CORRECTION
     # Compute A_V & correct emission line fluxes (but not EWs!)
     if kwargs["correct_extinction"]:
-        print(f"{status_str}: Correcting emission line fluxes (but not EWs) for extinction...")
+        logger.info(f"Correcting emission line fluxes (but not EWs) for extinction...")
         # Compute A_V using total Halpha and Hbeta emission line fluxes
         df = extcorr.compute_A_V(df,
                                          reddening_curve="fm07",

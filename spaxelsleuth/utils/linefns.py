@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
-import warnings
+
+import logging
+logger = logging.getLogger(__name__)
 
 bpt_dict = {
      "0.0": "SF",
@@ -572,7 +574,7 @@ def whav_fn(df, ncomponents):
         for cat in cats:
             df.loc[df["WHAV*"] == cat, "WHAV* (numeric)"] = num_dict[cat]
     else:
-        warnings.warn("not computing WHAV* categories because ncomponents is not 3")
+        logger.warn("not computing WHAV* categories because ncomponents is not 3")
 
     return df
 
@@ -953,7 +955,7 @@ def sfr_fn(df, s=f" (total)"):
     # Check whether SFR measurements already exist in the DataFrame
     sfr_cols = [col for col in df if "SFR" in col]
     if len(sfr_cols) > 0:
-        warnings.warn(f"the following columns already exist in the DataFrame: {', '.join(sfr_cols)}")
+        logger.warn(f"the following columns already exist in the DataFrame: {', '.join(sfr_cols)}")
 
     # Use the Calzetti relation to calculate the SFR
     if "HALPHA luminosity" in df and "BPT (numeric)" in df:

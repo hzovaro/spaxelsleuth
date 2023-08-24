@@ -3,9 +3,11 @@ import pandas as pd
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
-import warnings
 
 from spaxelsleuth.plotting.plottools import get_cmap, get_vmin, get_vmax, get_label, trim_suffix
+
+import logging
+logger = logging.getLogger(__name__)
 
 ###############################################################################
 def plot2dhist(df, col_x, col_y, col_z, ax, log_z, vmin, vmax, xmin, xmax,
@@ -523,7 +525,7 @@ def plot2dhistcontours(df,
             col, suffix = trim_suffix(col_z)
             if f"{col} (numeric)" + suffix in df:
                 col_z = f"{col} (numeric)" + suffix
-                print("")
+                logger.info("")
             else:
                 raise ValueError(
                     f"{col_z} has an object data type and no numeric counterpart exists in df!"
@@ -840,7 +842,7 @@ def plot2dscatter(df,
             col, suffix = trim_suffix(col_z)
             if f"{col} (numeric)" + suffix in df:
                 col_z = f"{col} (numeric)" + suffix
-                print("")
+                logger.info("")
             else:
                 raise ValueError(
                     f"{col_z} has an object data type and no numeric counterpart exists in df!"
@@ -849,7 +851,7 @@ def plot2dscatter(df,
         raise ValueError(
             "cax_orientation must be either 'horizontal' or 'vertical'!")
     if col_z is None and plot_colorbar == True:
-        warnings.warn("not plotting colourbar because col_z is not specified!")
+        logger.warn("not plotting colourbar because col_z is not specified!")
 
     # If a galaxy is specified (or galaxies), then plot only the galaxy
     if gal is not None:

@@ -1,8 +1,6 @@
 # Imports
-import os
 import numpy as np
 import matplotlib.pyplot as plt
-import warnings
 
 from astropy import units as u
 from astropy.io import fits
@@ -12,6 +10,9 @@ from astropy.wcs import WCS
 
 from spaxelsleuth.plotting.plottools import get_vmin, get_vmax, get_cmap, get_label, plot_scale_bar, plot_compass, trim_suffix
 from spaxelsleuth.config import settings
+
+import logging
+logger = logging.getLogger(__name__)
 
 ###############################################################################
 def plot2dmap(df,
@@ -148,7 +149,7 @@ def plot2dmap(df,
         col, suffix = trim_suffix(col_z)
         if f"{col} (numeric)" + suffix in df_gal:
             col_z = f"{col} (numeric)" + suffix
-            print("")
+            logger.info("")
         else:
             raise ValueError(
                 f"{col_z} has an object data type and no numeric counterpart exists in df!"
@@ -162,7 +163,7 @@ def plot2dmap(df,
     # NOTE: we only need survey so that we can access the SAMI data cube path if bin_type is not default.
     if "survey" in df_gal:
         if survey is not None:
-            warnings.warn(f"defaulting to 'survey' found in df rather than supplied value of '{survey}'")
+            logger.warn(f"defaulting to 'survey' found in df rather than supplied value of '{survey}'")
         if len(df_gal["survey"].unique()) > 1:
                 raise ValueError(f"There appear to be multiple 'survey' values in df!")
         survey = df_gal["survey"].unique()[0]
@@ -171,12 +172,12 @@ def plot2dmap(df,
         if survey not in settings:
             raise ValueError(f"survey '{survey}' was not found in settings!")
     else:
-        warnings.warn("'survey' not specified!")
+        logger.warn("'survey' not specified!")
     
     # Validate: bin_type (optional)
     if "bin_type" in df_gal:
         if bin_type is not None:
-            warnings.warn(f"defaulting to 'bin_type' found in df rather than supplied value of '{bin_type}'")
+            logger.warn(f"defaulting to 'bin_type' found in df rather than supplied value of '{bin_type}'")
         if len(df["bin_type"].unique()) > 1:
             raise ValueError(f"There appear to be multiple 'bin_type' values in df for galaxy {gal}!")
         bin_type = df["bin_type"].unique()[0]
@@ -195,7 +196,7 @@ def plot2dmap(df,
             if bin_type is not "default":
                 raise ValueError(f"bin_type must be 'default' if no survey is specified!")
     else:
-        warnings.warn("'bin_type' not specified - assuming 'default'")
+        logger.warn("'bin_type' not specified - assuming 'default'")
         bin_type = "default"
 
     ###########################################################################
@@ -213,7 +214,7 @@ def plot2dmap(df,
         nx = int(df_gal["N_x"].unique()[0])
         ny = int(df_gal["N_y"].unique()[0])
     else:
-        warnings.warn("nx and ny were not found in the DataFrame so I am assuming their values from the shape of the data")
+        logger.warn("nx and ny were not found in the DataFrame so I am assuming their values from the shape of the data")
         nx = int(np.nanmax(df_gal["x (pixels)"].values) + 1)
         ny = int(np.nanmax(df_gal["y (pixels)"].values) + 1)
 
@@ -222,7 +223,7 @@ def plot2dmap(df,
         x0_px = int(df_gal["x0_px"].unique()[0])
         y0_px = int(df_gal["y0_px"].unique()[0])
     else:
-        warnings.warn("x0_px and y0_px were not found in the DataFrame so I am assuming their values from the shape of the data")
+        logger.warn("x0_px and y0_px were not found in the DataFrame so I am assuming their values from the shape of the data")
         x0_px = nx / 2.
         y0_px = ny / 2.
 
