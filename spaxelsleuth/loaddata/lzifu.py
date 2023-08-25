@@ -24,7 +24,7 @@ output_path = Path(settings["lzifu"]["output_path"])
 data_cube_path = Path(settings["lzifu"]["data_cube_path"])
 
 
-#/////////////////////////////////////////////////////////////////////////////////
+###############################################################################
 def add_metadata(df, df_metadata):
     """Merge an input DataFrame with that was created using make_lzifu_df()."""
     if "ID" not in df_metadata:
@@ -32,7 +32,7 @@ def add_metadata(df, df_metadata):
     df = df.merge(df_metadata, on="ID", how="left")
     return df
 
-#/////////////////////////////////////////////////////////////////////////////////
+###############################################################################
 def _process_lzifu(args):
 
     #######################################################################
@@ -369,7 +369,7 @@ def _process_lzifu(args):
     return rows_arr, colnames, eline_list
 
 
-#/////////////////////////////////////////////////////////////////////////////////
+###############################################################################
 def make_lzifu_df(gals,
                   ncomponents,
                   eline_SNR_min,
@@ -655,7 +655,7 @@ def make_lzifu_df(gals,
     return
 
 
-#/////////////////////////////////////////////////////////////////////////////////
+###############################################################################
 def load_lzifu_df(ncomponents=None,
                   correct_extinction=None,
                   eline_SNR_min=None,
