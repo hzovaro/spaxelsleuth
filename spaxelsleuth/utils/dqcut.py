@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 ###############################################################################
 def compute_SN(df, ncomponents_max, eline_list):
     """Compute the flux S/N in the provided emission lines."""
+    logger.debug("computing emission line S/N ratios...")
     for eline in eline_list:
         # Compute S/N
         for nn in range(ncomponents_max):
@@ -31,6 +32,7 @@ def compute_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_rest_A, v
         We measure this as
               (peak spectral value in window around Ha - mean R continuum flux density) / standard deviation in R continuum flux density
         As such, this value can be negative."""
+    logger.debug("computing HALPHA amplitude-to-noise...")
     lambda_vals_rest_A_cube = np.zeros(data_cube.shape)
     lambda_vals_rest_A_cube[:] = lambda_vals_rest_A[:, None, None]
 
@@ -46,7 +48,7 @@ def compute_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_rest_A, v
     data_cube_masked_R = np.copy(data_cube)
     data_cube_masked_R[~A_HALPHA_mask] = np.nan
     with warnings.catch_warnings():
-        warnings.filterwarnings(action="ignore", message="All-NaN slice encountered")
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="All-NaN slice encountered")
         A_HALPHA_map = np.nanmax(data_cube_masked_R, axis=0)
     AN_HALPHA_map = (A_HALPHA_map - cont_HALPHA_map) / cont_HALPHA_map_std
 
@@ -62,6 +64,7 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
     ######################################################################
     # INITIALISE FLAGS: these will get set below.
     ###################################################################### 
+    logger.debug("setting data quality and S/N flags...")
     for nn in range(ncomponents_max):
         if f"v_gas (component {nn + 1})" in df:
             df[f"Beam smearing flag (component {nn + 1})"] = False
@@ -93,7 +96,7 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
             - sigma_gas, v_gas, v_grad, SFR
     """
     ######################################################################
-    logger.info("flagging low S/N components and spaxels...")
+    logger.debug("flagging low S/N components and spaxels...")
     for eline in eline_list:
         # Fluxes in individual components
         for nn in range(ncomponents_max):
@@ -110,7 +113,7 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
     # Flag emission lines with "missing" (i.e. NaN) fluxes in which the 
     # ERROR on the flux is not NaN
     ######################################################################
-    logger.info("flagging components and spaxels with NaN fluxes and finite errors...")
+    logger.debug("flagging components and spaxels with NaN fluxes and finite errors...")
     for eline in eline_list:
         # Fluxes in individual components
         for nn in range(ncomponents_max):
@@ -118,13 +121,13 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
             if f"{eline} (component {nn + 1})" in df.columns:
                 cond_missing_flux = df[f"{eline} (component {nn + 1})"].isna() & ~df[f"{eline} error (component {nn + 1})"].isna()
                 df.loc[cond_missing_flux, f"Missing flux flag - {eline} (component {nn + 1})"] = True
-                logger.info(f"{eline} (component {nn + 1}): {df[cond_missing_flux].shape[0]:d} spaxels have missing fluxes in this component")
+                logger.debug(f"{eline} (component {nn + 1}): {df[cond_missing_flux].shape[0]:d} spaxels have missing fluxes in this component")
 
         # Total fluxes
         if f"{eline} (total)" in df.columns:
             cond_missing_flux = df[f"{eline} (total)"].isna() & ~df[f"{eline} error (total)"].isna()
             df.loc[cond_missing_flux, f"Missing flux flag - {eline} (total)"] = True
-            logger.info(f"{eline} (total): {df[cond_missing_flux].shape[0]:d} spaxels have missing total fluxes")
+            logger.debug(f"{eline} (total): {df[cond_missing_flux].shape[0]:d} spaxels have missing total fluxes")
 
     ######################################################################
     # Flag rows where any component doesn't meet the amplitude 
@@ -141,7 +144,7 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
     """
     ######################################################################
     # Compute the amplitude corresponding to each component
-    logger.info("flagging components with amplitude < 3 * rms continuum noise...")
+    logger.debug("flagging components with amplitude < 3 * rms continuum noise...")
     for eline in eline_list:
         lambda_rest_A = eline_lambdas_A[eline]
         for nn in range(ncomponents_max):
@@ -176,7 +179,7 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
     ######################################################################
     # Flag rows where the flux ratio of the broad:narrow component < 0.05 (using the method of Avery+2021)
     ######################################################################
-    logger.info("flagging spaxels where the flux ratio of the broad:narrow component < 0.05...")
+    logger.debug("flagging spaxels where the flux ratio of the broad:narrow component < 0.05...")
     for nn in range(1, ncomponents_max):
         for eline in eline_list:
             if f"{eline} (component {nn + 1})" in df:
@@ -186,7 +189,7 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
     ######################################################################
     # Flag rows that don't meet the beam smearing requirement
     ######################################################################
-    logger.info("flagging components likely to be affected by beam smearing...")
+    logger.debug("flagging components likely to be affected by beam smearing...")
     # Gas kinematics: beam semaring criteria of Federrath+2017 and Zhou+2017.
     for nn in range(ncomponents_max):
         if f"v_grad (component {nn + 1})" in df and f"sigma_gas (component {nn + 1})" in df:
@@ -196,7 +199,7 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
     ######################################################################
     # Flag rows with insufficient S/N in sigma_gas
     ######################################################################
-    logger.info("flagging components with low sigma_gas S/N...")
+    logger.debug("flagging components with low sigma_gas S/N...")
     # Gas kinematics: NaN out cells w/ sigma_gas S/N ratio < sigma_gas_SNR_min 
     # (For SAMI, the red arm resolution is 29.6 km/s - see p6 of Croom+2021)
     for nn in range(ncomponents_max):
@@ -219,7 +222,7 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
     ######################################################################
     # Stellar kinematics DQ cut
     ######################################################################
-    logger.info("flagging spaxels with unreliable stellar kinematics...")
+    logger.debug("flagging spaxels with unreliable stellar kinematics...")
     # Stellar kinematics: NaN out cells that don't meet the criteria given  
     # on page 18 of Croom+2021
     if all([c in df.columns for c in ["sigma_*", "v_*"]]):
@@ -340,8 +343,9 @@ def apply_flags(df,
  
 
     """
+    logger.debug("applying data quality and S/N flags...")
     if line_flux_SNR_cut:
-        logger.info("masking components that don't meet the S/N requirements...")
+        logger.debug("masking components that don't meet the S/N requirements...")
         for eline in eline_list:
             # Individual fluxes
             for nn in range(ncomponents_max):
@@ -369,7 +373,7 @@ def apply_flags(df,
                 df.loc[cond_low_SN, cols_low_SN] = np.nan
 
     if missing_fluxes_cut:
-        logger.info("masking components with missing fluxes...")
+        logger.debug("masking components with missing fluxes...")
         for eline in eline_list:
             # Individual fluxes
             for nn in range(ncomponents_max):
@@ -400,7 +404,7 @@ def apply_flags(df,
                 df.loc[cond_missing_flux, cols_missing_fluxes] = np.nan
 
     if line_amplitude_SNR_cut:
-        logger.info("masking components that don't meet the amplitude requirements...")
+        logger.debug("masking components that don't meet the amplitude requirements...")
         for eline in eline_list:
             for nn in range(ncomponents_max):
                 if f"{eline} (component {nn + 1})" in df:
@@ -427,7 +431,7 @@ def apply_flags(df,
                 df.loc[cond_low_amp, cols_low_amp] = np.nan
 
     if flux_fraction_cut:
-        logger.info("masking components 1, 2 where the flux ratio of this component:component 1 < 0.05...")
+        logger.debug("masking components 1, 2 where the flux ratio of this component:component 1 < 0.05...")
         for nn in range(1, ncomponents_max):
             for eline in eline_list:
                 if f"{eline} (component {nn + 1})" in df:
@@ -442,7 +446,7 @@ def apply_flags(df,
                     df.loc[cond_low_flux_fraction, cols_low_flux_fraction] = np.nan
 
     if vgrad_cut:
-        logger.info("masking components that don't meet the beam smearing requirement...")
+        logger.debug("masking components that don't meet the beam smearing requirement...")
         for nn in range(ncomponents_max):
             if f"v_grad (component {nn + 1})" in df:
                 cond_beam_smearing = df[f"Beam smearing flag (component {nn + 1})"]
@@ -453,7 +457,7 @@ def apply_flags(df,
                 df.loc[cond_beam_smearing, cols_beam_smearing] = np.nan
 
     if sigma_gas_SNR_cut:
-        logger.info("masking components with insufficient S/N in sigma_gas...")
+        logger.debug("masking components with insufficient S/N in sigma_gas...")
         for nn in range(ncomponents_max):
             if f"sigma_obs S/N (component {nn + 1})" in df:
                 cond_bad_sigma = df[f"Low sigma_gas S/N flag (component {nn + 1})"]
@@ -464,7 +468,7 @@ def apply_flags(df,
                 df.loc[cond_bad_sigma, cols_sigma_gas_SNR_cut] = np.nan
 
     if stekin_cut:
-        logger.info("masking spaxels with unreliable stellar kinematics...")
+        logger.debug("masking spaxels with unreliable stellar kinematics...")
         if "v_*" in df and "sigma_*" in df:
             cond_bad_stekin = df["Bad stellar kinematics"]
 
@@ -475,7 +479,7 @@ def apply_flags(df,
     ######################################################################
     # Identify which spaxels have "missing components"
     ######################################################################
-    logger.info("flagging spaxels with 'missing components'...")
+    logger.debug("flagging spaxels with 'missing components'...")
     """
     In datasets where emission lines have been fitted with multiple Gaussian 
     components, it is important to consider how to handle spaxels where one 
@@ -519,7 +523,7 @@ def apply_flags(df,
 
     """
     if base_missing_flux_components_on_HALPHA:
-        logger.info("using HALPHA to determine 'missing components'...")
+        logger.debug("using HALPHA to determine 'missing components'...")
         if all([col in df for col in [f"HALPHA (component 1)", f"HALPHA (component 2)", f"HALPHA (component 3)",
                                     f"sigma_gas (component 1)", f"sigma_gas (component 2)", f"sigma_gas (component 3)"]]):
             cond_has_3 = ~np.isnan(df["HALPHA (component 1)"]) & ~np.isnan(df["sigma_gas (component 1)"]) &\
@@ -657,7 +661,7 @@ def apply_flags(df,
 
     # Count how many spaxels have 'Number of components' != 'Number of components (original)'
     cond_mismatch = df["Number of components"] != df["Number of components (original)"]
-    logger.info(f"statistics: {df[cond_mismatch].shape[0] / df.shape[0] * 100.:.2f}% of spaxels have individual components that have been masked out")
+    logger.debug(f"statistics: {df[cond_mismatch].shape[0] / df.shape[0] * 100.:.2f}% of spaxels have individual components that have been masked out")
 
     ######################################################################
     # End
