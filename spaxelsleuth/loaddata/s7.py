@@ -693,7 +693,7 @@ def make_s7_df(gals=None,
     # Generic stuff: compute additional columns - extinction, metallicity, etc.
     ###############################################################################
     df_spaxels = add_columns(
-        df_spaxels,
+        df_spaxels.copy(),  # Pass a copy of the DataFrame to avoid a pandas PerformanceWarning
         eline_SNR_min=eline_SNR_min,
         sigma_gas_SNR_min=sigma_gas_SNR_min,
         eline_list=eline_list,
