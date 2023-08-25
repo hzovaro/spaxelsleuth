@@ -149,7 +149,6 @@ def plot2dmap(df,
         col, suffix = trim_suffix(col_z)
         if f"{col} (numeric)" + suffix in df_gal:
             col_z = f"{col} (numeric)" + suffix
-            logger.info("")
         else:
             raise ValueError(
                 f"{col_z} has an object data type and no numeric counterpart exists in df!"
