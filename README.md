@@ -8,6 +8,8 @@
 
 # Prerequisites 
 
+`spaxelsleuth` has been tested only in **python 3.10**. I cannot guarantee that it will work with other versions of python. I recommend creating a python 3.10 virtual environment using e.g. conda. 
+
 ## Required packages 
 
 * astropy
