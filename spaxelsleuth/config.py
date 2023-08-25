@@ -6,18 +6,18 @@ logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
 
 # Load the default config file
-def configure_logger(logfile_name=None):
+def configure_logger(logfile_name=None, level="INFO"):
     """Configure the logger for spaxelsleuth."""
     if logfile_name is None:
         logging.basicConfig(
             format='%(filename)s (%(lineno)s) %(funcName)s(): %(message)s', 
-            level=logging.INFO, 
+            level=logging.getLevelName(level),
             force=True)
     else:
         logging.basicConfig(
             filename=logfile_name, filemode="w",
             format='%(filename)s (%(lineno)s) %(funcName)s(): %(message)s', 
-            level=logging.INFO, 
+            level=logging.getLevelName(level),
             force=True)
     
 
