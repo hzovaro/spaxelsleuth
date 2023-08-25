@@ -525,7 +525,6 @@ def plot2dhistcontours(df,
             col, suffix = trim_suffix(col_z)
             if f"{col} (numeric)" + suffix in df:
                 col_z = f"{col} (numeric)" + suffix
-                logger.info("")
             else:
                 raise ValueError(
                     f"{col_z} has an object data type and no numeric counterpart exists in df!"
@@ -842,7 +841,6 @@ def plot2dscatter(df,
             col, suffix = trim_suffix(col_z)
             if f"{col} (numeric)" + suffix in df:
                 col_z = f"{col} (numeric)" + suffix
-                logger.info("")
             else:
                 raise ValueError(
                     f"{col_z} has an object data type and no numeric counterpart exists in df!"
