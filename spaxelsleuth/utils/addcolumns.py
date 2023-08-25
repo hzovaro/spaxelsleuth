@@ -9,8 +9,7 @@ logger = logging.getLogger(__name__)
 ###############################################################################
 def add_columns(df, **kwargs):
     """Computes quantities such as metallicities, extinctions, etc. for each row in df."""
-
-    status_str = "In addcolumns.add_columns():"
+    logger.info(f"adding columns to the DataFrame...")
 
     # Figure out the maximum number of components that has been fitted to each spaxel
     ncomponents_max = 0
@@ -35,6 +34,7 @@ def add_columns(df, **kwargs):
 
     ######################################################################
     # DQ and S/N CUTS
+    logger.info(f"setting & aplying data quality and S/N cuts...")
     df = dqcut.set_flags(df=df, ncomponents_max=ncomponents_max, **kwargs)
     df = dqcut.apply_flags(df=df, ncomponents_max=ncomponents_max, **kwargs)
 
@@ -92,16 +92,19 @@ def add_columns(df, **kwargs):
 
         df["Extinction correction applied"] = True
     else:
+        logger.info(f"skipping extinction correction...")
         df["Extinction correction applied"] = False
     df = df.sort_index()
 
     ######################################################################
     # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
+    logger.info(f"computing emission line ratios and BPT categories...")
     df = linefns.ratio_fn(df, s=f" (total)")
     df = linefns.bpt_fn(df, s=f" (total)")
 
     ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
+    logger.info(f"computing additional quantities...")
     df = continuum.compute_continuum_luminosity(df)
     df = linefns.compute_eline_luminosity(df, ncomponents_max, eline_list=["HALPHA"])
     if kwargs["compute_sfr"]:
@@ -113,6 +116,7 @@ def add_columns(df, **kwargs):
 
     ######################################################################
     # EVALUATE METALLICITY (only for spaxels with extinction correction)
+    logger.info(f"computing metallicities...")
     for diagnostic in kwargs["metallicity_diagnostics"]:        
         if diagnostic.endswith("K19"):
             df = metallicity.calculate_metallicity(met_diagnostic=diagnostic, compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df, s=" (total)")
@@ -123,6 +127,7 @@ def add_columns(df, **kwargs):
 
     ###############################################################################
     # Save input flags to the DataFrame
+    logger.info(f"adding flags to DataFrame...")
     for flag in ["eline_SNR_min", "sigma_gas_SNR_min",
                  "line_flux_SNR_cut", "missing_fluxes_cut", "line_amplitude_SNR_cut",
                  "flux_fraction_cut", "vgrad_cut", "sigma_gas_SNR_cut", "stekin_cut"]:
