@@ -7,7 +7,6 @@ import warnings
 import logging
 logger = logging.getLogger(__name__)
 
-////
 # Dict containing the line lists for each metallicity/ionisation parameter diagnostic
 line_list_dict = {
     # Kewley (2019) - log(O/H) + 12
@@ -41,7 +40,6 @@ line_list_dict = {
     "ON_P10": ["OII3726+OII3729", "OIII4959+OIII5007", "NII6548+NII6583", "SII6716+SII6731", "HBETA"],
 }
 
-////
 # Coefficients from Kewley (2019)
 # Valid for log(P/k) = 5.0 and -3.98 < log(U) < -1.98
 met_coeffs_K19 = {
