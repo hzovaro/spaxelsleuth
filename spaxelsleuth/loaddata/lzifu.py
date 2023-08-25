@@ -1,5 +1,5 @@
 import os
-from path import Path
+from pathlib import Path
 
 import datetime
 from astropy.io import fits
@@ -29,11 +29,8 @@ def add_metadata(df, df_metadata):
     """Merge an input DataFrame with that was created using make_lzifu_df()."""
     if "ID" not in df_metadata:
         raise ValueError("df_metadata must contain an 'ID' column!")
-
     df = df.merge(df_metadata, on="ID", how="left")
-
     return df
-
 
 #/////////////////////////////////////////////////////////////////////////////////
 def _process_lzifu(args):
@@ -41,18 +38,18 @@ def _process_lzifu(args):
     #######################################################################
     # Parse arguments
     #######################################################################
-    _, gal, ncomponents, bin_type, data_cube_path, _ = args
+    _, gal, ncomponents, data_cube_path = args
     lzifu_ncomponents = ncomponents if type(ncomponents) == int else 3
 
     #######################################################################
     # Scrape outputs from LZIFU output
     #######################################################################
-    hdulist_lzifu = fits.open(input_path + f"/{gal}_{ncomponents}_comp.fits")
+    hdulist_lzifu = fits.open(input_path / f"{gal}_{ncomponents}_comp.fits")
     hdr = hdulist_lzifu[0].header
 
     # NOTE: for some reason, the SET extension is missing from the merge_comp FITS file so we need to get it from one of the others :/
     if ncomponents == "merge":
-        hdulist_lzifu_1comp = fits.open(input_path + f"/{gal}_1_comp.fits")
+        hdulist_lzifu_1comp = fits.open(input_path / f"{gal}_1_comp.fits")
         t = hdulist_lzifu_1comp["SET"].data  # Table storing fit parameters
     else:
         t = hdulist_lzifu["SET"].data  # Table storing fit parameters
@@ -65,8 +62,8 @@ def _process_lzifu(args):
     # In either case, use SET to find the original datacubes used in the fit.
     onesided = True if t["ONLY_1SIDE"][0] == 1 else False
     if onesided:
-        datacube_fname = data_cube_path + f"/{gal}.fits"
-        datacube_fname_alt = data_cube_path + f"/{gal}.fits.gz"
+        datacube_fname = data_cube_path / f"{gal}.fits"
+        datacube_fname_alt = data_cube_path / f"{gal}.fits.gz"
         if not os.path.exists(datacube_fname):
             if os.path.exists(datacube_fname_alt):
                 datacube_fname = datacube_fname_alt
@@ -77,8 +74,8 @@ def _process_lzifu(args):
     else:
         datacube_fnames = []
         for side in ["B", "R"]:
-            datacube_fname = data_cube_path + f"/{gal}_{side}.fits"
-            datacube_fname_alt = data_cube_path + f"/{gal}_{side}.fits.gz"
+            datacube_fname = data_cube_path / f"{gal}_{side}.fits"
+            datacube_fname_alt = data_cube_path / f"{gal}_{side}.fits.gz"
             if not os.path.exists(datacube_fname):
                 if os.path.exists(datacube_fname_alt):
                     datacube_fname = datacube_fname_alt
@@ -172,12 +169,7 @@ def _process_lzifu(args):
 
     # Get coordinate lists corresponding to non-empty spaxels
     ny, nx = im_empty.shape
-    if bin_type == "default":
-        y_c_list, x_c_list = np.where(~im_empty)
-    else:
-        # Load the bin map
-        raise ValueError(
-            "Other binning methods have not been implemented yet!")
+    y_c_list, x_c_list = np.where(~im_empty)
 
     #/////////////////////////////////////////////////////////////////////////
     def _2d_map_to_1d_list(colmap):
@@ -380,10 +372,10 @@ def _process_lzifu(args):
 #/////////////////////////////////////////////////////////////////////////////////
 def make_lzifu_df(gals,
                   ncomponents,
+                  eline_SNR_min,
+                  correct_extinction,
                   sigma_inst_kms,
                   df_fname=None,
-                  bin_type=None,
-                  eline_SNR_min=5,
                   sigma_gas_SNR_min=3,
                   line_flux_SNR_cut=True,
                   missing_fluxes_cut=True,
@@ -391,8 +383,6 @@ def make_lzifu_df(gals,
                   flux_fraction_cut=False,
                   sigma_gas_SNR_cut=True,
                   vgrad_cut=False,
-                  stekin_cut=False,
-                  correct_extinction=True,
                   metallicity_diagnostics=[
                       "N2Ha_PP04",
                       "N2Ha_M13",
@@ -412,9 +402,164 @@ def make_lzifu_df(gals,
                       "N2Ha_K19",
                       "R23_KK04",
                   ],
-                  nthreads=20,
-                  debug=False):
-    """TODO: WRITE DOCSTRING"""
+                  nthreads=None):
+    """
+    Make a DataFrame from LZIFU fitting outputs, where each row represents a 
+    single spaxel in a galaxy.
+
+    DESCRIPTION
+    ---------------------------------------------------------------------------
+    This function is used to create a Pandas DataFrame containing emission line 
+    fluxes & kinematics, stellar kinematics, extinction, star formation rates, 
+    and other quantities for individual spaxels in galaxies where the emission
+    lines have been fitted using LZIFU.
+
+    The output is stored in HDF format as a Pandas DataFrame in which each row 
+    corresponds to a given spaxel for every galaxy. 
+
+    USAGE
+    ---------------------------------------------------------------------------
+    
+        >>> from spaxelsleuth.loaddata.lzifu import make_lzifu_df()
+        >>> make_lzifu_df(gals=gal_list, ncomponents=1, sigma_inst_kms=30, eline_SNR_min=5)
+
+    will create a DataFrame using the data products from 1-component Gaussian 
+    fits to the unbinned datacubes, and will adopt a minimum S/N threshold of 
+    5 to mask out unreliable emission line fluxes and associated quantities.
+    sigma_inst_kms refers to the Gaussian sigma of the instrumental line function
+    in km/s.    
+
+    Other input arguments may be configured to control other aspects of the data 
+    quality and S/N cuts made. 
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    gals:                       list
+        List of galaxies on which to run. 
+
+    ncomponents:                str
+        Controls which data products are used, depending on the number of 
+        Gaussian components fitted to the emission lines. 
+        Options are "merge" (the 'recommended' multi-component fits) or 1, 
+        2 or 3.
+
+    eline_SNR_min:              int 
+        Minimum emission line flux S/N to adopt when making S/N and data 
+        quality cuts.
+
+    correct_extinction:         bool 
+        If True, correct emission line fluxes for extinction. 
+
+        Note that the Halpha equivalent widths are NOT corrected for extinction if 
+        correct_extinction is True. This is because stellar continuum extinction 
+        measurements are not available, and so applying the correction only to the 
+        Halpha fluxes may over-estimate the true EW.
+    
+    sigma_inst_kms:             float
+        the Gaussian sigma of the instrumental line function in km/s.    
+
+    df_fname:                   str (optional)
+        Filename of the output DataFrame. Defaults to 
+            lzifu_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5
+        if correct_extinction is True, otherwise
+            lzifu_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5.
+
+    sigma_gas_SNR_min:          float (optional)
+        Minimum velocity dipersion S/N to accept. Defaults to 3.
+
+    line_flux_SNR_cut:          bool (optional)
+        Whether to NaN emission line components AND total fluxes 
+        (corresponding to emission lines in eline_list) below a specified S/N 
+        threshold, given by eline_SNR_min. The S/N is simply the flux dividied 
+        by the formal 1sigma uncertainty on the flux. Default: True.
+
+    missing_fluxes_cut:         bool (optional)
+        Whether to NaN out "missing" fluxes - i.e., cells in which the flux
+        of an emission line (total or per component) is NaN, but the error 
+        is not for some reason. Default: True.
+
+    line_amplitude_SNR_cut:     bool (optional)
+        If True, removes components with Gaussian amplitudes < 3 * RMS of the 
+        continuum in the vicinity of Halpha. By default this is set to True
+        because this does well at removing shallow components which are most 
+        likely due to errors in the stellar continuum fit. Default: True.
+
+    flux_fraction_cut:          bool (optional)
+        If True, and if ncomponents > 1, remove intermediate and broad 
+        components with line amplitudes < 0.05 that of the narrow componet.
+        Set to False by default b/c it's unclear whether this is needed to 
+        reject unreliable components. Default: False.
+
+    sigma_gas_SNR_cut:          bool (optional)
+        If True, mask component velocity dispersions where the S/N on the 
+        velocity dispersion measurement is below sigma_gas_SNR_min. 
+        By default this is set to True as it's a robust way to account for 
+        emission line widths < instrumental.  Default: True.
+
+    vgrad_cut:                  bool (optional)     
+        If True, mask component kinematics (velocity and velocity dispersion)
+        that are likely to be affected by beam smearing.
+        By default this is set to False because it tends to remove nuclear spaxels 
+        which may be of interest to your science case, & because it doesn't 
+        reliably remove spaxels with quite large beam smearing components.
+        Default: False.
+    
+    metallicity_diagnostics:    list of str (optional)
+        List of strong-line metallicity diagnostics to compute. 
+        Options:
+            N2Ha_K19    N2Ha diagnostic from Kewley (2019).
+            S2Ha_K19    S2Ha diagnostic from Kewley (2019).
+            N2S2_K19    N2S2 diagnostic from Kewley (2019).
+            S23_K19     S23 diagnostic from Kewley (2019).
+            O3N2_K19    O3N2 diagnostic from Kewley (2019).
+            O2S2_K19    O2S2 diagnostic from Kewley (2019).
+            O2Hb_K19    O2Hb diagnostic from Kewley (2019).
+            N2O2_K19    N2O2 diagnostic from Kewley (2019).
+            R23_K19     R23 diagnostic from Kewley (2019).
+            N2Ha_PP04   N2Ha diagnostic from Pilyugin & Peimbert (2004).
+            N2Ha_M13    N2Ha diagnostic from Marino et al. (2013).
+            O3N2_PP04   O3N2 diagnostic from Pilyugin & Peimbert (2004).
+            O3N2_M13    O3N2 diagnostic from Marino et al. (2013).
+            R23_KK04    R23 diagnostic from Kobulnicky & Kewley (2004).
+            N2S2Ha_D16  N2S2Ha diagnostic from Dopita et al. (2016).
+            N2O2_KD02   N2O2 diagnostic from Kewley & Dopita (2002).
+            Rcal_PG16   Rcal diagnostic from Pilyugin & Grebel (2016).
+            Scal_PG16   Scal diagnostic from Pilyugin & Grebel (2016).
+            ONS_P10     ONS diagnostic from Pilyugin et al. (2010).
+            ON_P10      ON diagnostic from Pilyugin et al. (2010).
+    
+    nthreads:                   int (optional)           
+        Maximum number of threads to use. Defaults to os.cpu_count().
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    The resulting DataFrame will be stored as 
+
+        settings["lzifu"]["output_path"]/lzifu_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5
+
+    if correct_extinction is True, or else
+
+        settings["lzifu"]["output_path"]/lzifu_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5
+
+    The DataFrame will be stored in CSV format in case saving in HDF format 
+    fails for any reason.
+
+    PREREQUISITES
+    ---------------------------------------------------------------------------
+    The data cubes must be and stored as follows: 
+
+        For one-sided fits:
+            settings["lzifu"]["data_cube_path"]/<gal>.fits(.gz)
+
+        For two-sided fits:
+            settings["lzifu"]["data_cube_path"]/<gal>_B.fits(.gz)
+            settings["lzifu"]["data_cube_path"]/<gal>_R.fits(.gz)
+
+    And the LZIFU outputs must be stored as
+
+        settings["lzifu"]["input_path"]/<gal>_<merge/1/2/3>_comp.fits
+
+    """
 
     ###############################################################################
     # input checking
@@ -424,27 +569,26 @@ def make_lzifu_df(gals,
             df_fname += ".hd5"
     else:
         # Input file name
-        df_fname = f"lzifu_{bin_type}_{ncomponents}-comp"
+        df_fname = f"lzifu_{ncomponents}-comp"
         if correct_extinction:
             df_fname += "_extcorr"
-        df_fname += f"_minSNR={eline_SNR_min}"
-        if debug:
-            df_fname += "_DEBUG"
-        df_fname += ".hd5"
+        df_fname += f"_minSNR={eline_SNR_min}.hd5"
 
     if (type(ncomponents) not in [int, str]) or (type(ncomponents) == str
                                                  and ncomponents != "merge"):
         raise ValueError("ncomponents must be either an integer or 'merge'!")
-    if bin_type != "default":
-        raise ValueError(
-            "bin_types other than 'default' have not yet been implemented!")
 
-    logger.info(f"input parameters: bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, correct_extinction={correct_extinction}")
+    logger.info(f"input parameters: ncomponents={ncomponents}, eline_SNR_min={eline_SNR_min}, correct_extinction={correct_extinction}")
+
+    # Determine number of threads
+    if nthreads is None:
+        nthreads = os.cpu_count()
+        logger.warning(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
 
     ###############################################################################
     # Scrape measurements for each galaxy from FITS files
     ###############################################################################
-    args_list = [[gg, gal, ncomponents, bin_type, data_cube_path]
+    args_list = [[gg, gal, ncomponents, data_cube_path]
                  for gg, gal in enumerate(gals)]
 
     if len(gals) == 1:
@@ -491,22 +635,21 @@ def make_lzifu_df(gals,
         flux_fraction_cut=flux_fraction_cut,
         sigma_gas_SNR_cut=sigma_gas_SNR_cut,
         vgrad_cut=vgrad_cut,
-        stekin_cut=stekin_cut,
+        stekin_cut=False,
         correct_extinction=correct_extinction,
         metallicity_diagnostics=metallicity_diagnostics,
         compute_sfr=True,
         sigma_inst_kms=sigma_inst_kms,
         nthreads=nthreads,
-        base_missing_flux_components_on_HALPHA=
-        False,  # NOTE: this is important!!
-        debug=debug)
+        base_missing_flux_components_on_HALPHA=False,  # NOTE: this is important!!
+        )
 
     ###############################################################################
     # Save to file
     ###############################################################################
     logger.info(f"saving to file {df_fname}...")
     df_spaxels.to_hdf(output_path / df_fname,
-                      key=f"{bin_type}{ncomponents}-comp")
+                      key=f"{ncomponents}-comp")
     logger.info(f"finished!")
 
     return
@@ -514,10 +657,8 @@ def make_lzifu_df(gals,
 
 #/////////////////////////////////////////////////////////////////////////////////
 def load_lzifu_df(ncomponents=None,
-                  bin_type=None,
                   correct_extinction=None,
                   eline_SNR_min=None,
-                  debug=False,
                   df_fname=None,
                   key=None):
 
@@ -527,22 +668,16 @@ def load_lzifu_df(ncomponents=None,
     # Input file name
     if df_fname is not None:
         logger.warning(
-            f"loading DataFrame from user-provided filename {output_path / df_fname} which may not correspond to the provided ncomponents, bin_type, etc. Proceed with caution!",
+            f"loading DataFrame from user-provided filename {output_path / df_fname} which may not correspond to the provided ncomponents, etc. Proceed with caution!",
             RuntimeWarning)
         if not df_fname.endswith(".hd5"):
             df_fname += ".hd5"
     else:
-        if bin_type not in settings["lzifu"]["bin_types"]:
-            raise ValueError(
-                f"bin_type {bin_type} is invalid for survey lzifu!")
         # Input file name
-        df_fname = f"lzifu_{bin_type}_{ncomponents}-comp"
+        df_fname = f"lzifu_{ncomponents}-comp"
         if correct_extinction:
             df_fname += "_extcorr"
-        df_fname += f"_minSNR={eline_SNR_min}"
-        if debug:
-            df_fname += "_DEBUG"
-        df_fname += ".hd5"
+        df_fname += f"_minSNR={eline_SNR_min}.hd5"
 
     if not os.path.exists(output_path / df_fname):
         raise FileNotFoundError(
@@ -561,8 +696,6 @@ def load_lzifu_df(ncomponents=None,
     # Add "metadata" columns to the DataFrame
     df["survey"] = "lzifu"
     df["ncomponents"] = ncomponents
-    df["bin_type"] = bin_type
-    df["debug"] = debug
 
     # Add back in object-type columns
     df["x, y (pixels)"] = list(
