@@ -1,6 +1,8 @@
 .ipynb_checkpoints/
 .gitignore~
+ __pycache__/
 *.pyc
 .DS_Store
 ._.DS_Store
 ._*
+.vscode
