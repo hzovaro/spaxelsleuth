@@ -647,9 +647,8 @@ def make_lzifu_df(gals,
     ###############################################################################
     # Save to file
     ###############################################################################
-    logger.info(f"saving to file {df_fname}...")
-    df_spaxels.to_hdf(output_path / df_fname,
-                      key=f"{ncomponents}-comp")
+    logger.info(f"saving to file {output_path / df_fname}...")
+    df_spaxels.to_hdf(output_path / df_fname, key="lzifu")
     logger.info(f"finished!")
 
     return
