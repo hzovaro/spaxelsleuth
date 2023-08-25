@@ -2,6 +2,9 @@ from itertools import product
 import numpy as np
 from scipy import constants
 
+import logging 
+logger = logging.getLogger(__name__)
+
 ###############################################################################
 def get_wavelength_from_velocity(lambda_rest, v, units):
     """Compute the Doppler-shifted wavelength given a velocity and a rest-frame wavelength."""
@@ -44,6 +47,7 @@ def get_slices_in_velocity_range(data_cube, var_cube, lambda_vals_rest_A, lambda
 ###############################################################################
 def compute_v_grad(v_map):
     """Compute v_grad using eqn. 1 of Zhou+2017."""
+    logger.debug("computing velocity gradients...")
     v_grad = np.full_like(v_map, np.nan)
     if v_map.ndim == 2:
         ny, nx = v_map.shape
