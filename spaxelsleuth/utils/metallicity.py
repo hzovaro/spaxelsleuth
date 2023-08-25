@@ -625,6 +625,7 @@ def _compute_logOH12(met_diagnostic, df,
 def _met_helper_fn(args):
     """Helper function used in _get_metallicity() to compute metallicities across multiple threads."""
     met_diagnostic, df, logU, compute_logU, ion_diagnostic, niters = args
+    df = df.copy()  # Make a copy to avoid the pandas SettingWithCopyWarning
     compute_errors = True if niters > 1 else False
 
     #//////////////////////////////////////////////////////////////////////////
@@ -679,25 +680,23 @@ def _met_helper_fn(args):
 
     # Add to DataFrame
     with warnings.catch_warnings():
-        warnings.filterwarnings(action="ignore", category=RuntimeWarning)
-        pd.options.mode.chained_assignment = None
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="Mean of empty slice")
         if compute_logU:
-            df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
-            df[f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logU_vals, axis=0)
+            df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
+            df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logU_vals, axis=0)
             if compute_errors:
-                df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
-                df[f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
-                df[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logU_vals, axis=0) - np.quantile(logU_vals, q=0.16, axis=0)
-                df[f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logU_vals, q=0.84, axis=0) - np.nanmean(logU_vals, axis=0)
+                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
+                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
+                df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logU_vals, axis=0) - np.quantile(logU_vals, q=0.16, axis=0)
+                df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logU_vals, q=0.84, axis=0) - np.nanmean(logU_vals, axis=0)
         
         else:
-            df[f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
+            df.loc[:, f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
             if compute_errors:
-                df[f"log(O/H) + 12 ({met_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
-                df[f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
+                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
+                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
             if logU is not None:
-                df[f"log(U) ({met_diagnostic})"] = np.nanmean(logU_vals, axis=0)
-        pd.options.mode.chained_assignment = "warn"
+                df.loc[:, f"log(U) ({met_diagnostic})"] = np.nanmean(logU_vals, axis=0)
 
     return df 
 
