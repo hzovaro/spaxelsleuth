@@ -25,6 +25,7 @@ input_path = Path(settings["s7"]["input_path"])
 output_path = Path(settings["s7"]["output_path"])
 data_cube_path = Path(settings["s7"]["data_cube_path"])
 
+
 ###############################################################################
 def make_s7_metadata_df():
     """
@@ -116,6 +117,7 @@ def make_s7_metadata_df():
     }
     df_metadata = df_metadata.rename(columns=rename_dict)
     df_metadata = df_metadata.set_index(df_metadata["ID"])
+    df_metadata.index.name = ""
 
     # Get rid of unneeded columns
     good_cols = [rename_dict[k] for k in rename_dict.keys()] + ["RA (J2000)", "Dec (J2000)"]
@@ -415,22 +417,18 @@ def _process_s7(args):
     rows_arr = np.array(rows_list).T
 
     # Get rid of rows that are all NaNs
-    # id_idx = colnames.index("ID")
     bad_rows = np.all(np.isnan(rows_arr), axis=1)
     rows_good = rows_arr[~bad_rows]
 
-    # Append a column with the galaxy ID & other properties
-    safe_cols = [
-        c for c in df_metadata.columns if (df_metadata[c].dtypes == float) or (df_metadata[c].dtypes == int)
-    ] + ["ID"]
+    # Append a column with the galaxy ID, so we know which galaxy these rows belong to
     gal_metadata = np.tile(
-        df_metadata.loc[df_metadata.loc[:, "ID"] == gal][safe_cols].values,
+        df_metadata.loc[df_metadata.loc[:, "ID"] == gal]["ID"].values,
         (len(x_c_list), 1))
     rows_good = np.hstack((gal_metadata, rows_good))
 
     logger.info(f"finished processing {gal}")
 
-    return rows_good, colnames, eline_list
+    return rows_good, ["ID"] + colnames, eline_list
 
 
 #/////////////////////////////////////////////////////////////////////////////////
@@ -680,16 +678,16 @@ def make_s7_df(gals=None,
     rows_list_all = [r[0] for r in res_list]
     colnames = res_list[0][1]
     eline_list = res_list[0][2]
-    safe_cols = [
-        c for c in df_metadata.columns if (df_metadata[c].dtypes == float) or (df_metadata[c].dtypes == int)
-    ] + ["ID"]
     df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)),
-                              columns=safe_cols + colnames)
+                              columns=colnames)
 
     # Cast to float data types
     for col in [c for c in df_spaxels.columns if c != "ID"]:
         # Check if column values can be cast to float
         df_spaxels[col] = pd.to_numeric(df_spaxels[col], errors="coerce")
+
+    # Merge with metadata 
+    df_spaxels = df_spaxels.merge(df_metadata, on="ID", how="left")
 
     ###############################################################################
     # Generic stuff: compute additional columns - extinction, metallicity, etc.
