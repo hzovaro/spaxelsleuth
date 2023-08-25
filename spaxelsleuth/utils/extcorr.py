@@ -92,6 +92,7 @@ def compute_A_V(df,
 
 
     """
+    logger.debug(f"computing A_V for suffix '{s}'...")
     #//////////////////////////////////////////////////////////////////////////
     # Remove suffixes on columns
     #//////////////////////////////////////////////////////////////////////////
@@ -214,6 +215,7 @@ def apply_extinction_correction(df, eline_list, a_v_col_name,
     A_V, and corresponding errors.
 
     """
+    logger.debug(f"applying extinction correction to suffix '{s}'...")
     #//////////////////////////////////////////////////////////////////////////
     # Remove suffixes on columns
     #//////////////////////////////////////////////////////////////////////////
@@ -248,7 +250,7 @@ def apply_extinction_correction(df, eline_list, a_v_col_name,
     df_extcorr = df[cond_extcorr]
     df_noextcorr = df[~cond_extcorr]
     if df_extcorr.shape[0] == 0:
-        logger.info(f"no cells found with A_V > 0 - not applying correction!")
+        logger.debug(f"no cells found with A_V > 0 - not applying correction!")
         if s is not None:
             # Get list of new columns that have been added
             added_cols = [c for c in df.columns if c not in old_cols]
@@ -262,13 +264,13 @@ def apply_extinction_correction(df, eline_list, a_v_col_name,
     # Multithreading 
     args_list = [[rr, df_extcorr, eline_list, a_v_col_name, ext_fn] for rr in df_extcorr.index.values]
     if nthreads > 1:
-        logger.info(f"multithreading A_V computation across {nthreads} threads...")
+        logger.debug(f"multithreading A_V computation across {nthreads} threads...")
         pool = multiprocessing.Pool(nthreads)
         res_list = pool.map(extcorr_helper_fn, args_list)
         pool.close()
         pool.join()
     else:
-        logger.info(f"computing A_V sequentially...")
+        logger.debug(f"computing A_V sequentially...")
         res_list = []
         for arg in args_list:
             res_list.append(extcorr_helper_fn(arg))
