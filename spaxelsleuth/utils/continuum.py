@@ -40,8 +40,8 @@ def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A
     """Compute the mean, std. dev. and error of the mean of the continuum between start_A and stop_A."""
     data_cube_masked, var_cube_masked = get_slices_in_velocity_range(data_cube, var_cube, lambda_vals_rest_A, start_A, stop_A, v_map)
     with warnings.catch_warnings():
-        warnings.filterwarnings(action="ignore", message="Mean of empty slice")
-        warnings.filterwarnings(action="ignore", message="RuntimeWarning: Degrees of freedom <= 0 for slice.")
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="Mean of empty slice")
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="Degrees of freedom <= 0 for slice.")
         cont_map = np.nanmean(data_cube_masked, axis=0)
         cont_map_std = np.nanstd(data_cube_masked, axis=0)
         N = np.nansum(~np.isnan(data_cube_masked), axis=0)
