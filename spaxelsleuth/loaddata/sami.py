@@ -956,6 +956,7 @@ def _process_gals(args):
         df_metadata.loc[gal, "kpc per arcsec"]**2)
     colnames.append("Bin size (square kpc)")
 
+    ##########################################################
     # Transpose so that each row represents a single pixel & each column a measured quantity.
     rows_arr = np.array(rows_list).T
 
@@ -963,18 +964,15 @@ def _process_gals(args):
     bad_rows = np.all(np.isnan(rows_arr), axis=1)
     rows_good = rows_arr[~bad_rows]
 
-    # Append a column with the galaxy ID & other properties
-    safe_cols = [
-        c for c in df_metadata.columns if df_metadata[c].dtype != "object"
-    ]
+    # Append a column with the galaxy ID, so we know which galaxy these rows belong to
     gal_metadata = np.tile(
-        df_metadata.loc[df_metadata.loc[:, "ID"] == gal][safe_cols].values,
+        df_metadata.loc[df_metadata.loc[:, "ID"] == gal]["ID"].values,
         (ngood_bins, 1))
     rows_good = np.hstack((gal_metadata, rows_good))
 
-    logger.info(f"Finished processing {gal} ({gal_idx})")
+    logger.info(f"finished processing {gal} ({gal_idx})")
 
-    return rows_good, colnames
+    return rows_good, ["ID"] + colnames
 
 
 ###############################################################################
@@ -1330,11 +1328,11 @@ def make_sami_df(bin_type,
     ###############################################################################
     rows_list_all = [r[0] for r in res_list]
     colnames = res_list[0][1]
-    safe_cols = [
-        c for c in df_metadata.columns if df_metadata[c].dtype != "object"
-    ]
     df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)),
-                              columns=safe_cols + colnames)
+                              columns=colnames)
+
+    # Merge with metadata
+    df_spaxels = df_spaxels.merge(df_metadata, on="ID", how="left")
 
     ###############################################################################
     # Add extra columns
