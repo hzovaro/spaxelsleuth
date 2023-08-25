@@ -363,10 +363,7 @@ def bpt_fn(df, s=None):
 
         # Everything that can be classified
         df_classified = df[~cond_not_classified]
-        if not df_classified.empty:
-            #TODO why is this line here???
-            df_classified.loc[:, "BPT (numeric)"] = 4
-
+        
         # SF
         cond_SF  = df_classified["log O3"] < Kauffman2003("log N2", df_classified["log N2"])
         cond_SF &= df_classified["log O3"] < Kewley2001("log S2", df_classified["log S2"])
