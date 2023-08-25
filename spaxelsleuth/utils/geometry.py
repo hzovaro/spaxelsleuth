@@ -1,5 +1,8 @@
 import numpy as np
 
+import logging 
+logger = logging.getLogger(__name__)
+
 ###############################################################################
 def deproject_coordinates(x_c_list,
                           y_c_list,
@@ -12,6 +15,7 @@ def deproject_coordinates(x_c_list,
     """Deproject coordinates x_c_list, y_c_list given a galaxy inclination (i_deg), PA (PA_deg) and centre coordinates (x0_px, y0_px).
        If plotit is set to True, creates a plot showing the projected and de-projected coordinates overlaid onto the provided image im.
     """
+    logger.debug(f"deprojecting coordinates...")
     i_rad = np.deg2rad(i_deg)
     beta_rad = np.deg2rad(PA_deg - 90)
 
