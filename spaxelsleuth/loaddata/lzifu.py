@@ -625,7 +625,7 @@ def make_lzifu_df(gals,
     # Generic stuff: compute additional columns - extinction, metallicity, etc.
     ###############################################################################
     df_spaxels = add_columns(
-        df_spaxels,
+        df_spaxels.copy(),
         eline_SNR_min=eline_SNR_min,
         sigma_gas_SNR_min=sigma_gas_SNR_min,
         eline_list=eline_list,
