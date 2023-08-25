@@ -268,7 +268,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     cond &= df_flags["warnskyr"] == 0  # bad sky subtraction residuals
     cond &= df_flags[
         "warnre"] == 0  # significant difference between standard & MGE Re. NOTE: there are actually no entries in this DataFrame with WARNRE = 1!
-    df_flags_cut = df_flags[cond]
+    df_flags_cut = df_flags[cond].copy()
 
     for gal in df_flags_cut["catid"]:
         if df_flags_cut[df_flags_cut["catid"] == gal].shape[0] > 1:
