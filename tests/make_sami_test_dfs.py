@@ -2,8 +2,9 @@ if __name__ == "__main__":
     from itertools import product
     import sys
 
-    from spaxelsleuth import load_user_config
+    from spaxelsleuth import load_user_config, configure_logger
     load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
+    configure_logger(level="DEBUG")
     from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_df
 
     ###########################################################################
