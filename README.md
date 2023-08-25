@@ -12,6 +12,7 @@
 
 * astropy
 * extinction
+* ipympl (*only required for example notebooks*)
 * matplotlib
 * pandas
 * pytables
@@ -50,6 +51,20 @@ The settings themselves can be accessed in the form of a `dict` using
 ```
 from spaxelsleuth.config import settings
 input_path = settings["sami"]["input_path"]
+```
+
+## Logging
+
+By default, information messages and warnings are printed to the terminal. To save the output to a file instead, simply do the following:
+```
+from spaxelsleuth import configure_logger
+configure_logger(logfile_name="output.log")
+```
+The minimum level of messages logged can be controlled using the `level` parameter:
+```
+configure_logger(level="DEBUG")    # print ALL messages
+configure_logger(level="INFO")     # print information and warning messages (default - recommended)
+configure_logger(level="WARNING")  # print only warnings 
 ```
 
 # Using `spaxelsleuth` with SAMI
@@ -224,7 +239,7 @@ A Jupyter notebook showing you how to get up and running with `spaxelsleuth` usi
 
 1. Create LZIFU spaxel DataFrames by running `loaddaata.lzifu.make_lzifu_df()`. See the docstrings within for details on how to process data with different emission line fitting and/or binning schemes, how to apply different S/N cuts, etc.
 2. After running `make_lzifu_df()`, the DataFrame can be loaded using `loaddata.lzifu.load_lzifu_df()`. 
-
+3. Use `loaddata.lzifu.add_metadata()` to merge the DataFrame with another containing metadata (e.g. stellar masses, position angles, etc.).
 
 
 # Using `spaxelsleuth` with S7 data
