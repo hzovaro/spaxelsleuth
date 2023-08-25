@@ -88,11 +88,6 @@ def make_sami_aperture_df(eline_SNR_min,
 
     """
     #######################################################################
-    # INPUT CHECKING
-    # For printing to stdout
-    status_str = f"In sami.make_sami_aperture_df()"
-
-    #######################################################################
     # FILENAMES
     df_metadata_fname = "sami_dr3_metadata.hd5"
 
