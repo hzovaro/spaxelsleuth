@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 import logging
 logger = logging.getLogger(__name__)
@@ -123,25 +124,27 @@ def compute_log_columns(df, ncomponents_max):
     df = df.copy()  # To suppress "PerformanceWarning: DataFrame is highly fragmented." warning
 
     # Halpha flux and EW for individual components
-    for col in ["HALPHA luminosity", "HALPHA continuum", "HALPHA EW", "sigma_gas", "S2 ratio"]:
-        for s in ["(total)"] + [f"(component {nn})" for nn in range(1, ncomponents_max + 1)]:
-            # Compute log quantities for total 
-            if f"{col} {s}" in df:
-                df[f"log {col} {s}"] = np.log10(df[f"{col} {s}"])
-            if f"{col} error {s}" in df:
-                df[f"log {col} error (lower) {s}"] = df[f"log {col} {s}"] - np.log10(df[f"{col} {s}"] - df[f"{col} error {s}"])
-                df[f"log {col} error (upper) {s}"] = np.log10(df[f"{col} {s}"] + df[f"{col} error {s}"]) -  df[f"log {col} {s}"]
-
-    # Compute log quantities for total SFR
-    for col in ["SFR", "SFR surface density", "sSFR"]:
-        for s in ["(total)"] + [f"(component {nn})" for nn in range(1, ncomponents_max + 1)]:
-            if f"{col} {s}" in df:
-                cond = ~np.isnan(df[f"{col} {s}"])
-                cond &= df[f"{col} {s}"] > 0
-                df.loc[cond, f"log {col} {s}"] = np.log10(df.loc[cond, f"{col} {s}"])
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="invalid value encountered in log10")
+        for col in ["HALPHA luminosity", "HALPHA continuum", "HALPHA EW", "sigma_gas", "S2 ratio"]:
+            for s in ["(total)"] + [f"(component {nn})" for nn in range(1, ncomponents_max + 1)]:
+                # Compute log quantities for total 
+                if f"{col} {s}" in df:
+                    df[f"log {col} {s}"] = np.log10(df[f"{col} {s}"])
                 if f"{col} error {s}" in df:
-                    df.loc[cond, f"log {col} error (lower) {s}"] = df.loc[cond, f"log {col} {s}"] - np.log10(df.loc[cond, f"{col} {s}"] - df.loc[cond, f"{col} error {s}"])
-                    df.loc[cond, f"log {col} error (upper) {s}"] = np.log10(df.loc[cond, f"{col} {s}"] + df.loc[cond, f"{col} error {s}"]) -  df.loc[cond, f"log {col} {s}"]
+                    df[f"log {col} error (lower) {s}"] = df[f"log {col} {s}"] - np.log10(df[f"{col} {s}"] - df[f"{col} error {s}"])
+                    df[f"log {col} error (upper) {s}"] = np.log10(df[f"{col} {s}"] + df[f"{col} error {s}"]) -  df[f"log {col} {s}"]
+
+        # Compute log quantities for total SFR
+        for col in ["SFR", "SFR surface density", "sSFR"]:
+            for s in ["(total)"] + [f"(component {nn})" for nn in range(1, ncomponents_max + 1)]:
+                if f"{col} {s}" in df:
+                    cond = ~np.isnan(df[f"{col} {s}"])
+                    cond &= df[f"{col} {s}"] > 0
+                    df.loc[cond, f"log {col} {s}"] = np.log10(df.loc[cond, f"{col} {s}"])
+                    if f"{col} error {s}" in df:
+                        df.loc[cond, f"log {col} error (lower) {s}"] = df.loc[cond, f"log {col} {s}"] - np.log10(df.loc[cond, f"{col} {s}"] - df.loc[cond, f"{col} error {s}"])
+                        df.loc[cond, f"log {col} error (upper) {s}"] = np.log10(df.loc[cond, f"{col} {s}"] + df.loc[cond, f"{col} error {s}"]) -  df.loc[cond, f"log {col} {s}"]
                 
     return df
 
