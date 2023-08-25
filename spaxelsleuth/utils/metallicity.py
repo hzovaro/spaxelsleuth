@@ -788,8 +788,8 @@ def _get_metallicity(met_diagnostic, df,
             cond_nomet |= df[f"{eline}"].isna()
             cond_nomet |= df[f"{eline} error"].isna()
 
-    df_nomet = df[cond_nomet]
-    df_met = df[~cond_nomet]
+    df_nomet = df[cond_nomet].copy()
+    df_met = df[~cond_nomet].copy()
     if ion_diagnostic is None:
         logger.info(f"able to calculate {met_diagnostic} log(O/H) + 12  in {df_met.shape[0]:d}/{df.shape[0]:d} ({df_met.shape[0] / df.shape[0] * 100:.2f}%) of rows")
     else:
@@ -800,10 +800,8 @@ def _get_metallicity(met_diagnostic, df,
 
     # Add empty columns to stop Pandas from throwing an error at pd.concat
     new_cols = [c for c in df_met.columns if c not in df_nomet.columns]
-    pd.options.mode.chained_assignment = None
     for c in new_cols:
         df_nomet[c] = np.nan
-    pd.options.mode.chained_assignment = "warn"
 
     # Merge back with original DataFrame
     logger.info(f"concatenating DataFrames...")
