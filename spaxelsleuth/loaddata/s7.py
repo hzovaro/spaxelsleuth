@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-import warnings
 
 import datetime
 from astropy.io import fits
@@ -25,16 +24,6 @@ logger = logging.getLogger(__name__)
 input_path = Path(settings["s7"]["input_path"])
 output_path = Path(settings["s7"]["output_path"])
 data_cube_path = Path(settings["s7"]["data_cube_path"])
-
-#/////////////////////////////////////////////////////////////////////////////////
-def add_metadata(df, df_metadata):
-    """Merge an input DataFrame with that was created using make_s7_df()."""
-    if "ID" not in df_metadata:
-        raise ValueError("df_metadata must contain an 'ID' column!")
-
-    df = df.merge(df_metadata, on="ID", how="left")
-
-    return df
 
 ###############################################################################
 def make_s7_metadata_df():
@@ -447,6 +436,7 @@ def _process_s7(args):
 #/////////////////////////////////////////////////////////////////////////////////
 def make_s7_df(gals=None,
                 eline_SNR_min=5,
+                correct_extinction=True,
                 sigma_gas_SNR_min=3,
                 line_flux_SNR_cut=True,
                 missing_fluxes_cut=True,
@@ -454,7 +444,6 @@ def make_s7_df(gals=None,
                 flux_fraction_cut=False,
                 sigma_gas_SNR_cut=True,
                 vgrad_cut=False,
-                correct_extinction=True,
                 metallicity_diagnostics=[
                     "N2Ha_PP04",
                     "N2Ha_M13",
@@ -507,28 +496,16 @@ def make_s7_df(gals=None,
 
     INPUTS
     ---------------------------------------------------------------------------
-    ncomponents:                str
-        Controls which data products are used, depending on the number of 
-        Gaussian components fitted to the emission lines. 
-        Options are "recom" (the recommended multi-component fits) or "1" 
-        (1-component fits).
-        
-        NOTE: if __use_lzifu_fits is True, then ncomponents is ONLY used in  
-        loading data products that are NOT contained in the output LZIFU files -
-        i.e., SFRs/SFR surface densities and HALPHA extinction correction 
-        factors. Use parameter __lzifu_ncomponents to control which data 
-        derived from the LZIFU fits is loaded. 
-
-    bin_type:                   str
-        Spatial binning strategy. Options are "default" (unbinned), "adaptive"
-        (Voronoi binning) or "sectors" (sector binning)
+    gals:                       list of str
+        List of galaxies on which to run. If unspecified, will run on the full
+        S7 sample.
 
     eline_SNR_min:              int 
         Minimum emission line flux S/N to adopt when making S/N and data 
-        quality cuts.
+        quality cuts. Defaults to 5.
 
     correct_extinction:         bool
-        If True, correct emission line fluxes for extinction. 
+        If True, correct emission line fluxes for extinction. Defaults to True.
 
         Note that the Halpha equivalent widths are NOT corrected for extinction if 
         correct_extinction is True. This is because stellar continuum extinction 
@@ -617,45 +594,31 @@ def make_s7_df(gals=None,
 
     PREREQUISITES
     ---------------------------------------------------------------------------
-    make_sami_metadata_df() must be run first.
+    make_s7_metadata_df() must be run first.
 
-    SAMI data products must be downloaded from DataCentral
+    S7 data products are available at 
+
+        https://miocene.anu.edu.au/S7/Data_release_2/ 
+    
+    This script requires the blue and red datacubes as well as the "best-component" 
+    emission line fits. These can be downloaded at the following links:
+
+        https://miocene.anu.edu.au/S7/Data_release_2/S7_DR2_Data_cubes/ 
+        https://miocene.anu.edu.au/S7/Data_release_2/S7_DR2_LZIFU_best_component_fits/Post-processed_mergecomps/ 
+
+    They may also be downloaded from DataCentral (not yet as of 25/08/2023):
 
         https://datacentral.org.au/services/download/
 
-    and stored as follows: 
+    The data cubes must be and stored as follows: 
 
-        settings["sami"]["output_path"]/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits
+        settings["s7"]["data_cube_path"]/<gal>_R.fits
+        settings["s7"]["data_cube_path"]/<gal>_B.fits
 
-    This is essentially the default file structure when data products are 
-    downloaded from DataCentral and unzipped:
+    And the emission line data fits must be stored as 
 
-        sami/dr3/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits
+        settings["s7"]["input_path"]/<gal>_best_components.fits
 
-    The following data products are required to run this script:
-
-        Halpha_{bin_type}_{ncomponents}-comp.fits,
-        Hbeta_{bin_type}_{ncomponents}-comp.fits,
-        NII6583_{bin_type}_{ncomponents}-comp.fits,
-        OI6300_{bin_type}_{ncomponents}-comp.fits,
-        OII3728_{bin_type}_{ncomponents}-comp.fits,
-        OIII5007_{bin_type}_{ncomponents}-comp.fits,
-        SII6716_{bin_type}_{ncomponents}-comp.fits,
-        SII6731_{bin_type}_{ncomponents}-comp.fits,
-        gas-vdisp_{bin_type}_{ncomponents}-comp.fits,
-        gas-velocity_{bin_type}_{ncomponents}-comp.fits,
-        stellar-velocity-dispersion_{bin_type}_two-moment.fits,
-        stellar-velocity_{bin_type}_two-moment.fits,
-        extinct-corr_{bin_type}_{ncomponents}-comp.fits,
-        sfr-dens_{bin_type}_{ncomponents}-comp.fits,
-        sfr_{bin_type}_{ncomponents}-comp.fits
-
-    SAMI data cubes must also be downloaded from DataCentral and stored as follows: 
-
-        settings["sami"]["data_cube_path"]/ifs/<gal>/<gal>_A_cube_<blue/red>.fits.gz
-
-    settings["sami"]["data_cube_path"] can be the same as settings["sami"]["output_path"] (I just have them differently
-    in my setup due to storage space limitations).
     """
 
     ###############################################################################
@@ -674,7 +637,13 @@ def make_s7_df(gals=None,
 
     # Check validity of input galaxies
     if gals is None:
-        gals = df_metadata["ID"].unique()
+        gals_full_sample = df_metadata["ID"].unique()
+        gals_B_datacubes = [f.rstrip("_B.fits") for f in os.listdir(data_cube_path) if not f.startswith(".")]
+        gals_R_datacubes = [f.rstrip("_R.fits") for f in os.listdir(data_cube_path) if not f.startswith(".")]
+        gals_linefits = [f.rstrip("_best_components.fits") for f in os.listdir(input_path) if not f.startswith(".")]
+        gals = [g for g in gals_B_datacubes if g in gals_R_datacubes and g in gals_linefits and g in gals_full_sample]
+        if len(gals) < len(gals_full_sample):
+            logger.warn(f"I could only find {len(gals)}/{len(gals_full_sample)} galaxies, so I am only running on these!")
     else:
         for gal in gals:
             if gal not in df_metadata["ID"].unique():
