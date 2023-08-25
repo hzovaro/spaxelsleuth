@@ -505,7 +505,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
 
         # Save
         logger.info(
-            "saving aperture SNR DataFrame to file..."
+            f"saving aperture SNR DataFrame to file {output_path / 'sami_dr3_aperture_snrs.hd5'}..."
         )
         df_snr.to_hdf(output_path / "sami_dr3_aperture_snrs.hd5", key="SNR")
 
@@ -1368,7 +1368,7 @@ def make_sami_df(bin_type,
     ###############################################################################
     # Save
     ###############################################################################
-    logger.info(f"saving to file {df_fname}...")
+    logger.info(f"saving to file {output_path / df_fname}...")
 
     # Remove object-type columns
     bad_cols = [c for c in df_spaxels if df_spaxels[c].dtype == "object"]
