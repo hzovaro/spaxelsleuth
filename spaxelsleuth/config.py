@@ -12,13 +12,13 @@ def configure_logger(logfile_name=None, level="INFO"):
         raise ValueError(f"level must be one of the following: 'DEBUG', 'INFO', 'WARNING', 'ERROR', or 'CRITICAL'")
     if logfile_name is None:
         logging.basicConfig(
-            format='%(filename)s (%(lineno)s) %(funcName)s(): %(message)s', 
+            format='%(filename)s (%(lineno)s) %(funcName)s(): %(levelname)s: %(message)s', 
             level=logging.getLevelName(level),
             force=True)
     else:
         logging.basicConfig(
             filename=logfile_name, filemode="w",
-            format='%(filename)s (%(lineno)s) %(funcName)s(): %(message)s', 
+            format='%(filename)s (%(lineno)s) %(funcName)s(): %(levelname)s: %(message)s', 
             level=logging.getLevelName(level),
             force=True)
     
