@@ -5,10 +5,14 @@ import warnings
 from spaxelsleuth.utils.velocity import get_slices_in_velocity_range
 from spaxelsleuth.utils.misc import in_dataframe
 
+import logging
+logger = logging.getLogger(__name__)
+
 ###############################################################################
 def compute_d4000(data_cube, var_cube, lambda_vals_rest_A, v_star_map):
     """Compute the D4000Å break strength in a given data cube.
     Definition from Balogh+1999 (see here: https://arxiv.org/pdf/1611.07050.pdf, page 3)"""
+    logger.debug(f"computing D4000 break strengths...")
 
     # Convert datacube & variance cubes to units of F_nu
     data_cube_Hz = data_cube * lambda_vals_rest_A[:, None, None]**2 / (constants.c * 1e10)
@@ -38,6 +42,7 @@ def compute_d4000(data_cube, var_cube, lambda_vals_rest_A, v_star_map):
 ###############################################################################
 def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A, stop_A, v_map):
     """Compute the mean, std. dev. and error of the mean of the continuum between start_A and stop_A."""
+    logger.debug(f"computing continuum intensities...")
     data_cube_masked, var_cube_masked = get_slices_in_velocity_range(data_cube, var_cube, lambda_vals_rest_A, start_A, stop_A, v_map)
     with warnings.catch_warnings():
         warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="Mean of empty slice")
@@ -56,6 +61,7 @@ def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A
 ######################################################################
 def compute_continuum_luminosity(df):
     """Compute HALPHA continuum luminosity."""
+    logger.debug(f"computing continuum luminosities...")
     # HALPHA cont. luminosity: units of erg s^-1 Å-1 kpc^-2
     if all([col in df for col in ["D_L (Mpc)", "Bin size (square kpc)"]]):
         if all([col in df for col in ["HALPHA continuum", "HALPHA continuum error"]]):
@@ -76,6 +82,7 @@ def compute_EW(df, ncomponents_max, eline_list):
             <eline> continuum -- corresponding continuum level
 
     """
+    logger.debug(f"computing equivalent widths...")
     for eline in eline_list:
         if in_dataframe(df, [f"{eline} continuum"]):
             # Zero out -ve continuum values
