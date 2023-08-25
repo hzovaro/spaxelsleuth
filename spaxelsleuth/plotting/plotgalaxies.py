@@ -521,7 +521,7 @@ def plot2dhistcontours(df,
     if col_z is None and hist is True:
         raise ValueError("if hist is True then col_z must be specified!")
     else:
-        if col_z is not "count" and df[col_z].dtype == "O":
+        if col_z != "count" and df[col_z].dtype == "O":
             col, suffix = trim_suffix(col_z)
             if f"{col} (numeric)" + suffix in df:
                 col_z = f"{col} (numeric)" + suffix
