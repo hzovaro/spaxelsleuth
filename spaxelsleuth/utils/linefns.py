@@ -357,49 +357,49 @@ def bpt_fn(df, s=None):
         cond_not_classified  = np.isnan(df["log O3"])
         cond_not_classified |= np.isnan(df["log N2"])
         cond_not_classified |= np.isnan(df["log S2"])
-        df_not_classified = df[cond_not_classified]
+        df_not_classified = df[cond_not_classified].copy()
         if not df_not_classified.empty:
             df_not_classified.loc[:, "BPT (numeric)"] = -1
 
         # Everything that can be classified
-        df_classified = df[~cond_not_classified]
-        
+        df_classified = df[~cond_not_classified].copy()
+
         # SF
         cond_SF  = df_classified["log O3"] < Kauffman2003("log N2", df_classified["log N2"])
         cond_SF &= df_classified["log O3"] < Kewley2001("log S2", df_classified["log S2"])
-        df_SF = df_classified[cond_SF]
+        df_SF = df_classified[cond_SF].copy()
         if not df_SF.empty:
             df_SF.loc[:, "BPT (numeric)"] = 0
-        df_classified = df_classified[~cond_SF]
+        df_classified = df_classified[~cond_SF].copy()
 
         # Composite
         cond_Comp  = df_classified["log O3"] >= Kauffman2003("log N2", df_classified["log N2"])
         cond_Comp &= df_classified["log O3"] <  Kewley2001("log N2", df_classified["log N2"])
         cond_Comp &= df_classified["log O3"] <  Kewley2001("log S2", df_classified["log S2"])
-        df_Comp = df_classified[cond_Comp]
+        df_Comp = df_classified[cond_Comp].copy()
         if not df_Comp.empty:
             df_Comp.loc[:, "BPT (numeric)"] = 1
-        df_classified = df_classified[~cond_Comp]
+        df_classified = df_classified[~cond_Comp].copy()
 
         # LINER
         cond_LINER  = df_classified["log O3"] >= Kewley2001("log N2", df_classified["log N2"])
         cond_LINER &= df_classified["log O3"] >= Kewley2001("log S2", df_classified["log S2"])
         cond_LINER &= df_classified["log O3"] < Kewley2006("log S2", df_classified["log S2"])
-        df_LINER = df_classified[cond_LINER]
+        df_LINER = df_classified[cond_LINER].copy()
         if not df_LINER.empty:
             df_LINER.loc[:, "BPT (numeric)"] = 2
-        df_classified = df_classified[~cond_LINER]
+        df_classified = df_classified[~cond_LINER].copy()
 
         # Seyfert
         cond_Seyfert  = df_classified["log O3"] >= Kewley2001("log N2", df_classified["log N2"])
         cond_Seyfert &= df_classified["log O3"] >= Kewley2001("log S2", df_classified["log S2"])
         cond_Seyfert &= df_classified["log O3"] >= Kewley2006("log S2", df_classified["log S2"])
-        df_Seyfert = df_classified[cond_Seyfert]
+        df_Seyfert = df_classified[cond_Seyfert].copy()
         if not df_Seyfert.empty:
             df_Seyfert.loc[:, "BPT (numeric)"] = 3
 
         # Ambiguous
-        df_ambiguous = df_classified[~cond_Seyfert]
+        df_ambiguous = df_classified[~cond_Seyfert].copy()
         if not df_ambiguous.empty:
             df_ambiguous.loc[:, "BPT (numeric)"] = 4
 
