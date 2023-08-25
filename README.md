@@ -14,7 +14,6 @@
 
 * astropy
 * extinction
-* ipympl (*only required for example notebooks*)
 * matplotlib
 * pandas
 * pytables
