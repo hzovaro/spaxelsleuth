@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import warnings
 
 import logging
 logger = logging.getLogger(__name__)
@@ -848,89 +849,91 @@ def ratio_fn(df, s=None):
         df["SIII9069+SIII9531 error"] = np.sqrt(df["SIII9069 error"]**2 + df["SIII9531 error"]**2)
 
     # Used for metallicity, ionisation parameter diagnostics
-    if in_df(["NII6583", "OII3726+OII3729"]):
-        df["N2O2"] = np.log10((df["NII6583"]) / (df["OII3726+OII3729"]))
-    if in_df(["NII6583", "SII6716+SII6731"]):
-        df["N2S2"] = np.log10((df["NII6583"]) / (df["SII6716+SII6731"]))
-    if in_df(["OIII5007", "HBETA", "NII6583", "HALPHA"]):
-        df["O3N2"] = np.log10((df["OIII5007"] / df["HBETA"]) / (df["NII6583"] / df["HALPHA"]))
-    if in_df(["OIII4959+OIII5007", "OII3726+OII3729", "HBETA"]):
-        df["R23"] = np.log10((df["OIII4959+OIII5007"] + df["OII3726+OII3729"]) / (df["HBETA"]))
-    if in_df(["SII6716+SII6731", "SIII9069+SIII9531", "HALPHA"]):
-        df["S23"] = np.log10((df["SII6716+SII6731"] + df["SIII9069+SIII9531"]) / df["HALPHA"])
-    if in_df(["SIII9069+SIII9531", "OIII4959+OIII5007"]):
-        df["S3O3"] = np.log10((df["SIII9069+SIII9531"]) / (df["OIII4959+OIII5007"]))
-    if in_df(["OIII5007", "OII3726", "OII3729"]):
-        df["O3O2"] = np.log10((df["OIII5007"]) / (df["OII3726"] + df["OII3729"]))
-    elif in_df(["OIII5007", "OII3726+OII3729"]):
-        df["O3O2"] = np.log10((df["OIII5007"]) / (df["OII3726+OII3729"]))
-    if in_df(["OIII5007", "OII3726"]):
-        df["O2O3"] = np.log10(df["OII3726"] / df["OIII5007"])  # fig. 13 of Allen+1999
-    if in_df(["OIII5007", "OI6300"]):
-        df["O1O3"] = np.log10(df["OI6300"] / df["OIII5007"])  # fig. 15 of Allen+1999
-    if in_df(["OIII5007", "OII3726+OII3729"]):
-        df["O3O2"] = np.log10((df["OIII5007"]) / (df["OII3726+OII3729"]))
-    if in_df(["SIII9069+SIII9531", "SII6716+SII6731"]):
-        df["S32"] = np.log10((df["SIII9069+SIII9531"]) / (df["SII6716+SII6731"]))
-    if in_df(["SIII9069+SIII9531", "HALPHA"]):
-        df["S3"] = np.log10((df["SIII9069+SIII9531"]) / (df["HALPHA"]))
-    if in_df(["NeV3426", "NeIII3869"]):
-        df["Ne53"] = np.log10(df["NeV3426"] / df["NeIII3869"])
-    
-    # For the Dopita+2016 metallicity diagnostic, which uses the ratio
-    #   y = log[Nii]/[Sii] + 0.264 log[Nii]/Hα
-    # (see eqn. 13 of Kewley+2019)
-    if in_df(["NII6583", "SII6716+SII6731", "HALPHA"]):
-        df["Dopita+2016"] = np.log10(df["NII6583"] / df["SII6716+SII6731"]) +\
-                            0.264 * np.log10(df["NII6583"] / df["HALPHA"])
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="divide by zero encountered in log10")
+        if in_df(["NII6583", "OII3726+OII3729"]):
+            df["N2O2"] = np.log10((df["NII6583"]) / (df["OII3726+OII3729"]))
+        if in_df(["NII6583", "SII6716+SII6731"]):
+            df["N2S2"] = np.log10((df["NII6583"]) / (df["SII6716+SII6731"]))
+        if in_df(["OIII5007", "HBETA", "NII6583", "HALPHA"]):
+            df["O3N2"] = np.log10((df["OIII5007"] / df["HBETA"]) / (df["NII6583"] / df["HALPHA"]))
+        if in_df(["OIII4959+OIII5007", "OII3726+OII3729", "HBETA"]):
+            df["R23"] = np.log10((df["OIII4959+OIII5007"] + df["OII3726+OII3729"]) / (df["HBETA"]))
+        if in_df(["SII6716+SII6731", "SIII9069+SIII9531", "HALPHA"]):
+            df["S23"] = np.log10((df["SII6716+SII6731"] + df["SIII9069+SIII9531"]) / df["HALPHA"])
+        if in_df(["SIII9069+SIII9531", "OIII4959+OIII5007"]):
+            df["S3O3"] = np.log10((df["SIII9069+SIII9531"]) / (df["OIII4959+OIII5007"]))
+        if in_df(["OIII5007", "OII3726", "OII3729"]):
+            df["O3O2"] = np.log10((df["OIII5007"]) / (df["OII3726"] + df["OII3729"]))
+        elif in_df(["OIII5007", "OII3726+OII3729"]):
+            df["O3O2"] = np.log10((df["OIII5007"]) / (df["OII3726+OII3729"]))
+        if in_df(["OIII5007", "OII3726"]):
+            df["O2O3"] = np.log10(df["OII3726"] / df["OIII5007"])  # fig. 13 of Allen+1999
+        if in_df(["OIII5007", "OI6300"]):
+            df["O1O3"] = np.log10(df["OI6300"] / df["OIII5007"])  # fig. 15 of Allen+1999
+        if in_df(["OIII5007", "OII3726+OII3729"]):
+            df["O3O2"] = np.log10((df["OIII5007"]) / (df["OII3726+OII3729"]))
+        if in_df(["SIII9069+SIII9531", "SII6716+SII6731"]):
+            df["S32"] = np.log10((df["SIII9069+SIII9531"]) / (df["SII6716+SII6731"]))
+        if in_df(["SIII9069+SIII9531", "HALPHA"]):
+            df["S3"] = np.log10((df["SIII9069+SIII9531"]) / (df["HALPHA"]))
+        if in_df(["NeV3426", "NeIII3869"]):
+            df["Ne53"] = np.log10(df["NeV3426"] / df["NeIII3869"])
+        
+        # For the Dopita+2016 metallicity diagnostic, which uses the ratio
+        #   y = log[Nii]/[Sii] + 0.264 log[Nii]/Hα
+        # (see eqn. 13 of Kewley+2019)
+        if in_df(["NII6583", "SII6716+SII6731", "HALPHA"]):
+            df["Dopita+2016"] = np.log10(df["NII6583"] / df["SII6716+SII6731"]) +\
+                                0.264 * np.log10(df["NII6583"] / df["HALPHA"])
 
-    # Standard BPT axes
-    if in_df(["NII6583", "HALPHA"]):
-        df["log N2"] = np.log10(df["NII6583"] / df["HALPHA"])
-        df["N2"] = df["NII6583"] / df["HALPHA"]
+        # Standard BPT axes
+        if in_df(["NII6583", "HALPHA"]):
+            df["log N2"] = np.log10(df["NII6583"] / df["HALPHA"])
+            df["N2"] = df["NII6583"] / df["HALPHA"]
 
-    if in_df(["OI6300", "HALPHA"]):
-        df["log O1"] = np.log10(df["OI6300"] / df["HALPHA"])
-        df["O1"] = df["OI6300"] / df["HALPHA"]
+        if in_df(["OI6300", "HALPHA"]):
+            df["log O1"] = np.log10(df["OI6300"] / df["HALPHA"])
+            df["O1"] = df["OI6300"] / df["HALPHA"]
 
-    if in_df(["SII6716+SII6731", "HALPHA"]):
-        df["log S2"] = np.log10((df["SII6716+SII6731"]) / df["HALPHA"])
-        df["S2"] = (df["SII6716+SII6731"]) / df["HALPHA"]
+        if in_df(["SII6716+SII6731", "HALPHA"]):
+            df["log S2"] = np.log10((df["SII6716+SII6731"]) / df["HALPHA"])
+            df["S2"] = (df["SII6716+SII6731"]) / df["HALPHA"]
 
-    if in_df(["OIII5007", "HBETA"]):
-        df["log O3"] = np.log10(df["OIII5007"] / df["HBETA"])
-        df["O3"] = df["OIII5007"] / df["HBETA"]
+        if in_df(["OIII5007", "HBETA"]):
+            df["log O3"] = np.log10(df["OIII5007"] / df["HBETA"])
+            df["O3"] = df["OIII5007"] / df["HBETA"]
 
-    if in_df(["HeII4686", "HBETA"]):
-        df["He2"] = df["HeII4686"] / df["HBETA"]
-        df["log He2"] = np.log10(df["He2"])
+        if in_df(["HeII4686", "HBETA"]):
+            df["He2"] = df["HeII4686"] / df["HBETA"]
+            df["log He2"] = np.log10(df["He2"])
 
-    if in_df(["SII6716", "SII6731"]):
-        df["S2 ratio"] = df["SII6716"] / df["SII6731"] 
+        if in_df(["SII6716", "SII6731"]):
+            df["S2 ratio"] = df["SII6716"] / df["SII6731"] 
 
-    # ERRORS for standard BPT axes
-    if in_df(["NII6583 error", "HALPHA error"]):
-        df["N2 error"] = df["N2"] * np.sqrt((df["NII6583 error"] / df["NII6583"])**2 + (df["HALPHA error"] / df["HALPHA"])**2)
-        df["log N2 error (lower)"] = df["log N2"] - np.log10(df["N2"] - df["N2 error"])
-        df["log N2 error (upper)"] = np.log10(df["N2"] + df["N2 error"]) -  df["log N2"]
+        # ERRORS for standard BPT axes
+        if in_df(["NII6583 error", "HALPHA error"]):
+            df["N2 error"] = df["N2"] * np.sqrt((df["NII6583 error"] / df["NII6583"])**2 + (df["HALPHA error"] / df["HALPHA"])**2)
+            df["log N2 error (lower)"] = df["log N2"] - np.log10(df["N2"] - df["N2 error"])
+            df["log N2 error (upper)"] = np.log10(df["N2"] + df["N2 error"]) -  df["log N2"]
 
-    if in_df(["OI6300 error", "HALPHA error"]):
-        df["O1 error"] = df["O1"] * np.sqrt((df["OI6300 error"] / df["OI6300"])**2 + (df["HALPHA error"] / df["HALPHA"])**2)
-        df["log O1 error (lower)"] = df["log O1"] - np.log10(df["O1"] - df["O1 error"])
-        df["log O1 error (upper)"] = np.log10(df["O1"] + df["O1 error"]) -  df["log O1"]
+        if in_df(["OI6300 error", "HALPHA error"]):
+            df["O1 error"] = df["O1"] * np.sqrt((df["OI6300 error"] / df["OI6300"])**2 + (df["HALPHA error"] / df["HALPHA"])**2)
+            df["log O1 error (lower)"] = df["log O1"] - np.log10(df["O1"] - df["O1 error"])
+            df["log O1 error (upper)"] = np.log10(df["O1"] + df["O1 error"]) -  df["log O1"]
 
-    if in_df(["SII6716+SII6731 error", "HALPHA error"]):
-        df["S2 error"] = df["S2"] * np.sqrt((df["SII6716+SII6731 error"] / df["SII6716+SII6731"])**2 + (df["HALPHA error"] / df["HALPHA"])**2)
-        df["log S2 error (lower)"] = df["log S2"] - np.log10(df["S2"] - df["S2 error"])
-        df["log S2 error (upper)"] = np.log10(df["S2"] + df["S2 error"]) -  df["log S2"]
+        if in_df(["SII6716+SII6731 error", "HALPHA error"]):
+            df["S2 error"] = df["S2"] * np.sqrt((df["SII6716+SII6731 error"] / df["SII6716+SII6731"])**2 + (df["HALPHA error"] / df["HALPHA"])**2)
+            df["log S2 error (lower)"] = df["log S2"] - np.log10(df["S2"] - df["S2 error"])
+            df["log S2 error (upper)"] = np.log10(df["S2"] + df["S2 error"]) -  df["log S2"]
 
-    if in_df(["OIII5007 error", "HBETA error"]):
-        df["O3 error"] = df["O3"] * np.sqrt((df["OIII5007 error"] / df["OIII5007"])**2 + (df["HBETA error"] / df["HBETA"])**2)
-        df["log O3 error (lower)"] = df["log O3"] - np.log10(df["O3"] - df["O3 error"])
-        df["log O3 error (upper)"] = np.log10(df["O3"] + df["O3 error"]) -  df["log O3"]
-    
-    if in_df(["SII6716 error", "SII6731 error"]):
-        df["S2 ratio error"] = df["S2 ratio"] * np.sqrt((df["SII6716 error"] / df["SII6716"])**2 + (df["SII6731 error"] / df["SII6731"])**2)
+        if in_df(["OIII5007 error", "HBETA error"]):
+            df["O3 error"] = df["O3"] * np.sqrt((df["OIII5007 error"] / df["OIII5007"])**2 + (df["HBETA error"] / df["HBETA"])**2)
+            df["log O3 error (lower)"] = df["log O3"] - np.log10(df["O3"] - df["O3 error"])
+            df["log O3 error (upper)"] = np.log10(df["O3"] + df["O3 error"]) -  df["log O3"]
+        
+        if in_df(["SII6716 error", "SII6731 error"]):
+            df["S2 ratio error"] = df["S2 ratio"] * np.sqrt((df["SII6716 error"] / df["SII6716"])**2 + (df["SII6731 error"] / df["SII6731"])**2)
 
     # Rename columns
     if s is not None:
