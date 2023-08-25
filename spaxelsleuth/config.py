@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 # Load the default config file
 def configure_logger(logfile_name=None, level="INFO"):
     """Configure the logger for spaxelsleuth."""
+    if level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+        raise ValueError(f"level must be one of the following: 'DEBUG', 'INFO', 'WARNING', 'ERROR', or 'CRITICAL'")
     if logfile_name is None:
         logging.basicConfig(
             format='%(filename)s (%(lineno)s) %(funcName)s(): %(message)s', 
