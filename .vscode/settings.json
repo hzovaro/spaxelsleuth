@@ -1,0 +1,7 @@
+{
+    "python.formatting.provider": "yapf",
+    "files.exclude": {
+        "**/._*": true,
+        "**/__pycache__": true,
+    }
+}

@@ -3,15 +3,16 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import copy
+import warnings
 
 from astroquery.ipac.ned import Ned
 from astroquery.exceptions import TableParseError, RemoteServiceError
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 
-from spaxelsleuth.loaddata.sami import load_sami_galaxies
 from spaxelsleuth.loaddata.linefns import ratio_fn, bpt_fn
 from spaxelsleuth.plotting.plottools import plot_BPT_lines
+
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -34,7 +35,8 @@ TODO:
 - count how many sources have both upper limits for S_1.4 AND IRAS fluxes
 
 """
-sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
+sami_data_path = os.environ["SAMI_DIR"]
+assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
 
 ###############################################################################
 # LOAD SAMI DATA
@@ -122,9 +124,9 @@ for gal in tqdm(gals):
         # print(f"GAMA {gal} not found in NED, using cone search...")
         
         # Look up coordinates instead
-        ra = df_ap_elines.loc[gal, "ra_obj"]
-        dec = df_ap_elines.loc[gal, "dec_obj"]
-        z = df_ap_elines.loc[gal, "z_spec"]
+        ra = df_ap_elines.loc[gal, "RA (J2000)"]
+        dec = df_ap_elines.loc[gal, "Dec (J2000)"]
+        z = df_ap_elines.loc[gal, "z"]
         coords = SkyCoord(ra=ra, dec=dec, unit=(u.deg, u.deg), frame="icrs")
         table_region = Ned.query_region(coordinates=coords, radius=30 * u.arcsec)
         
@@ -136,7 +138,7 @@ for gal in tqdm(gals):
             # print(f"Entry found for {gal} using cone search!")
 
         if len(table_region) > 1:
-            # print(f"WARNING: multiple entries found in NED for {gal} - taking entry with nearest RA, dec... ")
+            # warnings.warn(f"multiple entries found in NED for {gal} - taking entry with nearest RA, dec... ")
             table_region.sort("Separation")
             table_region = table_region[0]
 

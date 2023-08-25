@@ -33,8 +33,10 @@ plt.close("all")
 """
 Take a quick look at SAMI galaxies.
 """
-sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
-sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
+sami_data_path = os.environ["SAMI_DIR"]
+assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
+sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
+assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
 
 ###########################################################################
 # Options
@@ -48,7 +50,7 @@ eline_SNR_min = 5       # Minimum S/N of emission lines to accept
 ###########################################################################
 # Load the SAMI sample
 ###########################################################################
-df_sami = load_sami_galaxies(ncomponents="recom",
+df_sami = load_sami_df(ncomponents="recom",
                              bin_type="default",
                              eline_SNR_min=eline_SNR_min, 
                              vgrad_cut=False,
@@ -64,8 +66,8 @@ df_snr = pd.read_csv(os.path.join(sami_data_path, "sample_summary.csv"))
 # Sort by median red S/N in 2R_e
 df_snr = df_snr.sort_values("Median SNR (R, 2R_e)", ascending=False)
 
-# Set index to catid for ease of indexing
-df_snr = df_snr.set_index("catid")
+# Set index to ID for ease of indexing
+df_snr = df_snr.set_index("ID")
 
 ###########################################################################
 # Check input
@@ -74,8 +76,8 @@ if len(sys.argv) > 1:
     gals = [int(g) for g in sys.argv[1:]]
     for gal in gals:
         assert gal.isdigit(), "each gal given must be an integer!"
-        assert gal in df_sami.catid, f"{gal} not found in SAMI sample!"
-        assert df_snr.loc[gal, "z_spec"] > 0.072035, f"{gal} does not have coverage of Na D in the SAMI data!"
+        assert gal in df_sami["ID"], f"{gal} not found in SAMI sample!"
+        assert df_snr.loc[gal, "z"] > 0.072035, f"{gal} does not have coverage of Na D in the SAMI data!"
 else:
     gals = df_snr.index.values
 
@@ -114,7 +116,7 @@ if savefigs:
 for gal in gals:
 
     # Load the DataFrame
-    df_gal = df_sami[df_sami["catid"] == gal]
+    df_gal = df_sami[df_sami["ID"] == gal]
     df_gal.loc[df_gal["Number of components"] == 0, "Number of components"] = np.nan
 
     ###########################################################################
@@ -155,7 +157,7 @@ for gal in gals:
 
     # Plot BPT diagram
     col_y = "log O3"
-    t = axs_bpt[0].text(s=f"{gal}, {df_snr.loc[gal, 'Morphology']}, SFR = {df_snr.loc[gal, 'SFR (component 0)']:.3f}" + r" $\rm M_\odot\,yr^{-1}$" + f", SNR = {df_snr.loc[gal, 'Median SNR (R, 2R_e)']:.2f}", 
+    t = axs_bpt[0].text(s=f"{gal}, {df_snr.loc[gal, 'Morphology']}, SFR = {df_snr.loc[gal, 'SFR (component 1)']:.3f}" + r" $\rm M_\odot\,yr^{-1}$" + f", SNR = {df_snr.loc[gal, 'Median SNR (R, 2R_e)']:.2f}", 
         x=0.0, y=1.02, transform=axs_bpt[0].transAxes)
     for cc, col_x in enumerate(["log N2", "log S2", "log O1"]):
         # Plot full SAMI sample
@@ -217,15 +219,15 @@ for gal in gals:
     # Kinematics 
     for cc, col_x in enumerate(["sigma_gas - sigma_*", "v_gas - v_*"]):
         # Plot the data for this galaxy
-        for ii in range(3):
+        for nn in range(3):
             plot2dscatter(df=df_gal,
-                          col_x=f"{col_x} (component {ii})",
-                          col_y=f"log HALPHA EW (component {ii})",
+                          col_x=f"{col_x} (component {nn + 1})",
+                          col_y=f"log HALPHA EW (component {nn + 1})",
                           col_z=None if col_z == "Number of components" else col_z,
-                          marker=markers[ii], ax=axs_whav[cc + 1], 
+                          marker=markers[nn], ax=axs_whav[cc + 1], 
                           cax=None,
                           markersize=20, 
-                          markerfacecolor=component_colours[ii] if col_z == "Number of components" else None, 
+                          markerfacecolor=component_colours[nn] if col_z == "Number of components" else None, 
                           markeredgecolor="black",
                           plot_colorbar=False)
 
@@ -239,10 +241,10 @@ for gal in gals:
         _ = [c.set_rasterized(True) for c in ax.collections]
     
     # Legend
-    legend_elements = [Line2D([0], [0], marker=markers[ii], 
+    legend_elements = [Line2D([0], [0], marker=markers[nn], 
                               color="none", markeredgecolor="black",
-                              label=f"Component {ii}",
-                              markerfacecolor=component_colours[ii], markersize=5) for ii in range(3)]
+                              label=f"Component {nn}",
+                              markerfacecolor=component_colours[nn], markersize=5) for nn in range(3)]
     axs_bpt[-1].legend(handles=legend_elements, fontsize="x-small", loc="upper right")
 
     ###########################################################################
@@ -254,7 +256,7 @@ for gal in gals:
     var_cube_R = hdulist_R_cube[1].data
 
     # Get wavelength values 
-    z = df_snr.loc[gal, "z_spec"]
+    z = df_snr.loc[gal, "z"]
     lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
     dlambda_A = header["CDELT3"]
     N_lambda = header["NAXIS3"]

@@ -1,0 +1,754 @@
+{   
+    "comments": "NOTE: for large surveys with a fixed, well-defined data format such as SAMI, we define variables such as the cube size (N_x, N_y), centre coordinates (x0_px, y0_px) and plate scale (as_per_px) here because we can safely assume that they will be the same for all objects. For others such as S7 and lzifu, it makes more sense to measure these from the data directly as they can change from object to object. That is why these variables are not defined here. But we have to make sure they are measured and recorded in the DataFrame in a consistent format!!",
+    "sdss_im_path": "sami/sdss/",
+    "sami": {
+        "as_per_px": 0.5,
+        "N_x": 50,
+        "N_y": 50,
+        "x0_px": 24.5,
+        "y0_px": 24.5,
+        "sigma_inst_kms": 29.6,
+        "eline_list": [
+            "HALPHA",
+            "HBETA",
+            "NII6583",
+            "OI6300",
+            "OII3726+OII3729",
+            "OIII5007",
+            "SII6716",
+            "SII6731"
+        ],
+        "bin_types": [
+            "default",
+            "adaptive",
+            "sectors"
+        ],
+        "data_cube_path": "sami/input/",
+        "input_path": "sami/input",
+        "output_path": "sami/output",
+        "lzifu_products_path": "sami/lzifu/products/"
+    },
+    "s7": {
+        "as_per_px": 1.0,
+        "bin_types": [
+            "default"
+        ],
+        "data_cube_path": "s7/input/",
+        "input_path": "s7/input",
+        "output_path": "s7/output",
+        "sigma_inst_kms": 17.45887754671766
+    },
+    "lzifu": {
+        "bin_types": [
+            "default"
+        ],
+        "data_cube_path": "lzifu/input/",
+        "input_path": "lzifu/input",
+        "output_path": "lzifu/output"
+    },
+    "manga": {
+        "bin_types": [
+            "default"
+        ],
+        "data_cube_path": "manga/input/",
+        "input_path": "manga/input",
+        "output_path": "manga/output"
+    },
+    "plotting": {
+        "suffixes": [" (1.4 arcsecond)", " (2 arcsecond)", " (3 arcsecond)",
+                     " (4 arcsecond)", " (R_e)", " (R_e (MGE))", " (3kpc round)",
+                     " (total)", " (component", 
+                     " (MGE, FD, g) (kpc)",
+                     " (MGE, FD, r) (kpc)",
+                     " (MGE, FD, i) (kpc)",
+                     " (R_e (MGE, FD, g))",
+                     " (R_e (MGE, FD, r))",
+                     " (R_e (MGE, FD, i))",
+                     " (MGE, FD, g)",
+                     " (MGE, FD, r)",
+                     " (MGE, FD, i)"],
+        "suffix_labels": {
+                " (1.4 arcsecond)": " (1.4\")",
+                " (2 arcsecond)": " (2\")",
+                " (3 arcsecond)": " (3\")",
+                " (4 arcsecond)": " (4\")",
+                " (3kpc round)": " (3 kpc)",
+                " (R_e)": " ($R_e$)",
+                " (R_e (MGE))": " ($R_e$ (MGE))",
+                " (MGE, FD, g) (kpc)": " [kpc]",
+                " (MGE, FD, r) (kpc)": " [kpc]",
+                " (MGE, FD, i) (kpc)": " [kpc]",
+                " (R_e (MGE, FD, g))": " ($R_e$)",
+                " (R_e (MGE, FD, r))": " ($R_e$)",
+                " (R_e (MGE, FD, i))": " ($R_e$)",
+                "(MGE, FD, g)": " ($R_e$)",
+                "(MGE, FD, r)": " ($R_e$)",
+                "(MGE, FD, i)": " ($R_e$)"
+        },
+        "count": {
+            "vmin": 1,
+            "vmax": 1000,
+            "label": "$N$",
+            "cmap": "cubehelix",
+            "fname": "count"
+        },
+        "log N2": {
+            "vmin": -1.5,
+            "vmax": 0.5,
+            "label": "$\\log_{10}$([N II]6583/H$\\alpha$)",
+            "cmap": "viridis",
+            "fname": "logN2"
+        },
+        "log O3": {
+            "vmin": -1.5,
+            "vmax": 1.2,
+            "label": "$\\log_{10}$([O III]5007/H$\\beta$)",
+            "cmap": "viridis",
+            "fname": "logO3"
+        },
+        "log O1": {
+            "vmin": -2.2,
+            "vmax": 0.2,
+            "label": "$\\log_{10}$([O I]6300/H$\\alpha$)",
+            "cmap": "viridis",
+            "fname": "logO1"
+        },
+        "log S2": {
+            "vmin": -1.3,
+            "vmax": 0.5,
+            "label": "$\\log_{10}$([S II]6716,31/H$\\alpha$)",
+            "cmap": "viridis",
+            "fname": "logS2"
+        },
+        "log HALPHA EW": {
+            "vmin": -1,
+            "vmax": 3.5,
+            "label": "$\\log_{10} \\left(W_{\\rm H\\alpha}\\,[{\\rm \\AA}]\\right)$",
+            "cmap": "Spectral",
+            "fname": "logHaEW"
+        },
+        "log HALPHA EW (total)": {
+            "vmin": -1,
+            "vmax": 3.5,
+            "label": "$\\log_{10} \\left(W_{\\rm H\\alpha}\\,[{\\rm \\AA}]\\right)$ (total)",
+            "cmap": "Spectral",
+            "fname": "logHaEWtot"
+        },
+        "HALPHA EW": {
+            "vmin": 3,
+            "vmax": 14,
+            "label": "$W_{\\rm H\\alpha}\\,\\rm [\\AA]$",
+            "cmap": "Spectral",
+            "fname": "HaEW"
+        },
+        "HALPHA EW (total)": {
+            "vmin": 3,
+            "vmax": 14,
+            "label": "$W_{\\rm H\\alpha}\\,\\rm [\\AA]$ (total)",
+            "cmap": "Spectral",
+            "fname": "HaEwtot"
+        },
+        "log sigma_gas": {
+            "vmin": 1,
+            "vmax": 3,
+            "label": "$\\log_{10} \\left(\\sigma_{\\rm gas}\\,[\\rm km\\,s^{-1}]\\right)$",
+            "cmap": "plasma",
+            "fname": "log_sigma_gas"
+        },
+        "sigma_gas": {
+            "vmin": 10,
+            "vmax": 300,
+            "label": "$\\sigma_{\\rm gas}\\,\\rm[km\\,s^{-1}]$",
+            "cmap": "plasma",
+            "fname": "sigma_gas"
+        },
+        "sigma_*": {
+            "vmin": 10,
+            "vmax": 300,
+            "label": "$\\sigma_*\\,\\rm[km\\,s^{-1}]$",
+            "cmap": "plasma",
+            "fname": "sigma_star"
+        },
+        "sigma_gas - sigma_*": {
+            "vmin": -300,
+            "vmax": 600,
+            "label": "$\\sigma_{\\rm gas} - \\sigma_*\\,\\rm\\left[km\\,s^{-1}\\right]$",
+            "cmap": "RdYlBu_r",
+            "fname": "sigma_gas-sigma_star"
+        },
+        "sigma_gas^2 - sigma_*^2": {
+            "vmin": -200000.0,
+            "vmax": 200000.0,
+            "label": "$\\sigma_{\\rm gas}^2 - \\sigma_*^2\\,\\rm\\left[km^2\\,s^{-2}\\right]$",
+            "cmap": "RdYlBu_r",
+            "fname": "sigma_gas2-sigma_star2"
+        },
+        "v_gas - v_*": {
+            "vmin": -200,
+            "vmax": 600,
+            "label": "$v_{\\rm gas} - v_*\\,\\rm\\left[km\\,s^{-1}\\right]$",
+            "cmap": "RdYlBu_r",
+            "fname": "v_gas-v_star"
+        },
+        "HALPHA S/N": {
+            "vmin": 3,
+            "vmax": 50,
+            "label": "$\\rm H\\alpha$ S/N",
+            "cmap": "copper",
+            "fname": "HaSNR"
+        },
+        "BPT (numeric)": {
+            "vmin": -1.5,
+            "vmax": 4.5,
+            "label": "Spectral classification",
+            "cmap": "bpt_cmap",
+            "fname": "BPT"
+        },
+        "WHAV* (numeric)": {
+            "vmin": -1.5,
+            "vmax": 12.5,
+            "label": "WHAV* classification",
+            "cmap": "whav_cmap",
+            "fname": "WHAV"
+        },
+        "Law+2021 (numeric)": {
+            "vmin": -1.5,
+            "vmax": 3.5,
+            "label": "Law+2021 kinematic classification",
+            "cmap": "law2021_cmap",
+            "fname": "Law2021"
+        },
+        "radius": {
+            "vmin": 0,
+            "vmax": 10,
+            "label": "Radius (arcsec)",
+            "cmap": "gnuplot2_r",
+            "fname": "radius"
+        },
+        "D4000": {
+            "vmin": 0.5,
+            "vmax": 2.2,
+            "label": "$\\rm D_n 4000 \\, \\AA$ break strength",
+            "cmap": "pink_r",
+            "fname": "D4000"
+        },
+        "HALPHA": {
+            "vmin": 0,
+            "vmax": 1000.0,
+            "label": "$\\rm H\\alpha$ flux",
+            "cmap": "viridis",
+            "fname": "HALPHA"
+        },
+        "HALPHA luminosity": {
+            "vmin": 1e+37,
+            "vmax": 1e+42,
+            "label": "$L(\\rm H\\alpha) \\, \\rm [erg\\,s^{-1}\\,kpc^{-2}]$",
+            "cmap": "viridis",
+            "fname": "HALPHA_lum_per_kpc2"
+        },
+        "HALPHA continuum luminosity": {
+            "vmin": 1e+35,
+            "vmax": 1e+41,
+            "label": "$F(C_{\\rm H\\alpha}) \\, \\rm [erg\\,s^{-1}\\,\u00c5^{-1}\\,kpc^{-2}]$",
+            "cmap": "viridis",
+            "fname": "HALPHA_cont_lum_per_kpc2"
+        },
+        "log HALPHA luminosity": {
+            "vmin": 37,
+            "vmax": 42,
+            "label": "$\\log_{10} \\left(L(\\rm H\\alpha) \\, \\rm [erg\\,s^{-1}\\,kpc^{-2}]\\right)$",
+            "cmap": "viridis",
+            "fname": "log_HALPHA_lum_per_kpc2"
+        },
+        "log HALPHA continuum luminosity": {
+            "vmin": 35,
+            "vmax": 41,
+            "label": "$\\log_{10} \\left(F(C_{\\rm H\\alpha}) \\, \\rm [erg\\,s^{-1}\\,\u00c5^{-1}\\,kpc^{-2}]\\right)$",
+            "cmap": "viridis",
+            "fname": "log_HALPHA_cont_lum_per_kpc2"
+        },
+        "v_gas": {
+            "vmin": -200,
+            "vmax": 200,
+            "label": "$v_{\\rm gas} \\,\\rm [km\\,s^{-1}]$",
+            "cmap": "RdYlBu_r",
+            "fname": "v_gas"
+        },
+        "v_*": {
+            "vmin": -250,
+            "vmax": 250,
+            "label": "$v_* \\,\\rm [km\\,s^{-1}]$",
+            "cmap": "coolwarm",
+            "fname": "v_star"
+        },
+        "A_V": {
+            "vmin": 0,
+            "vmax": 5,
+            "label": "$A_V\\,\\rm [mag]$",
+            "cmap": "afmhot_r",
+            "fname": "A_V"
+        },
+        "S2 ratio": {
+            "vmin": 0.38,
+            "vmax": 1.44,
+            "label": "[S II]$6716/6731$ ratio",
+            "cmap": "cividis",
+            "fname": "S2ratio"
+        },
+        "log S2 ratio": {
+            "vmin": -0.45,
+            "vmax": 0.45,
+            "label": "$\\log_{10}$ [S II]$6716/6731$ ratio",
+            "cmap": "cividis",
+            "fname": "logS2ratio"
+        },
+        "O1O3": {
+            "vmin": -2,
+            "vmax": 1.5,
+            "label": "O1O3",
+            "cmap": "cividis",
+            "fname": "O1O3"
+        },
+        "log M_*": {
+            "vmin": 7.5,
+            "vmax": 11.5,
+            "label": "$\\log_{10}(M_*\\,[\\rm M_\\odot])$",
+            "cmap": "jet",
+            "fname": "mstar"
+        },
+        "log(M/R_e)": {
+            "vmin": 7,
+            "vmax": 11,
+            "label": "$\\log_{10}(M_*/R_e\\,[\\rm M_\\odot\\,kpc^{-1}])$",
+            "cmap": "jet",
+            "fname": "mstar_over_re"
+        },
+        "log(M/R_e) (MGE)": {
+            "vmin": 7,
+            "vmax": 11,
+            "label": "$\\log_{10}(M_*/R_e\\,[\\rm M_\\odot\\,kpc^{-1}])$ (MGE)",
+            "cmap": "jet",
+            "fname": "mstar_over_re_mge"
+        },
+        "log(M/R_e) (MGE, FD, r)": {
+            "vmin": 7,
+            "vmax": 11,
+            "label": "$\\log_{10}(M_*/R_e\\,[\\rm M_\\odot\\,kpc^{-1}])$",
+            "cmap": "jet",
+            "fname": "mstar_over_re_mgefd"
+        },
+        "log(M/R_e^2)": {
+            "vmin": 7,
+            "vmax": 11,
+            "label": "$\\log_{10}(M_*/R_e^2\\,[\\rm M_\\odot\\,kpc^{-2}])$",
+            "cmap": "jet",
+            "fname": "mstar_over_re2"
+        },
+        "log(M/R_e^2) (MGE)": {
+            "vmin": 7,
+            "vmax": 11,
+            "label": "$\\log_{10}(M_*/R_e^2\\,[\\rm M_\\odot\\,kpc^{-2}])$ (MGE)",
+            "cmap": "jet",
+            "fname": "mstar_over_re2_mge"
+        },
+        "log(M/R_e^2) (MGE, FD, r)": {
+            "vmin": 7,
+            "vmax": 11,
+            "label": "$\\log_{10}(M_*/R_e^2\\,[\\rm M_\\odot\\,kpc^{-2}])$",
+            "cmap": "jet",
+            "fname": "mstar_over_re2_mgefd"
+        },
+        "g - i colour": {
+            "vmin": -0.5,
+            "vmax": 1.7,
+            "label": "$g - i$ colour",
+            "cmap": "RdYlBu_r",
+            "fname": "g-i"
+        },
+        "Morphology (numeric)": {
+            "vmin": -0.75,
+            "vmax": 3.25,
+            "label": "Morphology",
+            "cmap": "morph_cmap",
+            "fname": "morphology"
+        },
+        "M_r": {
+            "vmin": -25,
+            "vmax": -12.5,
+            "label": "$M_r$ [mag]",
+            "cmap": "Reds",
+            "fname": "M_r"
+        },
+        "z": {
+            "vmin": 0,
+            "vmax": 0.1,
+            "label": "$z$",
+            "cmap": "plasma",
+            "fname": "z"
+        },
+        "delta log O3 (2/1)": {
+            "vmin": -1.0,
+            "vmax": 1.0,
+            "label": "$\\Delta$ log O3 (2/1)",
+            "cmap": "PiYG",
+            "fname": "deltalogO3_21"
+        },
+        "delta log O3 (3/2)": {
+            "vmin": -1.0,
+            "vmax": 1.0,
+            "label": "$\\Delta$ log O3 (3/2)",
+            "cmap": "PiYG",
+            "fname": "deltalogO3_32"
+        },
+        "delta log O1 (2/1)": {
+            "vmin": -0.5,
+            "vmax": 0.5,
+            "label": "$\\Delta$ log O1 (2/1)",
+            "cmap": "PiYG",
+            "fname": "deltalogO1_21"
+        },
+        "delta log O1 (3/2)": {
+            "vmin": -0.5,
+            "vmax": 0.5,
+            "label": "$\\Delta$ log O1 (3/2)",
+            "cmap": "PiYG",
+            "fname": "deltalogO1_32"
+        },
+        "delta log N2 (2/1)": {
+            "vmin": -0.5,
+            "vmax": 0.5,
+            "label": "$\\Delta$ log N2 (2/1)",
+            "cmap": "PiYG",
+            "fname": "deltalogN2_21"
+        },
+        "delta log N2 (3/2)": {
+            "vmin": -0.5,
+            "vmax": 0.5,
+            "label": "$\\Delta$ log N2 (3/2)",
+            "cmap": "PiYG",
+            "fname": "deltalogN2_32"
+        },
+        "delta log S2 (2/1)": {
+            "vmin": -0.5,
+            "vmax": 0.5,
+            "label": "$\\Delta$ log S2 (2/1)",
+            "cmap": "PiYG",
+            "fname": "deltalogS2_21"
+        },
+        "delta log S2 (3/2)": {
+            "vmin": -0.5,
+            "vmax": 0.5,
+            "label": "$\\Delta$ log S2 (3/2)",
+            "cmap": "PiYG",
+            "fname": "deltalogS2_32"
+        },
+        "sigma_gas/sigma_*": {
+            "vmin": 0,
+            "vmax": 4,
+            "label": "$\\sigma_{\\rm gas}/\\sigma_*$",
+            "cmap": "RdYlBu_r",
+            "fname": "sigma_gas_over_sigma_star"
+        },
+        "log(U)": {
+            "vmin": -3.5,
+            "vmax": -2.5,
+            "label": "$\\log(U)$",
+            "cmap": "cubehelix",
+            "fname": "logU"
+        },
+        "log(O/H) + 12": {
+            "vmin": 7.5,
+            "vmax": 9.5,
+            "label": "$\\log{\\rm (O/H)} + 12$",
+            "cmap": "cividis",
+            "fname": "logOH12"
+        },
+        "N2O2": {
+            "vmin": -1.5,
+            "vmax": 0.5,
+            "label": "N2O2",
+            "cmap": "cividis",
+            "fname": "N2O2"
+        },
+        "R23": {
+            "vmin": -0.3,
+            "vmax": 1.6,
+            "label": "R23",
+            "cmap": "cividis",
+            "fname": "R23"
+        },
+        "N2S2": {
+            "vmin": -1.3,
+            "vmax": 0.9,
+            "label": "N2S2",
+            "cmap": "cividis",
+            "fname": "N2S2"
+        },
+        "O3O2": {
+            "vmin": -1.5,
+            "vmax": 1.6,
+            "label": "O3O2",
+            "cmap": "cividis",
+            "fname": "O3O2"
+        },
+        "HALPHA EW/HALPHA EW (total)": {
+            "vmin": 0,
+            "vmax": 1,
+            "label": "$\\rm EW(H\\alpha)/EW_{\\rm tot}(H\\alpha)$",
+            "cmap": "jet",
+            "fname": "HaEW_over_HaEWtot"
+        },
+        "HALPHA EW ratio (2/1)": {
+            "vmin": 0,
+            "vmax": 2,
+            "label": "Component 2/component 1 $\\rm EW(H\\alpha)$ ratio",
+            "cmap": "jet",
+            "fname": "HaEwRatio_21"
+        },
+        "HALPHA EW ratio (3/2)": {
+            "vmin": 0,
+            "vmax": 2,
+            "label": "Component 3/component 2 $\\rm EW(H\\alpha)$ ratio",
+            "cmap": "jet",
+            "fname": "HaEwRatio_32"
+        },
+        "delta sigma_gas (2/1)": {
+            "vmin": 0,
+            "vmax": 150,
+            "label": "$\\sigma_{\\rm gas,\\,2} - \\sigma_{\\rm gas,\\,1}$",
+            "cmap": "autumn",
+            "fname": "delta_sigma_gas_21"
+        },
+        "delta sigma_gas (3/2)": {
+            "vmin": 0,
+            "vmax": 150,
+            "label": "$\\sigma_{\\rm gas,\\,3} - \\sigma_{\\rm gas,\\,2}$",
+            "cmap": "autumn",
+            "fname": "delta_sigma_gas_32"
+        },
+        "delta v_gas (2/1)": {
+            "vmin": -150,
+            "vmax": 150,
+            "label": "$v_{\\rm gas,\\,2} - v_{\\rm gas,\\,1}$",
+            "cmap": "coolwarm",
+            "fname": "delta_v_gas_21"
+        },
+        "delta v_gas (3/2)": {
+            "vmin": -150,
+            "vmax": 150,
+            "label": "$v_{\\rm gas,\\,3} - v_{\\rm gas,\\,2}$",
+            "cmap": "coolwarm",
+            "fname": "delta_v_gas_32"
+        },
+        "r/R_e": {
+            "vmin": 0,
+            "vmax": 2,
+            "label": "$r/R_e$",
+            "cmap": "gnuplot2_r",
+            "fname": "r_over_Re"
+        },
+        "R_e (kpc)": {
+            "vmin": 0,
+            "vmax": 10,
+            "label": "$R_e$ [kpc]",
+            "cmap": "gnuplot2_r",
+            "fname": "Re_kpc"
+        },
+        "i (degrees)": {
+            "vmin": 0,
+            "vmax": 90,
+            "label": "Inclination $i$ [degrees]",
+            "cmap": "Spectral_r",
+            "fname": "inclination"
+        },
+        "i (MGE, FD, r) (degrees)": {
+            "vmin": 0,
+            "vmax": 90,
+            "label": "Inclination $i$ [degrees]",
+            "cmap": "Spectral_r",
+            "fname": "inclination_mgefd"
+        },
+        "Bin size (square kpc)": {
+            "vmin": 0,
+            "vmax": 0.5,
+            "label": "Bin size [kpc$^2$]",
+            "cmap": "gnuplot2_r",
+            "fname": "bin_size"
+        },
+        "kpc per arcsec": {
+            "vmin": 0,
+            "vmax": 2,
+            "label": "$\\rm kpc \\, arcsec^{-1}$",
+            "cmap": "gnuplot2_r",
+            "fname": "kpc_per_arcsec"
+        },
+        "SFR": {
+            "vmin": 0,
+            "vmax": 3,
+            "label": "$\\rm SFR \\, [M_\\odot \\, yr^{-1}]$",
+            "cmap": "magma",
+            "fname": "SFR"
+        },
+        "SFR surface density": {
+            "vmin": 0,
+            "vmax": 0.1,
+            "label": "$\\rm \\Sigma_{SFR} \\, [M_\\odot \\, yr^{-1} \\, kpc^{-2}]$",
+            "cmap": "magma",
+            "fname": "SFR_surface_density"
+        },
+        "log SFR": {
+            "vmin": -4.0,
+            "vmax": 1.0,
+            "label": "$\\log_{\\rm 10} \\rm (SFR \\, [M_\\odot \\, yr^{-1}])$",
+            "cmap": "magma",
+            "fname": "logSFR"
+        },
+        "log sSFR": {
+            "vmin": -12,
+            "vmax": -9.0,
+            "label": "$\\log_{\\rm 10} \\rm (sSFR \\, [yr^{-1}])$",
+            "cmap": "magma",
+            "fname": "sSFR"
+        },
+        "log SFR surface density": {
+            "vmin": -4.0,
+            "vmax": 0.5,
+            "label": "$\\log_{\\rm 10} \\rm (\\Sigma_{SFR} \\, [M_\\odot \\, yr^{-1} \\, kpc^{-2}])$",
+            "cmap": "magma",
+            "fname": "logSFR_surface_density"
+        },
+        "Delta HALPHA EW (1/2)": {
+            "vmin": -1.0,
+            "vmax": 2.0,
+            "label": "$\\log_{10} \\rm EW(H\\alpha)_{0} - \\log_{10} \\rm EW(H\\alpha)_{1}$",
+            "cmap": "Spectral_r",
+            "fname": "Delta_HaEW_21"
+        },
+        "Number of components": {
+            "vmin": -0.5,
+            "vmax": 3.5,
+            "label": "Number of components",
+            "cmap": "ncomponents_cmap",
+            "fname": "ncomponents"
+        },
+        "Number of components (original)": {
+            "vmin": -0.5,
+            "vmax": 3.5,
+            "label": "Number of components (original)",
+            "cmap": "ncomponents_cmap",
+            "fname": "ncomponents"
+        },
+        "HALPHA extinction correction": {
+            "vmin": 1,
+            "vmax": 5,
+            "label": "H$\\alpha$ extinction correction factor",
+            "cmap": "pink",
+            "fname": "Ha_ext_corr"
+        },
+        "v_grad": {
+            "vmin": 0,
+            "vmax": 50,
+            "label": "$v_{\\rm grad}$",
+            "cmap": "plasma",
+            "fname": "v_grad"
+        },
+        "n_e (cm^-3)": {
+            "vmin": 40,
+            "vmax": 10000.0,
+            "label": "$n_e \\,\\rm [cm^{-3}]$",
+            "cmap": "cividis",
+            "fname": "ne"
+        },
+        "log n_e (cm^-3)": {
+            "vmin": 1.6020599913279625,
+            "vmax": 4,
+            "label": "$\\log_{10} n_e \\,\\rm [cm^{-3}]$",
+            "cmap": "cividis",
+            "fname": "logne"
+        },
+        "mu_r within 1R_e": {
+            "vmin": 19,
+            "vmax": 25,
+            "label": "$\\mu_r\\,[{\\rm mag\\,arcsec^{-2}}]\\,(\\leq 1\\,R_e)$",
+            "cmap": "afmhot",
+            "fname": "mu_within_1re"
+        },
+        "mu_r at 1R_e": {
+            "vmin": 19,
+            "vmax": 25,
+            "label": "$\\mu_r\\,[{\\rm mag\\,arcsec^{-2}}]\\,({\\rm at} \\, 1\\,R_e)$",
+            "cmap": "afmhot",
+            "fname": "mu_at_1re"
+        },
+        "Median SNR (B, 1R_e)": {
+            "vmin": 0,
+            "vmax": 30,
+            "label": "Median SNR (B, $1R_e$)",
+            "cmap": "jet",
+            "fname": "cont_snr_b_1re"
+        },
+        "Median SNR (R, 1R_e)": {
+            "vmin": 0,
+            "vmax": 30,
+            "label": "Median SNR (R, $1R_e$)",
+            "cmap": "jet",
+            "fname": "cont_snr_r_1re"
+        },
+        "log mean HALPHA A/N": {
+            "vmin": 1.0,
+            "vmax": 3.5,
+            "label": "$\\log_{10} \\langle {\\rm H}\\alpha \\, A/N\\rangle$",
+            "cmap": "jet",
+            "fname": "log_mean_HALPHA_AN"
+        },
+        "Stellar age (Gyr)": {
+            "vmin": 0.0,
+            "vmax": 14.0,
+            "label": "Stellar age [Gyr]",
+            "cmap": "copper",
+            "fname": "stellar_age"
+        },
+        "Stellar [Z/H]": {
+            "vmin": -3.0,
+            "vmax": 1.0,
+            "label": "[Z/Fe]",
+            "cmap": "viridis",
+            "fname": "stellar_metallicity"
+        },
+        "HDELTA_A": {
+            "vmin": -1.0,
+            "vmax": 7,
+            "label": "H$\\delta_A$",
+            "cmap": "viridis",
+            "fname": "hdelta_a"
+        },
+        "Gini coefficient (SFR surface density)": {
+            "vmin": 0,
+            "vmax": 1,
+            "label": "$G$ ($\\Sigma_{\\rm SFR}$)",
+            "cmap": "viridis",
+            "fname": "gini_SFR_surface_density"
+        },
+        "Gini coefficient (SFR)": {
+            "vmin": 0,
+            "vmax": 1,
+            "label": "$G$ (SFR)",
+            "cmap": "viridis",
+            "fname": "gini_SFR"
+        },
+        "Gini coefficient (HALPHA continuum)": {
+            "vmin": 0,
+            "vmax": 1,
+            "label": "$G$ (continuum)",
+            "cmap": "viridis",
+            "fname": "gini_cont"
+        },
+        "default": {
+            "vmin": null,
+            "vmax": null,
+            "label": null,
+            "cmap": "jet",
+            "fname": null
+        }
+    }
+}

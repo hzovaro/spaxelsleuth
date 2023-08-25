@@ -33,14 +33,16 @@ plt.close("all")
 """
 Make a nice figure for the WiFeS proposal.
 """
-sami_data_path = "/priv/meggs3/u5708159/SAMI/sami_dr3/"
-sami_datacube_path = "/priv/myrtle1/sami/sami_data/Final_SAMI_data/cube/sami/dr3/"
+sami_data_path = os.environ["SAMI_DIR"]
+assert "SAMI_DIR" in os.environ, "Environment variable SAMI_DIR is not defined!"
+sami_datacube_path = os.environ["SAMI_DATACUBE_DIR"]
+assert "SAMI_DATACUBE_DIR" in os.environ, "Environment variable SAMI_DATACUBE_DIR is not defined!"
 
 ###########################################################################
 # Options
 ###########################################################################
 fig_path = "/priv/meggs3/u5708159/SAMI/figs/wifes_proposal/"
-savefigs = True
+savefigs = False
 bin_type = "default"    # Options: "default" or "adaptive" for Voronoi binning
 ncomponents = "recom"   # Options: "1" or "recom"
 eline_SNR_min = 5       # Minimum S/N of emission lines to accept
@@ -48,7 +50,7 @@ eline_SNR_min = 5       # Minimum S/N of emission lines to accept
 ###########################################################################
 # Load the SAMI sample
 ###########################################################################
-df_sami = load_sami_galaxies(ncomponents="recom",
+df_sami = load_sami_df(ncomponents="recom",
                              bin_type="default",
                              eline_SNR_min=eline_SNR_min, 
                              vgrad_cut=False,
@@ -62,7 +64,7 @@ if len(sys.argv) > 1:
     gals = sys.argv[1:]
     for gal in gals:
         assert gal.isdigit(), "each gal given must be an integer!"
-        assert int(gal) in df_sami.catid.values, f"{gal} not found in SAMI sample!"
+        assert int(gal) in df_sami["ID"].values, f"{gal} not found in SAMI sample!"
     gals = [int(g) for g in gals]
 else:
     # Load the SNR DataFrame.
@@ -72,9 +74,9 @@ else:
     df_snr = df_snr.sort_values("Median SNR (R, 2R_e)", ascending=False)
 
     # Make a redshift cut to ensure that Na D is in the wavelength range 
-    df_snr = df_snr[df_snr["z_spec"] > 0.072035]
+    df_snr = df_snr[df_snr["z"] > 0.072035]
 
-    df_snr = df_snr.set_index("catid")
+    df_snr = df_snr.set_index("ID")
     gals = df_snr.index.values
 
 ###########################################################################
@@ -95,7 +97,7 @@ mask_area_px = len(mask[mask])
 mask_area_arcsec2 = mask_area_px * as_per_px**2
 
 for gal in gals:
-    df_gal = df_sami[df_sami["catid"] == gal]
+    df_gal = df_sami[df_sami["ID"] == gal]
 
     ###########################################################################
     # Figure 
@@ -156,13 +158,13 @@ for gal in gals:
     ###########################################################################
     # Extract the spectrum from the red data cube 
     ###########################################################################
-    hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"ifs/{gal}/{gal}_A_cube_red.fits.gz"))
+    hdulist_R_cube = fits.open(os.path.join(sami_datacube_path, f"{gal}/{gal}_A_cube_red.fits.gz"))
     header = hdulist_R_cube[0].header
     data_cube_R = hdulist_R_cube[0].data
     var_cube_R = hdulist_R_cube[1].data
 
     # Get wavelength values 
-    z = df_snr.loc[gal, "z_spec"]
+    z = df_snr.loc[gal, "z"]
     lambda_0_A = header["CRVAL3"] - header["CRPIX3"] * header["CDELT3"]
     dlambda_A = header["CDELT3"]
     N_lambda = header["NAXIS3"]
