@@ -1312,14 +1312,14 @@ def make_sami_df(bin_type,
         res_list = [_process_gals(args_list[0])]
     else:
         if nthreads > 1:
-            logger.info(f"Beginning pool...")
+            logger.info(f"beginning pool...")
             pool = multiprocessing.Pool(
                 min([nthreads, len(gal_ids_dq_cut)]))
             res_list = np.array((pool.map(_process_gals, args_list)), dtype=object)
             pool.close()
             pool.join()
         else:
-            logger.info(f"Running sequentially...")
+            logger.info(f"running sequentially...")
             res_list = []
             for args in args_list:
                 res = _process_gals(args)
@@ -1518,7 +1518,7 @@ def load_sami_df(ncomponents,
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
 
     # Return
-    logger.info("Finished!")
+    logger.info("finished!")
     return df.sort_index()
 
 
