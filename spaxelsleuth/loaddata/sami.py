@@ -459,8 +459,10 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     beta_rad = np.deg2rad(PA - 90)
     b_over_a = 1 - e
     q0 = 0.2
-    i_rad = np.arccos(np.sqrt(
-        (b_over_a**2 - q0**2) / (1 - q0**2)))  # Want to store this!
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="invalid value encountered in sqrt")
+        i_rad = np.arccos(np.sqrt(
+            (b_over_a**2 - q0**2) / (1 - q0**2)))  # Want to store this!
     df_metadata["i (degrees)"] = np.rad2deg(i_rad)
 
     ###############################################################################
