@@ -15,7 +15,7 @@ def extcorr_helper_fn(args):
     extinction_corr_fn().
     """
     rr, df, eline_list, a_v_col_name, ext_fn = args 
-    df_row = df.loc[rr]
+    df_row = df.loc[rr].copy()
     if df_row[a_v_col_name] > 0:
         for eline in eline_list:
             lambda_A = eline_lambdas_A[eline]
@@ -259,10 +259,6 @@ def apply_extinction_correction(df, eline_list, a_v_col_name,
             df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
         return df
 
-    # Turn off "settingwithcopy" warning because it pops up in extcorr_helper_fn,
-    # even though we ARE changing the values properly.
-    pd.options.mode.chained_assignment = None
-
     # Multithreading 
     args_list = [[rr, df_extcorr, eline_list, a_v_col_name, ext_fn] for rr in df_extcorr.index.values]
     if nthreads > 1:
@@ -276,9 +272,6 @@ def apply_extinction_correction(df, eline_list, a_v_col_name,
         res_list = []
         for arg in args_list:
             res_list.append(extcorr_helper_fn(arg))
-    
-    # Turn warning back on 
-    pd.options.mode.chained_assignment = "warn"
 
     # Check results 
     df_results_extcorr = pd.concat(res_list, axis=1).T
