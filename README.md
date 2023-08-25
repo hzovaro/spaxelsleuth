@@ -21,6 +21,14 @@
 * scipy
 * tqdm
 
+## Installation
+
+I have not yet gotten around to uploading `spaxelsleuth` to pypi. In the meantime, simply clone into this repository and add the root `spaxelsleuth` directory to your `$PYTHONPATH`:
+```
+export PYTHONPATH=$PYTHONPATH:/path/to/spaxelsleuth/
+```
+Then, check you can import `spaxelsleuth` in your python 3.10 environment.
+
 ## Config file 
 
 Various important settings and variables required by `spaxelsleuth` are specified in a configuration file in JSON format. Default configurations are stored in `config.json` in the root `spaxelsleuth` directory. 
