@@ -189,10 +189,10 @@ def plot2dmap(df,
                 if bin_type not in settings[survey]["bin_types"]:
                     raise ValueError(f"bin_type '{bin_type}' is not valid for survey '{survey}'!")
             else:
-                if bin_type is not "default":
+                if bin_type != "default":
                     raise ValueError(f"bin_type must be 'default' for survey '{survey}'!")
         else:
-            if bin_type is not "default":
+            if bin_type != "default":
                 raise ValueError(f"bin_type must be 'default' if no survey is specified!")
     else:
         logger.warn("'bin_type' not specified - assuming 'default'")
