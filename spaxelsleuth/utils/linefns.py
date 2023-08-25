@@ -18,6 +18,7 @@ def bpt_num_to_str(s):
 ######################################################################
 def compute_eline_luminosity(df, ncomponents_max, eline_list):
     """Compute emission line luminosities."""
+    logger.debug(f"computing emission line luminosities...")
     # Line luminosity: units of erg s^-1 kpc^-2
     if all([col in df for col in ["D_L (Mpc)", "Bin size (square kpc)"]]):
         for eline in eline_list:
@@ -34,6 +35,7 @@ def compute_eline_luminosity(df, ncomponents_max, eline_list):
 ######################################################################
 def compute_FWHM(df, ncomponents_max):
     """Compute the Full-Width at Half Maximum from the velocity dispersion."""
+    logger.debug(f"computing emission line FWHMs...")
     for nn in range(ncomponents_max):
         if f"sigma_gas (component {nn + 1})" in df:
             df[f"FWHM_gas (component {nn + 1})"] = df[f"sigma_gas (component {nn + 1})"] * 2 * np.sqrt(2 * np.log(2))
@@ -303,6 +305,7 @@ def bpt_fn(df, s=None):
     log S2 to be defined. These can be computed using ratio_fn().
 
     """
+    logger.debug(f"computing BPT categories for suffix '{s}'...")
     # Remove suffixes on columns
     if s is not None:
         df_old = df
@@ -427,6 +430,7 @@ def whav_fn(df, ncomponents):
     Make new columns in the given DataFrame corresponding to the WHAV* 
     classification of each spaxel.
     """
+    logger.debug(f"computing WHAV* categories...")
     df["WHAV*"] = "Unknown"  # Initialise everything to "unknown"
     df["WHAN"] = "Unknown"  # Initialise everything to "unknown"
 
@@ -620,6 +624,7 @@ def law2021_fn(df, s=None):
     Law et al. (2021) classification requires the emission line ratios log O3, 
     log N2 and log S2 to be defined. These can be computed using ratio_fn().
     """
+    logger.debug(f"computing Law et al. (2021) kinematic categories for suffix '{s}'...")
     # Remove suffixes on columns
     if s is not None:
         df_old = df
@@ -742,6 +747,7 @@ def ratio_fn(df, s=None):
     The original DataFrame with new columns added.
 
     """
+    logger.debug(f"computing emission line ratios for suffix '{s}'...")
     # Remove suffixes on columns
     if s is not None:
         df_old = df
@@ -941,6 +947,7 @@ def ratio_fn(df, s=None):
 ###############################################################################
 def sfr_fn(df, s=f" (total)"):
     """Compute the SFR from the Halpha luminosity using the relation of Calzetti 2013."""
+    logger.debug(f"computing SFRs for suffix '{s}'...")
     # Remove suffixes on columns
     if s is not None:
         df_old = df
