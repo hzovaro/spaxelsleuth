@@ -1,5 +1,9 @@
-from spaxelsleuth import load_user_config
+import matplotlib.pyplot as plt
+plt.ion()
+
+from spaxelsleuth import load_user_config, configure_logger
 load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
+configure_logger(level="DEBUG")
 from spaxelsleuth.loaddata.s7 import make_s7_metadata_df, make_s7_df, load_s7_metadata_df, load_s7_df
 
 # Create the metadata DataFrame
@@ -37,3 +41,5 @@ _ = plot2dhistcontours(df=df,
               col_y=f"log HALPHA EW (total)",
               col_z="count", log_z=True,
               plot_colorbar=True)
+
+plt.show()
