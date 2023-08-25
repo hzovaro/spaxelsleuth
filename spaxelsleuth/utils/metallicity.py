@@ -233,7 +233,8 @@ ion_coeffs_K19 = {
 def _compute_logOH12(met_diagnostic, df, 
                      logU=None, 
                      compute_logU=False, ion_diagnostic=None, 
-                     max_niters=10):
+                     max_niters=10,
+                     verbose=False):
     """
     Use strong-line metallicity diagnostics to compute the metallicity given a DataFrame containing emission line fluxes. 
 
@@ -270,6 +271,12 @@ def _compute_logOH12(met_diagnostic, df,
         max_niters:          int
             Maximum number of iterations used to compute self-consistent 
             metallicity and ionisation parameters. 
+
+        verbose:            bool
+            If True, and if compute_logU, print out the number of converged 
+            metallicity/ionisation parameter measurements after each iteration
+            using the logger (only if configure_logger(level="DEBUG") has been
+            used)
             
     OUTPUTS
     ---------------------------------------------------------------------------
@@ -374,7 +381,8 @@ def _compute_logOH12(met_diagnostic, df,
                 # Compute the consistency between this and the previous iteration
                 diff_logOH12 = np.abs(logOH12_new - logOH12_old)
                 diff_logU = np.abs(logU_new - logU_old)
-                logger.debug(f"After {n} iterations: {len(diff_logOH12[diff_logOH12 >= 0.001])}/{len(diff_logOH12)} unconverged log(O/H) + 12 measurements, {len(diff_logU[diff_logU >= 0.001])}/{len(diff_logU)} unconverged log(U) measurements")
+                if verbose:
+                    logger.debug(f"After {n} iterations: {len(diff_logOH12[diff_logOH12 >= 0.001])}/{len(diff_logOH12)} unconverged log(O/H) + 12 measurements, {len(diff_logU[diff_logU >= 0.001])}/{len(diff_logU)} unconverged log(U) measurements")
                 if all(diff_logU < 0.001) and all(diff_logOH12 < 0.001):
                     break
 
