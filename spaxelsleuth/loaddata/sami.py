@@ -479,7 +479,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
         if nthreads > 1:
             logger.info(f"computing continuum SNRs on {nthreads} threads...")
             pool = multiprocessing.Pool(nthreads)
-            res_list = np.array((pool.map(_compute_snr, args_list)))
+            res_list = pool.map(_compute_snr, args_list)
             pool.close()
             pool.join()
         else:
