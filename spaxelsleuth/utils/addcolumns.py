@@ -66,7 +66,7 @@ def add_columns(df, **kwargs):
     # EXTINCTION CORRECTION
     # Compute A_V & correct emission line fluxes (but not EWs!)
     if kwargs["correct_extinction"]:
-        logger.info(f"Correcting emission line fluxes (but not EWs) for extinction...")
+        logger.info(f"correcting emission line fluxes (but not EWs) for extinction...")
         # Compute A_V using total Halpha and Hbeta emission line fluxes
         df = extcorr.compute_A_V(df,
                                          reddening_curve="fm07",
