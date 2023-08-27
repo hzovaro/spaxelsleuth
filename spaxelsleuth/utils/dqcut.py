@@ -98,9 +98,9 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
         Low flux fraction flag - <line> (<component>)
         Low amplitude flag - <line> (<component>)
         Missing flux flag - <line> (<component>)
-        Missing components flag
         Bad stellar kinematics
- 
+        Missing components flag (NOTE: this function simply sets this flag to False for all cells. It is only modified in apply_flags())
+
     """
     logger.debug("setting data quality and S/N flags...")
     with warnings.catch_warnings():
