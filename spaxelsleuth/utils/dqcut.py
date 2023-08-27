@@ -57,10 +57,50 @@ def compute_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_rest_A, v
 
 ###############################################################################
 def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
-              sigma_gas_SNR_min=3, **kwargs):
+              sigma_inst_kms,
+              sigma_gas_SNR_min=3,):
     """Set data quality & S/N flags.
     This function can be used to determine whether certain cells pass or fail 
     a number of data quality and S/N criteria. 
+
+    The following flags control whether affected cells are masked or not (i.e., 
+    set to NaN). 
+
+    INPUTS
+    --------------------------------------------------------------------------
+    df:                     pandas DataFrame
+        Input DataFrame containing emission line fluxes, etc. in each spaxel.
+    
+    eline_SNR_min:          float
+        Minimum flux S/N to adopt for emission lines.
+
+    eline_list:             list of str
+        List of emission lines to which to apply flags.
+
+    ncomponents_max:        int
+        Maximum number of Gaussian components that were fitted to the emission 
+        lines in each spaxel.
+        
+    sigma_inst_kms:         flat
+        Instrumental velocity dispersion (in km/s).
+
+    sigma_gas_SNR_min:      float
+        Minimum gas velocity dispersion S/N to adopt when flagging unreliable
+        velocity dispersion measurements (see Federrath et al. 2017)
+        
+    OUTPUTS
+    --------------------------------------------------------------------------
+    The input DataFrame with the following columns added:
+
+        Beam smearing flag (<component>)
+        Low sigma_gas S/N flag (<component>)
+        Low flux S/N flag - <line> (<component>)
+        Low flux fraction flag - <line> (<component>)
+        Low amplitude flag - <line> (<component>)
+        Missing flux flag - <line> (<component>)
+        Missing components flag
+        Bad stellar kinematics
+ 
     """
     logger.debug("setting data quality and S/N flags...")
     with warnings.catch_warnings():
@@ -208,7 +248,7 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
         for nn in range(ncomponents_max):
             if f"sigma_gas (component {nn + 1})" in df:
                 # 1. Define sigma_obs = sqrt(sigma_gas**2 + sigma_inst_kms**2).
-                df[f"sigma_obs (component {nn + 1})"] = np.sqrt(df[f"sigma_gas (component {nn + 1})"]**2 + kwargs["sigma_inst_kms"]**2)
+                df[f"sigma_obs (component {nn + 1})"] = np.sqrt(df[f"sigma_gas (component {nn + 1})"]**2 + sigma_inst_kms**2)
 
                 # 2. Define the S/N ratio of sigma_obs.
                 # NOTE: here we assume that sigma_gas error (as output by LZIFU) 
@@ -218,7 +258,7 @@ def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
 
                     # 3. Given our target SNR_gas, compute the target SNR_obs,
                     # using the method in section 2.2.2 of Zhou+2017.
-                    df[f"sigma_obs target S/N (component {nn + 1})"] = sigma_gas_SNR_min * (1 + kwargs["sigma_inst_kms"]**2 / df[f"sigma_gas (component {nn + 1})"]**2)
+                    df[f"sigma_obs target S/N (component {nn + 1})"] = sigma_gas_SNR_min * (1 + sigma_inst_kms**2 / df[f"sigma_gas (component {nn + 1})"]**2)
                     cond_bad_sigma = df[f"sigma_obs S/N (component {nn + 1})"] < df[f"sigma_obs target S/N (component {nn + 1})"]
                     df.loc[cond_bad_sigma, f"Low sigma_gas S/N flag (component {nn + 1})"] = True
 
@@ -258,8 +298,12 @@ def apply_flags(df,
 
     The following flags control whether affected cells are masked or not (i.e., 
     set to NaN). 
-    --------------------------------------------------------------------------
 
+    INPUTS
+    --------------------------------------------------------------------------
+    df:                     pandas DataFrame
+        Input DataFrame containing emission line fluxes, etc. in each spaxel.
+    
     line_flux_SNR_cut:      bool
         Whether to NaN emission line components AND total fluxes 
         (corresponding to emission lines in eline_list) below a specified S/N 
@@ -344,6 +388,10 @@ def apply_flags(df,
 
         df_good_quality_components = df[~df["Missing components flag"]]
  
+    OUTPUTS
+    --------------------------------------------------------------------------
+    The input DataFrame with cells set to NaN based on the flags set in 
+    set_flags().
 
     """
     logger.debug("applying data quality and S/N flags...")
