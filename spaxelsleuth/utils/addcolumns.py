@@ -35,7 +35,13 @@ def add_columns(df, **kwargs):
     ######################################################################
     # DQ and S/N CUTS
     logger.info(f"setting & aplying data quality and S/N cuts...")
-    df = dqcut.set_flags(df=df, ncomponents_max=ncomponents_max, **kwargs)
+    df = dqcut.set_flags(df=df, 
+                         eline_SNR_min=kwargs["eline_SNR_min"],
+                         eline_list=kwargs["eline_list"],
+                         ncomponents_max=ncomponents_max,
+                         sigma_inst_kms=kwargs["sigma_inst_kms"],
+                         sigma_gas_SNR_min=kwargs["sigma_gas_SNR_min"]
+                         )
     df = dqcut.apply_flags(df=df, ncomponents_max=ncomponents_max, **kwargs)
 
     ######################################################################
