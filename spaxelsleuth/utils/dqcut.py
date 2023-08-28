@@ -56,9 +56,12 @@ def compute_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_rest_A, v
     return AN_HALPHA_map
 
 ###############################################################################
-def set_flags(df, eline_SNR_min, eline_list, ncomponents_max,
-              sigma_inst_kms,
-              sigma_gas_SNR_min=3,):
+def  set_flags(df, 
+               eline_SNR_min, 
+               eline_list, 
+               ncomponents_max,
+               sigma_inst_kms,
+               sigma_gas_SNR_min=3,):
     """Set data quality & S/N flags.
     This function can be used to determine whether certain cells pass or fail 
     a number of data quality and S/N criteria. 
