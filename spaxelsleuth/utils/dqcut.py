@@ -77,6 +77,7 @@ def compute_measured_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_
 ###############################################################################
 def  set_flags(df, 
                eline_SNR_min, 
+               eline_ANR_min,
                eline_list, 
                ncomponents_max,
                sigma_inst_kms,
@@ -95,6 +96,11 @@ def  set_flags(df,
     
     eline_SNR_min:          float
         Minimum flux S/N to adopt for emission lines.
+
+    eline_ANR_min:          float
+        Minimum A/N to adopt for emission lines in each kinematic component,
+        defined as the Gaussian amplitude divided by the continuum standard
+        deviation in a nearby wavelength range.
 
     eline_list:             list of str
         List of emission lines to which to apply flags.
@@ -209,12 +215,12 @@ def  set_flags(df,
         """
         ######################################################################
         # Compute the amplitude corresponding to each component
-        logger.debug("flagging components with amplitude < 3 * rms continuum noise...")
+        logger.debug("flagging components with amplitude < eline_ANR_min * rms continuum noise...")
         for eline in eline_list:
             for nn in range(ncomponents_max):
                 if f"{eline} A/N (component {nn + 1})" in df.columns:               
                     # Flag bad components
-                    cond_bad_gasamp = df[f"{eline} A/N (component {nn + 1})"] < 3
+                    cond_bad_gasamp = df[f"{eline} A/N (component {nn + 1})"] < eline_ANR_min
                     df.loc[cond_bad_gasamp, f"Low amplitude flag - {eline} (component {nn + 1})"] = True
 
             # If all components in a given spaxel have low s/n, then discard total values as well.
