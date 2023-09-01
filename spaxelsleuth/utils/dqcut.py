@@ -25,15 +25,30 @@ def compute_SN(df, ncomponents_max, eline_list):
         if in_dataframe(df, [f"{eline} (total)", f"{eline} error (total)"]):
             df[f"{eline} S/N (total)"] = df[f"{eline} (total)"] / df[f"{eline} error (total)"]
 
-        for nn in range(2):
-            df[f"HALPHA A/N (component {nn + 1})"] = df[f"HALPHA A (component {nn + 1})"] / df[f"HALPHA continuum std. dev."]
+    return df
 
-
+###############################################################################
+def compute_AN(df, ncomponents_max, eline_list):
+    """Compute the flux A/N in the provided emission lines, defined as the Gaussian amplitude divided by the continuum standard deviation."""
+    logger.debug("computing emission line A/N ratios...")
+    for eline in eline_list:
+        lambda_rest_A = eline_lambdas_A[eline]
+        for nn in range(ncomponents_max):
+            if in_dataframe(df, [f"v_gas (component {nn + 1})", f"{eline} (component {nn + 1})", f"{eline} continuum std. dev."]):
+                # Compute the amplitude of the line
+                lambda_obs_A = get_wavelength_from_velocity(lambda_rest=lambda_rest_A, 
+                                                            v=df[f"v_gas (component {nn + 1})"], 
+                                                            units='km/s')
+                df[f"{eline} lambda_obs (component {nn + 1}) (Å)"] = lambda_obs_A
+                df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] = lambda_obs_A * df[f"sigma_gas (component {nn + 1})"] * 1e3 / constants.c
+                df[f"{eline} A (component {nn + 1})"] = df[f"{eline} (component {nn + 1})"] / df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] / np.sqrt(2 * np.pi)
+                df[f"{eline} A/N (component {nn + 1})"] = df[f"{eline} A (component {nn + 1})"] / df[f"{eline} continuum std. dev."]
+    
     return df
 
 ###############################################################################
 def compute_measured_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_rest_A, v_star_map, v_map, dv):
-    """Measure the HALPHA amplitude-to-noise.
+    """Measure the HALPHA amplitude-to-noise, defined as the measured peak in the HALPHA emission line divided by the HALPHA continuum standard deviation.
         We measure this as
               (peak spectral value in window around Ha - mean R continuum flux density) / standard deviation in R continuum flux density
         As such, this value can be negative."""
@@ -196,19 +211,10 @@ def  set_flags(df,
         # Compute the amplitude corresponding to each component
         logger.debug("flagging components with amplitude < 3 * rms continuum noise...")
         for eline in eline_list:
-            lambda_rest_A = eline_lambdas_A[eline]
             for nn in range(ncomponents_max):
-                if f"{eline} (component {nn + 1})" in df.columns:
-                    # Compute the amplitude of the line
-                    lambda_obs_A = get_wavelength_from_velocity(lambda_rest=lambda_rest_A, 
-                                                                v=df[f"v_gas (component {nn + 1})"], 
-                                                                units='km/s')
-                    df[f"{eline} lambda_obs (component {nn + 1}) (Å)"] = lambda_obs_A
-                    df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] = lambda_obs_A * df[f"sigma_gas (component {nn + 1})"] * 1e3 / constants.c
-                    df[f"{eline} A (component {nn + 1})"] = df[f"{eline} (component {nn + 1})"] / df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] / np.sqrt(2 * np.pi)
-                
+                if f"{eline} A/N (component {nn + 1})" in df.columns:               
                     # Flag bad components
-                    cond_bad_gasamp = df[f"{eline} A (component {nn + 1})"] < 3 * df["HALPHA continuum std. dev."]
+                    cond_bad_gasamp = df[f"{eline} A/N (component {nn + 1})"] < 3
                     df.loc[cond_bad_gasamp, f"Low amplitude flag - {eline} (component {nn + 1})"] = True
 
             # If all components in a given spaxel have low s/n, then discard total values as well.
