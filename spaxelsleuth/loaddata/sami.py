@@ -1248,7 +1248,7 @@ def make_sami_df(bin_type,
             "using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!",
             RuntimeWarning)
 
-    logger.info(f"input parameters: bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, correct_extinction={correct_extinction}")
+    logger.info(f"input parameters: bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
 
     # Determine number of threads
     if nthreads is None:
@@ -1262,9 +1262,9 @@ def make_sami_df(bin_type,
 
     # Output file names
     if correct_extinction:
-        df_fname = f"sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}"
+        df_fname = f"sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}_minANR={eline_ANR_min}"
     else:
-        df_fname = f"sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}"
+        df_fname = f"sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}_minANR={eline_ANR_min}"
     if __use_lzifu_fits:
         df_fname += f"_lzifu_{__lzifu_ncomponents}-comp"
     if debug:
@@ -1394,6 +1394,7 @@ def load_sami_df(ncomponents,
                  bin_type,
                  correct_extinction,
                  eline_SNR_min,
+                 eline_ANR_min=3,
                  __use_lzifu_fits=False,
                  __lzifu_ncomponents='3',
                  debug=False):
@@ -1472,14 +1473,14 @@ def load_sami_df(ncomponents,
             __lzifu_products_path
         ), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
         logger.warning(
-            "using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!",
+            f"using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!",
             RuntimeWarning)
 
     # Input file name
     df_fname = f"sami_{bin_type}_{ncomponents}-comp"
     if correct_extinction:
         df_fname += "_extcorr"
-    df_fname += f"_minSNR={eline_SNR_min}"
+    df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}"
     if __use_lzifu_fits:
         df_fname += f"_lzifu_{__lzifu_ncomponents}-comp"
     if debug:
