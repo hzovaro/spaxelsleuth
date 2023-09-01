@@ -1,5 +1,5 @@
 # Make DataFrames 
-# python make_sami_test_dfs.py
+python make_sami_test_dfs.py
 
 # Compare with old verions
 python compare_sami_dfs.py sami_dr3_metadata.hd5
