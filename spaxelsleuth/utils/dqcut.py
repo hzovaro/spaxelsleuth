@@ -201,7 +201,7 @@ def  set_flags(df,
                                                                 units='km/s')
                     df[f"{eline} lambda_obs (component {nn + 1}) (Å)"] = lambda_obs_A
                     df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] = lambda_obs_A * df[f"sigma_gas (component {nn + 1})"] * 1e3 / constants.c
-                    df[f"{eline} A (component {nn + 1})"] = df[f"HALPHA (component {nn + 1})"] / df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] / np.sqrt(2 * np.pi)
+                    df[f"{eline} A (component {nn + 1})"] = df[f"{eline} (component {nn + 1})"] / df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] / np.sqrt(2 * np.pi)
                 
                     # Flag bad components
                     cond_bad_gasamp = df[f"{eline} A (component {nn + 1})"] < 3 * df["HALPHA continuum std. dev."]
