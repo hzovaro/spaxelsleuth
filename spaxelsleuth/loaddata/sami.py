@@ -13,7 +13,7 @@ from astropy.io import fits
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
 from spaxelsleuth.utils.geometry import deproject_coordinates
-from spaxelsleuth.utils.dqcut import compute_HALPHA_amplitude_to_noise
+from spaxelsleuth.utils.dqcut import compute_measured_HALPHA_amplitude_to_noise
 from spaxelsleuth.utils.velocity import compute_v_grad
 from spaxelsleuth.utils.addcolumns import add_columns
 from spaxelsleuth.utils.misc import morph_dict, morph_num_to_str
@@ -655,7 +655,7 @@ def _process_gals(args):
     v_grad = compute_v_grad(v_map)
 
     # Compute the HALPHA amplitude-to-noise. Store as "meas" to distinguish from A/N measurements for individual emission line components
-    AN_HALPHA_map = compute_HALPHA_amplitude_to_noise(
+    AN_HALPHA_map = compute_measured_HALPHA_amplitude_to_noise(
         data_cube=data_cube_R,
         var_cube=var_cube_R,
         lambda_vals_rest_A=lambda_vals_R_rest_A,

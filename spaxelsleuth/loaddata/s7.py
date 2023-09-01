@@ -12,7 +12,7 @@ import pandas as pd
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
-from spaxelsleuth.utils.dqcut import compute_HALPHA_amplitude_to_noise
+from spaxelsleuth.utils.dqcut import compute_measured_HALPHA_amplitude_to_noise
 from spaxelsleuth.utils.addcolumns import add_columns
 from spaxelsleuth.utils.linefns import bpt_num_to_str
 
@@ -348,7 +348,7 @@ def _process_s7(args):
     # Compute the HALPHA amplitude-to-noise
     if lambda_vals_R_rest_A[0] <= 6562.8 and lambda_vals_R_rest_A[-1] >= 6562.8:
         v_map = hdulist_best_components["V"].data  # Get velocity field from LZIFU fit
-        AN_HALPHA_map = compute_HALPHA_amplitude_to_noise(
+        AN_HALPHA_map = compute_measured_HALPHA_amplitude_to_noise(
             data_cube=data_cube_R,
             var_cube=var_cube_R,
             lambda_vals_rest_A=lambda_vals_R_rest_A,

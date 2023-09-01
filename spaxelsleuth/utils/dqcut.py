@@ -25,10 +25,14 @@ def compute_SN(df, ncomponents_max, eline_list):
         if in_dataframe(df, [f"{eline} (total)", f"{eline} error (total)"]):
             df[f"{eline} S/N (total)"] = df[f"{eline} (total)"] / df[f"{eline} error (total)"]
 
+        for nn in range(2):
+            df[f"HALPHA A/N (component {nn + 1})"] = df[f"HALPHA A (component {nn + 1})"] / df[f"HALPHA continuum std. dev."]
+
+
     return df
 
 ###############################################################################
-def compute_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_rest_A, v_star_map, v_map, dv):
+def compute_measured_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_rest_A, v_star_map, v_map, dv):
     """Measure the HALPHA amplitude-to-noise.
         We measure this as
               (peak spectral value in window around Ha - mean R continuum flux density) / standard deviation in R continuum flux density
