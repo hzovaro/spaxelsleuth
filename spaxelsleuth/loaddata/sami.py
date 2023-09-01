@@ -983,6 +983,7 @@ def make_sami_df(bin_type,
                  eline_SNR_min,
                  correct_extinction,
                  sigma_gas_SNR_min=3,
+                 eline_ANR_min=3,
                  eline_list=settings["sami"]["eline_list"],
                  line_flux_SNR_cut=True,
                  missing_fluxes_cut=True,
@@ -1076,6 +1077,11 @@ def make_sami_df(bin_type,
 
     sigma_gas_SNR_min:          float (optional)
         Minimum velocity dipersion S/N to accept. Defaults to 3.
+
+    eline_ANR_min:          float
+        Minimum A/N to adopt for emission lines in each kinematic component,
+        defined as the Gaussian amplitude divided by the continuum standard
+        deviation in a nearby wavelength range.
 
     line_flux_SNR_cut:          bool (optional)
         Whether to NaN emission line components AND total fluxes 
@@ -1348,6 +1354,7 @@ def make_sami_df(bin_type,
     ###############################################################################
     df_spaxels = add_columns(df_spaxels,
                              eline_SNR_min=eline_SNR_min,
+                             eline_ANR_min=eline_ANR_min,
                              sigma_gas_SNR_min=sigma_gas_SNR_min,
                              eline_list=eline_list,
                              line_flux_SNR_cut=line_flux_SNR_cut,
@@ -1375,14 +1382,8 @@ def make_sami_df(bin_type,
     if len(bad_cols) > 0:
         logger.warning(f"The following object-type columns are present in the DataFrame: {','.join(bad_cols)}")
 
-    try:
-        df_spaxels.to_hdf(output_path / df_fname,
-                          key=f"{bin_type}{ncomponents}comp")
-    except:
-        logger.error(
-            f"unable to save to HDF file! Saving to .csv instead"
-        )
-        df_spaxels.to_csv(output_path / df_fname.split("hd5")[0] + "csv")
+    # Save
+    df_spaxels.to_hdf(output_path / df_fname, key=f"{bin_type}{ncomponents}comp")
     
     logger.info("finished!")
     return
