@@ -21,6 +21,7 @@ if __name__ == "__main__":
         make_sami_df(ncomponents=ncomponents,
                         bin_type=bin_type,
                         eline_SNR_min=5,
+                        eline_ANR_min=3,
                         correct_extinction=correct_extinction,
                         nthreads=10,
                         debug=True)
