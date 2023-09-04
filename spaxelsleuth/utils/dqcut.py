@@ -245,7 +245,7 @@ def  set_flags(df,
         for nn in range(1, ncomponents_max):
             for eline in eline_list:
                 if f"{eline} (component {nn + 1})" in df:
-                    cond_low_flux = df[f"{eline} A (component {nn + 1})"] < 0.05 * df[f"{eline} A (component 1)"]
+                    cond_low_flux = df[f"{eline} (component {nn + 1})"] < 0.05 * df[f"{eline} (component 1)"]
                     df.loc[cond_low_flux, f"Low flux fraction flag - {eline} (component {nn + 1})"] = True
 
         ######################################################################
