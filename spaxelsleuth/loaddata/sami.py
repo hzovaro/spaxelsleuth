@@ -1253,7 +1253,7 @@ def make_sami_df(bin_type,
     # Determine number of threads
     if nthreads is None:
         nthreads = os.cpu_count()
-        logger.warning(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
+        logger.warning(f"nthreads not specified: running make_sami_df() on {nthreads} threads...")
 
     ###############################################################################
     # Filenames
