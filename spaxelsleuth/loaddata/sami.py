@@ -1495,7 +1495,7 @@ def load_sami_df(ncomponents,
     logger.info(
         f"Loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
     )
-    df = pd.read_hdf(output_path / df_fname)
+    df = pd.read_hdf(output_path / df_fname, key=f"{bin_type}{ncomponents}comp")
 
     # Add "metadata" columns to the DataFrame
     df["survey"] = "sami"
