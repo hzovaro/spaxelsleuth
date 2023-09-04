@@ -67,14 +67,14 @@ for col in [c for c in df.columns if "v_*" in c or "sigma_*" in c]:
 
 # CHECK: sigma_gas S/N cut
 for nn in range(3 if ncomponents == "recom" else 1):
-    assert all(df.loc[df[f"sigma_obs S/N (component {nn + 1})"] < 3, f"Low sigma_gas S/N flag (component {nn + 1})"])
+    assert all(df.loc[df[f"sigma_obs S/N (component {nn + 1})"] < df["sigma_gas_SNR_min"], f"Low sigma_gas S/N flag (component {nn + 1})"])
     cond_bad_sigma = df[f"Low sigma_gas S/N flag (component {nn + 1})"]
     for col in [c for c in df.columns if "sigma_gas" in c and f"component {nn + 1}" in c and "flag" not in c]:
         assert all(df.loc[cond_bad_sigma, col].isna())
 
 # CHECK: line amplitude cut 
 for nn in range(3 if ncomponents == "recom" else 1):
-    assert all(df.loc[df[f"HALPHA A (component {nn + 1})"] < 3 * df[f"HALPHA continuum std. dev."], f"Low amplitude flag - HALPHA (component {nn + 1})"])
+    assert all(df.loc[df[f"HALPHA A (component {nn + 1})"] < df["eline_ANR_min"] * df[f"HALPHA continuum std. dev."], f"Low amplitude flag - HALPHA (component {nn + 1})"])
     cond_low_amp = df[f"Low amplitude flag - HALPHA (component {nn + 1})"]
     for col in [c for c in df.columns if f"component {nn + 1}" in c and "flag" not in c]:
         assert all(df.loc[cond_low_amp, col].isna())
