@@ -14,6 +14,7 @@ make_sami_metadata_df()
 # Create the DataFrames
 ###########################################################################
 nthreads = int(sys.argv[1])
+
 # Make test data 
 make_sami_df(ncomponents="recom", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=True, nthreads=nthreads)
 make_sami_df(ncomponents="1", bin_type="default", eline_SNR_min=5, correct_extinction=True, debug=True, nthreads=nthreads)
