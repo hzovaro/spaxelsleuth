@@ -110,9 +110,6 @@ def add_columns(df, **kwargs):
     df = linefns.ratio_fn(df, s=f" (total)")
     df = linefns.bpt_fn(df, s=f" (total)")
 
-    # NaN out SFR measurements if the BPT classification is not star-forming
-    df.loc[df["BPT (total)"] != "SF", [c for c in df.columns if "SFR" in c]] = np.nan
-
     ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
     logger.info(f"computing additional quantities...")
