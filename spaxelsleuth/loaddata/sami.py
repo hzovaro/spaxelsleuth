@@ -1245,7 +1245,7 @@ def make_sami_df(bin_type,
             __lzifu_products_path
         ), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
         logger.warning(
-            f"using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!",
+            "using LZIFU %d-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (__lzifu_ncomponents),
             RuntimeWarning)
 
     logger.info(f"input parameters: bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
@@ -1473,7 +1473,7 @@ def load_sami_df(ncomponents,
             __lzifu_products_path
         ), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
         logger.warning(
-            f"using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!",
+            "using LZIFU %s-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (__lzifu_ncomponents),
             RuntimeWarning)
 
     # Input file name
