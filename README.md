@@ -23,7 +23,7 @@
 ## Installation
 
 I have not yet gotten around to uploading `spaxelsleuth` to pypi. In the meantime, simply clone into this repository and add the root `spaxelsleuth` directory to your `$PYTHONPATH`:
-```
+```!.sh
 export PYTHONPATH=$PYTHONPATH:/path/to/spaxelsleuth/
 ```
 Then, check you can import `spaxelsleuth` in your python 3.10 environment.
@@ -35,7 +35,7 @@ Various important settings and variables required by `spaxelsleuth` are specifie
 There is one top-level entry in `config.json` for each data source (e.g., `sami`, `s7` and `lzifu`). Each of these stores paths to the necessary input data products (e.g., data products (`input_path`) and and data cubes (`data_cube_path`)) and an output path (`output_path`) which is where output DataFrames are saved. For surveys such as SAMI where the data format is the same for each object, information such as default data cube sizes (`N_x`, `N_y`), spaxel sizes (`as_per_px`) and centre coordinates (`x0_px`, `y0_px`) are also specified in `settings`.
 
 The default values in this file can be easily overridden by the user by creating a custom configuration file. The file can be stored anywhere, but must be in the same JSON format, where you only need to enter key-value pairs for settings you'd like to update. For example, to change where `spaxelsleuth` looks for the input data products, you can create a file named `/home/.my_custom_config.json` with the contents
-```
+```!.json
 {
     "sdss_im_path": "/some/path/sdss_images/",
     "sami": {
@@ -52,12 +52,12 @@ The default values in this file can be easily overridden by the user by creating
 }
 ```
 To override the default spaxelsleuth configuration settings, simply use the following lines at the start of your script or notebook: 
-```
+```!.py
 from spaxelsleuth import load_user_config
 load_user_config("/home/.my_custom_config.json")
 ```
 The settings themselves can be accessed in the form of a `dict` using 
-```
+```!.py
 from spaxelsleuth.config import settings
 input_path = settings["sami"]["input_path"]
 ```
@@ -65,12 +65,12 @@ input_path = settings["sami"]["input_path"]
 ## Logging
 
 By default, information messages and warnings are printed to the terminal. To save the output to a file instead, simply do the following:
-```
+```!.py
 from spaxelsleuth import configure_logger
 configure_logger(logfile_name="output.log")
 ```
 The minimum level of messages logged can be controlled using the `level` parameter:
-```
+```!.py
 configure_logger(level="DEBUG")    # print ALL messages
 configure_logger(level="INFO")     # print information and warning messages (default - recommended)
 configure_logger(level="WARNING")  # print only warnings 
@@ -88,7 +88,7 @@ The most basic way to use `spaxelsleuth` with SAMI data is as follows:
 
 2. Create a config file and save it as `/path/to/config/file/.myconfig`:
 
-```
+```!.json
 {
     "sami": {
         "output_path": "/some/path/spaxelsleuth_outputs/",
@@ -100,21 +100,21 @@ The most basic way to use `spaxelsleuth` with SAMI data is as follows:
 
 3. Load the config file:
 
-```
+```!.py
 from spaxelsleuth import load_user_config
 load_user_config("/path/to/config/file/.myconfig.json")
 ```
 
 3. Create the metadata DataFrame, which containts redshifts, stellar masses, and other "global" galaxy properties for each SAMI galaxy:
 
-```
+```!.py
 from spaxelsleuth.loaddata.sami import make_sami_metadata_df
 import os
 make_sami_metadata_df(nthreads=os.cpu_count())
 ```
 
 4. Create the SAMI spaxel DataFrame:
-```
+```!.py
 from spaxelsleuth.loaddata.sami import make_sami_df
 make_sami_df(bin_type="default", 
              ncomponents="recom", 
@@ -128,7 +128,7 @@ See the docstrings within for details on how to process data with different emis
 
 5. After running `make_sami_df()`, load the DataFrames:
 
-```
+```!.py
 from spaxelsleuth.loaddata.sami import load_sami_df, load_sami_metadata_df
 df_metadata = load_sami_metadata_df()
 df = load_sami_df(ncomponents="recom",
@@ -139,7 +139,7 @@ df = load_sami_df(ncomponents="recom",
 
 6. Do your analysis - e.g., make some plots:
 
-```
+```!.py
 # Histograms showing the distribution in velocity dispersion
 import matplotlib.pyplot as plt
 from astropy.visualization import hist
@@ -232,7 +232,7 @@ Using the DR3 `CubeObs` table as described in Croom et al. (2021), galaxies with
 # Using `spaxelsleuth` with LZIFU
 
 `spaxelsleuth` works directly with data output by [LZIFU](https://github.com/hoiting/LZIFU). Simply modify your configuration file to point to your LZIFU data products as follows:
-```
+```!.json
 {
     "lzifu": {
         "output_path": "/some/path/spaxelsleuth_outputs/",
@@ -254,7 +254,7 @@ A Jupyter notebook showing you how to get up and running with `spaxelsleuth` usi
 # Using `spaxelsleuth` with S7 data
 
 `spaxelsleuth` also works with data from the [Siding Spring Southern Seyfert Spectroscopic Snapshot Survey (S7)](https://miocene.anu.edu.au/S7/). Simply modify your configuration file to point to your S7 data products as follows:
-```
+```!.json
 {
     "s7": {
         "output_path": "/some/path/spaxelsleuth_outputs/",
