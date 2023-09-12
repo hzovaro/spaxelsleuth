@@ -120,8 +120,8 @@ make_sami_df(bin_type="default",
              ncomponents="recom", 
              eline_SNR_min=5, 
              correct_extinction=True,
-             nthreads=N, 
-             metallicity_diagnostics=["R23_KK04"])
+             metallicity_diagnostics=["R23_KK04"],
+             nthreads=N)
 ```
 where `N` is the number of threads you would like to use. 
 
