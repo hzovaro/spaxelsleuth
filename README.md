@@ -34,8 +34,8 @@ Various important settings and variables required by `spaxelsleuth` are specifie
 
 There is one top-level entry in `config.json` for each data source (e.g., `sami`, `s7` and `lzifu`). Each of these stores paths to the necessary input data products (e.g., data products (`input_path`) and and data cubes (`data_cube_path`)) and an output path (`output_path`) which is where output DataFrames are saved. For surveys such as SAMI where the data format is the same for each object, information such as default data cube sizes (`N_x`, `N_y`), spaxel sizes (`as_per_px`) and centre coordinates (`x0_px`, `y0_px`) are also specified in `settings`.
 
-The default values in this file can be easily overridden by the user by creating a custom configuration file. The file can be stored anywhere, but must be in the same JSON format, where you only need to enter key-value pairs for settings you'd like to update. For example, to change where `spaxelsleuth` looks for the input data products, you can create a file named `/home/.my_custom_config.json` with the contents
-```
+The default values in this file can be easily overridden by the user by creating a custom configuration file. The file can be stored anywhere, but must be in the same JSON format, where you only need to enter key-value pairs for settings you'd like to update. For example, to change where `spaxelsleuth` looks for the input data products, you can create a file named `/path/to/config/file/.my_custom_config.json` with the contents
+```!json
 {
     "sdss_im_path": "/some/path/sdss_images/",
     "sami": {
@@ -45,7 +45,7 @@ The default values in this file can be easily overridden by the user by creating
     },
     "lzifu": {
         "output_path": "/some/path/spaxelsleuth_outputs/",
-        "input_path": "/some/path/lzifu_data_products/"
+        "input_path": "/some/path/lzifu_data_products/",
         "data_cube_path": "/some/path/lzifu_data_cubes/"
     },
     ...
@@ -54,7 +54,7 @@ The default values in this file can be easily overridden by the user by creating
 To override the default spaxelsleuth configuration settings, simply use the following lines at the start of your script or notebook: 
 ```
 from spaxelsleuth import load_user_config
-load_user_config("/home/.my_custom_config.json")
+load_user_config("/path/to/config/file/.my_custom_config.json")
 ```
 The settings themselves can be accessed in the form of a `dict` using 
 ```
@@ -86,60 +86,62 @@ The most basic way to use `spaxelsleuth` with SAMI data is as follows:
 
 1. Download the SAMI data following the steps below.
 
-2. Create a config file and save it as `/path/to/config/file/.myconfig`:
+2. Create a config file and save it as `/path/to/config/file/.my_custom_config`:
 
-```
+```!json
 {
     "sami": {
         "output_path": "/some/path/spaxelsleuth_outputs/",
         "input_path": "/some/path/sami_data_products/",
-        "data_cube_path": "/some/path/sami_data_cubes/",
+        "data_cube_path": "/some/path/sami_data_cubes/"
     }
 }
 ```
 
 3. Load the config file:
 
-```
+```!py
 from spaxelsleuth import load_user_config
-load_user_config("/path/to/config/file/.myconfig.json")
+load_user_config("/path/to/config/file/.my_custom_config.json")
 ```
 
-3. Create the metadata DataFrame, which containts redshifts, stellar masses, and other "global" galaxy properties for each SAMI galaxy:
+4. Create the metadata DataFrame, which containts redshifts, stellar masses, and other "global" galaxy properties for each SAMI galaxy:
 
-```
+```!py
 from spaxelsleuth.loaddata.sami import make_sami_metadata_df
 import os
 make_sami_metadata_df(nthreads=os.cpu_count())
 ```
 
-4. Create the SAMI spaxel DataFrame:
-```
+5. Create the SAMI spaxel DataFrame:
+```!py
 from spaxelsleuth.loaddata.sami import make_sami_df
 make_sami_df(bin_type="default", 
              ncomponents="recom", 
              eline_SNR_min=5, 
-             nthreads_max=N, 
+             correct_extinction=True,
+             nthreads=N, 
              metallicity_diagnostics=["R23_KK04"])
 ```
+where `N` is the number of threads you would like to use. 
 
 See the docstrings within for details on how to process data with different emission line fitting and/or binning schemes, how to apply different S/N cuts, etc. **Note that you will need approximately 8 GB to store the DataFrame containing all SAMI galaxies.**
 
 
 5. After running `make_sami_df()`, load the DataFrames:
 
-```
+```!py
 from spaxelsleuth.loaddata.sami import load_sami_df, load_sami_metadata_df
 df_metadata = load_sami_metadata_df()
 df = load_sami_df(ncomponents="recom",
                   bin_type="default",
-                  correct_extinction=True,
-                  eline_SNR_min=5)
+                  eline_SNR_min=5,
+                  correct_extinction=True)
 ```
 
 6. Do your analysis - e.g., make some plots:
 
-```
+```!py
 # Histograms showing the distribution in velocity dispersion
 import matplotlib.pyplot as plt
 from astropy.visualization import hist
@@ -160,8 +162,6 @@ plot2dhistcontours(df=df,
               col_z="count", log_z=True,
               plot_colorbar=True)
 ```
-
-
 
 ## Downloading SAMI data
 
@@ -194,7 +194,7 @@ and will have the following naming convention:
 * SFR surface density map: `<gal>_<A/B>_sfr-dens_<bin_type>_<ncomponents>-comp.fits`
 * SFR map: `<gal>_<A/B>_sfr_<bin_type>_<ncomponents>-comp.fits`
 
-For simplicity, `spaxelsleuth` assumes this default file structure when it searches for the files. To point `spaxelsleuth` to the right location, simply set `settings["sami"]["input_path"]` in your `.config.json` file to the folder containing `ifs/`, i.e. `/path/to/datacentral/data/sami/dr3/`. Note that `settings["sami"]["input_path"]` and `settings["sami"]["data_cube_path"]` can be the same path. 
+For simplicity, `spaxelsleuth` assumes this default file structure when it searches for the files. To point `spaxelsleuth` to the right location, simply set `settings["sami"]["input_path"]` in your config file to the folder containing `ifs/`, i.e. `/path/to/datacentral/data/sami/dr3/`. Note that `settings["sami"]["input_path"]` and `settings["sami"]["data_cube_path"]` can be the same path. 
 
 ### SAMI metadata
 SAMI galaxy "metadata", such as galaxy redshifts and stellar masses, is also required. For your convenience, this data is provided in data/, but may be downloaded in CSV format from the (DataCentral Schema)[https://datacentral.org.au/services/schema/] where they can be found under the following tabs:
@@ -232,11 +232,11 @@ Using the DR3 `CubeObs` table as described in Croom et al. (2021), galaxies with
 # Using `spaxelsleuth` with LZIFU
 
 `spaxelsleuth` works directly with data output by [LZIFU](https://github.com/hoiting/LZIFU). Simply modify your configuration file to point to your LZIFU data products as follows:
-```
+```!json
 {
     "lzifu": {
         "output_path": "/some/path/spaxelsleuth_outputs/",
-        "input_path": "/some/path/lzifu_data_products/",
+        "input_path": "/some/path/lzifu_data_products/"
     },
     ...
 }
@@ -254,7 +254,7 @@ A Jupyter notebook showing you how to get up and running with `spaxelsleuth` usi
 # Using `spaxelsleuth` with S7 data
 
 `spaxelsleuth` also works with data from the [Siding Spring Southern Seyfert Spectroscopic Snapshot Survey (S7)](https://miocene.anu.edu.au/S7/). Simply modify your configuration file to point to your S7 data products as follows:
-```
+```!json
 {
     "s7": {
         "output_path": "/some/path/spaxelsleuth_outputs/",
