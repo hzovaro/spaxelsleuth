@@ -29,14 +29,16 @@ def add_columns(df, **kwargs):
     df = continuum.compute_EW(df, ncomponents_max, eline_list=["HALPHA"])
     
     ######################################################################
-    # Compute S/N in all lines
+    # Compute S/N and A/N in all lines
     df = dqcut.compute_SN(df, ncomponents_max, kwargs["eline_list"])
+    df = dqcut.compute_AN(df, ncomponents_max, kwargs["eline_list"])
 
     ######################################################################
     # DQ and S/N CUTS
     logger.info(f"setting & aplying data quality and S/N cuts...")
     df = dqcut.set_flags(df=df, 
                          eline_SNR_min=kwargs["eline_SNR_min"],
+                         eline_ANR_min=kwargs["eline_ANR_min"],
                          eline_list=kwargs["eline_list"],
                          ncomponents_max=ncomponents_max,
                          sigma_inst_kms=kwargs["sigma_inst_kms"],
@@ -134,7 +136,7 @@ def add_columns(df, **kwargs):
     ###############################################################################
     # Save input flags to the DataFrame
     logger.info(f"adding flags to DataFrame...")
-    for flag in ["eline_SNR_min", "sigma_gas_SNR_min",
+    for flag in ["eline_SNR_min", "sigma_gas_SNR_min", "eline_ANR_min",
                  "line_flux_SNR_cut", "missing_fluxes_cut", "line_amplitude_SNR_cut",
                  "flux_fraction_cut", "vgrad_cut", "sigma_gas_SNR_cut", "stekin_cut"]:
         df[flag] = kwargs[flag]
