@@ -6,12 +6,16 @@
 
 `spaxelsleuth` was originally developed to work with data from the [Sydney-AAO Multi-object Integral field spectrograph (SAMI) survey](http://sami-survey.org/) but contains extensions to work with fitting output from LZIFU and S7, and can be adapted to ingest data from other surveys.
 
-# Prerequisites 
+# Installation
 
-`spaxelsleuth` has been tested only in **python 3.10**. I cannot guarantee that it will work with other versions of python. I recommend creating a python 3.10 virtual environment using e.g. conda and then installing the prerequisite packages.
+After cloning into the repository, cd into it and install spaxelsleuth using 
+```!sh
+pip install -e .
+```
 
-## Required packages 
+## Requirements 
 
+`spaxelsleuth` requires the following packages to run:
 * astropy
 * extinction
 * ipympl (*only required for example notebooks*)
@@ -20,6 +24,9 @@
 * pytables
 * scipy
 * tqdm
+A full list of required packages is given in `requirements.txt`. 
+
+`spaxelsleuth` has been tested only in **python 3.10**. I cannot guarantee that it will work with earlier versions of python. I recommend creating a python 3.10 virtual environment using e.g. conda and then installing the prerequisite packages.
 
 ## Config file 
 
