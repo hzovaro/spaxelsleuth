@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 from spaxelsleuth.config import settings
-from spaxelsleuth import utils
+from spaxelsleuth.utils import linefns, metallicity, extcorr
 
 import logging
 logger = logging.getLogger(__name__)
@@ -458,13 +458,13 @@ def make_sami_aperture_df(eline_SNR_min,
         )
         for ap in aps:
             # Compute A_V using total Halpha and Hbeta emission line fluxes
-            df_ap = utils.extcorr.compute_A_V(df_ap,
+            df_ap = extcorr.compute_A_V(df_ap,
                                               reddening_curve="fm07",
                                               balmer_SNR_min=5,
                                               s=f" ({ap})")
 
             # Apply the extinction correction to emission line fluxes
-            df_ap = utils.extcorr.apply_extinction_correction(
+            df_ap = extcorr.apply_extinction_correction(
                 df_ap,
                 reddening_curve="fm07",
                 eline_list=[e for e in eline_list if f"{e} ({ap})" in df_ap],
@@ -477,15 +477,15 @@ def make_sami_aperture_df(eline_SNR_min,
     ######################################################################
     # EVALUATE LINE RATIOS & SPECTRAL CLASSIFICATIONS
     for ap in aps:
-        df_ap = utils.linefns.ratio_fn(df_ap, s=f" ({ap})")
-        df_ap = utils.linefns.bpt_fn(df_ap, s=f" ({ap})")
+        df_ap = linefns.ratio_fn(df_ap, s=f" ({ap})")
+        df_ap = linefns.bpt_fn(df_ap, s=f" ({ap})")
 
     ######################################################################
     # EVALUATE METALLICITY
     for ap in aps:
         for diagnostic in metallicity_diagnostics:
             if diagnostic.endswith("K19"):
-                df_ap = utils.metallicity.calculate_metallicity(
+                df_ap = metallicity.calculate_metallicity(
                     met_diagnostic=diagnostic,
                     compute_logU=True,
                     ion_diagnostic="O3O2_K19",
@@ -494,7 +494,7 @@ def make_sami_aperture_df(eline_SNR_min,
                     df=df_ap,
                     s=f" ({ap})")
             elif diagnostic.endswith("KK04"):
-                df_ap = utils.metallicity.calculate_metallicity(
+                df_ap = metallicity.calculate_metallicity(
                     met_diagnostic=diagnostic,
                     compute_logU=True,
                     ion_diagnostic="O3O2_KK04",
@@ -503,7 +503,7 @@ def make_sami_aperture_df(eline_SNR_min,
                     df=df_ap,
                     s=f" ({ap})")
             else:
-                df_ap = utils.metallicity.calculate_metallicity(
+                df_ap = metallicity.calculate_metallicity(
                     met_diagnostic=diagnostic,
                     compute_errors=True,
                     niters=1000,

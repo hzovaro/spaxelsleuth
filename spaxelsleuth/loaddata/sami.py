@@ -13,7 +13,7 @@ from astropy.io import fits
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
 from spaxelsleuth.utils.geometry import deproject_coordinates
-from spaxelsleuth.utils.dqcut import compute_HALPHA_amplitude_to_noise
+from spaxelsleuth.utils.dqcut import compute_measured_HALPHA_amplitude_to_noise
 from spaxelsleuth.utils.velocity import compute_v_grad
 from spaxelsleuth.utils.addcolumns import add_columns
 from spaxelsleuth.utils.misc import morph_dict, morph_num_to_str
@@ -655,7 +655,7 @@ def _process_gals(args):
     v_grad = compute_v_grad(v_map)
 
     # Compute the HALPHA amplitude-to-noise. Store as "meas" to distinguish from A/N measurements for individual emission line components
-    AN_HALPHA_map = compute_HALPHA_amplitude_to_noise(
+    AN_HALPHA_map = compute_measured_HALPHA_amplitude_to_noise(
         data_cube=data_cube_R,
         var_cube=var_cube_R,
         lambda_vals_rest_A=lambda_vals_R_rest_A,
@@ -983,6 +983,7 @@ def make_sami_df(bin_type,
                  eline_SNR_min,
                  correct_extinction,
                  sigma_gas_SNR_min=3,
+                 eline_ANR_min=3,
                  eline_list=settings["sami"]["eline_list"],
                  line_flux_SNR_cut=True,
                  missing_fluxes_cut=True,
@@ -1076,6 +1077,11 @@ def make_sami_df(bin_type,
 
     sigma_gas_SNR_min:          float (optional)
         Minimum velocity dipersion S/N to accept. Defaults to 3.
+
+    eline_ANR_min:          float
+        Minimum A/N to adopt for emission lines in each kinematic component,
+        defined as the Gaussian amplitude divided by the continuum standard
+        deviation in a nearby wavelength range.
 
     line_flux_SNR_cut:          bool (optional)
         Whether to NaN emission line components AND total fluxes 
@@ -1239,15 +1245,15 @@ def make_sami_df(bin_type,
             __lzifu_products_path
         ), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
         logger.warning(
-            "using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!",
+            "using LZIFU %d-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (__lzifu_ncomponents),
             RuntimeWarning)
 
-    logger.info(f"input parameters: bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, correct_extinction={correct_extinction}")
+    logger.info(f"input parameters: bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
 
     # Determine number of threads
     if nthreads is None:
         nthreads = os.cpu_count()
-        logger.warning(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
+        logger.warning(f"nthreads not specified: running make_sami_df() on {nthreads} threads...")
 
     ###############################################################################
     # Filenames
@@ -1256,9 +1262,9 @@ def make_sami_df(bin_type,
 
     # Output file names
     if correct_extinction:
-        df_fname = f"sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}"
+        df_fname = f"sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}_minANR={eline_ANR_min}"
     else:
-        df_fname = f"sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}"
+        df_fname = f"sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}_minANR={eline_ANR_min}"
     if __use_lzifu_fits:
         df_fname += f"_lzifu_{__lzifu_ncomponents}-comp"
     if debug:
@@ -1348,6 +1354,7 @@ def make_sami_df(bin_type,
     ###############################################################################
     df_spaxels = add_columns(df_spaxels,
                              eline_SNR_min=eline_SNR_min,
+                             eline_ANR_min=eline_ANR_min,
                              sigma_gas_SNR_min=sigma_gas_SNR_min,
                              eline_list=eline_list,
                              line_flux_SNR_cut=line_flux_SNR_cut,
@@ -1375,14 +1382,8 @@ def make_sami_df(bin_type,
     if len(bad_cols) > 0:
         logger.warning(f"The following object-type columns are present in the DataFrame: {','.join(bad_cols)}")
 
-    try:
-        df_spaxels.to_hdf(output_path / df_fname,
-                          key=f"{bin_type}{ncomponents}comp")
-    except:
-        logger.error(
-            f"unable to save to HDF file! Saving to .csv instead"
-        )
-        df_spaxels.to_csv(output_path / df_fname.split("hd5")[0] + "csv")
+    # Save
+    df_spaxels.to_hdf(output_path / df_fname, key=f"{bin_type}{ncomponents}comp")
     
     logger.info("finished!")
     return
@@ -1393,6 +1394,7 @@ def load_sami_df(ncomponents,
                  bin_type,
                  correct_extinction,
                  eline_SNR_min,
+                 eline_ANR_min=3,
                  __use_lzifu_fits=False,
                  __lzifu_ncomponents='3',
                  debug=False):
@@ -1471,14 +1473,14 @@ def load_sami_df(ncomponents,
             __lzifu_products_path
         ), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
         logger.warning(
-            "using LZIFU {__lzifu_ncomponents}-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!",
+            "using LZIFU %s-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (__lzifu_ncomponents),
             RuntimeWarning)
 
     # Input file name
     df_fname = f"sami_{bin_type}_{ncomponents}-comp"
     if correct_extinction:
         df_fname += "_extcorr"
-    df_fname += f"_minSNR={eline_SNR_min}"
+    df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}"
     if __use_lzifu_fits:
         df_fname += f"_lzifu_{__lzifu_ncomponents}-comp"
     if debug:
@@ -1493,7 +1495,7 @@ def load_sami_df(ncomponents,
     logger.info(
         f"Loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
     )
-    df = pd.read_hdf(output_path / df_fname)
+    df = pd.read_hdf(output_path / df_fname, key=f"{bin_type}{ncomponents}comp")
 
     # Add "metadata" columns to the DataFrame
     df["survey"] = "sami"
