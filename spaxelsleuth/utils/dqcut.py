@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 
 ###############################################################################
 def compute_SN(df, ncomponents_max, eline_list):
-    """Compute the flux S/N in the provided emission lines."""
+    """Compute the flux S/N in the provided emission lines.
+    If the flux and the error are both 0, then a NaN is returned.
+    If the flux is nonzero but the error is, then an inf is returned.
+    """
     logger.debug("computing emission line S/N ratios...")
     for eline in eline_list:
         # Compute S/N
