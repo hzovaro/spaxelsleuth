@@ -7,7 +7,7 @@ if __name__ == "__main__":
     DEBUG = True
 
     # Create the DataFrames
-    make_sami_metadata_df(recompute_continuum_SNRs=True, nthreads=nthreads)
+    make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=nthreads)
     make_sami_df(bin_type="default", 
                 ncomponents="recom", 
                 eline_SNR_min=5, 
