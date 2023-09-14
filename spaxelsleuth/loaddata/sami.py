@@ -478,7 +478,6 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
         args_list = [[gal, df_metadata] for gal in gal_ids_dq_cut]
         if nthreads > 1:
             logger.info(f"computing continuum SNRs on {nthreads} threads...")
-            multiprocessing.set_start_method("fork")  # Required to prevent reinitialising the 'settings' global variable when running on OSX
             pool = multiprocessing.Pool(nthreads)
             res_list = pool.map(_compute_snr, args_list)
             pool.close()
@@ -1320,7 +1319,6 @@ def make_sami_df(bin_type,
     else:
         if nthreads > 1:
             logger.info(f"beginning pool...")
-            multiprocessing.set_start_method("fork")  # Required to prevent reinitialising the 'settings' global variable when running on OSX
             pool = multiprocessing.Pool(
                 min([nthreads, len(gal_ids_dq_cut)]))
             res_list = np.array((pool.map(_process_gals, args_list)), dtype=object)

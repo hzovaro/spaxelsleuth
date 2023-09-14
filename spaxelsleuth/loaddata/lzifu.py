@@ -596,7 +596,6 @@ def make_lzifu_df(gals,
     else:
         if nthreads > 1:
             logger.info(f"beginning pool...")
-            multiprocessing.set_start_method("fork")  # Required to prevent reinitialising the 'settings' global variable when running on OSX
             pool = multiprocessing.Pool(min([nthreads, len(gals)]))
             res_list = pool.map(_process_lzifu, args_list)
             pool.close()

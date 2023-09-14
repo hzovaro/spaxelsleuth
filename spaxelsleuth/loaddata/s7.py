@@ -661,7 +661,6 @@ def make_s7_df(gals=None,
     else:
         if nthreads > 1:
             logger.info(f"beginning pool...")
-            multiprocessing.set_start_method("fork")  # Required to prevent reinitialising the 'settings' global variable when running on OSX
             pool = multiprocessing.Pool(min([nthreads, len(gals)]))
             res_list = np.array((pool.map(_process_s7, args_list)))
             pool.close()
