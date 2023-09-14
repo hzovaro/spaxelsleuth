@@ -448,6 +448,11 @@ def make_lzifu_df(gals,
         Minimum emission line flux S/N to adopt when making S/N and data 
         quality cuts.
 
+    eline_ANR_min:          float
+        Minimum A/N to adopt for emission lines in each kinematic component,
+        defined as the Gaussian amplitude divided by the continuum standard
+        deviation in a nearby wavelength range.
+
     correct_extinction:         bool 
         If True, correct emission line fluxes for extinction. 
 
