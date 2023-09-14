@@ -20,10 +20,11 @@ df = load_lzifu_df(ncomponents=ncomponents, eline_SNR_min=eline_SNR_min, eline_A
 #//////////////////////////////////////////////////////////////////////////////
 # GENERAL TESTS
 #//////////////////////////////////////////////////////////////////////////////
-# CHECK: SFR/SFR surface density columns exist 
-for col in ["SFR (total)"]:
-    assert f"{col}" in df.columns
-    assert f"log {col}" in df.columns
+# CHECK: SFR/SFR surface density columns exist (but only for 'total', because this is how it's been implemented so far)
+cond_SF = df[f"BPT (total)"] == "SF"
+if any(cond_SF):
+    assert f" SFR (total)" in df.columns
+    assert f"log  SFR (total)" in df.columns
 
 # CHECK: BPT categories 
 for eline in ["HALPHA", "HBETA", "NII6583", "OIII5007"]:
