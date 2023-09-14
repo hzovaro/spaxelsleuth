@@ -1,6 +1,9 @@
 if __name__ == "__main__":
     from spaxelsleuth import load_user_config
-    load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
+    try:
+        load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
+    except FileNotFoundError:
+        load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
     from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_df, load_sami_metadata_df, load_sami_df
 
     nthreads = 4
