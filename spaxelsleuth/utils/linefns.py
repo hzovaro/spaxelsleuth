@@ -949,7 +949,8 @@ def ratio_fn(df, s=None):
 
 ###############################################################################
 def sfr_fn(df, s=f" (total)"):
-    """Compute the SFR from the Halpha luminosity using the relation of Calzetti 2013."""
+    """Compute the SFR from the Halpha luminosity using the relation of Calzetti 2013.
+    NOTE: the SFR is only computed in rows where the BPT classification is 'SF' in the component denoted by 's'."""
     logger.debug(f"computing SFRs for suffix '{s}'...")
     # Remove suffixes on columns
     if s is not None:
@@ -964,7 +965,7 @@ def sfr_fn(df, s=f" (total)"):
     if len(sfr_cols) > 0:
         logger.warn(f"the following columns already exist in the DataFrame: {', '.join(sfr_cols)}")
 
-    # Use the Calzetti relation to calculate the SFR
+    # Use the Calzetti relation to calculate the SFR only when the BPT classification in this component is star-forming
     if "HALPHA luminosity" in df and "BPT (numeric)" in df:
         cond_SF = df["BPT (numeric)"] != 0
         df.loc[cond_SF, "SFR"] = df.loc[cond_SF, "HALPHA luminosity"] * 5.5e-42  # Taken from Calzetti (2013); assumes stellar mass range 0.1–100 M⊙, τ ≥6 Myr, Te=104 k, ne=100 cm−3
