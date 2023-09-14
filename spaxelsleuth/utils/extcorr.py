@@ -265,6 +265,7 @@ def apply_extinction_correction(df, eline_list, a_v_col_name,
     args_list = [[rr, df_extcorr, eline_list, a_v_col_name, ext_fn] for rr in df_extcorr.index.values]
     if nthreads > 1:
         logger.debug(f"multithreading A_V computation across {nthreads} threads...")
+        multiprocessing.set_start_method("fork")  # Required to prevent reinitialising the 'settings' global variable when running on OSX
         pool = multiprocessing.Pool(nthreads)
         res_list = pool.map(extcorr_helper_fn, args_list)
         pool.close()
