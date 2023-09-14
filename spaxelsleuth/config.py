@@ -1,9 +1,15 @@
 import json
+import multiprocessing
 from pathlib import Path
 
 import logging
 logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
+
+def configure_multiprocessing():
+    """Configure multiprocessing to use 'fork' rather than 'spawn' to prevent reinitialising the 'settings' global variable when running on OSX."""
+    multiprocessing.set_start_method("fork")
+    return
 
 # Load the default config file
 def configure_logger(logfile_name=None, level="INFO"):
