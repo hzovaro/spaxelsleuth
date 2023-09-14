@@ -373,6 +373,7 @@ def _process_lzifu(args):
 def make_lzifu_df(gals,
                   ncomponents,
                   eline_SNR_min,
+                  eline_ANR_min,
                   correct_extinction,
                   sigma_inst_kms,
                   df_fname=None,
@@ -572,13 +573,13 @@ def make_lzifu_df(gals,
         df_fname = f"lzifu_{ncomponents}-comp"
         if correct_extinction:
             df_fname += "_extcorr"
-        df_fname += f"_minSNR={eline_SNR_min}.hd5"
+        df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5"
 
     if (type(ncomponents) not in [int, str]) or (type(ncomponents) == str
                                                  and ncomponents != "merge"):
         raise ValueError("ncomponents must be either an integer or 'merge'!")
 
-    logger.info(f"input parameters: ncomponents={ncomponents}, eline_SNR_min={eline_SNR_min}, correct_extinction={correct_extinction}")
+    logger.info(f"input parameters: ncomponents={ncomponents}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
 
     # Determine number of threads
     if nthreads is None:
@@ -627,6 +628,7 @@ def make_lzifu_df(gals,
     df_spaxels = add_columns(
         df_spaxels.copy(),
         eline_SNR_min=eline_SNR_min,
+        eline_ANR_min=eline_ANR_min,
         sigma_gas_SNR_min=sigma_gas_SNR_min,
         eline_list=eline_list,
         line_flux_SNR_cut=line_flux_SNR_cut,
@@ -655,9 +657,10 @@ def make_lzifu_df(gals,
 
 
 ###############################################################################
-def load_lzifu_df(ncomponents=None,
-                  correct_extinction=None,
-                  eline_SNR_min=None,
+def load_lzifu_df(ncomponents,
+                  correct_extinction,
+                  eline_SNR_min,
+                  eline_ANR_min,
                   df_fname=None,
                   key=None):
 
@@ -676,7 +679,7 @@ def load_lzifu_df(ncomponents=None,
         df_fname = f"lzifu_{ncomponents}-comp"
         if correct_extinction:
             df_fname += "_extcorr"
-        df_fname += f"_minSNR={eline_SNR_min}.hd5"
+        df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5"
 
     if not os.path.exists(output_path / df_fname):
         raise FileNotFoundError(
