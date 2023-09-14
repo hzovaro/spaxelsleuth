@@ -15,25 +15,20 @@ if __name__ == "__main__":
     from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours, plot2dscatter
 
     nthreads = 4
-    eline_SNR_min = 3
-    DEBUG = True
+    ncomponents = 1
+    eline_SNR_min = 1
+    eline_ANR_min = 1
+    correct_extinction = True
     
+    # List of galaxies with LZIFU data
     gals = [int(f.split("_")[0]) for f in os.listdir(settings["lzifu"]["input_path"]) if f.endswith("1_comp.fits") and not f.startswith(".")]
-    print(gals)
 
     # Create the DataFrame
     make_lzifu_df(gals=gals,
-                ncomponents=1,
-                eline_SNR_min=3,
-                eline_ANR_min=3,
-                sigma_gas_SNR_min=1,
-                line_flux_SNR_cut=False,
-                missing_fluxes_cut=False,
-                line_amplitude_SNR_cut=False,
-                flux_fraction_cut=False,
-                sigma_gas_SNR_cut=False,
-                vgrad_cut=False,
-                correct_extinction=False,
+                ncomponents=ncomponents,
+                eline_SNR_min=eline_SNR_min,
+                eline_ANR_min=eline_ANR_min,
+                correct_extinction=correct_extinction,
                 metallicity_diagnostics=[
                     "N2Ha_PP04",
                 ],
@@ -42,9 +37,10 @@ if __name__ == "__main__":
 
     # Load the DataFrames
     df = load_lzifu_df(
-        ncomponents=1,
-        correct_extinction=False,
-        eline_SNR_min=3,
+        ncomponents=ncomponents,
+        eline_SNR_min=eline_SNR_min,
+        eline_ANR_min=eline_ANR_min,
+        correct_extinction=correct_extinction,
     )
 
     # Histograms showing the distribution in velocity dispersion
@@ -53,7 +49,6 @@ if __name__ == "__main__":
     ax.legend()
     ax.set_xlabel(r"\sigma_{\rm gas}")
     ax.set_ylabel(r"N (normalised)")
-
 
     # Plot a 2D histogram showing the distribution of SAMI spaxels in the WHAN diagram
     plot2dhistcontours(df=df,
