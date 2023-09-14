@@ -1,9 +1,15 @@
 import json
+import multiprocessing
 from pathlib import Path
 
 import logging
 logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
+
+def configure_multiprocessing():
+    """Configure multiprocessing to use 'fork' rather than 'spawn' to prevent reinitialising the 'settings' global variable when running on OSX."""
+    multiprocessing.set_start_method("fork")
+    return
 
 # Load the default config file
 def configure_logger(logfile_name=None, level="INFO"):
@@ -26,6 +32,7 @@ def configure_logger(logfile_name=None, level="INFO"):
 # Load the default config file
 def load_default_config():
     """Load the default config file."""
+    print("Loading default config file")
     with open(Path(__file__).parent / "config.json", "r") as f:
         global settings
         settings = json.load(f)
@@ -33,6 +40,7 @@ def load_default_config():
 # Allow user to upload custom settings - e.g. colourmaps, vmin/vmax limits, paths
 def load_user_config(p, verbose=False):
     """Load a custom config file. Overwrites default configuration files."""
+    print("Loading user config file")
     with open(Path(p)) as f:
         user_settings = json.load(f)
     # Merge with existing settings
