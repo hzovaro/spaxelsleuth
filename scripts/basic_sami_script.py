@@ -19,6 +19,7 @@ if __name__ == "__main__":
     make_sami_df(bin_type="default", 
                 ncomponents="recom", 
                 eline_SNR_min=5, 
+                eline_ANR_min=3, 
                 correct_extinction=True,
                 metallicity_diagnostics=["R23_KK04"],
                 nthreads=nthreads,
@@ -29,6 +30,7 @@ if __name__ == "__main__":
     df = load_sami_df(ncomponents="recom",
                     bin_type="default",
                     eline_SNR_min=5,
+                    eline_ANR_min=3,
                     correct_extinction=True,
                     debug=DEBUG)
     
