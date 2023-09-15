@@ -4,6 +4,8 @@ from scipy import constants
 from time import time
 import warnings
 
+from spaxelsleuth.utils.misc import remove_col_suffix, add_col_suffix
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -930,12 +932,7 @@ def calculate_metallicity(df, met_diagnostic,
                 f"ionisation parameter diagnostic {ion_diagnostic} requires {line} which was not found in the DataFrame!"
 
     # Remove suffixes on columns
-    if s is not None:
-        df_old = df
-        suffix_cols = [c for c in df.columns if c.endswith(s)]
-        suffix_removed_cols = [c.split(s)[0] for c in suffix_cols]
-        df = df_old.rename(columns=dict(zip(suffix_cols, suffix_removed_cols)))
-    old_cols = df.columns
+    df, suffix_cols, suffix_removed_cols, old_cols = remove_col_suffix(df, s)
     
     # Calculate the metallicity
     if compute_errors:
@@ -946,14 +943,7 @@ def calculate_metallicity(df, met_diagnostic,
         df = _get_metallicity(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=1)
 
     # Rename columns
-    if s is not None:
-        # Get list of new columns that have been added
-        added_cols = [c for c in df.columns if c not in old_cols]
-        suffix_added_cols = [f"{c}{s}" for c in added_cols]
-        # Rename the new columns
-        df = df.rename(columns=dict(zip(added_cols, suffix_added_cols)))
-        # Replace the suffix in the column names
-        df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
+    df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)
 
     logger.debug(f"done! Total time = {int(np.floor((time() - t) / 3600)):d}:{int(np.floor((time() - t) / 60)):d}:{np.mod(time() - t, 60):02.5f}")
     return df 

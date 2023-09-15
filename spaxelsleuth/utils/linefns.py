@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import warnings
 
+from spaxelsleuth.utils.misc import remove_col_suffix, add_col_suffix
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -308,11 +310,7 @@ def bpt_fn(df, s=None):
     """
     logger.debug(f"computing BPT categories for suffix '{s}'...")
     # Remove suffixes on columns
-    if s is not None:
-        df_old = df
-        suffix_cols = [c for c in df.columns if c.endswith(s)]
-        suffix_removed_cols = [c.split(s)[0] for c in suffix_cols]
-        df = df_old.rename(columns=dict(zip(suffix_cols, suffix_removed_cols)))
+    df, suffix_cols, suffix_removed_cols, old_cols = remove_col_suffix(df, s)
 
     old_cols = df.columns
     if np.all(c in df.columns for c in ["log O3", "log N2", "log S2"]):
@@ -414,14 +412,7 @@ def bpt_fn(df, s=None):
         df.loc[:, "BPT (numeric)"] = -1
     
     # Rename columns
-    if s is not None:
-        # Get list of new columns that have been added
-        added_cols = [c for c in df.columns if c not in old_cols]
-        suffix_added_cols = [f"{c}{s}" for c in added_cols]
-        # Rename the new columns
-        df = df.rename(columns=dict(zip(added_cols, suffix_added_cols)))
-        # Replace the suffix in the column names
-        df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
+    df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)
 
     return df
 
@@ -626,12 +617,9 @@ def law2021_fn(df, s=None):
     log N2 and log S2 to be defined. These can be computed using ratio_fn().
     """
     logger.debug(f"computing Law et al. (2021) kinematic categories for suffix '{s}'...")
+    
     # Remove suffixes on columns
-    if s is not None:
-        df_old = df
-        suffix_cols = [c for c in df.columns if c.endswith(s)]
-        suffix_removed_cols = [c.split(s)[0] for c in suffix_cols]
-        df = df_old.rename(columns=dict(zip(suffix_cols, suffix_removed_cols)))
+    df, suffix_cols, suffix_removed_cols, old_cols = remove_col_suffix(df, s)
 
     old_cols = df.columns
 
@@ -697,14 +685,7 @@ def law2021_fn(df, s=None):
         df = df.astype({"Law+2021 (numeric)": float})
 
     # Rename columns
-    if s is not None:
-        # Get list of new columns that have been added
-        added_cols = [c for c in df.columns if c not in old_cols]
-        suffix_added_cols = [f"{c}{s}" for c in added_cols]
-        # Rename the new columns
-        df = df.rename(columns=dict(zip(added_cols, suffix_added_cols)))
-        # Replace the suffix in the column names
-        df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
+    df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)
 
     return df
 
@@ -750,11 +731,7 @@ def ratio_fn(df, s=None):
     """
     logger.debug(f"computing emission line ratios for suffix '{s}'...")
     # Remove suffixes on columns
-    if s is not None:
-        df_old = df
-        suffix_cols = [c for c in df.columns if c.endswith(s)]
-        suffix_removed_cols = [c.split(s)[0] for c in suffix_cols]
-        df = df_old.rename(columns=dict(zip(suffix_cols, suffix_removed_cols)))
+    df, suffix_cols, suffix_removed_cols, old_cols = remove_col_suffix(df, s)
 
     def in_df(col_list):
         for col in col_list:
@@ -936,27 +913,17 @@ def ratio_fn(df, s=None):
             df["S2 ratio error"] = df["S2 ratio"] * np.sqrt((df["SII6716 error"] / df["SII6716"])**2 + (df["SII6731 error"] / df["SII6731"])**2)
 
     # Rename columns
-    if s is not None:
-        # Get list of new columns that have been added
-        added_cols = [c for c in df.columns if c not in old_cols]
-        suffix_added_cols = [f"{c}{s}" for c in added_cols]
-        # Rename the new columns
-        df = df.rename(columns=dict(zip(added_cols, suffix_added_cols)))
-        # Replace the suffix in the column names
-        df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
+    df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)
 
     return df
 
 ###############################################################################
 def sfr_fn(df, s=f" (total)"):
-    """Compute the SFR from the Halpha luminosity using the relation of Calzetti 2013."""
+    """Compute the SFR from the Halpha luminosity using the relation of Calzetti 2013.
+    NOTE: the SFR is only computed in rows where the BPT classification is 'SF' in the component denoted by 's'."""
     logger.debug(f"computing SFRs for suffix '{s}'...")
     # Remove suffixes on columns
-    if s is not None:
-        df_old = df
-        suffix_cols = [c for c in df.columns if c.endswith(s)]
-        suffix_removed_cols = [c.split(s)[0] for c in suffix_cols]
-        df = df_old.rename(columns=dict(zip(suffix_cols, suffix_removed_cols)))
+    df, suffix_cols, suffix_removed_cols, old_cols = remove_col_suffix(df, s)
     old_cols = df.columns
     
     # Check whether SFR measurements already exist in the DataFrame
@@ -964,21 +931,14 @@ def sfr_fn(df, s=f" (total)"):
     if len(sfr_cols) > 0:
         logger.warn(f"the following columns already exist in the DataFrame: {', '.join(sfr_cols)}")
 
-    # Use the Calzetti relation to calculate the SFR
+    # Use the Calzetti relation to calculate the SFR only when the BPT classification in this component is star-forming
     if "HALPHA luminosity" in df and "BPT (numeric)" in df:
         cond_SF = df["BPT (numeric)"] != 0
         df.loc[cond_SF, "SFR"] = df.loc[cond_SF, "HALPHA luminosity"] * 5.5e-42  # Taken from Calzetti (2013); assumes stellar mass range 0.1–100 M⊙, τ ≥6 Myr, Te=104 k, ne=100 cm−3
         df.loc[cond_SF, "SFR error"] = df.loc[cond_SF, "HALPHA luminosity error"] * 5.5e-42  
 
     # Rename columns
-    if s is not None:
-        # Get list of new columns that have been added
-        added_cols = [c for c in df.columns if c not in old_cols]
-        suffix_added_cols = [f"{c}{s}" for c in added_cols]
-        # Rename the new columns
-        df = df.rename(columns=dict(zip(added_cols, suffix_added_cols)))
-        # Replace the suffix in the column names
-        df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
+    df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)
 
     return df
 

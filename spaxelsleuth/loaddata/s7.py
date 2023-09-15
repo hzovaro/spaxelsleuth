@@ -432,65 +432,60 @@ def _process_s7(args):
 
 
 #/////////////////////////////////////////////////////////////////////////////////
-def make_s7_df(gals=None,
-                eline_SNR_min=5,
-                correct_extinction=True,
-                sigma_gas_SNR_min=3,
-                line_flux_SNR_cut=True,
-                missing_fluxes_cut=True,
-                line_amplitude_SNR_cut=True,
-                flux_fraction_cut=False,
-                sigma_gas_SNR_cut=True,
-                vgrad_cut=False,
-                metallicity_diagnostics=[
-                    "N2Ha_PP04",
-                    "N2Ha_M13",
-                    "O3N2_PP04",
-                    "O3N2_M13",
-                    "N2S2Ha_D16",
-                    "N2O2_KD02",
-                    "Rcal_PG16",
-                    "Scal_PG16",
-                    "ON_P10",
-                    "ONS_P10",
-                    "N2Ha_K19",
-                    "O3N2_K19",
-                    "N2O2_K19",
-                    "R23_KK04",
-                ],
-                nthreads=None):
+def make_s7_df(eline_SNR_min,
+               eline_ANR_min,
+               correct_extinction,
+               gals=None,
+               sigma_gas_SNR_min=3,
+               line_flux_SNR_cut=True,
+               missing_fluxes_cut=True,
+               line_amplitude_SNR_cut=True,
+               flux_fraction_cut=False,
+               sigma_gas_SNR_cut=True,
+               vgrad_cut=False,
+               metallicity_diagnostics=[
+                   "N2Ha_PP04",
+                   "N2Ha_M13",
+                   "O3N2_PP04",
+                   "O3N2_M13",
+                   "N2S2Ha_D16",
+                   "N2O2_KD02",
+                   "Rcal_PG16",
+                   "Scal_PG16",
+                   "ON_P10",
+                   "ONS_P10",
+                   "N2Ha_K19",
+                   "O3N2_K19",
+                   "N2O2_K19",
+                   "R23_KK04",
+               ],
+               nthreads=None):
     """
-    Make the SAMI DataFrame, where each row represents a single spaxel in a SAMI galaxy.
+    Make the S7 DataFrame, where each row represents a single spaxel in an S7 galaxy.
 
     DESCRIPTION
     ---------------------------------------------------------------------------
     This function is used to create a Pandas DataFrame containing emission line 
     fluxes & kinematics, stellar kinematics, extinction, star formation rates, 
-    and other quantities for individual spaxels in SAMI galaxies as taken from 
-    SAMI DR3.
+    and other quantities for individual spaxels in S7 galaxies as taken from 
+    S7 DR2 (https://miocene.anu.edu.au/S7/).
 
     The output is stored in HDF format as a Pandas DataFrame in which each row 
-    corresponds to a given spaxel (or Voronoi/sector bin) for every galaxy. 
+    corresponds to a given spaxel for every galaxy. 
 
     USAGE
     ---------------------------------------------------------------------------
     
-        >>> from spaxelsleuth.loaddata.sami import make_sami_df()
-        >>> make_sami_df(ncomponents="1", bin_type="default", correct_extinction=True, eline_SNR_min=5)
+        >>> from spaxelsleuth.loaddata.s7 import make_s7_df()
+        >>> make_s7_df(eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
 
     will create a DataFrame using the data products from 1-component Gaussian 
-    fits to the unbinned datacubes, and will adopt a minimum S/N threshold of 
-    5 to mask out unreliable emission line fluxes and associated quantities.
+    fits to the unbinned datacubes, and will adopt minimum S/N and A/N 
+    thresholds of 5 and 3 respectively to mask out unreliable emission line 
+    fluxes and associated quantities. 
 
     Other input arguments may be configured to control other aspects of the data 
     quality and S/N cuts made.
-
-    Running this function on the full sample takes some time (~10-20 minutes 
-    when threaded across 20 threads). Execution time can be sped up by tweaking 
-    the nthreads parameter. 
-
-    If you wish to run in debug mode, set the DEBUG flag to True: this will run 
-    the script on a subset (by default 10) galaxies to speed up execution. 
 
     INPUTS
     ---------------------------------------------------------------------------
@@ -501,6 +496,11 @@ def make_s7_df(gals=None,
     eline_SNR_min:              int 
         Minimum emission line flux S/N to adopt when making S/N and data 
         quality cuts. Defaults to 5.
+
+    eline_ANR_min:          float
+        Minimum A/N to adopt for emission lines in each kinematic component,
+        defined as the Gaussian amplitude divided by the continuum standard
+        deviation in a nearby wavelength range.
 
     correct_extinction:         bool
         If True, correct emission line fluxes for extinction. Defaults to True.
@@ -581,11 +581,11 @@ def make_s7_df(gals=None,
     ---------------------------------------------------------------------------
     The resulting DataFrame will be stored as 
 
-        settings["s7"]["output_path"]/s7_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5
+        settings["s7"]["output_path"]/s7_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5
 
     if correct_extinction is True, or else
 
-        settings["s7"]["output_path"]/s7_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5
+        settings["s7"]["output_path"]/s7_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5
 
     The DataFrame will be stored in CSV format in case saving in HDF format 
     fails for any reason.
@@ -625,7 +625,7 @@ def make_s7_df(gals=None,
     df_fname = f"s7_default_merge-comp"
     if correct_extinction:
         df_fname += "_extcorr"
-    df_fname += f"_minSNR={eline_SNR_min}.hd5"
+    df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5"
 
     # Load metadata DataFrame
     try:
@@ -695,6 +695,7 @@ def make_s7_df(gals=None,
     df_spaxels = add_columns(
         df_spaxels.copy(),  # Pass a copy of the DataFrame to avoid a pandas PerformanceWarning
         eline_SNR_min=eline_SNR_min,
+        eline_ANR_min=eline_ANR_min,
         sigma_gas_SNR_min=sigma_gas_SNR_min,
         eline_list=eline_list,
         line_flux_SNR_cut=line_flux_SNR_cut,
@@ -724,8 +725,41 @@ def make_s7_df(gals=None,
 
 
 #/////////////////////////////////////////////////////////////////////////////////
-def load_s7_df(correct_extinction=None,
-                  eline_SNR_min=None):
+def load_s7_df(eline_SNR_min, 
+               eline_ANR_min,
+               correct_extinction):
+    """
+    DESCRIPTION
+    ---------------------------------------------------------------------------
+    Load and return the Pandas DataFrame containing spaxel-by-spaxel 
+    information for all S7 galaxies which was created using make_s7_df().
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    eline_SNR_min:      int 
+        Minimum flux S/N to accept. Fluxes below the threshold (plus associated
+        data products) are set to NaN.
+
+    eline_ANR_min:      float
+        Minimum A/N to adopt for emission lines in each kinematic component,
+        defined as the Gaussian amplitude divided by the continuum standard
+        deviation in a nearby wavelength range.
+   
+    correct_extinction: bool
+        If True, load the DataFrame in which the emission line fluxes (but not 
+        EWs) have been corrected for intrinsic extinction.
+    
+    USAGE
+    ---------------------------------------------------------------------------
+    load_s7_df() is called as follows:
+
+        >>> from spaxelsleuth.loaddata.s7 import load_s7_df
+        >>> df = load_s7_df(eline_SNR_min, eline_ANR_min, correct_extinction)
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    The Dataframe.
+    """
 
     #######################################################################
     # INPUT CHECKING
@@ -734,7 +768,7 @@ def load_s7_df(correct_extinction=None,
     df_fname = f"s7_default_merge-comp"
     if correct_extinction:
         df_fname += "_extcorr"
-    df_fname += f"_minSNR={eline_SNR_min}.hd5"
+    df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5"
 
     if not os.path.exists(output_path / df_fname):
         raise FileNotFoundError(
