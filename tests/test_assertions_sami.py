@@ -19,12 +19,14 @@ debug = True
 df = load_sami_df(ncomponents=ncomponents,
                   bin_type=bin_type,
                   eline_SNR_min=eline_SNR_min,
+                  eline_ANR_min=3,
                   correct_extinction=True,
                   debug=debug)
 
 df_noextcorr = load_sami_df(ncomponents=ncomponents,
                         bin_type=bin_type,
                         eline_SNR_min=eline_SNR_min, 
+                        eline_ANR_min=3,
                         correct_extinction=False,
                         debug=debug)
 
