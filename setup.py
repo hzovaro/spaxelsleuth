@@ -20,7 +20,7 @@ setup(
         "matplotlib",
         "numpy",
         "pandas",
-        "pytables",
+        # "pytables",
     ],
     python_requires=">=3.10",
 )
