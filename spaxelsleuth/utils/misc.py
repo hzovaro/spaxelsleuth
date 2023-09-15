@@ -21,6 +21,31 @@ def morph_num_to_str(s):
     return [morph_dict[str(a)] for a in s]
 
 ###############################################################################
+def remove_col_suffix(df, s):
+    """Modifies df to remove suffix s from DataFrame columns."""
+    if s is not None:
+        df_old = df
+        suffix_cols = [c for c in df.columns if c.endswith(s)]
+        suffix_removed_cols = [c.split(s)[0] for c in suffix_cols]
+        df = df_old.rename(columns=dict(zip(suffix_cols, suffix_removed_cols)))
+    old_cols = df.columns
+    return df, suffix_cols, suffix_removed_cols, old_cols
+
+
+def add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols):
+    """Add suffix s back into DataFrame column names"""
+    # Rename columns
+    if s is not None:
+        # Get list of new columns that have been added
+        added_cols = [c for c in df.columns if c not in old_cols]
+        suffix_added_cols = [f"{c}{s}" for c in added_cols]
+        # Rename the new columns
+        df = df.rename(columns=dict(zip(added_cols, suffix_added_cols)))
+        # Replace the suffix in the column names
+        df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
+    return df
+
+###############################################################################
 def in_dataframe(df, cols) -> bool:
     """Returns True if all colums in cols are present in DataFrame df."""
     if type(cols) == list:
@@ -30,7 +55,7 @@ def in_dataframe(df, cols) -> bool:
     else:
         raise ValueError("cols must be str or list of str!")
 
-######################################################################
+###############################################################################
 # Compute offsets between gas & stellar kinematics
 def compute_gas_stellar_offsets(df, ncomponents_max):    
     logger.debug("computing kinematic gas/stellar offsets...")
@@ -62,7 +87,7 @@ def compute_gas_stellar_offsets(df, ncomponents_max):
         
     return df
 
-######################################################################
+###############################################################################
 # Compute differences in Halpha EW, sigma_gas between different components
 def compute_component_offsets(df, ncomponents_max):
     logger.debug("computing kinematic component offsets...")
@@ -117,7 +142,7 @@ def compute_component_offsets(df, ncomponents_max):
 
     return df
 
-######################################################################
+###############################################################################
 # Compute log quantities + errors for Halpha EW, sigma_gas and SFRs
 def compute_log_columns(df, ncomponents_max):
     logger.debug("computing logs...")

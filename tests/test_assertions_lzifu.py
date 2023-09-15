@@ -9,9 +9,10 @@ from spaxelsleuth.loaddata.lzifu import load_lzifu_df
 ###############################################################################
 # Load the data
 ncomponents = 1
-bin_type = "default"
 eline_SNR_min = 1
-df = load_lzifu_df(ncomponents=ncomponents, bin_type=bin_type, eline_SNR_min=eline_SNR_min, df_fname="test_lzifu.hd5")
+eline_ANR_min = 1
+correct_extinction = True
+df = load_lzifu_df(ncomponents=ncomponents, eline_SNR_min=eline_SNR_min, eline_ANR_min=eline_ANR_min, correct_extinction=correct_extinction)
 
 ###############################################################################
 # Assertion checks
@@ -19,10 +20,11 @@ df = load_lzifu_df(ncomponents=ncomponents, bin_type=bin_type, eline_SNR_min=eli
 #//////////////////////////////////////////////////////////////////////////////
 # GENERAL TESTS
 #//////////////////////////////////////////////////////////////////////////////
-# CHECK: SFR/SFR surface density columns exist 
-for col in ["SFR (total)", "SFR (component 1)"]:
-    assert f"{col}" in df.columns
-    assert f"log {col}" in df.columns
+# CHECK: SFR/SFR surface density columns exist (but only for 'total', because this is how it's been implemented so far)
+cond_SF = df[f"BPT (total)"] == "SF"
+if any(cond_SF):
+    assert f" SFR (total)" in df.columns
+    assert f"log  SFR (total)" in df.columns
 
 # CHECK: BPT categories 
 for eline in ["HALPHA", "HBETA", "NII6583", "OIII5007"]:

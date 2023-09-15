@@ -1,3 +1,4 @@
+build/
 .ipynb_checkpoints/
 .gitignore~
  __pycache__/
@@ -8,3 +9,4 @@
 .vscode/
 *.egg-info/
 *__pycache__/
+*profile.html
