@@ -545,11 +545,11 @@ def make_lzifu_df(gals,
     ---------------------------------------------------------------------------
     The resulting DataFrame will be stored as 
 
-        settings["lzifu"]["output_path"]/lzifu_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5
+        settings["lzifu"]["output_path"]/lzifu_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5
 
     if correct_extinction is True, or else
 
-        settings["lzifu"]["output_path"]/lzifu_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5
+        settings["lzifu"]["output_path"]/lzifu_{ncomponents}-comp_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5
 
     The DataFrame will be stored in CSV format in case saving in HDF format 
     fails for any reason.

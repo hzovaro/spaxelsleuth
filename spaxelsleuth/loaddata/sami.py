@@ -981,9 +981,9 @@ def _process_gals(args):
 def make_sami_df(bin_type, 
                  ncomponents,
                  eline_SNR_min,
+                 eline_ANR_min,
                  correct_extinction,
                  sigma_gas_SNR_min=3,
-                 eline_ANR_min=3,
                  eline_list=settings["sami"]["eline_list"],
                  line_flux_SNR_cut=True,
                  missing_fluxes_cut=True,
@@ -1029,11 +1029,14 @@ def make_sami_df(bin_type,
     ---------------------------------------------------------------------------
     
         >>> from spaxelsleuth.loaddata.sami import make_sami_df()
-        >>> make_sami_df(ncomponents="1", bin_type="default", correct_extinction=True, eline_SNR_min=5)
+        >>> make_sami_df(ncomponents="1", bin_type="default", 
+                         eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
 
     will create a DataFrame using the data products from 1-component Gaussian 
-    fits to the unbinned datacubes, and will adopt a minimum S/N threshold of 
-    5 to mask out unreliable emission line fluxes and associated quantities.
+    fits to the unbinned datacubes, and will adopt minimum S/N and A/N 
+    thresholds of 5 and 3 respectively to mask out unreliable emission line 
+    fluxes and associated quantities. sigma_inst_kms refers to the Gaussian 
+    sigma of the instrumental line function in km/s.    
 
     Other input arguments may be configured to control other aspects of the data 
     quality and S/N cuts made.
@@ -1067,6 +1070,11 @@ def make_sami_df(bin_type,
         Minimum emission line flux S/N to adopt when making S/N and data 
         quality cuts.
 
+    eline_ANR_min:          float
+        Minimum A/N to adopt for emission lines in each kinematic component,
+        defined as the Gaussian amplitude divided by the continuum standard
+        deviation in a nearby wavelength range.
+
     correct_extinction:         bool
         If True, correct emission line fluxes for extinction. 
 
@@ -1077,11 +1085,6 @@ def make_sami_df(bin_type,
 
     sigma_gas_SNR_min:          float (optional)
         Minimum velocity dipersion S/N to accept. Defaults to 3.
-
-    eline_ANR_min:          float
-        Minimum A/N to adopt for emission lines in each kinematic component,
-        defined as the Gaussian amplitude divided by the continuum standard
-        deviation in a nearby wavelength range.
 
     line_flux_SNR_cut:          bool (optional)
         Whether to NaN emission line components AND total fluxes 
@@ -1178,11 +1181,11 @@ def make_sami_df(bin_type,
     ---------------------------------------------------------------------------
     The resulting DataFrame will be stored as 
 
-        settings["sami"]["output_path"]/sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}.hd5
+        settings["sami"]["output_path"]/sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5
 
     if correct_extinction is True, or else
 
-        settings["sami"]["output_path"]/sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}.hd5
+        settings["sami"]["output_path"]/sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5
 
     The DataFrame will be stored in CSV format in case saving in HDF format 
     fails for any reason.
@@ -1392,9 +1395,9 @@ def make_sami_df(bin_type,
 ###############################################################################
 def load_sami_df(ncomponents,
                  bin_type,
-                 correct_extinction,
                  eline_SNR_min,
-                 eline_ANR_min=3,
+                 eline_ANR_min,
+                 correct_extinction,
                  __use_lzifu_fits=False,
                  __lzifu_ncomponents='3',
                  debug=False):
@@ -1414,15 +1417,20 @@ def load_sami_df(ncomponents,
 
     bin_type:           str
         Binning scheme used. Must be one of 'default' or 'adaptive' or 
-        'sectors'.
-
-    correct_extinction: bool
-        If True, load the DataFrame in which the emission line fluxes (but not 
-        EWs) have been corrected for intrinsic extinction.
 
     eline_SNR_min:      int 
         Minimum flux S/N to accept. Fluxes below the threshold (plus associated
         data products) are set to NaN.
+        'sectors'.
+
+    eline_ANR_min:          float
+        Minimum A/N to adopt for emission lines in each kinematic component,
+        defined as the Gaussian amplitude divided by the continuum standard
+        deviation in a nearby wavelength range.
+
+    correct_extinction: bool
+        If True, load the DataFrame in which the emission line fluxes (but not 
+        EWs) have been corrected for intrinsic extinction.
 
     eline_list:                 list of str
         List of emission lines to which the flagging operations are applied
