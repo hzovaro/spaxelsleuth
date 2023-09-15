@@ -422,13 +422,15 @@ def make_lzifu_df(gals,
     ---------------------------------------------------------------------------
     
         >>> from spaxelsleuth.loaddata.lzifu import make_lzifu_df()
-        >>> make_lzifu_df(gals=gal_list, ncomponents=1, sigma_inst_kms=30, eline_SNR_min=5)
+        >>> make_lzifu_df(gals=gal_list, ncomponents=1, eline_SNR_min=5, 
+                          eline_ANR_min=3, correct_extinction=True, 
+                          sigma_inst_kms=30)
 
     will create a DataFrame using the data products from 1-component Gaussian 
-    fits to the unbinned datacubes, and will adopt a minimum S/N threshold of 
-    5 to mask out unreliable emission line fluxes and associated quantities.
-    sigma_inst_kms refers to the Gaussian sigma of the instrumental line function
-    in km/s.    
+    fits to the unbinned datacubes, and will adopt a minimum S/N and A/N 
+    thresholds of 5 and 3 respectively to mask out unreliable emission line 
+    fluxes and associated quantities. sigma_inst_kms refers to the Gaussian 
+    sigma of the instrumental line function in km/s.    
 
     Other input arguments may be configured to control other aspects of the data 
     quality and S/N cuts made. 
@@ -438,11 +440,13 @@ def make_lzifu_df(gals,
     gals:                       list
         List of galaxies on which to run. 
 
-    ncomponents:                str
-        Controls which data products are used, depending on the number of 
-        Gaussian components fitted to the emission lines. 
-        Options are "merge" (the 'recommended' multi-component fits) or 1, 
-        2 or 3.
+    ncomponents:        int or str
+        Number of components; may either be 1, 2, 3... N where N is the number 
+        of Gaussian components fitted to the emission lines or "merge" 
+        (corresponding to the "recommendend"-component Gaussian fits where 
+        the number of components in each spaxel is determined using the 
+        Likelihood Ratio Test as detailed in Ho et al. 2016 
+        (https://ui.adsabs.harvard.edu/abs/2016Ap%26SS.361..280H/abstract)).
 
     eline_SNR_min:              int 
         Minimum emission line flux S/N to adopt when making S/N and data 
@@ -589,7 +593,7 @@ def make_lzifu_df(gals,
     # Determine number of threads
     if nthreads is None:
         nthreads = os.cpu_count()
-        logger.warning(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
+        logger.warning(f"nthreads not specified: running make_lzifu_df() on {nthreads} threads...")
 
     ###############################################################################
     # Scrape measurements for each galaxy from FITS files
@@ -663,11 +667,60 @@ def make_lzifu_df(gals,
 
 ###############################################################################
 def load_lzifu_df(ncomponents,
-                  correct_extinction,
                   eline_SNR_min,
                   eline_ANR_min,
+                  correct_extinction,
                   df_fname=None,
                   key=None):
+    """
+    DESCRIPTION
+    ---------------------------------------------------------------------------
+    Load and return the Pandas DataFrame containing spaxel-by-spaxel 
+    information for all LZIFU galaxies which was created using make_lzifu_df().
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    ncomponents:        int or str
+        Number of components; may either be 1, 2, 3... N where N is the number 
+        of Gaussian components fitted to the emission lines or "merge" 
+        (corresponding to the "recommendend"-component Gaussian fits where 
+        the number of components in each spaxel is determined using the 
+        Likelihood Ratio Test as detailed in Ho et al. 2016 
+        (https://ui.adsabs.harvard.edu/abs/2016Ap%26SS.361..280H/abstract)).
+
+    eline_SNR_min:      int 
+        Minimum flux S/N to accept. Fluxes below the threshold (plus associated
+        data products) are set to NaN.
+
+    eline_ANR_min:      float
+        Minimum A/N to adopt for emission lines in each kinematic component,
+        defined as the Gaussian amplitude divided by the continuum standard
+        deviation in a nearby wavelength range.
+   
+    correct_extinction: bool
+        If True, load the DataFrame in which the emission line fluxes (but not 
+        EWs) have been corrected for intrinsic extinction.
+
+    df_fname:           str
+        (Optional) If specified, load DataFerame from file <df_fname>.hd5. 
+        Otherwise, the DataFrame filename is automatically determined using 
+        the other input arguments.
+
+    key:                str
+        (Optional) key used to read the HDF file if df_fname is specified.
+    
+    USAGE
+    ---------------------------------------------------------------------------
+    load_lzifu_df() is called as follows:
+
+        >>> from spaxelsleuth.loaddata.lzifu import load_lzifu_df
+        >>> df = load_lzifu_df(ncomponents, eline_SNR_min, eline_ANR_min, 
+                               correct_extinction)
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    The Dataframe.
+    """
 
     #######################################################################
     # INPUT CHECKING
