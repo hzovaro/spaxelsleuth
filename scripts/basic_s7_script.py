@@ -8,11 +8,13 @@ if __name__ == "__main__":
 
     nthreads = 4
     eline_SNR_min = 3
+    eline_ANR_min = 3
 
     # Create the DataFrames
     make_s7_metadata_df()
     make_s7_df(gals=["NGC1068", "MARK573", "NGC6860"],
                 eline_SNR_min=eline_SNR_min,
+                eline_ANR_min=eline_ANR_min,
                 correct_extinction=True,
                 metallicity_diagnostics=["N2Ha_PP04",],
                 nthreads=nthreads)
@@ -20,4 +22,5 @@ if __name__ == "__main__":
     # Load the DataFrames
     df_metadata = load_s7_metadata_df()
     df = load_s7_df(eline_SNR_min=eline_SNR_min,
+                    eline_ANR_min=eline_ANR_min,
                     correct_extinction=True)
