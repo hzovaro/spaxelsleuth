@@ -8,7 +8,7 @@ import os
 setup(
     name="spaxelsleuth",
     packages=["spaxelsleuth"],
-    version="0.9.0",
+    version="0.9.1",
     # James: all I need is for people to make some kind of env w/ python > 3.10, and then install via pip install .
     # Don't need to faff around w/ conda environments.
     # Add anything directly imported here
