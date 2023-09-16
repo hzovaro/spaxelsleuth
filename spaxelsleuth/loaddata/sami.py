@@ -925,12 +925,14 @@ def _process_gals(args):
     # Add pixel coordinates
     rows_list.append(
         np.array([settings["sami"]["x0_px"]] * ngood_bins) *
-        settings["sami"]["as_per_px"])
-    colnames.append("Galaxy centre x0_px (projected, arcsec)")
+        settings["sami"]["as_per_px"]) 
+    colnames.append("Galaxy centre x0_px (projected, arcsec)") # TODO drop this
+    
     rows_list.append(
         np.array([settings["sami"]["y0_px"]] * ngood_bins) *
-        settings["sami"]["as_per_px"])
-    colnames.append("Galaxy centre y0_px (projected, arcsec)")
+        settings["sami"]["as_per_px"]) 
+    colnames.append("Galaxy centre y0_px (projected, arcsec)") # TODO drop this
+    
     rows_list.append(
         np.array(x_c_list).flatten() * settings["sami"]["as_per_px"])
     colnames.append("x (projected, arcsec)")
@@ -947,15 +949,16 @@ def _process_gals(args):
         np.array(r_prime_list).flatten() * settings["sami"]["as_per_px"])
     colnames.append("r (relative to galaxy centre, deprojected, arcsec)")
     rows_list.append(np.array(bin_number_list))
+
     colnames.append("Bin number")
     rows_list.append(np.array(bin_size_list_px))
-    colnames.append("Bin size (pixels)")
+    colnames.append("Bin size (pixels)") # NOTE: need to keep this since this actually varies if the binning is not default 
     rows_list.append(
         np.array(bin_size_list_px) * settings["sami"]["as_per_px"]**2)
-    colnames.append("Bin size (square arcsec)")
+    colnames.append("Bin size (square arcsec)") # NOTE: need to keep this since this actually varies if the binning is not default 
     rows_list.append(
         np.array(bin_size_list_px) * settings["sami"]["as_per_px"]**2 *
-        df_metadata.loc[gal, "kpc per arcsec"]**2)
+        df_metadata.loc[gal, "kpc per arcsec"]**2) # NOTE: need to keep this since this actually varies if the binning is not default 
     colnames.append("Bin size (square kpc)")
 
     ##########################################################
@@ -1342,8 +1345,10 @@ def make_sami_df(bin_type,
     df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)),
                               columns=colnames)
 
-    # Merge with metadata
-    df_spaxels = df_spaxels.merge(df_metadata, on="ID", how="left")
+    # Merge with metadata, but only columns that are UNIQUE to galaxies - e.g. M*, etc. Leave off columns that are all the same. 
+    # TODO: check which ones these are 
+    cols_to_merge = ... 
+    df_spaxels = df_spaxels.merge(df_metadata[cols_to_merge], on="ID", how="left")
 
     ###############################################################################
     # Add extra columns
@@ -1385,9 +1390,53 @@ def make_sami_df(bin_type,
     if len(bad_cols) > 0:
         logger.warning(f"The following object-type columns are present in the DataFrame: {','.join(bad_cols)}")
 
-    # Save
+    ###############################################################################
+    # Make a dict containing flags, settings, & other info that's the same for all 
+    # rows in the DataFrame 
+    ###############################################################################
+    # IDEA: use locals() to save stuff from settings in here as well! Like paths and stuff, maybe the date/time too... 
+    info = {
+        "survey": "sami",
+        "flux units": "E-16 erg/cm^2/s",  # Units of continuum & emission line flux,
+        "continuum units": "E-16 erg/cm^2/Å/s",  # Units of continuum & emission line flux,
+        "Galaxy centre x0_px (projected, arcsec)": settings["sami"]["x0_px"] * settings["sami"]["as_per_px"],
+        "Galaxy centre y0_px (projected, arcsec)": settings["sami"]["x0_px"] * settings["sami"]["as_per_px"],
+        # User options 
+        "ncomponents": ncomponents,
+        "bin_type": bin_type,
+        "__use_lzifu_fits": __use_lzifu_fits,
+        "__lzifu_ncomponents": __lzifu_ncomponents,
+        "eline_SNR_min": eline_SNR_min,
+        "eline_ANR_min": eline_ANR_min,
+        "sigma_gas_SNR_min": sigma_gas_SNR_min,
+        "eline_list": eline_list,
+        "line_flux_SNR_cut": line_flux_SNR_cut,
+        "missing_fluxes_cut": missing_fluxes_cut,
+        "line_amplitude_SNR_cut": line_amplitude_SNR_cut,
+        "flux_fraction_cut": flux_fraction_cut,
+        "sigma_gas_SNR_cut": sigma_gas_SNR_cut,
+        "vgrad_cut": vgrad_cut,
+        "stekin_cut": stekin_cut,
+        "correct_extinction": correct_extinction,
+        "metallicity_diagnostics": metallicity_diagnostics,
+        "compute_sfr": False,
+        "debug": debug,
+        "nthreads": nthreads,
+    }
+    info = info | settings["sami"]  # Append SAMI settings
+
+    ###############################################################################
+    # Save as HDF
+    ###############################################################################
     df_spaxels.to_hdf(output_path / df_fname, key=f"{bin_type}{ncomponents}comp")
-    
+
+    # NOTE: new - untested
+    with pd.HDFStore(output_path / df_fname) as store:
+        store.put("data", df_spaxels)
+        store.getstorer("data").attrs.info = info
+
+    # TODO: save 2 copies here, load them & do a side-by-side test to check everything was added properly
+
     logger.info("finished!")
     return
 
