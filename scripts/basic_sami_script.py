@@ -12,7 +12,7 @@ if __name__ == "__main__":
     from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours, plot2dscatter
 
     nthreads = 4
-    DEBUG = True
+    DEBUG = False
 
     # Create the DataFrames
     make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=nthreads)
