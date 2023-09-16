@@ -98,10 +98,8 @@ def add_columns(df, **kwargs):
                                             nthreads=kwargs["nthreads"],
                                             s=f" (component {nn + 1})")
 
-        df["Extinction correction applied"] = True
     else:
         logger.info(f"skipping extinction correction...")
-        df["Extinction correction applied"] = False
     df = df.sort_index()
 
     ######################################################################
@@ -135,6 +133,7 @@ def add_columns(df, **kwargs):
 
     ###############################################################################
     # Save input flags to the DataFrame
+    # TODO: get rid of these lines 
     logger.info(f"adding flags to DataFrame...")
     for flag in ["eline_SNR_min", "sigma_gas_SNR_min", "eline_ANR_min",
                  "line_flux_SNR_cut", "missing_fluxes_cut", "line_amplitude_SNR_cut",
