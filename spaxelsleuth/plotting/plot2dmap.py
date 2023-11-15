@@ -214,7 +214,7 @@ def plot2dmap(df,
         nx = int(df_gal["N_x"].unique()[0])
         ny = int(df_gal["N_y"].unique()[0])
     else:
-        logger.warn("nx and ny were not found in the DataFrame so I am assuming their values from the shape of the data")
+        logger.warn("N_x and N_y were not found in the DataFrame so I am assuming their values from the shape of the data")
         nx = int(np.nanmax(df_gal["x (pixels)"].values) + 1)
         ny = int(np.nanmax(df_gal["y (pixels)"].values) + 1)
 
