@@ -85,8 +85,11 @@ def plot2dhist(df, col_x, col_y, col_z, ax, log_z, vmin, vmax, xmin, xmax,
     """
 
     # Figure out how many components were fitted.
-    ncomponents = "recom" if any(
-        [c.endswith("(component 3)") for c in df.columns]) else "1"
+    if "ncomponents" in df:
+        ncomponents = df["ncomponents"].unique()[0]
+    else:
+        ncomponents = "recom" if any(
+            [c.endswith("(component 3)") for c in df.columns]) else "1"
 
     # If either column are present as multiple components, then make a new
     # data frame containing all of them.
@@ -170,8 +173,7 @@ def plot2dhist(df, col_x, col_y, col_z, ax, log_z, vmin, vmax, xmin, xmax,
         # SFR, then use the median. If it's a discrete quantity, e.g. BPT category,
         # then use the mode (= most frequent number in a data set). This will
         # help to avoid the issue in which np.nanmedian returns a non-integer value.
-        if col_z.startswith("BPT") or col_z.startswith(
-                "Morphology") or col_z.startswith("WHAV*"):
+        if col_z.startswith("BPT") or col_z.startswith("Morphology"):
 
             def mode(data):
                 vals, counts = np.unique(data, return_counts=True)
@@ -228,11 +230,10 @@ def plot2dhist(df, col_x, col_y, col_z, ax, log_z, vmin, vmax, xmin, xmax,
 
         return m
 
-    # If we're plotting the BPT categories, also want to show the "uncategorised" ones.
-    if col_z.startswith("BPT (numeric)") or col_z.startswith(
-            "WHAV* (numeric)"):
-        df_classified = df[df[col_z] > -1]
-        df_unclassified = df[df[col_z] == -1]
+    # If we're plotting discrete categories, also want to show the "uncategorised" ones.
+    if "BPT" in col_z:
+        df_classified = df_sub[df_sub[col_z] > -1]
+        df_unclassified = df_sub[df_sub[col_z] == -1]
         if df_unclassified.shape[0] > 0 and np.any(
                 ~np.isnan(df_unclassified[col_x])) and np.any(
                     ~np.isnan(df_unclassified[col_y])):
@@ -307,8 +308,11 @@ def plot2dcontours(df, col_x, col_y, ax, nbins, alpha, levels, xmin, xmax,
 
     """
     # Figure out how many components were fitted.
-    ncomponents = "recom" if any(
-        [c.endswith("(component 3)") for c in df.columns]) else "1"
+    if "ncomponents" in df:
+        ncomponents = df["ncomponents"].unique()[0]
+    else:
+        ncomponents = "recom" if any(
+            [c.endswith("(component 3)") for c in df.columns]) else "1"
 
     # If either column are present as multiple components, then make a new
     # data frame containing all of them.

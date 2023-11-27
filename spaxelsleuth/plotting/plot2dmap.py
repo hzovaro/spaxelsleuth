@@ -1,4 +1,6 @@
 # Imports
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -212,7 +214,7 @@ def plot2dmap(df,
         nx = int(df_gal["N_x"].unique()[0])
         ny = int(df_gal["N_y"].unique()[0])
     else:
-        logger.warn("nx and ny were not found in the DataFrame so I am assuming their values from the shape of the data")
+        logger.warn("N_x and N_y were not found in the DataFrame so I am assuming their values from the shape of the data")
         nx = int(np.nanmax(df_gal["x (pixels)"].values) + 1)
         ny = int(np.nanmax(df_gal["y (pixels)"].values) + 1)
 
@@ -244,7 +246,7 @@ def plot2dmap(df,
     else:
         if survey == "sami":
             hdulist = fits.open(
-                settings["sami"]["input_path"] / f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz")
+                Path(settings["sami"]["input_path"]) / f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz")
             bin_map = hdulist[2].data.astype("float")
             bin_map[bin_map == 0] = np.nan
             for nn in df_gal["Bin number"]:
@@ -346,7 +348,7 @@ def plot2dmap(df,
         col_z_contour_map = np.full((ny, nx), np.nan)        
         if survey == "sami" and (bin_type == "adaptive" or bin_type == "sectors"):
             hdulist = fits.open(
-                settings["sami"]["input_path"] / f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz")
+                Path(settings["sami"]["input_path"]) / f"ifs/{gal}/{gal}_A_{bin_type}_blue.fits.gz")
             bin_map = hdulist[2].data.astype("float")
             bin_map[bin_map == 0] = np.nan
             for nn in df_gal["Bin number"]:
