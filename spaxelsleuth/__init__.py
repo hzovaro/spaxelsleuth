@@ -4,6 +4,6 @@ __date__="2023-09-11"
 
 # Load the default configuration file
 from .config import *
-load_default_config()
 configure_logger()
+load_default_config()
 configure_multiprocessing()
