@@ -1,10 +1,13 @@
 import json
 import multiprocessing
 from pathlib import Path
+import pkgutil
 
 import logging
 logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
+
+from IPython.core.debugger import set_trace
 
 def configure_multiprocessing():
     """Configure multiprocessing to use 'fork' rather than 'spawn' to prevent reinitialising the 'settings' global variable when running on OSX."""
@@ -32,9 +35,9 @@ def configure_logger(logfile_name=None, level="INFO"):
 # Load the default config file
 def load_default_config():
     """Load the default config file."""
-    print("Loading default config file")
-    print(Path(__file__).parent)
-    with open(Path(__file__).parent / "config.json", "r") as f:
+    config_file_fname = Path(pkgutil.get_loader(__name__).get_filename()).parent / "config.json"
+    logger.info(f"loading default config file from {config_file_fname}...")
+    with open(config_file_fname, "r") as f:
         global settings
         settings = json.load(f)
 
