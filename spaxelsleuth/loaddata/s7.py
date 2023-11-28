@@ -674,12 +674,27 @@ def make_s7_df(eline_SNR_min,
 
     ###############################################################################
     # Convert to a Pandas DataFrame
+    # This can be a bit tricky because not all galaxies have the same number of 
+    # columns - e.g. some are missing entries for certain emission lines.
+    # So, we have to make separate DataFrames containing galaxies each with the 
+    # same number of columns.
     ###############################################################################
-    rows_list_all = [r[0] for r in res_list]
-    colnames = res_list[0][1]
-    eline_list = res_list[0][2]
-    df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)),
-                              columns=colnames)
+    column_numbers = [r[0].shape[1] for r in res_list]  # Get list of column numbers (most galaxies have 99)
+    unique_column_numbers = set(column_numbers)
+    df_list = []
+    eline_list_all = []
+    for column_number in unique_column_numbers:
+        idxs = [ii for ii in range(len(column_numbers)) if column_numbers[ii] == column_number]
+        rows_list_subset = [res_list[ii][0] for ii in idxs]
+        colnames_subset = res_list[idxs[0]][1]
+        eline_list_subset = res_list[idxs[0]][2]
+        eline_list_all += eline_list_subset
+        df_spaxels_subset = pd.DataFrame(np.vstack(tuple(rows_list_subset)), columns=colnames_subset)
+        df_list.append(df_spaxels_subset)
+    df_spaxels = pd.concat(df_list)
+
+    # Get the "master" eline list 
+    eline_list = list(set(eline_list_all))
 
     # Cast to float data types
     for col in [c for c in df_spaxels.columns if c != "ID"]:
