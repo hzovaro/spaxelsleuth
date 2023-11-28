@@ -44,7 +44,7 @@ def load_default_config():
 # Allow user to upload custom settings - e.g. colourmaps, vmin/vmax limits, paths
 def load_user_config(p, verbose=False):
     """Load a custom config file. Overwrites default configuration files."""
-    print("Loading user config file")
+    logger.info(f"loading user config file from from {p}...")
     with open(Path(p)) as f:
         user_settings = json.load(f)
     # Merge with existing settings
