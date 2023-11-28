@@ -29,6 +29,11 @@ def configure_logger(logfile_name=None, level="INFO"):
             level=logging.getLevelName(level),
             force=True)
     
+# For debugging github actions 
+def print_directory():
+    """Print the output of 'Path(pkgutil.get_loader(__name__).get_filename()).parent' for debugging in GitHub."""
+    print(Path(pkgutil.get_loader(__name__).get_filename()))
+    return
 
 # Load the default config file
 def load_default_config():
