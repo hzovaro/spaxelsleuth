@@ -7,8 +7,6 @@ import logging
 logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
 
-from IPython.core.debugger import set_trace
-
 def configure_multiprocessing():
     """Configure multiprocessing to use 'fork' rather than 'spawn' to prevent reinitialising the 'settings' global variable when running on OSX."""
     multiprocessing.set_start_method("fork")
