@@ -33,6 +33,7 @@ def configure_logger(logfile_name=None, level="INFO"):
 def load_default_config():
     """Load the default config file."""
     print("Loading default config file")
+    print(Path(__file__).parent)
     with open(Path(__file__).parent / "config.json", "r") as f:
         global settings
         settings = json.load(f)
