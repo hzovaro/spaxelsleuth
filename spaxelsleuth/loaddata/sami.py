@@ -5,6 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+import pkgutil
 import warnings
 
 from astropy.cosmology import FlatLambdaCDM
@@ -210,7 +211,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     mge_fits_metadata_fname = "sami_MGEPhotomUnregDR3.csv"
 
     # Get the data path
-    data_path = Path(__file__.split("loaddata")[0]) / "data"
+    data_path = Path(pkgutil.get_loader(__name__).get_filename()).parent.parent / "data"
     for fname in [
             gama_metadata_fname, cluster_metadata_fname, filler_metadata_fname,
             morphologies_fname, flag_metadata_fname, mge_fits_metadata_fname

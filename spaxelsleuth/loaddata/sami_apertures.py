@@ -1,6 +1,7 @@
 # Imports
 import pandas as pd
 from pathlib import Path
+import pkgutil
 import numpy as np
 
 from spaxelsleuth.config import settings
@@ -100,7 +101,7 @@ def make_sami_aperture_df(eline_SNR_min,
 
     ###########################################################################
     # Open the .csv file containing the table
-    data_path = Path(__file__.split("loaddata")[0]) / "data"
+    data_path = Path(pkgutil.get_loader(__name__).get_filename()).parent.parent / "data"
 
     # Emission line info
     df_ap_elines = pd.read_csv(data_path / "sami_EmissionLine1compDR3.csv")
