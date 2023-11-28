@@ -5,7 +5,7 @@ name: Python pytest
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "dev", "15-create-a-local-action-to-test-sami-lzifu-and-s7-at-each-push" ]
   pull_request:
     branches: [ "main", "dev" ]
 
