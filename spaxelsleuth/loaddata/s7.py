@@ -662,7 +662,7 @@ def make_s7_df(eline_SNR_min,
         if nthreads > 1:
             logger.info(f"beginning pool...")
             pool = multiprocessing.Pool(min([nthreads, len(gals)]))
-            res_list = np.array((pool.map(_process_s7, args_list)))
+            res_list = pool.map(_process_s7, args_list)
             pool.close()
             pool.join()
         else:
