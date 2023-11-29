@@ -22,4 +22,7 @@ setup(
         "pandas",
     ],
     python_requires=">=3.10",
+    package_data={
+        "spaxelsleuth": ["**/*.csv", "**/*.json"]
+    }
 )

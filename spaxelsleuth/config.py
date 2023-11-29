@@ -2,6 +2,7 @@ import json
 import multiprocessing
 from pathlib import Path
 import pkgutil
+import os
 
 import logging
 logging.captureWarnings(True)
@@ -29,6 +30,18 @@ def configure_logger(logfile_name=None, level="INFO"):
             level=logging.getLevelName(level),
             force=True)
     
+# For debugging github actions 
+def print_directory():
+    """Print the output of 'Path(pkgutil.get_loader(__name__).get_filename()).parent' for debugging in GitHub."""
+    startpath = str(Path(pkgutil.get_loader(__name__).get_filename()).parent)
+    for root, dirs, files in os.walk(startpath):
+        level = root.replace(startpath, '').count(os.sep)
+        indent = ' ' * 4 * (level)
+        print('{}{}/'.format(indent, os.path.basename(root)))
+        subindent = ' ' * 4 * (level + 1)
+        for f in files:
+            print('{}{}'.format(subindent, f))
+    return
 
 # Load the default config file
 def load_default_config():
