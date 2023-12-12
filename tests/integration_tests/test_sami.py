@@ -17,14 +17,13 @@ def test_make_sami_metadata_df():
     # Create the metadata DataFrame
     make_sami_metadata_df(recompute_continuum_SNRs=True, nthreads=10)
 
-def test_sami(
-        NCOMPONENTS="recom", 
-        BIN_TYPE="default", 
-        ELINE_SNR_MIN=5, 
-        ELINE_ANR_MIN=3, 
-        NTHREADS=10, 
-        DEBUG=False, 
-    ):
+def test_sami():
+    NCOMPONENTS="recom", 
+    BIN_TYPE="default", 
+    ELINE_SNR_MIN=5, 
+    ELINE_ANR_MIN=3, 
+    NTHREADS=10, 
+    DEBUG=False, 
 
     kwargs = {
         "ncomponents": NCOMPONENTS,
