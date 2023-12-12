@@ -1,29 +1,23 @@
-"""
-In here: run make_sami_df() on a subset of all galaxies and run assertion tests.
-Maybe also run comparison tests with reference data.
-"""
+  import numpy as np
+import sys
 
-NCOMPONENTS = "recom"
-BIN_TYPE = "default"
-CORRECT_EXTINCTION = True
-ELINE_SNR_MIN = 5
-ELINE_ANR_MIN = 3
-NTHREADS = 10
-DEBUG = False
+from spaxelsleuth import load_user_config, configure_logger
+load_user_config("test_config.json")
+configure_logger(level="DEBUG")
+from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_df, load_sami_df
 
-if __name__ == "__main__":
+import logging
+logger = logging.getLogger(__name__)
+
+def test_sami(
+        NCOMPONENTS="recom", 
+        BIN_TYPE="default", 
+        ELINE_SNR_MIN=5, 
+        ELINE_ANR_MIN=3, 
+        NTHREADS=10, 
+        DEBUG=False, 
+    ):
     
-    import numpy as np
-    import sys
-
-    from spaxelsleuth import load_user_config, configure_logger
-    load_user_config("test_config.json")
-    configure_logger(level="DEBUG")
-    from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_df, load_sami_df
-
-    import logging
-    logger = logging.getLogger(__name__)
-
     # Create the metadata DataFrame
     make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=10)
 
