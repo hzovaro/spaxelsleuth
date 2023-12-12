@@ -20,6 +20,7 @@ setup(
         "matplotlib",
         "numpy",
         "pandas",
+        "tables",
     ],
     python_requires=">=3.10",
     package_data={
