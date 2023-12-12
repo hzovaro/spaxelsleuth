@@ -1,10 +1,4 @@
-from spaxelsleuth import load_user_config, load_default_config
-load_default_config()
-load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
-from spaxelsleuth.plotting.plottools import get_vmin, get_vmax, get_label, get_cmap, get_fname, ncomponents_colours, component_colours
-from spaxelsleuth.config import settings
-
-$\log_{\rm 10} \rm (\{\rm SFR}_{R_e} \, [M_\odot \, yr^{-1}])$ (total)
+from spaxelsleuth.plotting.plottools import get_label
 
 labels = [
     'log M_*',
