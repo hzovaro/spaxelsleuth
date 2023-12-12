@@ -1,4 +1,4 @@
-  import numpy as np
+import numpy as np
 import sys
 
 from spaxelsleuth import load_user_config, configure_logger
@@ -17,7 +17,7 @@ def test_sami(
         NTHREADS=10, 
         DEBUG=False, 
     ):
-    
+
     # Create the metadata DataFrame
     make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=10)
 
