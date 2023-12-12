@@ -1283,8 +1283,8 @@ def make_sami_df(bin_type,
     try:
         df_metadata = pd.read_hdf(output_path / df_metadata_fname,
                                   key="metadata")
-    except FileNotFoundError:
-        logger.error(
+    except:
+        raise FileNotFoundError(
             f"metadata DataFrame file not found ({output_path / df_metadata_fname}). Please run make_sami_metadata_df.py first!"
         )
 
