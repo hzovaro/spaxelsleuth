@@ -1,13 +1,21 @@
 import numpy as np
+from pathlib import Path
+import pkgutil
 import sys
 
 from spaxelsleuth import load_user_config, configure_logger
+
+# load_user_config(Path(__file__.rpartition("/")[0]) / "test_config.json")
 load_user_config("test_config.json")
 configure_logger(level="DEBUG")
 from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_df, load_sami_df
 
 import logging
 logger = logging.getLogger(__name__)
+
+def test_make_sami_metadata_df():
+    # Create the metadata DataFrame
+    make_sami_metadata_df(recompute_continuum_SNRs=True, nthreads=10)
 
 def test_sami(
         NCOMPONENTS="recom", 
@@ -17,12 +25,6 @@ def test_sami(
         NTHREADS=10, 
         DEBUG=False, 
     ):
-
-    # Create the metadata DataFrame
-    make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=10)
-
-    # Exit just to check that loading the config file, etc. works on GitHub
-    sys.exit() 
 
     kwargs = {
         "ncomponents": NCOMPONENTS,
