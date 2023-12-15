@@ -14,28 +14,37 @@ import logging
 logger = logging.getLogger(__name__)
 
 def test_make_sami_metadata_df():
-    # Create the metadata DataFrame
+    """Test creation of the metadata DataFrame."""
     make_sami_metadata_df(recompute_continuum_SNRs=True, nthreads=10)
 
-def test_sami():
-    NCOMPONENTS="recom", 
-    BIN_TYPE="default", 
-    ELINE_SNR_MIN=5, 
-    ELINE_ANR_MIN=3, 
-    NTHREADS=10, 
-    DEBUG=False, 
+    # TODO add some assertion checks here?
 
+
+def test_sami():
+    """Run run_sami_tests() on a combination of inputs."""
+    for ncomponents in ["recom"]:
+        for bin_type in ["default"]:
+            run_sami_tests(ncomponents=ncomponents, bin_type=bin_type)
+
+
+def run_sami_tests(ncomponents,
+                   bin_type,
+                   eline_SNR_min=5, 
+                   eline_ANR_min=3, 
+                   nthreads=10,
+                   debug=False):
+    """Run make_sami_df and load_sami_df for the given inputs and run assertion checks."""
     kwargs = {
-        "ncomponents": NCOMPONENTS,
-        "bin_type": BIN_TYPE,
-        "eline_SNR_min": ELINE_SNR_MIN,
-        "eline_ANR_min": ELINE_ANR_MIN,
-        "debug": DEBUG,
+        "ncomponents": ncomponents,
+        "bin_type": bin_type,
+        "eline_SNR_min": eline_SNR_min,
+        "eline_ANR_min": eline_ANR_min,
+        "debug": debug,
     }
 
     # Create the DataFrame
-    make_sami_df(**kwargs, correct_extinction=True, nthreads=NTHREADS)  
-    make_sami_df(**kwargs, correct_extinction=False, nthreads=NTHREADS)  
+    make_sami_df(**kwargs, correct_extinction=True, nthreads=nthreads)  
+    make_sami_df(**kwargs, correct_extinction=False, nthreads=nthreads)  
     
     # Load the DataFrame
     df = load_sami_df(**kwargs, correct_extinction=True)
@@ -54,9 +63,9 @@ def test_sami():
         assert all(df.loc[cond_has_no_line, "BPT (total)"] == "Not classified")
 
     # CHECK: "Number of components" is NaN, 0, 1, 2 or 3
-    if NCOMPONENTS == "recom":
+    if ncomponents == "recom":
         assert np.all(df.loc[~df["Number of components"].isna(), "Number of components"].unique() == [0, 1, 2, 3])
-    elif NCOMPONENTS == "1":
+    elif ncomponents == "1":
         assert np.all(df.loc[~df["Number of components"].isna(), "Number of components"].unique() == [0, 1])
 
     # CHECK: all spaxels with original number of compnents == 0 have zero emission line fluxes 
@@ -74,21 +83,21 @@ def test_sami():
         assert all(df.loc[cond_bad_stekin, col].isna())
 
     # CHECK: sigma_gas S/N cut
-    for nn in range(3 if NCOMPONENTS == "recom" else 1):
+    for nn in range(3 if ncomponents == "recom" else 1):
         assert all(df.loc[df[f"sigma_obs S/N (component {nn + 1})"] < df["sigma_gas_SNR_min"], f"Low sigma_gas S/N flag (component {nn + 1})"])
         cond_bad_sigma = df[f"Low sigma_gas S/N flag (component {nn + 1})"]
         for col in [c for c in df.columns if "sigma_gas" in c and f"component {nn + 1}" in c and "flag" not in c]:
             assert all(df.loc[cond_bad_sigma, col].isna())
 
     # CHECK: line amplitude cut 
-    for nn in range(3 if NCOMPONENTS == "recom" else 1):
+    for nn in range(3 if ncomponents == "recom" else 1):
         assert all(df.loc[df[f"HALPHA A (component {nn + 1})"] < df["eline_ANR_min"] * df[f"HALPHA continuum std. dev."], f"Low amplitude flag - HALPHA (component {nn + 1})"])
         cond_low_amp = df[f"Low amplitude flag - HALPHA (component {nn + 1})"]
         for col in [c for c in df.columns if f"component {nn + 1}" in c and "flag" not in c]:
             assert all(df.loc[cond_low_amp, col].isna())
 
     # CHECK: flux S/N cut
-    for nn in range(3 if NCOMPONENTS == "recom" else 1):
+    for nn in range(3 if ncomponents == "recom" else 1):
         assert all(df.loc[df[f"Low flux S/N flag - HALPHA (component {nn + 1})"], f"HALPHA (component {nn + 1})"].isna())
     for eline in ["HALPHA", "HBETA", "NII6583", "OIII5007", "SII6716", "SII6731", "OII3726+OII3729", "OI6300"]:
         assert all(df.loc[df[f"Low flux S/N flag - {eline} (total)"], f"{eline} (total)"].isna())
@@ -105,7 +114,7 @@ def test_sami():
     # CHECK: all fluxes (and EWs) that are NaN have NaN errors
     for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
         assert all(df.loc[df[f"{eline} (total)"].isna(), f"{eline} error (total)"].isna())
-    for nn in range(3 if NCOMPONENTS == "recom" else 1):
+    for nn in range(3 if ncomponents == "recom" else 1):
         assert all(df.loc[df[f"HALPHA (component {nn + 1})"].isna(), f"HALPHA error (component {nn + 1})"].isna())
         assert all(df.loc[df[f"HALPHA EW (component {nn + 1})"].isna(), f"HALPHA EW error (component {nn + 1})"].isna())
         assert all(df.loc[df[f"log HALPHA EW (component {nn + 1})"].isna(), f"log HALPHA EW error (upper) (component {nn + 1})"].isna())
@@ -115,7 +124,7 @@ def test_sami():
     col = "HALPHA EW"
     assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} (total)"]))
     assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (total)"]))
-    for nn in range(3 if NCOMPONENTS == "recom" else 1):
+    for nn in range(3 if ncomponents == "recom" else 1):
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} (component {nn + 1})"]))
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (component {nn + 1})"]))
 
@@ -124,34 +133,34 @@ def test_sami():
     assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} (total)"]))
     assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (upper) (total)"]))
     assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (lower) (total)"]))
-    for nn in range(3 if NCOMPONENTS == "recom" else 1):
+    for nn in range(3 if ncomponents == "recom" else 1):
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} (component {nn + 1})"]))
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (upper) (component {nn + 1})"]))
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (lower) (component {nn + 1})"]))
 
     # CHECK: all kinematic quantities in spaxels with 0 original components are NaN
     for col in ["sigma_gas", "v_gas"]:
-        for nn in range(3 if NCOMPONENTS == "recom" else 1):
+        for nn in range(3 if ncomponents == "recom" else 1):
             assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} (component {nn + 1})"]))
             assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (component {nn + 1})"]))
 
     # CHECK: all emission line fluxes with S/N < SNR_min are NaN
     for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
-        assert np.all(np.isnan(df.loc[df[f"{eline} S/N (total)"] < ELINE_SNR_MIN, f"{eline} (total)"]))
-        assert np.all(np.isnan(df.loc[df[f"{eline} S/N (total)"] < ELINE_SNR_MIN, f"{eline} error (total)"]))
+        assert np.all(np.isnan(df.loc[df[f"{eline} S/N (total)"] < eline_SNR_min, f"{eline} (total)"]))
+        assert np.all(np.isnan(df.loc[df[f"{eline} S/N (total)"] < eline_SNR_min, f"{eline} error (total)"]))
 
     # CHECK: all Halpha components below S/N limit are NaN
-    for nn in range(3 if NCOMPONENTS == "recom" else 1):
-        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < ELINE_SNR_MIN, f"HALPHA (component {nn + 1})"]))
-        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < ELINE_SNR_MIN, f"HALPHA error (component {nn + 1})"]))
-        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < ELINE_SNR_MIN, f"HALPHA EW (component {nn + 1})"]))
-        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < ELINE_SNR_MIN, f"HALPHA EW error (component {nn + 1})"]))
-        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < ELINE_SNR_MIN, f"log HALPHA EW (component {nn + 1})"]))
-        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < ELINE_SNR_MIN, f"log HALPHA EW error (upper) (component {nn + 1})"]))
-        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < ELINE_SNR_MIN, f"log HALPHA EW error (lower) (component {nn + 1})"]))
+    for nn in range(3 if ncomponents == "recom" else 1):
+        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"HALPHA (component {nn + 1})"]))
+        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"HALPHA error (component {nn + 1})"]))
+        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"HALPHA EW (component {nn + 1})"]))
+        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"HALPHA EW error (component {nn + 1})"]))
+        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"log HALPHA EW (component {nn + 1})"]))
+        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"log HALPHA EW error (upper) (component {nn + 1})"]))
+        assert np.all(np.isnan(df.loc[df[f"HALPHA S/N (component {nn + 1})"] < eline_SNR_min, f"log HALPHA EW error (lower) (component {nn + 1})"]))
 
     # CHECK: all sigma_gas components with S/N < S/N target are NaN
-    for nn in range(3 if NCOMPONENTS == "recom" else 1):
+    for nn in range(3 if ncomponents == "recom" else 1):
         assert np.all(np.isnan(df.loc[df[f"sigma_obs S/N (component {nn + 1})"] < df[f"sigma_obs target S/N (component {nn + 1})"], f"sigma_gas (component {nn + 1})"]))
         assert np.all(np.isnan(df.loc[df[f"sigma_obs S/N (component {nn + 1})"] < df[f"sigma_obs target S/N (component {nn + 1})"], f"sigma_gas error (component {nn + 1})"]))
 
@@ -165,7 +174,7 @@ def test_sami():
 
     # CHECK: low S/N components have been masked out 
     for eline in ["HALPHA"]:
-        for nn in range(3 if NCOMPONENTS == "recom" else 1):
+        for nn in range(3 if ncomponents == "recom" else 1):
             assert all(df.loc[df[f"Low flux S/N flag - {eline} (component {nn + 1})"], f"{eline} (component {nn + 1})"].isna())
             assert all(df.loc[df[f"Low flux S/N flag - {eline} (component {nn + 1})"], f"{eline} error (component {nn + 1})"].isna())
             if eline == "HALPHA":
@@ -175,7 +184,7 @@ def test_sami():
                 assert all(df.loc[df[f"Low flux S/N flag - {eline} (component {nn + 1})"], f"sigma_gas error (component {nn + 1})"].isna())
 
     # CHECK: has HALPHA EW been NaNd out propertly?
-    for nn in range(3 if NCOMPONENTS == "recom" else 1):
+    for nn in range(3 if ncomponents == "recom" else 1):
         assert all(df.loc[df[f"HALPHA (component {nn + 1})"].isna(), f"HALPHA EW (component {nn + 1})"].isna())
         assert all(df.loc[df[f"HALPHA (component {nn + 1})"].isna(), f"HALPHA EW error (component {nn + 1})"].isna())
         assert all(df.loc[df[f"HALPHA continuum"].isna() | (df[f"HALPHA continuum"] <= 0), f"HALPHA EW (component {nn + 1})"].isna())
@@ -236,7 +245,7 @@ def test_sami():
     for eline in eline_list:
         assert np.all(df[f"{eline} (total)"].dropna() >= df_noextcorr[f"{eline} (total)"].dropna())
         assert np.all(df[f"{eline} error (total)"].dropna() >= df_noextcorr[f"{eline} error (total)"].dropna())
-    for nn in range(3 if NCOMPONENTS == "recom" else 1):
+    for nn in range(3 if ncomponents == "recom" else 1):
         assert np.all(df[f"HALPHA (component {nn + 1})"].dropna() >= df_noextcorr[f"HALPHA (component {nn + 1})"].dropna())
         assert np.all(df[f"HALPHA error (component {nn + 1})"].dropna() >= df_noextcorr[f"HALPHA error (component {nn + 1})"].dropna())
 
