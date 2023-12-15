@@ -22,8 +22,8 @@ def test_make_sami_metadata_df():
 
 def test_sami():
     """Run run_sami_tests() on a combination of inputs."""
-    for ncomponents in ["recom"]:
-        for bin_type in ["default"]:
+    for ncomponents in ["recom", "1"]:
+        for bin_type in ["default", "adaptive", "sectors"]:
             run_sami_tests(ncomponents=ncomponents, bin_type=bin_type)
 
 
