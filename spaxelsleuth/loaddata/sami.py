@@ -1294,6 +1294,8 @@ def make_sami_df(bin_type,
         g for g in gal_ids_dq_cut
         if os.path.exists(input_path / f"ifs/{g}/")
     ]
+    if len(gal_ids_dq_cut) == 0:
+        raise FileNotFoundError(f"I could not find any galaxy data in {input_path / 'ifs'}!")
 
     # If running in DEBUG mode, run on a subset to speed up execution time
     if debug:
