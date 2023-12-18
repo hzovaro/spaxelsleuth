@@ -1,13 +1,8 @@
 import numpy as np
-from pathlib import Path
-import pkgutil
-import sys
 
 from spaxelsleuth import load_user_config, configure_logger
-
-# load_user_config(Path(__file__.rpartition("/")[0]) / "test_config.json")
 load_user_config("test_config.json")
-configure_logger(level="DEBUG")
+configure_logger(level="INFO")
 from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_df, load_sami_df
 
 import logging
@@ -24,6 +19,7 @@ def test_sami():
     """Run run_sami_tests() on a combination of inputs."""
     for ncomponents in ["recom", "1"]:
         for bin_type in ["default", "adaptive", "sectors"]:
+            logger.info(f"testing run_sami_tests() for ncomponens={ncomponents}, bin_type={bin_type}...")
             run_sami_tests(ncomponents=ncomponents, bin_type=bin_type)
 
 
@@ -34,6 +30,10 @@ def run_sami_tests(ncomponents,
                    nthreads=10,
                    debug=False):
     """Run make_sami_df and load_sami_df for the given inputs and run assertion checks."""
+    
+    # Needed for metallicity checks
+    from spaxelsleuth.utils.metallicity import line_list_dict
+    
     kwargs = {
         "ncomponents": ncomponents,
         "bin_type": bin_type,
@@ -63,10 +63,12 @@ def run_sami_tests(ncomponents,
         assert all(df.loc[cond_has_no_line, "BPT (total)"] == "Not classified")
 
     # CHECK: "Number of components" is NaN, 0, 1, 2 or 3
+    components = df.loc[~df["Number of components"].isna(), "Number of components"].unique()
+    components.sort()
     if ncomponents == "recom":
-        assert np.all(df.loc[~df["Number of components"].isna(), "Number of components"].unique() == [0, 1, 2, 3])
+        assert np.all(components == [0, 1, 2, 3])
     elif ncomponents == "1":
-        assert np.all(df.loc[~df["Number of components"].isna(), "Number of components"].unique() == [0, 1])
+        assert np.all(components == [0, 1])
 
     # CHECK: all spaxels with original number of compnents == 0 have zero emission line fluxes 
     for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726+OII3729", "OIII5007", "SII6716", "SII6731"]:
@@ -207,16 +209,31 @@ def run_sami_tests(ncomponents,
     cond_no_met = df["BPT (total)"] != "SF"
     met_cols = [c for c in df.columns if "log(O/H) + 12" in c or "log(U)" in c]
     for met_col in met_cols:
-        assert all(df.loc[cond_no_met, met_cols].isna())
+        assert all(df.loc[cond_no_met, met_col].isna())
 
-    # NOTE: need to change below to use updated column names for metallicity calculations
-    # # CHECK: check no spaxels with no S/N in relevant emission lines have metallicities 
-    # cond_low_SN = df["OII3726+OII3729 S/N (total)"] < eline_SNR_min
-    # cond_low_SN |= df["NII6583 S/N (total)"] < eline_SNR_min
-    # assert all(df.loc[cond_low_SN, f"log(O/H) + 12 ({met_diagnostic}) (total)"].isna())
+    # CHECK: check no spaxels with low S/N in relevant emission lines have metallicities 
+    met_cols = [c for c in df if "log(O/H)" in c and "error" not in c]
+    diags = [m.split("log(O/H) + 12 (")[1].split(")")[0] for m in met_cols]
+    for diag in diags:
+        # Split into metallicity/ionisation parameter diagnostic, check for low S/N in any of the lines used
+        for sub_diag in diag.split("/"):
+            cond_low_SN = np.zeros(df.shape[0], dtype="bool")
+            lines = list(set(line_list_dict[sub_diag]))  # list of emission lines used in this diagnostic
+            logger.debug(f"For diagnostic {diag}: checking S/N and A/N in {', '.join(lines)}...")
+            for line in lines:
+                if f"Low flux S/N flag - {line} (total)" in df and f"Low amplitude flag - {line} (total)" in df:
+                    cond_low_SN_line = df[f"Low flux S/N flag - {line} (total)"] | df[f"Low amplitude flag - {line} (total)"]
+                else:
+                    for sub_line in line.split("+"):
+                        if f"Low flux S/N flag - {sub_line} (total)" in df and f"Low amplitude flag - {sub_line} (total)" in df:
+                            cond_low_SN_line = df[f"Low flux S/N flag - {sub_line} (total)"] | df[f"Low amplitude flag - {sub_line} (total)"]
+                        else:
+                            logger.warning(f"For diagnostic {diag}: I could not find a flux S/N flag column for {sub_line}!")
+                logger.debug(f"For diagnostic {diag}: there are {cond_low_SN_line[cond_low_SN_line].shape[0]} rows with bad fluxes in line {line}")
+                cond_low_SN |= cond_low_SN_line
+            assert all(df.loc[cond_low_SN, f"log(O/H) + 12 ({diag}) (total)"].isna())
 
     # CHECK: rows with NaN in any required emission lines have NaN metallicities and ionisation parameters. 
-    from spaxelsleuth.utils.metallicity import line_list_dict
     for met_diagnostic in line_list_dict.keys():
         for line in [l for l in line_list_dict[met_diagnostic] if f"{l} (total)" in df.columns]:
             cond_isnan = np.isnan(df[f"{line} (total)"])
@@ -262,3 +279,5 @@ def run_sami_tests(ncomponents,
     #//////////////////////////////////////////////////////////////////////////////
     logger.info("All assertion tests passed!")
 
+if __name__ == "__main__":
+    test_sami()
