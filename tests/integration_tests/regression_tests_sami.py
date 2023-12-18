@@ -2,13 +2,11 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from IPython.core.debugger import set_trace
-
 from spaxelsleuth import load_user_config, configure_logger
 
 load_user_config("test_config.json")
 configure_logger(level="INFO")
-from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_df, load_sami_df
+from spaxelsleuth.loaddata.sami import make_sami_df
 from spaxelsleuth.config import settings
 
 import logging
@@ -45,7 +43,7 @@ def run_sami_regression_tests(
     }
 
     # Create the DataFrame
-    # make_sami_df(**kwargs, nthreads=nthreads)
+    make_sami_df(**kwargs, nthreads=nthreads)
 
     # Get the filename
     df_fname = f"sami_{bin_type}_{ncomponents}-comp"
