@@ -1,5 +1,6 @@
 import pandas as pd 
 import numpy as np
+from scipy import constants
 
 from spaxelsleuth.config import configure_logger
 configure_logger(level="INFO")
@@ -10,7 +11,42 @@ logger = logging.getLogger(__name__)
 
 
 def test_compute_d4000():
-    assert True 
+    """Test continuum.compute_d4000()."""
+
+    # Dummy data for testing 
+    lambda_vals_rest_A = np.arange(3500, 4500, 10)
+    N_lambda = len(lambda_vals_rest_A)
+    N_x, N_y = (3, 3)
+    data_cube_A = 10 * np.ones((N_lambda, N_y, N_x))
+    var_cube_A2 = np.ones((N_lambda, N_y, N_x))
+    v_map = np.zeros((N_x, N_y))
+
+    # Convert from F_lambda to F_nu
+    # i.e. from erg/s/cm2/A --> erg/s/cm2/Hz, so need to multiply by A . s
+    data_cube_Hz = data_cube_A * lambda_vals_rest_A[:, None, None] * (lambda_vals_rest_A[:, None, None] * 1e-10) / (constants.c)
+    var_cube_Hz2 = var_cube_A2 * (lambda_vals_rest_A[:, None, None] * (lambda_vals_rest_A[:, None, None] * 1e-10) / (constants.c))**2
+
+    # From manually inspecting the wavelength array
+    b_start_idx = 36
+    b_stop_idx = 45 
+    N_b = b_stop_idx - b_start_idx
+    r_start_idx = 51
+    r_stop_idx = 60
+    N_r = r_stop_idx - r_start_idx
+    num = np.nanmean(data_cube_Hz[r_start_idx:r_stop_idx], axis=0)
+    denom = np.nanmean(data_cube_Hz[b_start_idx:b_stop_idx], axis=0)
+    err_num = 1 / N_r * np.sqrt(np.nansum(var_cube_Hz2[r_start_idx:r_stop_idx], axis=0))
+    err_denom = 1 / N_b * np.sqrt(np.nansum(var_cube_Hz2[b_start_idx:b_stop_idx], axis=0))
+
+    expected_d4000_map = num / denom
+    expected_d4000_map_err = expected_d4000_map * np.sqrt((err_num / num)**2 + (err_denom / denom)**2)
+
+    d4000_map, d4000_map_err = continuum.compute_d4000(data_cube_A, var_cube_A2, lambda_vals_rest_A, v_map)
+
+    assert np.all(np.isclose(expected_d4000_map, d4000_map))
+    assert np.all(np.isclose(expected_d4000_map_err, d4000_map_err))
+
+    logger.info("All test cases passed!")
 
 
 def test_compute_continuum_intensity():
@@ -119,9 +155,13 @@ def test_compute_EW():
 
 
 if __name__ == "__main__":
+    test_compute_d4000()
     test_compute_continuum_intensity()
     test_compute_continuum_luminosity()
     test_compute_EW()
+    
+
+
 
     
 
