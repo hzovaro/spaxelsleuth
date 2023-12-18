@@ -238,7 +238,8 @@ def _compute_logOH12(met_diagnostic, df,
                      max_niters=10,
                      verbose=False):
     """
-    Use strong-line metallicity diagnostics to compute the metallicity given a DataFrame containing emission line fluxes. 
+    Use strong-line metallicity diagnostics to compute the metallicity given a 
+    DataFrame containing emission line fluxes. 
 
     Note that this function ONLY calculates the metallicity (and ionisation
     parameter if required) - NO errors are calculated in this function.
