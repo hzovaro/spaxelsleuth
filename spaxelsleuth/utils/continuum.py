@@ -5,6 +5,7 @@ import warnings
 from spaxelsleuth.utils.velocity import get_slices_in_velocity_range
 from spaxelsleuth.utils.misc import in_dataframe
 
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -111,9 +112,9 @@ def compute_EW(df, ncomponents_max, eline_list):
                         df.loc[df[f"{eline} continuum"] <= 0, [f"{eline} EW error (component {nn + 1})"]] = np.nan
 
                     # If the emission line flux <= 0, then the EW is undefined, so set to NaN.
-                    df.loc[df[f"{eline}"] <= 0, [f"{eline} EW (component {nn + 1})"]] = np.nan
+                    df.loc[df[f"{eline} (component {nn + 1})"] <= 0, [f"{eline} EW (component {nn + 1})"]] = np.nan
                     if in_dataframe(df, [f"{eline} EW error (component {nn + 1})"]):
-                        df.loc[df[f"{eline}"] <= 0, [f"{eline} EW error (component {nn + 1})"]] = np.nan
+                        df.loc[df[f"{eline} (component {nn + 1})"] <= 0, [f"{eline} EW error (component {nn + 1})"]] = np.nan
 
             # Calculate total EW
             if in_dataframe(df, f"{eline} (total)"):
