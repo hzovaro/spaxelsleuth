@@ -5,7 +5,6 @@ import warnings
 from spaxelsleuth.utils.velocity import get_slices_in_velocity_range
 from spaxelsleuth.utils.misc import in_dataframe
 
-
 import logging
 logger = logging.getLogger(__name__)
 
@@ -28,6 +27,7 @@ def compute_d4000(data_cube, var_cube, lambda_vals_rest_A, v_star_map):
     - The D4000 index is computed by masking slices within specified wavelength ranges for blue and red edges.
     - Error propagation is performed, considering the number of valid pixels in each wavelength range.
 
+    NOTE: docstring written with help from ChatGPT 3.5.
     """
     logger.debug(f"computing D4000 break strengths...")
 
@@ -72,6 +72,7 @@ def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A
     - cont_map, cont_map_std, cont_map_err (numpy.ndarray): Arrays containing the continuum intensity map,
       standard deviation, and associated error map.
 
+    NOTE: docstring written with help from ChatGPT 3.5.
     """
     logger.debug(f"computing continuum intensities...")
     data_cube_masked, var_cube_masked = get_slices_in_velocity_range(data_cube, var_cube, lambda_vals_rest_A, start_A, stop_A, v_map)
@@ -106,7 +107,8 @@ def compute_continuum_luminosity(df):
     Note:
     - The following columns are required: "D_L (Mpc)", "Bin size (square kpc)", "HALPHA continuum", and "HALPHA continuum error". 
     - Adds columns "HALPHA continuum luminosity" and "HALPHA continuum luminosity error" to the DataFrame.
-    
+
+    NOTE: docstring written with help from ChatGPT 3.5.
     """
     logger.debug(f"computing continuum luminosities...")
     # HALPHA cont. luminosity: units of erg s^-1 Å-1 kpc^-2
@@ -146,6 +148,7 @@ def compute_EW(df, ncomponents_max, eline_list):
     Note:
     - If the continuum level or emission line flux is <= 0, the corresponding EW is set to NaN.
 
+    NOTE: docstring written with help from ChatGPT 3.5.
     """
     logger.debug(f"computing equivalent widths...")
     for eline in eline_list:
