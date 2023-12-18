@@ -4,7 +4,6 @@ import numpy as np
 from spaxelsleuth.utils import velocity
 
 import logging
-
 logger = logging.getLogger(__name__)
 
 
@@ -171,6 +170,8 @@ def test_compute_v_grad():
         result_3d, expected_result_3d, equal_nan=True
     ), f"Test case 2 failed: {result_3d}"
 
+    logger.info("All test cases passed!")
+    
 
 if __name__ == "__main__":
     test_get_wavelength_from_velocity()
