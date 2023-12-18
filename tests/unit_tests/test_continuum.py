@@ -2,14 +2,46 @@ import pandas as pd
 import numpy as np
 
 from spaxelsleuth.config import configure_logger
-configure_logger(level="DEBUG")
-from spaxelsleuth.utils import continuum
+configure_logger(level="INFO")
+from spaxelsleuth.utils import continuum, velocity
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 def test_compute_d4000():
     assert True 
 
+
 def test_compute_continuum_intensity():
-    assert True 
+    """Test continuum.compute_continuum_luminosity()."""
+
+    # Dummy data for testing 
+    N_lambda = 101
+    N_x, N_y = (3, 3)
+    data_cube = 10 * np.ones((N_lambda, N_y, N_x))
+    var_cube = np.ones((N_lambda, N_y, N_x))
+    lambda_vals_rest_A = np.linspace(4000, 5000, N_lambda)
+    lambda_rest_start_A = 4400
+    lambda_rest_stop_A = 4500
+    N_in_range = 9
+    v_map = np.zeros((N_x, N_y))
+
+    # This is independently tested so we don't need to check the output here
+    data_cube_masked, var_cube_masked = velocity.get_slices_in_velocity_range(data_cube, var_cube, lambda_vals_rest_A, lambda_rest_start_A, lambda_rest_stop_A, v_map)
+
+    expected_cont_map = 10 * np.ones((N_x, N_y))
+    expected_cont_map_std = np.zeros((N_x, N_y))
+    expected_cont_map_err = 1 / N_in_range * np.sqrt(np.nansum(var_cube[41:50], axis=0))
+    
+    cont_map, cont_map_std, cont_map_err = continuum.compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, lambda_rest_start_A, lambda_rest_stop_A, v_map)
+
+    assert np.all(np.isclose(expected_cont_map, cont_map))
+    assert np.all(np.isclose(expected_cont_map_std, cont_map_std))
+    assert np.all(np.isclose(expected_cont_map_err, cont_map_err))
+
+    logger.info("All test cases passed!")
+
 
 def test_compute_continuum_luminosity():
     """Test continuum.compute_continuum_luminosity()."""
@@ -32,7 +64,8 @@ def test_compute_continuum_luminosity():
     assert np.isclose(Ha_cont_luminosity, df["HALPHA continuum luminosity"])
     assert np.isclose(Ha_cont_luminosity_err, df["HALPHA continuum luminosity error"])
     
-    return
+    logger.info("All test cases passed!")
+
 
 def test_compute_EW():
     """Test continuum.compute_EW()."""
@@ -82,12 +115,13 @@ def test_compute_EW():
     assert np.isnan(df.loc[4, "HALPHA EW (total)"])
     assert np.isnan(df.loc[4, "HALPHA EW error (total)"])
 
-    return
+    logger.info("All test cases passed!")
 
 
 if __name__ == "__main__":
+    test_compute_continuum_intensity()
     test_compute_continuum_luminosity()
     test_compute_EW()
-    
 
+    
 
