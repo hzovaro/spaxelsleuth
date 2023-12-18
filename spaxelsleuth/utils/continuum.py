@@ -78,8 +78,15 @@ def compute_EW(df, ncomponents_max, eline_list):
             EW = emission line flux / continuum level in some wavelength range
         
         This function looks looks for the following columns in df:
-            <eline> (component <n>) -- emission line flux 
+            <eline> (component <n>/total) -- emission line flux 
             <eline> continuum -- corresponding continuum level
+
+        Errors on the EWs are also computed if errors are available for the 
+        emission line flux and continuum level. 
+        
+        Adds the following columns to df:
+            <eline> EW (component <n>/total)
+            <eline> EW error (component <n>/total) (if errors on the emission line flux/continuum exist in df)
 
     """
     logger.debug(f"computing equivalent widths...")
@@ -103,6 +110,11 @@ def compute_EW(df, ncomponents_max, eline_list):
                     if in_dataframe(df, [f"{eline} EW error (component {nn + 1})"]):
                         df.loc[df[f"{eline} continuum"] <= 0, [f"{eline} EW error (component {nn + 1})"]] = np.nan
 
+                    # If the emission line flux <= 0, then the EW is undefined, so set to NaN.
+                    df.loc[df[f"{eline}"] <= 0, [f"{eline} EW (component {nn + 1})"]] = np.nan
+                    if in_dataframe(df, [f"{eline} EW error (component {nn + 1})"]):
+                        df.loc[df[f"{eline}"] <= 0, [f"{eline} EW error (component {nn + 1})"]] = np.nan
+
             # Calculate total EW
             if in_dataframe(df, f"{eline} (total)"):
                 df[f"{eline} EW (total)"] = df[f"{eline} (total)"] / df[f"{eline} continuum"]
@@ -112,6 +124,14 @@ def compute_EW(df, ncomponents_max, eline_list):
                                 (df[f"{eline} continuum error"] / df[f"{eline} continuum"])**2)
 
                 # If the continuum level <= 0, then the EW is undefined, so set to NaN.
-                df.loc[df[f"{eline} continuum"] <= 0, [f"{eline} EW (total)", f"{eline} EW error (total)"]] = np.nan
+                df.loc[df[f"{eline} continuum"] <= 0, [f"{eline} EW (total)"]] = np.nan
+                if in_dataframe(df, [f"{eline} EW error (total)"]):
+                    df.loc[df[f"{eline} continuum"] <= 0, [f"{eline} EW error (total)"]] = np.nan
+                
+                # If the emission line flux <= 0, then the EW is undefined, so set to NaN.
+                df.loc[df[f"{eline} (total)"] <= 0, [f"{eline} EW (total)"]] = np.nan
+                if in_dataframe(df, [f"{eline} EW error (total)"]):
+                    df.loc[df[f"{eline} (total)"] <= 0, [f"{eline} EW error (total)"]] = np.nan
+
 
     return df
