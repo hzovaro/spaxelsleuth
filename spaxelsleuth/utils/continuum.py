@@ -11,8 +11,24 @@ logger = logging.getLogger(__name__)
 
 ###############################################################################
 def compute_d4000(data_cube, var_cube, lambda_vals_rest_A, v_star_map):
-    """Compute the D4000Å break strength in a given data cube.
-    Definition from Balogh+1999 (see here: https://arxiv.org/pdf/1611.07050.pdf, page 3)"""
+    """Compute the D4000Å break strength and its associated error map from input data and variance cubes.
+    Definition from Balogh+1999 (see here: https://arxiv.org/pdf/1611.07050.pdf, page 3)
+    
+    Parameters:
+    - data_cube (numpy.ndarray): 3D array representing the data cube.
+    - var_cube (numpy.ndarray): 3D array representing the variance cube.
+    - lambda_vals_rest_A (numpy.ndarray): 1D array containing rest wavelength values in Angstroms.
+    - v_star_map (numpy.ndarray): 2D array representing the velocity map for stellar absorption features.
+
+    Returns:
+    - d4000_map, d4000_map_err (numpy.ndarray): arrays containing the D4000 index map and its associated error map.
+
+    Note:
+    - The input data and variance cubes are converted to units of F_nu using the rest wavelength values.
+    - The D4000 index is computed by masking slices within specified wavelength ranges for blue and red edges.
+    - Error propagation is performed, considering the number of valid pixels in each wavelength range.
+
+    """
     logger.debug(f"computing D4000 break strengths...")
 
     # Convert datacube & variance cubes to units of F_nu
@@ -42,7 +58,21 @@ def compute_d4000(data_cube, var_cube, lambda_vals_rest_A, v_star_map):
 
 ###############################################################################
 def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A, stop_A, v_map):
-    """Compute the mean, std. dev. and error of the mean of the continuum between start_A and stop_A."""
+    """Compute the mean, std. dev. and error of the mean of the continuum between start_A and stop_A.
+    
+    Parameters:
+    - data_cube (numpy.ndarray): 3D array representing the data cube.
+    - var_cube (numpy.ndarray): 3D array representing the variance cube.
+    - lambda_vals_rest_A (numpy.ndarray): 1D array containing rest wavelength values in Angstroms.
+    - start_A (float): Start wavelength of the desired range in Angstroms.
+    - stop_A (float): Stop wavelength of the desired range in Angstroms.
+    - v_map (numpy.ndarray): 2D array representing the velocity map.
+
+    Returns:
+    - cont_map, cont_map_std, cont_map_err (numpy.ndarray): Arrays containing the continuum intensity map,
+      standard deviation, and associated error map.
+
+    """
     logger.debug(f"computing continuum intensities...")
     data_cube_masked, var_cube_masked = get_slices_in_velocity_range(data_cube, var_cube, lambda_vals_rest_A, start_A, stop_A, v_map)
     with warnings.catch_warnings():
@@ -61,7 +91,23 @@ def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A
 
 ######################################################################
 def compute_continuum_luminosity(df):
-    """Compute HALPHA continuum luminosity."""
+    """Compute HALPHA continuum luminosity.
+
+    NOTE: this calculation assumes that HALPHA continuum is in units of 1e-16 erg s^-1 cm^-2 Å-1.
+    
+    The output is in units of erg s^-1 Å-1.
+
+    Parameters:
+    - df (pandas.DataFrame): Input DataFrame containing HALPHA continuum and relevant information.
+
+    Returns:
+    - df (pandas.DataFrame): Updated DataFrame with added columns for HALPHA continuum luminosity and its error.
+
+    Note:
+    - The following columns are required: "D_L (Mpc)", "Bin size (square kpc)", "HALPHA continuum", and "HALPHA continuum error". 
+    - Adds columns "HALPHA continuum luminosity" and "HALPHA continuum luminosity error" to the DataFrame.
+    
+    """
     logger.debug(f"computing continuum luminosities...")
     # HALPHA cont. luminosity: units of erg s^-1 Å-1 kpc^-2
     if all([col in df for col in ["D_L (Mpc)", "Bin size (square kpc)"]]):
@@ -88,6 +134,17 @@ def compute_EW(df, ncomponents_max, eline_list):
         Adds the following columns to df:
             <eline> EW (component <n>/total)
             <eline> EW error (component <n>/total) (if errors on the emission line flux/continuum exist in df)
+
+    Parameters:
+    - df (pandas.DataFrame): Input DataFrame containing emission line flux and continuum level information.
+    - ncomponents_max (int): Maximum number of components for each emission line.
+    - eline_list (list): List of emission lines for which EWs are to be calculated.
+
+    Returns:
+    - df (pandas.DataFrame): Updated DataFrame with added columns for EWs and associated errors.
+
+    Note:
+    - If the continuum level or emission line flux is <= 0, the corresponding EW is set to NaN.
 
     """
     logger.debug(f"computing equivalent widths...")
