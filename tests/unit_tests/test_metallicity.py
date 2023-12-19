@@ -13,6 +13,12 @@ from spaxelsleuth.plotting.plotgalaxies import plot2dscatter, plot2dhistcontours
 # Testing philosophy: run script in terminal to check "manual" things. Place this code in __main__.
 # Place stuff we want to automatically test with pytest into functions & also call these in __main__.
 
+
+def test_metallicity():
+    """Placeholder test so that pytest doesn't return an error code"""
+    assert True
+
+
 if __name__ == "__main__":
     """Test metallicity calculations."""
     plt.ion()
