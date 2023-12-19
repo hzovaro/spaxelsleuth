@@ -63,6 +63,7 @@ def compute_measured_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_
     cont_HALPHA_map, cont_HALPHA_map_std, cont_HALPHA_map_err = compute_continuum_intensity(data_cube=data_cube, var_cube=var_cube, lambda_vals_rest_A=lambda_vals_rest_A, start_A=6500, stop_A=6540, v_map=v_star_map)
 
     # Wavelength window in which to compute A/N
+    # NOTE: these wavelength values apply to the REST-FRAME wavelength grid, NOT the observer-frame one.
     lambda_max_A = get_wavelength_from_velocity(6562.8, v_map + dv, units="km/s")
     lambda_min_A = get_wavelength_from_velocity(6562.8, v_map - dv, units="km/s")
 
