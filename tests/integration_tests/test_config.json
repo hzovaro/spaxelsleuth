@@ -1,0 +1,9 @@
+{
+    "sdss_im_path": "../data/sdss/",
+    "sami": {
+        "output_path": "../output/sami/",
+        "reference_output_path": "../reference/sami/",
+        "input_path": "../data/sami/",
+        "data_cube_path": "../data/sami/"
+    }
+}

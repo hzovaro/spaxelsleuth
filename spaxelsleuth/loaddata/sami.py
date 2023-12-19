@@ -1283,8 +1283,8 @@ def make_sami_df(bin_type,
     try:
         df_metadata = pd.read_hdf(output_path / df_metadata_fname,
                                   key="metadata")
-    except FileNotFoundError:
-        logger.error(
+    except:
+        raise FileNotFoundError(
             f"metadata DataFrame file not found ({output_path / df_metadata_fname}). Please run make_sami_metadata_df.py first!"
         )
 
@@ -1294,6 +1294,8 @@ def make_sami_df(bin_type,
         g for g in gal_ids_dq_cut
         if os.path.exists(input_path / f"ifs/{g}/")
     ]
+    if len(gal_ids_dq_cut) == 0:
+        raise FileNotFoundError(f"I could not find any galaxy data in {input_path / 'ifs'}!")
 
     # If running in DEBUG mode, run on a subset to speed up execution time
     if debug:
