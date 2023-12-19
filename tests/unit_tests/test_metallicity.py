@@ -22,6 +22,7 @@ if __name__ == "__main__":
     #TODO test this using a library of HII regions instead loaded at runtime
     #TODO over-plot grids showing the polynomial fits?
     #NOTE this stuff is important for Alex's work so it's important to get it right!!! 
+    #TODO double-check ratios used in the diagnostics as well
     # Load the DataFrame.
     df = load_sami_df(
         ncomponents="recom",
@@ -122,7 +123,7 @@ if __name__ == "__main__":
     fig = plot2dhistcontours(
         df,
         col_x=f"O3N2 (total)",
-        col_y=f"log(O/H) + 12 (N2Ha_O3N2) (total)",
+        col_y=f"log(O/H) + 12 (O3N2_PP04) (total)",
         col_z="count", log_z=True,
         figsize=(7, 4),
         xmin=-2.7, xmax=0.0, 
@@ -184,15 +185,57 @@ if __name__ == "__main__":
 
     #///////////////////////////////////////////////////////////////////////
     # N2S2Ha_D16
-    
+    fig = plot2dhistcontours(
+        df,
+        col_x=f"log(O/H) + 12 (N2S2Ha_D16) (total)",
+        col_y=f"Dopita+2016 (total)",
+        col_z=f"count", log_z=True,
+        figsize=(7, 4),
+        xmin=7.4, xmax=9.5, 
+        ymin=-1.1, ymax=0.6,
+    )
+    fig.suptitle("N2S2Ha_D16") 
     
     #///////////////////////////////////////////////////////////////////////
     # N2O2_KD02
-    
+    #TODO: fix cloud of points at N2O2 < -1.0
+    fig = plot2dhistcontours(
+        df,
+        col_x=f"log(O/H) + 12 (N2O2_KD02) (total)",
+        col_y=f"N2O2 (total)",
+        col_z=f"count", log_z=True,
+        figsize=(7, 4),
+        xmin=7.5, xmax=9.5, 
+        ymin=-2.0, ymax=1.5,
+    )
+    fig.suptitle("N2O2_KD02") 
+
     #///////////////////////////////////////////////////////////////////////
-    # Rcal_PG16
-    # Scal_PG16
-    
+    # Rcal_PG16 (fig. 8c)
+    #TODO: fix bug in implementation of upper/lower branches
+    fig = plot2dhistcontours(
+        df,
+        col_x=f"R23 (total)",
+        col_y=f"log(O/H) + 12 (Rcal_PG16) (total)",
+        col_z=f"count", log_z=True,
+        figsize=(7, 4),
+        xmin=-1.0, xmax=2.0,
+        ymin=6.5, ymax=9.5,
+    )
+    fig.suptitle("Rcal_PG16") 
+
+    # Scal_PG16 (fig. 8a - comparison between R and S cals)
+    fig = plot2dhistcontours(
+        df,
+        col_x=f"log(O/H) + 12 (Rcal_PG16) (total)",
+        col_y=f"log(O/H) + 12 (Scal_PG16) (total)",
+        col_z=f"count", log_z=True,
+        figsize=(7, 4),
+        xmin=7.0, xmax=9.0,
+        ymin=7.0, ymax=9.0,
+    )
+    fig.suptitle("S/Rcal_PG16") 
+
     #///////////////////////////////////////////////////////////////////////
     # ONS_P10
     # ON_P10
