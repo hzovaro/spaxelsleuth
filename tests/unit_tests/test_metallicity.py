@@ -25,10 +25,6 @@ if __name__ == "__main__":
     plt.close("all")
     rcParams["font.size"] = 8
 
-    #TODO test this using a library of HII regions instead loaded at runtime
-    #TODO over-plot grids showing the polynomial fits?
-    #NOTE this stuff is important for Alex's work so it's important to get it right!!! 
-    #TODO double-check ratios used in the diagnostics as well
     # Load the DataFrame.
     df = load_sami_df(
         ncomponents="recom",
@@ -39,15 +35,153 @@ if __name__ == "__main__":
         debug=False
     )
 
-    # Start off by testing _compute_logOH12 since this is the lowest-level function in the module.
-    # For automated unit testing, should just check the basic stuff -
-    #    - only SF-like rows have metallicity calculations
-    #    - NaNs in the input --> NaNs in the output, etc.
-    # Not really necessary to do these because we already test for this in the integration testing.
+    # Subset of star-forming galaxies to speed up execution
+    gb = df.loc[df["BPT (total)"] == "SF"].groupby("ID")
+    counts = gb["x, y (pixels)"].count().sort_values(ascending=False)
+    gals_SF = counts.index.values[:100]
+    df_sub = df.loc[df["ID"].isin(gals_SF)]
 
-    # For "manual" inspection, plot the metallicity vs. the line ratio & compare against paper.
+    # Re-calculate metallicities and check
+    diagnostics = [
 
-    #///////////////////////////////////////////////////////////////////////
+    ]
+    for diagnostic in diagnostics:        
+        if diagnostic.endswith("K19"):
+            df_sub = metallicity.calculate_metallicity(met_diagnostic=diagnostic, compute_logU=True, ion_diagnostic="O3O2_K19", compute_errors=True, niters=1000, df=df_sub, s=" (total)")
+        elif diagnostic.endswith("KK04"):
+            df_sub = metallicity.calculate_metallicity(met_diagnostic=diagnostic, compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df_sub, s=" (total)")
+        else:
+            df_sub = metallicity.calculate_metallicity(met_diagnostic=diagnostic, compute_errors=True, niters=1000, df=df_sub, s=" (total)")        
+
+ 
+    #%% 
+    # For debugging Task 1: Rcal/Scal 
+    # Re-calculate, check before/after.
+    valid_logOH = ~df[f"log(O/H) + 12 (Rcal_PG16) (total)"].isna()
+    print(f"Before: {df.loc[valid_logOH].shape[0]} / {df.shape[0]} rows have finite metallicity measurements")
+    df_after = metallicity.calculate_metallicity(met_diagnostic="Rcal_PG16", compute_errors=True, niters=100, df=df, s=" (total)")        
+    valid_logOH = ~df_after[f"log(O/H) + 12 (Rcal_PG16) (total)"].isna()
+    print(f"After: {df_after.loc[valid_logOH].shape[0]} / {df_after.shape[0]} rows have finite metallicity measurements")
+    fig = plot2dhistcontours(
+        df,
+        col_x=f"R23 (total)",
+        col_y=f"log(O/H) + 12 (Rcal_PG16) (total)",
+        col_z=f"count", log_z=True,
+        figsize=(7, 4),
+        xmin=-1.0, xmax=2.0,
+        ymin=6.5, ymax=9.5,
+    )
+    fig.suptitle("Rcal_PG16") 
+    fig = plot2dhistcontours(
+        df_after,
+        col_x=f"R23 (total)",
+        col_y=f"log(O/H) + 12 (Rcal_PG16) (total)",
+        col_z=f"count", log_z=True,
+        figsize=(7, 4),
+        xmin=-1.0, xmax=2.0,
+        ymin=6.5, ymax=9.5,
+    )
+    fig.suptitle("Rcal_PG16") 
+
+    #%% 
+    # For debugging Task 2: how to treat metallicities when line ratios are at the boundaries of the acceptable limits
+    # Re-calculate, check before/after.
+    valid_logOH = ~df[f"log(O/H) + 12 (N2Ha_M13) (total)"].isna()
+    print(f"Before: {df.loc[valid_logOH].shape[0]} / {df.shape[0]} rows have finite metallicity measurements")
+    df_after = metallicity.calculate_metallicity(met_diagnostic="N2Ha_M13", compute_errors=False, df=df, s=" (total)")        
+    valid_logOH = ~df_after[f"log(O/H) + 12 (N2Ha_M13) (total)"].isna()
+    print(f"After: {df_after.loc[valid_logOH].shape[0]} / {df_after.shape[0]} rows have finite metallicity measurements")
+    
+    fig = plot2dhistcontours(
+        df,
+        col_x=f"log N2 (total)",
+        col_y=f"log(O/H) + 12 (N2Ha_M13) (total)",
+        col_z="count", log_z=True,
+        figsize=(7, 4),
+        xmin=-1.7, xmax=0.2, 
+        ymin=7.5, ymax=9.0,
+    )
+    fig.get_axes()[0].axvline(-1.6, color="k")
+    fig.get_axes()[0].axvline(-0.2, color="k")
+
+    fig = plot2dhistcontours(
+        df_after,
+        col_x=f"log N2 (total)",
+        col_y=f"log(O/H) + 12 (N2Ha_M13) (total)",
+        col_z="count", log_z=True,
+        figsize=(7, 4),
+        xmin=-1.7, xmax=0.2, 
+        ymin=7.5, ymax=9.0,
+    )
+    fig.get_axes()[0].axvline(-1.6, color="k")
+    fig.get_axes()[0].axvline(-0.2, color="k")
+
+    # Re-calculate, check before/after.
+    # Test using a single row that is outside the bounds 
+    cond_bad_rows = df["N2O2 (total)"] < -1.4
+    valid_logOH = ~df[f"log(O/H) + 12 (N2O2_KD02) (total)"].isna()
+    print(f"Before: {df.loc[cond_bad_rows & valid_logOH].shape[0]} / {df.loc[cond_bad_rows].shape[0]} rows have finite metallicity measurements")
+    df_after = metallicity.calculate_metallicity(met_diagnostic="N2O2_KD02", compute_errors=True, niters=100, df=df.loc[cond_bad_rows], s=" (total)")        
+    valid_logOH = ~df_after[f"log(O/H) + 12 (N2O2_KD02) (total)"].isna()
+    print(f"After: {df_after.loc[valid_logOH].shape[0]} / {df_after.shape[0]} rows have finite metallicity measurements")
+    
+    fig = plot2dhistcontours(
+        df,
+        col_x=f"log(O/H) + 12 (N2O2_KD02) (total)",
+        col_y=f"N2O2 (total)",
+        col_z=f"count", log_z=True,
+        figsize=(7, 4),
+        xmin=7.5, xmax=9.5, 
+        ymin=-2.0, ymax=1.5,
+    )
+    fig.suptitle("N2O2_KD02") 
+    fig.get_axes()[0].axvline(-0.2, color="k")
+    
+    fig = plot2dhistcontours(
+        df_after,
+        col_x=f"log(O/H) + 12 (N2O2_KD02) (total)",
+        col_y=f"N2O2 (total)",
+        col_z=f"count", log_z=True,
+        figsize=(7, 4),
+        xmin=7.5, xmax=9.5, 
+        ymin=-2.0, ymax=1.5,
+    )
+    fig.suptitle("N2O2_KD02") 
+    fig.get_axes()[0].axvline(-0.2, color="k")
+
+    # Repeat with R23
+    valid_logOH = ~df[f"log(O/H) + 12 (R23_KK04/O3O2_KK04) (total)"].isna()
+    print(f"Before: {df.loc[valid_logOH].shape[0]} / {df.shape[0]} rows have finite metallicity measurements")
+    df_after = metallicity.calculate_metallicity(met_diagnostic="R23_KK04", ion_diagnostic="O3O2_KK04", compute_logU=True, compute_errors=True, niters=100, df=df, s=" (total)")        
+    valid_logOH = ~df_after[f"log(O/H) + 12 (R23_KK04/O3O2_KK04) (total)"].isna()
+    print(f"After: {df_after.loc[valid_logOH].shape[0]} / {df_after.shape[0]} rows have finite metallicity measurements")
+    fig = plot2dhistcontours(
+        df,
+        col_x=f"log(O/H) + 12 (R23_KK04/O3O2_KK04) (total)",
+        col_y=f"R23 (total)",
+        col_z=f"log(U) (R23_KK04/O3O2_KK04) (total)",
+        figsize=(7, 4),
+        xmin=7.5, xmax=9.5, 
+        ymin=-0.7, ymax=1.5,
+        vmin=-4.0, vmax=-2.0,
+        cmap="Spectral_r",
+    )
+    fig.suptitle("R23_KK04/O3O2_KK04") 
+    fig = plot2dhistcontours(
+        df_after,
+        col_x=f"log(O/H) + 12 (R23_KK04/O3O2_KK04) (total)",
+        col_y=f"R23 (total)",
+        col_z=f"log(U) (R23_KK04/O3O2_KK04) (total)",
+        figsize=(7, 4),
+        xmin=7.5, xmax=9.5, 
+        ymin=-0.7, ymax=1.5,
+        vmin=-4.0, vmax=-2.0,
+        cmap="Spectral_r",
+    )
+    fig.suptitle("R23_KK04/O3O2_KK04") 
+
+
+    #%% Plotting
     # Kewley 2019 diagnostics
     #TODO: these should be defined in metallicity.py somewhere, probably... 
     k19_ratio_colnames = {
@@ -140,7 +274,6 @@ if __name__ == "__main__":
 
 
     #///////////////////////////////////////////////////////////////////////
-    #TODO: there are metallicity points beyond the validity limits of these calculations - why?
     # N2Ha_M13 (fig. 5)
     fig = plot2dhistcontours(
         df,
@@ -169,8 +302,6 @@ if __name__ == "__main__":
 
 
     #///////////////////////////////////////////////////////////////////////
-    #TODO: there are pts w/ R23 > 1.0 with non-NaN metallicity measurements... these are MEANT to be NaN'd (see line 483) but clearly aren't!!!
-    #TODO: double-check O3O2 definition!!
     # R23_KK04
     fig = plot2dhistcontours(
         df,
@@ -184,10 +315,6 @@ if __name__ == "__main__":
         cmap="Spectral_r",
     )
     fig.suptitle("R23_KK04/O3O2_KK04") 
-
-    #///////////////////////////////////////////////////////////////////////
-    # R23_C17
-    #TODO this actually hasn't been implemented in the code
 
     #///////////////////////////////////////////////////////////////////////
     # N2S2Ha_D16
@@ -204,7 +331,6 @@ if __name__ == "__main__":
     
     #///////////////////////////////////////////////////////////////////////
     # N2O2_KD02
-    #TODO: fix cloud of points at N2O2 < -1.0
     fig = plot2dhistcontours(
         df,
         col_x=f"log(O/H) + 12 (N2O2_KD02) (total)",
@@ -218,7 +344,6 @@ if __name__ == "__main__":
 
     #///////////////////////////////////////////////////////////////////////
     # Rcal_PG16 (fig. 8c)
-    #TODO: fix bug in implementation of upper/lower branches
     fig = plot2dhistcontours(
         df,
         col_x=f"R23 (total)",
