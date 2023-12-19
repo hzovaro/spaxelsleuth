@@ -32,5 +32,5 @@ jobs:
     - name: Test with pytest
       run: |
         pip install pytest
-        cd tests/integration_tests
+        cd tests
         pytest
