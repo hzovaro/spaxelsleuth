@@ -6,6 +6,8 @@ import warnings
 
 from spaxelsleuth.utils.misc import remove_col_suffix, add_col_suffix
 
+from IPython.core.debugger import set_trace
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -635,7 +637,7 @@ def _met_helper_fn(args):
     met_diagnostic, df, logU, compute_logU, ion_diagnostic, niters = args
     df = df.copy()  # Make a copy to avoid the pandas SettingWithCopyWarning
     compute_errors = True if niters > 1 else False
-
+    
     # Compute metallicities in ALL rows plus errors 
     logOH12_vals = np.full((niters, df.shape[0]), np.nan)
     if (logU is not None) or compute_logU:
@@ -651,7 +653,7 @@ def _met_helper_fn(args):
         logger.debug(f"computing log(O/H) + 12 using diagnostic {met_diagnostic}...")
     
     for nn in range(niters):
-        # Make a copy of the row
+        # Make a copy of the DataFrame
         df_tmp = df.copy()
         
         # Add random error 
@@ -684,25 +686,53 @@ def _met_helper_fn(args):
                                                 logU=None, compute_logU=False)
             logOH12_vals[nn] = res
 
+    # Count number of NaN entries - these will be due to MC iterations bumping values into invalid ranges for the diagnostic(s) used
+    frac_finite_measurements_logOH12 = np.nansum(~np.isnan(logOH12_vals), axis=0) / niters
+    if compute_logU:
+        frac_finite_measurements_logU = np.nansum(~np.isnan(logU_vals), axis=0) / niters
+        valid_measurements = (frac_finite_measurements_logU > 0.5) & (frac_finite_measurements_logOH12 > 0.5)
+        logger.info(f"For diagnostic {met_diagnostic}/{ion_diagnostic}, I am masking out {len(valid_measurements[~valid_measurements])} measurements in which >50% of MC iterations returned a NaN metallicity or ionisation parameter value")
+    else:
+        valid_measurements = frac_finite_measurements_logOH12 > 0.5
+        logger.info(f"For diagnostic {met_diagnostic}, I am masking out {len(valid_measurements[~valid_measurements])} measurements in which >50% of MC iterations returned a NaN metallicity value")
+
+    # Compute mean measurements from the MC runs, plus errors
+    # NaN out metallicity/ionisation parameter measurements where >50% of measurements in either have failed 
+    logOH12_mean = np.nanmean(logOH12_vals, axis=0)
+    logOH12_mean[~valid_measurements] = np.nan
+    if compute_logU:
+        logU_mean = np.nanmean(logU_vals, axis=0)
+        logU_mean[~valid_measurements] = np.nan
+    if compute_errors:
+        logOH12_q16 = np.quantile(logOH12_vals, q=0.16, axis=0)
+        logOH12_q16[~valid_measurements] = np.nan
+        logOH12_q84 = np.quantile(logOH12_vals, q=0.84, axis=0)
+        logOH12_q84[~valid_measurements] = np.nan
+        if compute_logU:
+            logU_q16 = np.quantile(logU_vals, q=0.16, axis=0)
+            logU_q16[~valid_measurements] = np.nan
+            logU_q84 = np.quantile(logU_vals, q=0.84, axis=0)
+            logU_q84[~valid_measurements] = np.nan
+
     # Add to DataFrame
     with warnings.catch_warnings():
         warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="Mean of empty slice")
         if compute_logU:
-            df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
-            df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logU_vals, axis=0)
+            df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = logOH12_mean
+            df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = logU_mean
             if compute_errors:
-                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
-                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
-                df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logU_vals, axis=0) - np.quantile(logU_vals, q=0.16, axis=0)
-                df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logU_vals, q=0.84, axis=0) - np.nanmean(logU_vals, axis=0)
+                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = logOH12_mean - logOH12_q16
+                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = logOH12_q84 - logOH12_mean
+                df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = logU_mean - logU_q16
+                df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = logU_q84 - logU_mean
         
         else:
-            df.loc[:, f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
+            df.loc[:, f"log(O/H) + 12 ({met_diagnostic})"] = logOH12_mean
             if compute_errors:
-                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
-                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
+                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}) error (lower)"] = logOH12_mean - logOH12_q16
+                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = logOH12_q84 - logOH12_mean
             if logU is not None:
-                df.loc[:, f"log(U) ({met_diagnostic})"] = np.nanmean(logU_vals, axis=0)
+                df.loc[:, f"log(U) ({met_diagnostic})"] = logU_mean
 
     return df 
 
