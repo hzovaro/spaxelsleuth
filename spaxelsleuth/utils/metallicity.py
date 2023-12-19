@@ -35,7 +35,6 @@ line_list_dict = {
     "O3N2_M13": ["OIII5007", "HBETA", "HALPHA", "NII6583"],
     "R23_KK04": ["NII6583", "OII3726+OII3729", "HBETA", "OIII4959+OIII5007", "OII3726+OII3729"],
     "O3O2_KK04": ["OIII4959+OIII5007", "OII3726+OII3729"], # KK04 - log(U) diagnostic. NOTE different O3O2 defn. to K19
-    "R23_C17": ["OII3726", "OIII4959+OIII5007", "HBETA"],
     "N2S2Ha_D16": ["NII6583", "SII6716+SII6731", "HALPHA"],
     "N2O2_KD02": ["NII6583", "OII3726+OII3729"],
     "Rcal_PG16": ["OII3726+OII3729", "HBETA", "NII6548+NII6583", "OIII4959+OIII5007"],
@@ -129,7 +128,7 @@ met_coeffs_K19 = {
         },
     "O2S2_K19"  : {
     # Notes: less sensitive to U than [SII]/Halpha, but N2O2 is better if available
-        "A" : 12.489,
+        "A" : 12.4894,
         "B" : -3.2646,
         "C" : 3.2581,
         "D" : -2.0544,
@@ -189,9 +188,9 @@ met_coeffs_K19 = {
         "H" : 0.0806,
         "I" : -0.0852,
         "J" : 0.0462,
-        "RMS ERR" : 2.11,   # PERCENT
-        "Zmin" : 8.23,
-        "Zmax" : 8.93,
+        "RMS ERR" : 0.42,   # PERCENT
+        "Zmin" : 8.53,
+        "Zmax" : 9.23,
     },
 }
 
@@ -429,34 +428,38 @@ def _compute_logOH12(met_diagnostic, df,
             return np.squeeze(logOH12), np.squeeze(logU)
 
     elif met_diagnostic == "R23_KK04":
+        logger.warning(f"There may be an error in the implementation of the R23_KK04 diagnostic - proceed with caution!!")
         # R23 - Kobulnicky & Kewley (2004)
+        # NOTE: from the paper, it's pretty clear that they only use the OII3726 in the denominator. 
+        # HOWEVER, in the appendix of Poetrodjojo+2021, they seem to include the other line as well. So I'm not sure who to believe!! 
         logN2O2 = np.log10(df["NII6583"].values / df["OII3726+OII3729"].values)
-        logO3O2 = np.log10(df["OIII4959+OIII5007"].values / df["OII3726+OII3729"].values)
+        logO3O2 = np.log10(df["OIII4959+OIII5007"].values / df["OII3726+OII3729"].values)  # NOTE: their eqn. 10 suggests that the denominator should only include the 3727 line.
         logR23 = np.log10((df["OII3726+OII3729"].values + df["OIII4959+OIII5007"].values) / df["HBETA"].values)
         logOH12 = np.full(df.shape[0], np.nan)
-
+ 
         if compute_logU:
-            # Compute a self-consistent ionisation parameter using the O3O2
-            # diagnostic
+            # Compute a self-consistent ionisation parameter using the O3O2 diagnostic
             logOH12_old = np.full(df.shape[0], np.nan)
             logOH12_new = np.full(df.shape[0], np.nan)
 
             # Starting guesses 
-            pts_lower = logN2O2 < -1.2
-            pts_upper = logN2O2 >= -1.2
+            pts_lower = logN2O2 < -1.2  # NOTE: these initial guesses which tell us which branch to use are taken by eyeballing fig. 3 of KD02.
+            pts_upper = logN2O2 >= -1.2  # NOTE: these initial guesses which tell us which branch to use are taken by eyeballing fig. 3 of KD02.
             logOH12_old[pts_lower] = 8.2
             logOH12_old[pts_upper] = 8.7
             logq_old = -99999  # Dummy value
 
             for n in range(max_niters):
 
-                # Recompute values 
+                # Recompute values (eqn. 13)
                 # NOTE: there is a serious transcription error in the version of this eqn. that appears in the appendix of Poeotrodjojo+2021: refer to the eqn. in the original paper
                 logq_new = (32.81 - 1.153 * logO3O2**2\
                         + logOH12_old * (-3.396 - 0.025 * logO3O2 + 0.1444 * logO3O2**2))\
-                       * (4.603 - 0.3119 * logO3O2 - 0.163 * logO3O2**2 + logOH12_old * (-0.48 + 0.0271 * logO3O2 + 0.02037 * logO3O2**2))**(-1)
+                       * (4.603 - 0.3119 * logO3O2 - 0.163 * logO3O2**2\
+                          + logOH12_old * (-0.48 + 0.0271 * logO3O2 + 0.02037 * logO3O2**2))**(-1)
                 
-                # Compute metallicity
+                # Compute metallicity (eqns. 16 and 17)
+                # NOTE: this is a new and improved parameterisation of the diagnostic presented in KD02.
                 pts_lower = logN2O2 < -1.2
                 pts_upper = logN2O2 >= -1.2
                 logOH12_new[pts_lower] = 9.40 + 4.65 * logR23[pts_lower] - 3.17 * logR23[pts_lower]**2 - logq_new[pts_lower] * (0.272 + 0.547 * logR23[pts_lower] - 0.513 * logR23[pts_lower]**2)
@@ -507,6 +510,9 @@ def _compute_logOH12(met_diagnostic, df,
     elif met_diagnostic == "N2O2_KD02":
         # N2O2 - Kewley & Dopita (2002)
         # Only reliable above Z > 0.5Zsun (log(O/H) + 12 > 8.6)
+        # NOTE: the text in section 4.1 seems to imply that the denominator only includes OII3726, but the caption of fig. 3 says that it includes both.
+        # Without any additional information, we assume that the denominator includes both lines (since in most surveys the doublet can't be resolved anyway)
+        logger.warning(f"There may be an error in the implementation of the N2O2_KD02 diagnostic - proceed with caution!!")
         logR = np.log10(df["NII6583"].values / (df["OII3726+OII3729"].values))
         logOH12 = np.log10(1.54020 + 1.26602 * logR + 0.167977 * logR**2 ) + 8.93
         good_pts = (logOH12 > 8.6) & (logOH12 < 9.4)  # upper limit eyeballed from their fig. 3
@@ -523,6 +529,7 @@ def _compute_logOH12(met_diagnostic, df,
 
     elif met_diagnostic == "N2Ha_M13":
         # N2Ha - Marino (2013)
+        # NOTE: here we employ the Te-based calibration (eqn. 4), rather than the one based on CALIFA ONS data. 
         logR = np.log10(df["NII6583"].values / df["HALPHA"].values)
         logOH12 = 8.743 + 0.462 * logR
         good_pts = (-1.6 < logR) & (logR < -0.2)
@@ -549,7 +556,7 @@ def _compute_logOH12(met_diagnostic, df,
         # N2S2Ha - Dopita et al. (2016)
         logR = np.log10(df["NII6583"].values / df["SII6716+SII6731"].values) + 0.264 * np.log10(df["NII6583"].values / df["HALPHA"].values)
         logOH12 = 8.77 + logR + 0.45 * (logR + 0.3)**5
-        good_pts = (-1.1 < logR) & (logR < 0.5)
+        good_pts = (-1.1 < logR) & (logR < 0.5)  # Limits eyeballed from their fig. 3
         logOH12[~good_pts] = np.nan
         return np.squeeze(logOH12)
 
@@ -561,7 +568,7 @@ def _compute_logOH12(met_diagnostic, df,
         logR2 = np.log10(df["OII3726+OII3729"].values / df["HBETA"].values)
         R3 = df["OIII4959+OIII5007"].values / df["HBETA"].values
         R2 = df["OII3726+OII3729"].values / df["HBETA"].values
-        P = R3 / (R3 + R2)  # should this be a log?
+        P = R3 / (R3 + R2)  # NOTE: ratios of the non-log ratios
 
         logOH12 = np.full(df.shape[0], np.nan)
         pts_cool = logN2 >= -0.1
@@ -597,9 +604,9 @@ def _compute_logOH12(met_diagnostic, df,
 
     elif met_diagnostic == "Rcal_PG16":
         # Rcal - Pilyugin & Grebel (2016)
-        logO32 = np.log10((df["OIII4959+OIII5007"].values) / (df["OII3726+OII3729"].values))
-        logN2Hb = np.log10((df["NII6548+NII6583"].values) / df["HBETA"].values)
-        logO2Hb = np.log10((df["OII3726+OII3729"].values) / df["HBETA"].values)
+        logO32 = np.log10((df["OIII4959+OIII5007"].values) / (df["OII3726+OII3729"].values))  # Their R3/R2
+        logN2Hb = np.log10((df["NII6548+NII6583"].values) / df["HBETA"].values)  # Their N2
+        logO2Hb = np.log10((df["OII3726+OII3729"].values) / df["HBETA"].values)  # Their R2
 
         # Decide which branch we're on
         logOH12 = np.full(df.shape[0], np.nan)
@@ -614,9 +621,9 @@ def _compute_logOH12(met_diagnostic, df,
 
     elif met_diagnostic == "Scal_PG16":
         # Scal - Pilyugin & Grebel (2016)
-        logO3S2 = np.log10((df["OIII4959+OIII5007"].values) / (df["SII6716+SII6731"].values))
-        logN2Hb = np.log10((df["NII6548+NII6583"].values) / df["HBETA"].values)
-        logS2Hb = np.log10((df["SII6716+SII6731"].values) / df["HBETA"].values)
+        logO3S2 = np.log10((df["OIII4959+OIII5007"].values) / (df["SII6716+SII6731"].values))  # Their R3/S2
+        logN2Hb = np.log10((df["NII6548+NII6583"].values) / df["HBETA"].values)  # Their N2 
+        logS2Hb = np.log10((df["SII6716+SII6731"].values) / df["HBETA"].values)  # Their S2
 
         # Decide which branch we're on
         logOH12 = np.full_like(logO3S2, np.nan)
