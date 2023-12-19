@@ -34,5 +34,5 @@ jobs:
         pip install pytest
         cd tests/integration_tests
         pytest
-        cd ../tests/unit_tests
+        cd ../unit_tests
         pytest
