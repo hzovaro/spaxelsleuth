@@ -602,6 +602,7 @@ def _compute_logOH12(met_diagnostic, df,
         # Decide which branch we're on
         logOH12 = np.full(df.shape[0], np.nan)
         pts_lower = logN2Hb < -0.6
+        #TODO is the below a bug?
         pts_upper = logN2Hb >= 0.6
 
         logOH12[pts_lower] = 7.932 + 0.944 * logO32[pts_lower] + 0.695 * logN2Hb[pts_lower] + ( 0.970 - 0.291 * logO32[pts_lower] - 0.019 * logN2Hb[pts_lower]) * logO2Hb[pts_lower]
@@ -619,6 +620,7 @@ def _compute_logOH12(met_diagnostic, df,
         # Decide which branch we're on
         logOH12 = np.full_like(logO3S2, np.nan)
         pts_lower = logN2Hb < -0.6
+        #TODO is the below a bug?
         pts_upper = logN2Hb >= 0.6
 
         logOH12[pts_lower] = 8.072 + 0.789 * logO3S2[pts_lower] + 0.726 * logN2Hb[pts_lower] + ( 1.069 - 0.170 * logO3S2[pts_lower] + 0.022 * logN2Hb[pts_lower]) * logS2Hb[pts_lower]
