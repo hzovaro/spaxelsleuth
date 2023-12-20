@@ -639,24 +639,32 @@ def _compute_logOH12(met_diagnostic, df,
 ###############################################################################
 def _met_helper_fn(args):
     """Helper function used in _get_metallicity() to compute metallicities across multiple threads."""
-    met_diagnostic, df, logU, compute_logU, ion_diagnostic, niters = args
-    df = df.copy()  # Make a copy to avoid the pandas SettingWithCopyWarning
+    met_diagnostic, df, logU, compute_logU, ion_diagnostic, niters, seed = args
+    
+    # Evaluate log(O/H) + 12 (and log(U) if compute_logU is True) niters times 
+    # with random noise added to the emission line fluxes each time
     compute_errors = True if niters > 1 else False
+    if compute_errors and compute_logU:
+        logger.debug(f"computing log(O/H) + 12 and log(U) (+ errors) using diagnostics {met_diagnostic} and {ion_diagnostic} with {niters} iterations and a random seed of {seed}...")
+    elif compute_errors:
+        logger.debug(f"computing log(O/H) + 12 (+ errors) using diagnostic {met_diagnostic} with {niters} iterations and a random seed of {seed}...")
+    else:
+        logger.debug(f"computing log(O/H) + 12 using diagnostic {met_diagnostic}...")
+
+    # Make a copy to avoid the pandas SettingWithCopyWarning
+    df = df.copy()  
+    
+    # Initialise the RandomState generator 
+    # NOTE: if seed is None, then RandomState will try to read data from /dev/urandom (or the Windows analogue) 
+    # if available or seed from the clock otherwise. This results in DIFFERENT random numbers each time.
+    if compute_errors:
+        rng = np.random.RandomState(seed=seed)  
     
     # Compute metallicities in ALL rows plus errors 
     logOH12_vals = np.full((niters, df.shape[0]), np.nan)
     if (logU is not None) or compute_logU:
         logU_vals = np.full((niters, df.shape[0]), np.nan)
 
-    # Evaluate log(O/H) + 12 (and log(U) if compute_logU is True) niters times 
-    # with random noise added to the emission line fluxes each time
-    if compute_errors and compute_logU:
-        logger.debug(f"computing log(O/H) + 12 and log(U) (+ errors) using diagnostics {met_diagnostic} and {ion_diagnostic} with {niters} iterations...")
-    elif compute_errors:
-        logger.debug(f"computing log(O/H) + 12 (+ errors) using diagnostic {met_diagnostic} with {niters} iterations...")
-    else:
-        logger.debug(f"computing log(O/H) + 12 using diagnostic {met_diagnostic}...")
-    
     for nn in range(niters):
         # Make a copy of the DataFrame
         df_tmp = df.copy()
@@ -664,12 +672,12 @@ def _met_helper_fn(args):
         # Add random error 
         if compute_errors:
             for eline in line_list_dict[met_diagnostic]:
-                df_tmp[eline] += np.random.normal(scale=df_tmp[f"{eline} error"])
+                df_tmp[eline] += rng.normal(scale=df_tmp[f"{eline} error"])
                 cond_neg = df_tmp[eline] < 0
                 df_tmp.loc[cond_neg, eline] = np.nan
             if compute_logU:
                 for eline in line_list_dict[ion_diagnostic]:
-                    df_tmp[eline] += np.random.normal(scale=df_tmp[f"{eline} error"])
+                    df_tmp[eline] += rng.normal(scale=df_tmp[f"{eline} error"])
                     cond_neg = df_tmp[eline] < 0
                     df_tmp.loc[cond_neg, eline] = np.nan
 
@@ -744,8 +752,10 @@ def _met_helper_fn(args):
 ###############################################################################
 def _get_metallicity(met_diagnostic, df,
                      logU=None, 
-                     compute_logU=False, ion_diagnostic=None,
-                     niters=1000):
+                     compute_logU=False,
+                     ion_diagnostic=None,
+                     niters=1000,
+                     seed=42):
     """
     A helper function that is used in calculate_metallicity().
     
@@ -796,15 +806,13 @@ def _get_metallicity(met_diagnostic, df,
         "S32_K19". If the metallicity diagnostic is "R23_KD04" then 
         ion_diagnostic must be "O3O2_KD04".
 
-    compute_errors:      bool
-        If True, estimate 1-sigma errors on log(O/H) + 12 and log(U) using a 
-        Monte Carlo approach, in which the 1-sigma uncertainties on the 
-        emission line fluxes are used generate a distribution in log(O/H) + 12 
-        values, the mean and standard deviation of which are used to 
-        evaluate the metallicity and corresponding uncertainty.
-
     niters:              int
         Number of MC iterations. 1000 is recommended.
+        evaluate the metallicity and corresponding uncertainty.
+
+    seed:                int
+        Seed used to initialise the random number generator. Only used if 
+        niters > 1 (in which case errors will be computed using an MC approach).
 
     OUTPUTS 
     ---------------------------------------------------------------------------
@@ -835,7 +843,7 @@ def _get_metallicity(met_diagnostic, df,
         logger.debug(f"able to calculate {met_diagnostic}/{ion_diagnostic} log(O/H) + 12  in {df_met.shape[0]:d}/{df.shape[0]:d} ({df_met.shape[0] / df.shape[0] * 100:.2f}%) of rows")
 
     # Compute metallicities in the subset of rows with valid line fluxes & BPT classifications
-    df_met = _met_helper_fn([met_diagnostic, df_met, logU, compute_logU, ion_diagnostic, niters])
+    df_met = _met_helper_fn([met_diagnostic, df_met, logU, compute_logU, ion_diagnostic, niters, seed])
 
     # Add empty columns to stop Pandas from throwing an error at pd.concat
     new_cols = [c for c in df_met.columns if c not in df_nomet.columns]
@@ -853,7 +861,9 @@ def _get_metallicity(met_diagnostic, df,
 def calculate_metallicity(df, met_diagnostic, 
                           logU=None, 
                           compute_logU=False, ion_diagnostic=None,
-                          compute_errors=True, niters=1000,
+                          compute_errors=True, 
+                          niters=1000,
+                          seed=42,
                           s=None):
     """
     Compute metallicities using strong-line diagnostics.
@@ -915,6 +925,10 @@ def calculate_metallicity(df, met_diagnostic,
     niters:              int
         Number of MC iterations. 1000 is recommended.
 
+    seed:                int
+        Seed used to initialise the random number generator. Only used if 
+        compute_errors is True.
+
     s:                   str 
         Column suffix to trim before carrying out computation - e.g. if 
         you want to compute metallicities using the "total" fluxes, and the 
@@ -975,10 +989,10 @@ def calculate_metallicity(df, met_diagnostic,
     # Calculate the metallicity
     if compute_errors:
         logger.debug(f"computing metallicities with errors...")
-        df = _get_metallicity(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=niters)
+        df = _get_metallicity(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=niters, seed=seed)
     else:
         logger.debug(f"computing metallicities without errors...")
-        df = _get_metallicity(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=1)
+        df = _get_metallicity(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=1, seed=seed)
 
     # Rename columns
     df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)
