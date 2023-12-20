@@ -20,4 +20,21 @@ For detailed instructions on how to use spaxelsleuth, please see the [example Ju
 Please raise a Github issue (preferred) or send me an email at `henry.zovaro@anu.edu.au` if you encounter any problems or have questions that aren't covered in the wiki. 
 
 # Citing this work
-Please contact me at `henry.zovaro@anu.edu.au` if you decide to use spaxelsleuth for your science or are interested in adding new features!
+Please cite Zovaro et al. (2023) in any works making use of `spaxelsleuth`:
+```bibtex
+@ARTICLE{10.1093/mnras/stad3747,
+       author = {{Zovaro}, Henry R.~M. and {Mendel}, J. Trevor and {Groves}, Brent and {Kewley}, Lisa J. and {Colless}, Matthew and {Ristea}, Andrei and {Cortese}, Luca and {Oh}, Sree and {D'Eugenio}, Francesco and {Croom}, Scott M. and {L{\'o}pez-S{\'a}nchez}, {\'A}ngel R. and {van de Sande}, Jesse and {Brough}, Sarah and {Medling}, Anne M. and {Bland-Hawthorn}, Joss and {Bryant}, Julia J.},
+        title = "{The SAMI Galaxy Survey: {\ensuremath{\Sigma}}$_{SFR}$ drives the presence of complex emission line profiles in star-forming galaxies}",
+      journal = {\mnras},
+     keywords = {galaxies: ISM, ISM: jets and outflows, ISM: kinematics and dynamics, Astrophysics - Astrophysics of Galaxies},
+         year = 2023,
+        month = dec,
+          doi = {10.1093/mnras/stad3747},
+archivePrefix = {arXiv},
+       eprint = {2312.03659},
+ primaryClass = {astro-ph.GA},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2023MNRAS.tmp.3596Z},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```
+Feel free to contact me at `henry.zovaro@anu.edu.au` if you decide to use spaxelsleuth for your science or are interested in adding new features!
