@@ -7,7 +7,6 @@ load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 configure_logger(level="INFO")
 from spaxelsleuth.loaddata.sami import load_sami_df
 from spaxelsleuth.utils import metallicity
-from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours
 
 
 if __name__ == "__main__":
