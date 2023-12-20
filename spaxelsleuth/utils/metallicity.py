@@ -33,7 +33,6 @@ line_list_dict = {
     "O3N2_M13": ["OIII5007", "HBETA", "HALPHA", "NII6583"],
     "R23_KK04": ["NII6583", "OII3726+OII3729", "HBETA", "OIII4959+OIII5007", "OII3726+OII3729"],
     "O3O2_KK04": ["OIII4959+OIII5007", "OII3726+OII3729"], # KK04 - log(U) diagnostic. NOTE different O3O2 defn. to K19
-    "R23_C17": ["OII3726", "OIII4959+OIII5007", "HBETA"],
     "N2S2Ha_D16": ["NII6583", "SII6716+SII6731", "HALPHA"],
     "N2O2_KD02": ["NII6583", "OII3726+OII3729"],
     "Rcal_PG16": ["OII3726+OII3729", "HBETA", "NII6548+NII6583", "OIII4959+OIII5007"],
@@ -127,7 +126,7 @@ met_coeffs_K19 = {
         },
     "O2S2_K19"  : {
     # Notes: less sensitive to U than [SII]/Halpha, but N2O2 is better if available
-        "A" : 12.489,
+        "A" : 12.4894,
         "B" : -3.2646,
         "C" : 3.2581,
         "D" : -2.0544,
@@ -187,9 +186,9 @@ met_coeffs_K19 = {
         "H" : 0.0806,
         "I" : -0.0852,
         "J" : 0.0462,
-        "RMS ERR" : 2.11,   # PERCENT
-        "Zmin" : 8.23,
-        "Zmax" : 8.93,
+        "RMS ERR" : 0.42,   # PERCENT
+        "Zmin" : 8.53,
+        "Zmax" : 9.23,
     },
 }
 
@@ -427,34 +426,38 @@ def _compute_logOH12(met_diagnostic, df,
             return np.squeeze(logOH12), np.squeeze(logU)
 
     elif met_diagnostic == "R23_KK04":
+        logger.debug(f"There may be an error in the implementation of the R23_KK04 diagnostic - proceed with caution!!")
         # R23 - Kobulnicky & Kewley (2004)
+        # NOTE: from the paper, it's pretty clear that they only use the OII3726 in the denominator. 
+        # HOWEVER, in the appendix of Poetrodjojo+2021, they seem to include the other line as well. So I'm not sure who to believe!! 
         logN2O2 = np.log10(df["NII6583"].values / df["OII3726+OII3729"].values)
-        logO3O2 = np.log10(df["OIII4959+OIII5007"].values / df["OII3726+OII3729"].values)
+        logO3O2 = np.log10(df["OIII4959+OIII5007"].values / df["OII3726+OII3729"].values)  # NOTE: their eqn. 10 suggests that the denominator should only include the 3727 line.
         logR23 = np.log10((df["OII3726+OII3729"].values + df["OIII4959+OIII5007"].values) / df["HBETA"].values)
         logOH12 = np.full(df.shape[0], np.nan)
-
+ 
         if compute_logU:
-            # Compute a self-consistent ionisation parameter using the O3O2
-            # diagnostic
+            # Compute a self-consistent ionisation parameter using the O3O2 diagnostic
             logOH12_old = np.full(df.shape[0], np.nan)
             logOH12_new = np.full(df.shape[0], np.nan)
 
             # Starting guesses 
-            pts_lower = logN2O2 < -1.2
-            pts_upper = logN2O2 >= -1.2
+            pts_lower = logN2O2 < -1.2  # NOTE: these initial guesses which tell us which branch to use are taken by eyeballing fig. 3 of KD02.
+            pts_upper = logN2O2 >= -1.2  # NOTE: these initial guesses which tell us which branch to use are taken by eyeballing fig. 3 of KD02.
             logOH12_old[pts_lower] = 8.2
             logOH12_old[pts_upper] = 8.7
             logq_old = -99999  # Dummy value
 
             for n in range(max_niters):
 
-                # Recompute values 
+                # Recompute values (eqn. 13)
                 # NOTE: there is a serious transcription error in the version of this eqn. that appears in the appendix of Poeotrodjojo+2021: refer to the eqn. in the original paper
                 logq_new = (32.81 - 1.153 * logO3O2**2\
                         + logOH12_old * (-3.396 - 0.025 * logO3O2 + 0.1444 * logO3O2**2))\
-                       * (4.603 - 0.3119 * logO3O2 - 0.163 * logO3O2**2 + logOH12_old * (-0.48 + 0.0271 * logO3O2 + 0.02037 * logO3O2**2))**(-1)
+                       * (4.603 - 0.3119 * logO3O2 - 0.163 * logO3O2**2\
+                          + logOH12_old * (-0.48 + 0.0271 * logO3O2 + 0.02037 * logO3O2**2))**(-1)
                 
-                # Compute metallicity
+                # Compute metallicity (eqns. 16 and 17)
+                # NOTE: this is a new and improved parameterisation of the diagnostic presented in KD02.
                 pts_lower = logN2O2 < -1.2
                 pts_upper = logN2O2 >= -1.2
                 logOH12_new[pts_lower] = 9.40 + 4.65 * logR23[pts_lower] - 3.17 * logR23[pts_lower]**2 - logq_new[pts_lower] * (0.272 + 0.547 * logR23[pts_lower] - 0.513 * logR23[pts_lower]**2)
@@ -505,6 +508,9 @@ def _compute_logOH12(met_diagnostic, df,
     elif met_diagnostic == "N2O2_KD02":
         # N2O2 - Kewley & Dopita (2002)
         # Only reliable above Z > 0.5Zsun (log(O/H) + 12 > 8.6)
+        # NOTE: the text in section 4.1 seems to imply that the denominator only includes OII3726, but the caption of fig. 3 says that it includes both.
+        # Without any additional information, we assume that the denominator includes both lines (since in most surveys the doublet can't be resolved anyway)
+        logger.debug(f"There may be an error in the implementation of the N2O2_KD02 diagnostic - proceed with caution!!")
         logR = np.log10(df["NII6583"].values / (df["OII3726+OII3729"].values))
         logOH12 = np.log10(1.54020 + 1.26602 * logR + 0.167977 * logR**2 ) + 8.93
         good_pts = (logOH12 > 8.6) & (logOH12 < 9.4)  # upper limit eyeballed from their fig. 3
@@ -521,6 +527,7 @@ def _compute_logOH12(met_diagnostic, df,
 
     elif met_diagnostic == "N2Ha_M13":
         # N2Ha - Marino (2013)
+        # NOTE: here we employ the Te-based calibration (eqn. 4), rather than the one based on CALIFA ONS data. 
         logR = np.log10(df["NII6583"].values / df["HALPHA"].values)
         logOH12 = 8.743 + 0.462 * logR
         good_pts = (-1.6 < logR) & (logR < -0.2)
@@ -547,7 +554,7 @@ def _compute_logOH12(met_diagnostic, df,
         # N2S2Ha - Dopita et al. (2016)
         logR = np.log10(df["NII6583"].values / df["SII6716+SII6731"].values) + 0.264 * np.log10(df["NII6583"].values / df["HALPHA"].values)
         logOH12 = 8.77 + logR + 0.45 * (logR + 0.3)**5
-        good_pts = (-1.1 < logR) & (logR < 0.5)
+        good_pts = (-1.1 < logR) & (logR < 0.5)  # Limits eyeballed from their fig. 3
         logOH12[~good_pts] = np.nan
         return np.squeeze(logOH12)
 
@@ -559,7 +566,7 @@ def _compute_logOH12(met_diagnostic, df,
         logR2 = np.log10(df["OII3726+OII3729"].values / df["HBETA"].values)
         R3 = df["OIII4959+OIII5007"].values / df["HBETA"].values
         R2 = df["OII3726+OII3729"].values / df["HBETA"].values
-        P = R3 / (R3 + R2)  # should this be a log?
+        P = R3 / (R3 + R2)  # NOTE: ratios of the non-log ratios
 
         logOH12 = np.full(df.shape[0], np.nan)
         pts_cool = logN2 >= -0.1
@@ -595,15 +602,14 @@ def _compute_logOH12(met_diagnostic, df,
 
     elif met_diagnostic == "Rcal_PG16":
         # Rcal - Pilyugin & Grebel (2016)
-        logO32 = np.log10((df["OIII4959+OIII5007"].values) / (df["OII3726+OII3729"].values))
-        logN2Hb = np.log10((df["NII6548+NII6583"].values) / df["HBETA"].values)
-        logO2Hb = np.log10((df["OII3726+OII3729"].values) / df["HBETA"].values)
+        logO32 = np.log10((df["OIII4959+OIII5007"].values) / (df["OII3726+OII3729"].values))  # Their R3/R2
+        logN2Hb = np.log10((df["NII6548+NII6583"].values) / df["HBETA"].values)  # Their N2
+        logO2Hb = np.log10((df["OII3726+OII3729"].values) / df["HBETA"].values)  # Their R2
 
         # Decide which branch we're on
         logOH12 = np.full(df.shape[0], np.nan)
         pts_lower = logN2Hb < -0.6
-        #TODO is the below a bug?
-        pts_upper = logN2Hb >= 0.6
+        pts_upper = logN2Hb >= -0.6
 
         logOH12[pts_lower] = 7.932 + 0.944 * logO32[pts_lower] + 0.695 * logN2Hb[pts_lower] + ( 0.970 - 0.291 * logO32[pts_lower] - 0.019 * logN2Hb[pts_lower]) * logO2Hb[pts_lower]
         logOH12[pts_upper] = 8.589 + 0.022 * logO32[pts_upper] + 0.399 * logN2Hb[pts_upper] + (-0.137 + 0.164 * logO32[pts_upper] + 0.589 * logN2Hb[pts_upper]) * logO2Hb[pts_upper]
@@ -613,15 +619,14 @@ def _compute_logOH12(met_diagnostic, df,
 
     elif met_diagnostic == "Scal_PG16":
         # Scal - Pilyugin & Grebel (2016)
-        logO3S2 = np.log10((df["OIII4959+OIII5007"].values) / (df["SII6716+SII6731"].values))
-        logN2Hb = np.log10((df["NII6548+NII6583"].values) / df["HBETA"].values)
-        logS2Hb = np.log10((df["SII6716+SII6731"].values) / df["HBETA"].values)
+        logO3S2 = np.log10((df["OIII4959+OIII5007"].values) / (df["SII6716+SII6731"].values))  # Their R3/S2
+        logN2Hb = np.log10((df["NII6548+NII6583"].values) / df["HBETA"].values)  # Their N2 
+        logS2Hb = np.log10((df["SII6716+SII6731"].values) / df["HBETA"].values)  # Their S2
 
         # Decide which branch we're on
         logOH12 = np.full_like(logO3S2, np.nan)
         pts_lower = logN2Hb < -0.6
-        #TODO is the below a bug?
-        pts_upper = logN2Hb >= 0.6
+        pts_upper = logN2Hb >= -0.6
 
         logOH12[pts_lower] = 8.072 + 0.789 * logO3S2[pts_lower] + 0.726 * logN2Hb[pts_lower] + ( 1.069 - 0.170 * logO3S2[pts_lower] + 0.022 * logN2Hb[pts_lower]) * logS2Hb[pts_lower]
         logOH12[pts_upper] = 8.424 + 0.030 * logO3S2[pts_upper] + 0.751 * logN2Hb[pts_upper] + (-0.349 + 0.182 * logO3S2[pts_upper] + 0.508 * logN2Hb[pts_upper]) * logS2Hb[pts_upper]
@@ -632,37 +637,45 @@ def _compute_logOH12(met_diagnostic, df,
 ###############################################################################
 def _met_helper_fn(args):
     """Helper function used in _get_metallicity() to compute metallicities across multiple threads."""
-    met_diagnostic, df, logU, compute_logU, ion_diagnostic, niters = args
-    df = df.copy()  # Make a copy to avoid the pandas SettingWithCopyWarning
+    met_diagnostic, df, logU, compute_logU, ion_diagnostic, niters, seed = args
+    
+    # Evaluate log(O/H) + 12 (and log(U) if compute_logU is True) niters times 
+    # with random noise added to the emission line fluxes each time
     compute_errors = True if niters > 1 else False
+    if compute_errors and compute_logU:
+        logger.debug(f"computing log(O/H) + 12 and log(U) (+ errors) using diagnostics {met_diagnostic} and {ion_diagnostic} with {niters} iterations and a random seed of {seed}...")
+    elif compute_errors:
+        logger.debug(f"computing log(O/H) + 12 (+ errors) using diagnostic {met_diagnostic} with {niters} iterations and a random seed of {seed}...")
+    else:
+        logger.debug(f"computing log(O/H) + 12 using diagnostic {met_diagnostic}...")
 
+    # Make a copy to avoid the pandas SettingWithCopyWarning
+    df = df.copy()  
+    
+    # Initialise the RandomState generator 
+    # NOTE: if seed is None, then RandomState will try to read data from /dev/urandom (or the Windows analogue) 
+    # if available or seed from the clock otherwise. This results in DIFFERENT random numbers each time.
+    if compute_errors:
+        rng = np.random.RandomState(seed=seed)  
+    
     # Compute metallicities in ALL rows plus errors 
     logOH12_vals = np.full((niters, df.shape[0]), np.nan)
     if (logU is not None) or compute_logU:
         logU_vals = np.full((niters, df.shape[0]), np.nan)
 
-    # Evaluate log(O/H) + 12 (and log(U) if compute_logU is True) niters times 
-    # with random noise added to the emission line fluxes each time
-    if compute_errors and compute_logU:
-        logger.debug(f"computing log(O/H) + 12 and log(U) (+ errors) using diagnostics {met_diagnostic} and {ion_diagnostic} with {niters} iterations...")
-    elif compute_errors:
-        logger.debug(f"computing log(O/H) + 12 (+ errors) using diagnostic {met_diagnostic} with {niters} iterations...")
-    else:
-        logger.debug(f"computing log(O/H) + 12 using diagnostic {met_diagnostic}...")
-    
     for nn in range(niters):
-        # Make a copy of the row
+        # Make a copy of the DataFrame
         df_tmp = df.copy()
         
         # Add random error 
         if compute_errors:
             for eline in line_list_dict[met_diagnostic]:
-                df_tmp[eline] += np.random.normal(scale=df_tmp[f"{eline} error"])
+                df_tmp[eline] += rng.normal(scale=df_tmp[f"{eline} error"])
                 cond_neg = df_tmp[eline] < 0
                 df_tmp.loc[cond_neg, eline] = np.nan
             if compute_logU:
                 for eline in line_list_dict[ion_diagnostic]:
-                    df_tmp[eline] += np.random.normal(scale=df_tmp[f"{eline} error"])
+                    df_tmp[eline] += rng.normal(scale=df_tmp[f"{eline} error"])
                     cond_neg = df_tmp[eline] < 0
                     df_tmp.loc[cond_neg, eline] = np.nan
 
@@ -684,33 +697,63 @@ def _met_helper_fn(args):
                                                 logU=None, compute_logU=False)
             logOH12_vals[nn] = res
 
+    # Count number of NaN entries - these will be due to MC iterations bumping values into invalid ranges for the diagnostic(s) used
+    frac_finite_measurements_logOH12 = np.nansum(~np.isnan(logOH12_vals), axis=0) / niters
+    if compute_logU:
+        frac_finite_measurements_logU = np.nansum(~np.isnan(logU_vals), axis=0) / niters
+        valid_measurements = (frac_finite_measurements_logU > 0.5) & (frac_finite_measurements_logOH12 > 0.5)
+        logger.info(f"For diagnostic {met_diagnostic}/{ion_diagnostic}, I am masking out {len(valid_measurements[~valid_measurements])} measurements in which >50% of MC iterations returned a NaN metallicity or ionisation parameter value")
+    else:
+        valid_measurements = frac_finite_measurements_logOH12 > 0.5
+        logger.info(f"For diagnostic {met_diagnostic}, I am masking out {len(valid_measurements[~valid_measurements])} measurements in which >50% of MC iterations returned a NaN metallicity value")
+
+    # Compute mean measurements from the MC runs, plus errors
+    # NaN out metallicity/ionisation parameter measurements where >50% of measurements in either have failed 
+    logOH12_mean = np.nanmean(logOH12_vals, axis=0)
+    logOH12_mean[~valid_measurements] = np.nan
+    if compute_logU:
+        logU_mean = np.nanmean(logU_vals, axis=0)
+        logU_mean[~valid_measurements] = np.nan
+    if compute_errors:
+        logOH12_q16 = np.quantile(logOH12_vals, q=0.16, axis=0)
+        logOH12_q16[~valid_measurements] = np.nan
+        logOH12_q84 = np.quantile(logOH12_vals, q=0.84, axis=0)
+        logOH12_q84[~valid_measurements] = np.nan
+        if compute_logU:
+            logU_q16 = np.quantile(logU_vals, q=0.16, axis=0)
+            logU_q16[~valid_measurements] = np.nan
+            logU_q84 = np.quantile(logU_vals, q=0.84, axis=0)
+            logU_q84[~valid_measurements] = np.nan
+
     # Add to DataFrame
     with warnings.catch_warnings():
         warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="Mean of empty slice")
         if compute_logU:
-            df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
-            df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = np.nanmean(logU_vals, axis=0)
+            df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic})"] = logOH12_mean
+            df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic})"] = logU_mean
             if compute_errors:
-                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
-                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
-                df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = np.nanmean(logU_vals, axis=0) - np.quantile(logU_vals, q=0.16, axis=0)
-                df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = np.quantile(logU_vals, q=0.84, axis=0) - np.nanmean(logU_vals, axis=0)
+                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = logOH12_mean - logOH12_q16
+                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = logOH12_q84 - logOH12_mean
+                df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (lower)"] = logU_mean - logU_q16
+                df.loc[:, f"log(U) ({met_diagnostic}/{ion_diagnostic}) error (upper)"] = logU_q84 - logU_mean
         
         else:
-            df.loc[:, f"log(O/H) + 12 ({met_diagnostic})"] = np.nanmean(logOH12_vals, axis=0)
+            df.loc[:, f"log(O/H) + 12 ({met_diagnostic})"] = logOH12_mean
             if compute_errors:
-                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}) error (lower)"] = np.nanmean(logOH12_vals, axis=0) - np.quantile(logOH12_vals, q=0.16, axis=0)
-                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = np.quantile(logOH12_vals, q=0.84, axis=0) - np.nanmean(logOH12_vals, axis=0)
+                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}) error (lower)"] = logOH12_mean - logOH12_q16
+                df.loc[:, f"log(O/H) + 12 ({met_diagnostic}) error (upper)"] = logOH12_q84 - logOH12_mean
             if logU is not None:
-                df.loc[:, f"log(U) ({met_diagnostic})"] = np.nanmean(logU_vals, axis=0)
+                df.loc[:, f"log(U) ({met_diagnostic})"] = logU_mean
 
     return df 
 
 ###############################################################################
 def _get_metallicity(met_diagnostic, df,
                      logU=None, 
-                     compute_logU=False, ion_diagnostic=None,
-                     niters=1000):
+                     compute_logU=False,
+                     ion_diagnostic=None,
+                     niters=1000,
+                     seed=42):
     """
     A helper function that is used in calculate_metallicity().
     
@@ -761,15 +804,13 @@ def _get_metallicity(met_diagnostic, df,
         "S32_K19". If the metallicity diagnostic is "R23_KD04" then 
         ion_diagnostic must be "O3O2_KD04".
 
-    compute_errors:      bool
-        If True, estimate 1-sigma errors on log(O/H) + 12 and log(U) using a 
-        Monte Carlo approach, in which the 1-sigma uncertainties on the 
-        emission line fluxes are used generate a distribution in log(O/H) + 12 
-        values, the mean and standard deviation of which are used to 
-        evaluate the metallicity and corresponding uncertainty.
-
     niters:              int
         Number of MC iterations. 1000 is recommended.
+        evaluate the metallicity and corresponding uncertainty.
+
+    seed:                int
+        Seed used to initialise the random number generator. Only used if 
+        niters > 1 (in which case errors will be computed using an MC approach).
 
     OUTPUTS 
     ---------------------------------------------------------------------------
@@ -800,7 +841,7 @@ def _get_metallicity(met_diagnostic, df,
         logger.debug(f"able to calculate {met_diagnostic}/{ion_diagnostic} log(O/H) + 12  in {df_met.shape[0]:d}/{df.shape[0]:d} ({df_met.shape[0] / df.shape[0] * 100:.2f}%) of rows")
 
     # Compute metallicities in the subset of rows with valid line fluxes & BPT classifications
-    df_met = _met_helper_fn([met_diagnostic, df_met, logU, compute_logU, ion_diagnostic, niters])
+    df_met = _met_helper_fn([met_diagnostic, df_met, logU, compute_logU, ion_diagnostic, niters, seed])
 
     # Add empty columns to stop Pandas from throwing an error at pd.concat
     new_cols = [c for c in df_met.columns if c not in df_nomet.columns]
@@ -818,7 +859,9 @@ def _get_metallicity(met_diagnostic, df,
 def calculate_metallicity(df, met_diagnostic, 
                           logU=None, 
                           compute_logU=False, ion_diagnostic=None,
-                          compute_errors=True, niters=1000,
+                          compute_errors=True, 
+                          niters=1000,
+                          seed=42,
                           s=None):
     """
     Compute metallicities using strong-line diagnostics.
@@ -880,6 +923,10 @@ def calculate_metallicity(df, met_diagnostic,
     niters:              int
         Number of MC iterations. 1000 is recommended.
 
+    seed:                int
+        Seed used to initialise the random number generator. Only used if 
+        compute_errors is True.
+
     s:                   str 
         Column suffix to trim before carrying out computation - e.g. if 
         you want to compute metallicities using the "total" fluxes, and the 
@@ -940,10 +987,10 @@ def calculate_metallicity(df, met_diagnostic,
     # Calculate the metallicity
     if compute_errors:
         logger.debug(f"computing metallicities with errors...")
-        df = _get_metallicity(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=niters)
+        df = _get_metallicity(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=niters, seed=seed)
     else:
         logger.debug(f"computing metallicities without errors...")
-        df = _get_metallicity(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=1)
+        df = _get_metallicity(met_diagnostic=met_diagnostic, df=df, logU=logU, compute_logU=compute_logU, ion_diagnostic=ion_diagnostic, niters=1, seed=seed)
 
     # Rename columns
     df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)

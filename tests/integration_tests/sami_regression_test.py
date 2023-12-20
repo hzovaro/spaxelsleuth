@@ -88,8 +88,7 @@ def compare_dataframes(df_new, df_old):
     assert df_old.shape == df_new.shape, f"df_new has shape {df_new.shape} but df_old has shape {df_old.shape}!"
     
     # Since the order of the columns might change, we need to check them one by one.
-    # We don't consider metallicity/ionisation parameter columns because these are computed in a non-deterministic way and won't agree between runs.
-    for c in [c for c in df_old if "log(O/H) + 12" not in c and "log(U)" not in c]:
+    for c in df_old.columns:
         if df_old[c].dtype != "object":
 
             # Check that the NaNs agree
