@@ -426,7 +426,7 @@ def _compute_logOH12(met_diagnostic, df,
             return np.squeeze(logOH12), np.squeeze(logU)
 
     elif met_diagnostic == "R23_KK04":
-        logger.warning(f"There may be an error in the implementation of the R23_KK04 diagnostic - proceed with caution!!")
+        logger.debug(f"There may be an error in the implementation of the R23_KK04 diagnostic - proceed with caution!!")
         # R23 - Kobulnicky & Kewley (2004)
         # NOTE: from the paper, it's pretty clear that they only use the OII3726 in the denominator. 
         # HOWEVER, in the appendix of Poetrodjojo+2021, they seem to include the other line as well. So I'm not sure who to believe!! 
@@ -510,7 +510,7 @@ def _compute_logOH12(met_diagnostic, df,
         # Only reliable above Z > 0.5Zsun (log(O/H) + 12 > 8.6)
         # NOTE: the text in section 4.1 seems to imply that the denominator only includes OII3726, but the caption of fig. 3 says that it includes both.
         # Without any additional information, we assume that the denominator includes both lines (since in most surveys the doublet can't be resolved anyway)
-        logger.warning(f"There may be an error in the implementation of the N2O2_KD02 diagnostic - proceed with caution!!")
+        logger.debug(f"There may be an error in the implementation of the N2O2_KD02 diagnostic - proceed with caution!!")
         logR = np.log10(df["NII6583"].values / (df["OII3726+OII3729"].values))
         logOH12 = np.log10(1.54020 + 1.26602 * logR + 0.167977 * logR**2 ) + 8.93
         good_pts = (logOH12 > 8.6) & (logOH12 < 9.4)  # upper limit eyeballed from their fig. 3
