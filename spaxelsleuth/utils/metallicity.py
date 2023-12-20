@@ -6,8 +6,6 @@ import warnings
 
 from spaxelsleuth.utils.misc import remove_col_suffix, add_col_suffix
 
-from IPython.core.debugger import set_trace
-
 import logging
 logger = logging.getLogger(__name__)
 
