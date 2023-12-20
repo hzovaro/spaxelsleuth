@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import rcParams
 import numpy as np
 
@@ -76,6 +77,8 @@ if __name__ == "__main__":
             s=" (total)",
         )
 
+    # Save to .pdf 
+    pp = PdfPages("metallicity_repeatability.pdf")
     for diag in diags:
         # Plot to check
         fig, axs = plt.subplots(ncols=3, figsize=(15, 4))
@@ -118,3 +121,5 @@ if __name__ == "__main__":
         cond_both_finite = ~df_SF_1[f"log(O/H) + 12 ({met_str}) (total)"].isna() & ~df_SF_2[f"log(O/H) + 12 ({met_str}) (total)"].isna()
         np.isclose(df_SF_1.loc[cond_both_finite, f"log(O/H) + 12 ({met_str}) (total)"],  df_SF_2.loc[cond_both_finite, f"log(O/H) + 12 ({met_str}) (total)"],)
 
+        pp.savefig(fig, bbox_inches="tight")
+    pp.close()
