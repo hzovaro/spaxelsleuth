@@ -198,13 +198,14 @@ def get_label(col: str) -> str:
     else:
         label = col
         # At least try to beautify some strings
-        label = label.replace("ALPHA", r"$\alpha$")
-        label = label.replace("BETA", r"$\beta$")
-        label = label.replace("GAMMA", r"$\gamma$")
+        label = label.replace("ALPHA", r"\ensuremath{\alpha}")
+        label = label.replace("BETA", r"\ensuremath{\beta}")
+        label = label.replace("GAMMA", r"\ensuremath{\gamma}")
         label = label.replace("delta",
-                              r"$\Delta$")  # always assume upper case delta
-        label = label.replace("R_e", r"$R_e$")
-        label = label.replace("log ", r"$\log_{10}$ ")
+                              r"\ensuremath{\Delta}")  # always assume upper case delta
+        label = label.replace("R_e", r"\ensuremath{R_e}")
+        label = label.replace("log ", r"\ensuremath{\log_{10}} ")
+        label = label.replace("SFR surface density", r"\ensuremath{\Sigma_{\rm SFR}}")
     
     # Add label for suffix, if it exists
     if len(suffix) > 0:
