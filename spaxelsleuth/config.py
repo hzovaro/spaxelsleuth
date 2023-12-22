@@ -4,6 +4,8 @@ from pathlib import Path
 import pkgutil
 import os
 
+from IPython.core.debugger import set_trace
+
 import logging
 logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
@@ -13,7 +15,6 @@ def configure_multiprocessing():
     multiprocessing.set_start_method("fork")
     return
 
-# Load the default config file
 def configure_logger(logfile_name=None, level="INFO"):
     """Configure the logger for spaxelsleuth."""
     if level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
@@ -30,7 +31,6 @@ def configure_logger(logfile_name=None, level="INFO"):
             level=logging.getLevelName(level),
             force=True)
 
-# Load the default config file
 def load_default_config():
     """Load the default config file."""
     config_file_fname = Path(pkgutil.get_loader(__name__).get_filename()).parent / "config.json"
@@ -39,35 +39,26 @@ def load_default_config():
         global settings
         settings = json.load(f)
 
-# Allow user to upload custom settings - e.g. colourmaps, vmin/vmax limits, paths
-def load_user_config(p, verbose=False):
-    """Load a custom config file. Overwrites default configuration files."""
+def update_dictionary(d1, d2):
+    """Recursive function for updating nested dictionaries with arbitrary depth."""
+    for k, v in d2.items():
+        if isinstance(v, dict):
+            # Add entry to d1 if it does not exist
+            if k not in d1:
+                d1[k] = {}
+            d1[k] = update_dictionary(d1=d1[k], d2=v)
+        else:
+            d1[k] = v
+    return d1
+
+def load_user_config(p):
+    #TODO check for verbose arg throughout scripts etc.
+    """Load a custom config file. Overwrites default configuration settings."""
+    # Load user settings
     logger.info(f"loading user config file from from {p}...")
     with open(Path(p)) as f:
         user_settings = json.load(f)
+    
     # Merge with existing settings
-    if verbose:
-        logger.info(f"updating settings from {p}:")
-    for key in user_settings:
-        if key in settings:
-            if verbose:
-                logger.info(f"{key}:")
-            if type(settings[key]) == dict:
-                for subkey in user_settings[key]:
-                    if verbose:
-                        logger.info(f"\t{subkey}:")
-                    new_setting = user_settings[key][subkey]
-                    if subkey in settings[key]:
-                        old_setting = settings[key][subkey]
-                        if verbose:
-                            logger.info(f"\t\t{old_setting} --> {new_setting}")
-                    else:
-                        if verbose:
-                            logger.info(f"\t\tadding new setting {new_setting}")
-                    settings[key][subkey] = new_setting
-            else:
-                settings[key] = user_settings[key]
-        else:
-            if verbose:
-                logger.info(f"adding new key {key}: {user_settings[key]}")
-            settings[key] = user_settings[key]
+    global settings
+    settings = update_dictionary(settings, user_settings)
