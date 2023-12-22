@@ -4,8 +4,6 @@ from pathlib import Path
 import pkgutil
 import os
 
-from IPython.core.debugger import set_trace
-
 import logging
 logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
