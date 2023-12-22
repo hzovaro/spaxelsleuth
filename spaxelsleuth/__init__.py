@@ -1,6 +1,6 @@
-__version__="0.9.0"
+__version__="1.0.0"
 __authors__=["Henry R. M. Zovaro"]
-__date__="2023-09-11"
+__date__="2023-12-22"
 
 # Load the default configuration file
 from .config import *
