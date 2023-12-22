@@ -5,6 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+import pkgutil
 import warnings
 
 from astropy.cosmology import FlatLambdaCDM
@@ -210,7 +211,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     mge_fits_metadata_fname = "sami_MGEPhotomUnregDR3.csv"
 
     # Get the data path
-    data_path = Path(__file__.split("loaddata")[0]) / "data"
+    data_path = Path(pkgutil.get_loader(__name__).get_filename()).parent.parent / "data"
     for fname in [
             gama_metadata_fname, cluster_metadata_fname, filler_metadata_fname,
             morphologies_fname, flag_metadata_fname, mge_fits_metadata_fname
@@ -1248,7 +1249,7 @@ def make_sami_df(bin_type,
             __lzifu_products_path
         ), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
         logger.warning(
-            "using LZIFU %d-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (__lzifu_ncomponents),
+            "using LZIFU %s-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (__lzifu_ncomponents),
             RuntimeWarning)
 
     logger.info(f"input parameters: bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
@@ -1282,8 +1283,8 @@ def make_sami_df(bin_type,
     try:
         df_metadata = pd.read_hdf(output_path / df_metadata_fname,
                                   key="metadata")
-    except FileNotFoundError:
-        logger.error(
+    except:
+        raise FileNotFoundError(
             f"metadata DataFrame file not found ({output_path / df_metadata_fname}). Please run make_sami_metadata_df.py first!"
         )
 
@@ -1293,6 +1294,8 @@ def make_sami_df(bin_type,
         g for g in gal_ids_dq_cut
         if os.path.exists(input_path / f"ifs/{g}/")
     ]
+    if len(gal_ids_dq_cut) == 0:
+        raise FileNotFoundError(f"I could not find any galaxy data in {input_path / 'ifs'}!")
 
     # If running in DEBUG mode, run on a subset to speed up execution time
     if debug:
