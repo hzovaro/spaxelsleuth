@@ -64,6 +64,16 @@ def compute_measured_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_
 
     # Wavelength window in which to compute A/N
     # NOTE: these wavelength values apply to the REST-FRAME wavelength grid, NOT the observer-frame one.
+    # BUG: before we fixed get_slices_in_velocity_range, which was used in 
+    # compute_continuum_intensity which is called prior to this in sami.py, 
+    # any NaNs in v_map would have been replaced by zeros. 
+    # BUT... this is actually desired behaviour!!! If there is a very weak 
+    # emission line, it may fall below the threshold at which LZIFU performs
+    # the fit, but we still want to measure the S/N even if no fit was performed.
+
+    # For indices where the gas velocity is NaN - assume that it's zero.
+    v_map = v_map.copy()  # Make a copy so that we don't accidentally overwrite the original velocity field
+    v_map[np.isnan(v_map)] = 0
     lambda_max_A = get_wavelength_from_velocity(6562.8, v_map + dv, units="km/s")
     lambda_min_A = get_wavelength_from_velocity(6562.8, v_map - dv, units="km/s")
 
@@ -79,13 +89,13 @@ def compute_measured_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_
     return AN_HALPHA_map
 
 ###############################################################################
-def  set_flags(df, 
-               eline_SNR_min, 
-               eline_ANR_min,
-               eline_list, 
-               ncomponents_max,
-               sigma_inst_kms,
-               sigma_gas_SNR_min=3,):
+def set_flags(df, 
+              eline_SNR_min, 
+              eline_ANR_min,
+              eline_list, 
+              ncomponents_max,
+              sigma_inst_kms,
+              sigma_gas_SNR_min=3,):
     """Set data quality & S/N flags.
     This function can be used to determine whether certain cells pass or fail 
     a number of data quality and S/N criteria. 
