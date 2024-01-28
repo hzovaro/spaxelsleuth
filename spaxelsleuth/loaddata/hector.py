@@ -15,6 +15,11 @@ if __name__ == "__main__":
     load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
     from spaxelsleuth.config import settings
 
+    from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
+    from spaxelsleuth.utils.dqcut import compute_measured_HALPHA_amplitude_to_noise
+    from spaxelsleuth.utils.addcolumns import add_columns
+    from spaxelsleuth.utils.linefns import bpt_num_to_str
+
     import logging
     logger = logging.getLogger(__name__)
 
@@ -35,80 +40,220 @@ if __name__ == "__main__":
     tile = 29
     id_str = f"{gal:d}_T{tile:03d}"
     ncomponents = "rec"
+    if ncomponents == "rec":
+        ncomponents_max = 3
+    else:
+        ncomponents_max = ncomponents
 
+
+
+    #--------------------------------------------------------------------------
     # Filenames
     stekin_fname = stekin_path / f"{id_str}_initial_kinematics.fits"
     eline_fit_fname = eline_fit_path / id_str / f"{id_str}_{ncomponents}comp.fits"  
+    cont_fit_B_fname = continuum_fit_path / f"{id_str}_blue_stel_subtract_final.fits"
+    cont_fit_R_fname = continuum_fit_path / f"{id_str}_red_stel_subtract_final.fits"
     datacube_fnames_all = os.listdir(data_cube_path)  # Because (in the current format) the data cubes contain the field name (which we don't know in advance), to find the correct data cube file name we need to traverse the entire list. Not ideal but it's all we can do for now.
     datacube_B_fname = data_cube_path / [fname for fname in datacube_fnames_all if str(gal) in fname and "blue" in fname][0]
     datacube_R_fname = data_cube_path / [fname for fname in datacube_fnames_all if str(gal) in fname and "red" in fname][0]
-    if not os.path.exists(datacube_B_fname):
-        raise FileNotFoundError(f"Blue data cube for galaxy {gal} ({datacube_B_fname}) not found!")
-    if not os.path.exists(datacube_R_fname):
-        raise FileNotFoundError(f"Red data cube for galaxy {gal} ({datacube_R_fname}) not found!")
-    if not os.path.exists(stekin_fname):
-        raise FileNotFoundError(f"Stellar kinematics data products for galaxy {gal} ({stekin_fname}) not found!")
-    if not os.path.exists(eline_fit_fname):
-        raise FileNotFoundError(f"Emission line data products for galaxy {gal} ({eline_fit_fname}) not found!")
+    for file in [stekin_fname, eline_fit_fname, cont_fit_B_fname, cont_fit_R_fname, datacube_B_fname, datacube_R_fname]:
+        if not os.path.exists(str(file)):
+            raise FileNotFoundError(f"File {file} not found!")
 
-    # Blue cube
+    #--------------------------------------------------------------------------
+    # Get redshift
+    with fits.open(stekin_fname) as hdulist_stekin:
+        z = hdulist_stekin[0].header["Z"]
+
+    # Blue cube & wavelength array
     with fits.open(datacube_B_fname) as hdulist_B_cube:
         header_B = hdulist_B_cube[0].header
         data_cube_B = hdulist_B_cube[0].data
         var_cube_B = hdulist_B_cube[1].data
-
-        # Wavelength values
+        # Wavelength information
         lambda_0_A = header_B["CRVAL3"] - header_B["CRPIX3"] * header_B["CDELT3"]
         dlambda_A = header_B["CDELT3"]
         N_lambda = header_B["NAXIS3"]
         lambda_vals_B_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
+        # Centre coordinates 
+        x0_px, y0_px = np.floor(header_B["CRPIX1"]).astype(int), np.floor(header_B["CRPIX2"]).astype(int)
 
-    # Red cube
+    # Red cube & wavelength array
     with fits.open(datacube_R_fname) as hdulist_R_cube:
         header_R = hdulist_R_cube[0].header
         data_cube_R = hdulist_R_cube[0].data
         var_cube_R = hdulist_R_cube[1].data
-
-        # Wavelength values
+        # Wavelength information
         lambda_0_A = header_R["CRVAL3"] - header_R["CRPIX3"] * header_R["CDELT3"]
         dlambda_A = header_R["CDELT3"]
         N_lambda = header_R["NAXIS3"]
         lambda_vals_R_A = np.array(range(N_lambda)) * dlambda_A + lambda_0_A
 
-    # Stellar kinematics (want v_* map plus redshift)
-    with fits.open(stekin_fname) as hdulist_stekin:
-        z = hdulist_stekin[0].header["Z"]
-        v_star = hdulist_stekin["V_STAR"].data
-
-    # Stellar kinematics (want v_* map plus redshift)
-    with fits.open(eline_fit_fname) as hdulist_eline_fit:
-        v_gas = hdulist_eline_fit["V"].data
-
     # Rest-frame wavelength arrays
     lambda_vals_R_rest_A = lambda_vals_R_A / (1 + z)
     lambda_vals_B_rest_A = lambda_vals_B_A / (1 + z)
 
-
-    # TODO: Compute stuff based on the cubes
-    # TODO: Compute the d4000 Angstrom break 
-    # TODO: Compute the continuum intensity so that we can compute the Halpha equivalent width.
-    # TODO: Compute the approximate B-band continuum. (from raw cube or fit?)
-    # TODO: Compute the measured HALPHA amplitude-to-noise
-
-    # EMISSION LINE STUFF 
-
-    # Create masks of empty pixels
+    # Get coordinate lists corresponding to non-empty spaxels
     im_empty_B = np.all(np.isnan(data_cube_B), axis=0)
     im_empty_R = np.all(np.isnan(data_cube_R), axis=0)
     im_empty = np.logical_and(im_empty_B, im_empty_R)
-
-    # Get coordinate lists corresponding to non-empty spaxels
+    mask = ~im_empty
     ny, nx = im_empty.shape
     y_c_list, x_c_list = np.where(~im_empty)
 
-    # Empty lists to store values extracted from each spaxel
-    rows_list = []
-    colnames = []
+    #--------------------------------------------------------------------------
+    # Construct a dict where the keys are the FINAL column names, and the 
+    # values are 2D arrays storing the corresponding quantity
+    _2dmap_dict = {}
+
+    #--------------------------------------------------------------------------
+    # EMISSION LINES 
+    with fits.open(eline_fit_fname) as hdulist_eline_fit:
+        # Emission lines: fluxes
+        for eline in settings["hector"]["eline_list"]:
+            _2dmap_dict[f"{eline} (total)"] = hdulist_eline_fit[eline].data[0]
+            _2dmap_dict[f"{eline} error (total"] = hdulist_eline_fit[eline + "_ERR"].data[0]
+            if ncomponents_max > 1:
+                for component in range(1, ncomponents_max):
+                    _2dmap_dict[f"{eline} (component {component})"] = hdulist_eline_fit[eline].data[component]
+                    _2dmap_dict[f"{eline} error (component {component})"] = hdulist_eline_fit[eline + "_ERR"].data[component]
+            else:
+                _2dmap_dict[f"{eline} (component 1)"] = hdulist_eline_fit[eline].data[0]
+                _2dmap_dict[f"{eline} error (component 1)"] = hdulist_eline_fit[eline + "_ERR"].data[0]
+        
+        # Emission lines: gas kinematics 
+        for component in range(1, ncomponents_max):
+            _2dmap_dict[f"v_gas (component {component})"] = hdulist_eline_fit["V"].data[component]
+            _2dmap_dict[f"v_gas error (component {component})"] = hdulist_eline_fit["V_ERR"].data[component]
+            _2dmap_dict[f"sigma_gas (component {component})"] = hdulist_eline_fit["VDISP"].data[component]
+            _2dmap_dict[f"sigma_gas error (component {component})"] = hdulist_eline_fit["VDISP_ERR"].data[component]
+
+        # Emission lines: goodness-of-fit  
+        _2dmap_dict["chi2 (emission lines)"] = hdulist_eline_fit["CHI2"].data
+
+    #--------------------------------------------------------------------------
+    # STELLAR CONTINUUM
+    with fits.open(stekin_fname) as hdulist_stekin:
+        # Stellar continuum fit: kinematics
+        _2dmap_dict[f"v_*"] = hdulist_stekin["V_STAR"].data
+        _2dmap_dict[f"v_* error"] = hdulist_stekin["V_STAR_ERR"].data
+        _2dmap_dict[f"sigma_*"] = hdulist_stekin["SIG_STAR"].data
+        _2dmap_dict[f"sigma_* error"] = hdulist_stekin["SIG_STAR_ERR"].data
+
+        # Stellar continuum fit: goodness-of-fit/continuum S/N
+        _2dmap_dict["chi2 (ppxf)"] = hdulist_stekin["CHI2"].data
+        _2dmap_dict["Median continuum S/N (ppxf)"] = hdulist_stekin["PRIMARY"].data
+
+    #--------------------------------------------------------------------------
+    # CONTINUUM PROPERTIES 
+    # Continuum properties: Compute the d4000 Angstrom break 
+    # TODO: place these checks inside the function - return arrays of NaNs if they fail
+    plt.figure(); plt.imshow(_2dmap_dict["v_*"])
+    if lambda_vals_B_rest_A[0] <= 3850 and lambda_vals_B_rest_A[-1] >= 4100:
+        d4000_map, d4000_map_err = compute_d4000(
+            data_cube=data_cube_B,
+            var_cube=var_cube_B,
+            lambda_vals_rest_A=lambda_vals_B_rest_A,
+            v_star_map=_2dmap_dict["v_*"])
+        _2dmap_dict["D4000"] = d4000_map
+        _2dmap_dict["D4000 error"] = d4000_map_err
+
+    # Continuum properties: Compute the continuum intensity so that we can compute the Halpha equivalent width.
+    # TODO: place these checks inside the function - return arrays of NaNs if they fail
+    plt.figure(); plt.imshow(_2dmap_dict["v_*"])
+    if lambda_vals_R_rest_A[0] <= 6500 and lambda_vals_R_rest_A[-1] >= 6540:
+        cont_HALPHA_map, cont_HALPHA_map_std, cont_HALPHA_map_err = compute_continuum_intensity(
+            data_cube=data_cube_R,
+            var_cube=var_cube_R,
+            lambda_vals_rest_A=lambda_vals_R_rest_A,
+            start_A=6500,
+            stop_A=6540,
+            v_map=_2dmap_dict["v_*"])
+        _2dmap_dict["HALPHA continuum"] = cont_HALPHA_map
+        _2dmap_dict["HALPHA continuum std. dev."] = cont_HALPHA_map_std
+        _2dmap_dict["HALPHA continuum error"] = cont_HALPHA_map_err
+
+    # Continuum properties: Compute the approximate B-band continuum. (from raw cube or fit?)
+    # TODO: place these checks inside the function - return arrays of NaNs if they fail
+    plt.figure(); plt.imshow(_2dmap_dict["v_*"])
+    if lambda_vals_B_rest_A[0] <= 4000 and lambda_vals_B_rest_A[-1] >= 5000:
+        cont_B_map, cont_B_map_std, cont_B_map_err = compute_continuum_intensity(
+            data_cube=data_cube_B,
+            var_cube=var_cube_B,
+            lambda_vals_rest_A=lambda_vals_B_rest_A,
+            start_A=4000,
+            stop_A=5000,
+            v_map=_2dmap_dict["v_*"])
+        _2dmap_dict[f"B-band continuum"] = cont_B_map
+        _2dmap_dict[f"B-band continuum std. dev."] = cont_B_map_std
+        _2dmap_dict[f"B-band continuum error"] = cont_B_map_err
+
+    # Compute the continuum intensity so that we can compute the Halpha equivalent width.
+    # Continuum wavelength range taken from here: https://ui.adsabs.harvard.edu/abs/2019MNRAS.485.4024V/abstract
+    # TODO: place these checks inside the function - return arrays of NaNs if they fail
+    plt.figure(); plt.imshow(_2dmap_dict["v_*"])
+    if lambda_vals_R_rest_A[0] <= 6562.8 and lambda_vals_R_rest_A[-1] >= 6562.8:
+        AN_HALPHA_map = compute_measured_HALPHA_amplitude_to_noise(
+            data_cube=data_cube_R,
+            var_cube=var_cube_R,
+            lambda_vals_rest_A=lambda_vals_R_rest_A,
+            v_star_map=_2dmap_dict["v_*"],
+            v_map=_2dmap_dict["v_gas (component 1)"],
+            dv=300)
+        _2dmap_dict["HALPHA A/N (measured)"] = AN_HALPHA_map
+
+    plt.figure(); plt.imshow(_2dmap_dict["v_*"])
+
+    # Median value in blue/red clubes 
+    for cont_fit_fname, side in zip([cont_fit_B_fname, cont_fit_R_fname], ["blue", "red"]):
+        with fits.open(cont_fit_fname) as hdulist_cont_fit:
+            _2dmap_dict[f"Median spectral value ({side})"] = hdulist_cont_fit["MED_SPEC"].data
+
+    #--------------------------------------------------------------------------
+    # Other quantitites 
+    _2dmap_dict["Galaxy centre x0_px (projected, arcsec)"] = mask * x0_px
+    _2dmap_dict["Galaxy centre y0_px (projected, arcsec)"] = mask * y0_px
+
+    # TODO also need to store regular coordinates relative to galaxy centre 
+    # TODO v_grad
+
+    # rows_list.append(
+    #     np.array([settings["sami"]["x0_px"]] * ngood_bins) *
+    #     settings["sami"]["as_per_px"])
+    # colnames.append("Galaxy centre x0_px (projected, arcsec)")
+    # rows_list.append(
+    #     np.array([settings["sami"]["y0_px"]] * ngood_bins) *
+    #     settings["sami"]["as_per_px"])
+    # # colnames.append("Galaxy centre y0_px (projected, arcsec)")
+    # rows_list.append(
+    #     np.array(x_c_list).flatten() * settings["sami"]["as_per_px"])
+    # colnames.append("x (projected, arcsec)")
+    # rows_list.append(
+    #     np.array(y_c_list).flatten() * settings["sami"]["as_per_px"])
+    # colnames.append("y (projected, arcsec)")
+    # rows_list.append(
+    #     np.array(x_prime_list).flatten() * settings["sami"]["as_per_px"])
+    # colnames.append("x (relative to galaxy centre, deprojected, arcsec)")
+    # rows_list.append(
+    #     np.array(y_prime_list).flatten() * settings["sami"]["as_per_px"])
+    # colnames.append("y (relative to galaxy centre, deprojected, arcsec)")
+    # rows_list.append(
+    #     np.array(r_prime_list).flatten() * settings["sami"]["as_per_px"])
+    # colnames.append("r (relative to galaxy centre, deprojected, arcsec)")
+    # rows_list.append(np.array(bin_number_list))
+    # colnames.append("Bin number")
+    # rows_list.append(np.array(bin_size_list_px))
+    # colnames.append("Bin size (pixels)")
+    # rows_list.append(
+    #     np.array(bin_size_list_px) * settings["sami"]["as_per_px"]**2)
+    # colnames.append("Bin size (square arcsec)")
+    # rows_list.append(
+    #     np.array(bin_size_list_px) * settings["sami"]["as_per_px"]**2 *
+    #     df_metadata.loc[gal, "kpc per arcsec"]**2)
+    # colnames.append("Bin size (square kpc)")
+
+    #--------------------------------------------------------------------------
+    # Convert 2D maps to 1D rows 
 
     # Function for extracting data from 2D maps
     def _2d_map_to_1d_list(colmap):
@@ -126,6 +271,7 @@ if __name__ == "__main__":
             row[jj] = colmap[y, x]
         return row
     
+    # DEBUGGING ONLY
     def _1d_map_to_2d_list(rows, x_c_list, y_c_list):
         """Reconstructs a 2D array of values from row with coordinates specified in x_c_list and y_c_list"""
         colmap = np.full((ny, nx), np.nan)
@@ -144,103 +290,17 @@ if __name__ == "__main__":
         axs[1].set_title("Reconstructed from row")
         axs[2].set_title("Difference")
 
-    # Dict containing filenames of the "map"-like data products - i.e. 2D maps of various quantities - and which extensions we want to extract from each
-    map_data_products = {
-        stekin_fname: {
-            "PRIMARY" : "Median continuum S/N",  # TODO is this is in the red cube or the blue cube?
-            "V_STAR" : "v_*",
-            "SIG_STAR" : "sigma_*",
-            "V_STAR_ERR" : "v_* error",
-            "SIG_STAR_ERR" : "sigma_* error",
-            "CHI2" : "ppxf Chi-squared",  # TODO is this the reduced chi2?
-        },
-        eline_fit_fname: {
-            "V": "v_gas",
-            "V_ERR": "v_gas error",
-            "VDISP": "sigma_gas",
-            "VDISP_ERR": "sigma_gas error",
-            "CHI2": "Emission line Chi-squared",
-            "OII3726": "OII3726",
-            "OII3726_ERR": "OII3726 error",
-            "OII3729": "OII3729",
-            "OII3729_ERR": "OII3729 error",
-            "HDELTA": "HDELTA",
-            "HDELTA_ERR": "HDELTA error",
-            "HGAMMA": "HGAMMA",
-            "HGAMMA_ERR": "HGAMMA error",
-            "HBETA": "HBETA",
-            "HBETA_ERR": "HBETA error",
-            "OIII4959": "OIII4959",
-            "OIII4959_ERR": "OIII4959 error",
-            "OIII5007": "OIII5007",
-            "OIII5007_ERR": "OIII5007 error",
-            "OI6300": "OI6300",
-            "OI6300_ERR": "OI6300 error",
-            "OI6364": "OI6364",
-            "OI6364_ERR": "OI6364 error",
-            "NII6548": "NII6548",
-            "NII6548_ERR": "NII6548 error",
-            "NII6583": "NII6583",
-            "NII6583_ERR": "NII6583 error",
-            "HALPHA": "HALPHA",
-            "HALPHA_ERR": "HALPHA error",
-            "SII6716": "SII6716",
-            "SII6716_ERR": "SII6716 error",
-            "SII6731": "SII6731",
-            "SII6731_ERR": "SII6731 error",
-        }, 
-    }
-    
-    def is_eline(extension):
-        """Returns True if extension is of the form <eline> or <eline>_ERR where eline is an emission line in settings["hector"]["eline_list"]."""
-        return extension.rstrip("_ERR") in settings["hector"]["eline_list"]
+    rows_list = []
+    for colname in _2dmap_dict.keys():
 
-    # For each quantity, 
-    fnames = map_data_products.keys()
-    for fname in fnames:
-        hdulist = fits.open(fname)
-        rename_dict = map_data_products[fname]
-        for extension in map_data_products[fname]:
-            data = hdulist[extension].data
-            
-            # If it's an emission line, then data is a 2D array containing the total flux - se we need to append it twice (once for the total flux & once for component 1)
-            if ncomponents == 1 and is_eline(extension):
-                data = np.repeat(data[None, :, :], 2, axis=0)
-            
-            if data.ndim > 2:
-                # The 0th extension contains "total" quantities, unless it's the gas velocity or velocity dispersion.
-                if extension not in ["V", "V_ERR", "VDISP", "VDISP_ERR"]:
-                    rows = _2d_map_to_1d_list(data[0])
-                    colname = rename_dict[extension] + f" (total)"
-                    
-                    # data_reconstructed = _1d_map_to_2d_list(rows, x_c_list, y_c_list)
-                    # data_original = np.copy(data[0])
-                    # assert np.all(np.isclose(data_original[~np.isnan(data_original)], data_reconstructed[~np.isnan(data_reconstructed)]))
-                    # check_row(rows, colname, data_original)
-                
-                for component in range(1, data.shape[0]):
-                    rows = _2d_map_to_1d_list(data[component])
-                    colname = rename_dict[extension] + f" (component {component})"
-                    
-                    # data_reconstructed = _1d_map_to_2d_list(rows, x_c_list, y_c_list)
-                    # data_original = np.copy(data[component])
-                    # assert np.all(np.isclose(data_original[~np.isnan(data_original)], data_reconstructed[~np.isnan(data_reconstructed)]))
-                    # check_row(rows, colname, data_original)
-            
-            elif data.ndim == 2:
-                rows = _2d_map_to_1d_list(data)
-                colname = rename_dict[extension]
-                
-                # data_reconstructed = _1d_map_to_2d_list(rows, x_c_list, y_c_list)
-                # data_original = np.copy(data)
-                # assert np.all(np.isclose(data_original[~np.isnan(data_original)], data_reconstructed[~np.isnan(data_reconstructed)]))
-                # check_row(rows, colname, data_original)
-            
-            rows_list.append(rows)
-            colnames.append(colname)
+        rows = _2d_map_to_1d_list(_2dmap_dict[colname])
+        rows_list.append(rows)
 
+        # For debugging 
+        if colname == "v_*" or colname == "sigma_*":
+            check_row(rows, colname, _2dmap_dict[colname])
             set_trace()
-
+            plt.close("all")
 
 def _process_hector():
     return
