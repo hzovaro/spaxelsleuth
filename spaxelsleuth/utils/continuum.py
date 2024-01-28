@@ -31,6 +31,10 @@ def compute_d4000(data_cube, var_cube, lambda_vals_rest_A, v_star_map):
     """
     logger.debug(f"computing D4000 break strengths...")
 
+    # Check input wavelength range
+    if lambda_vals_rest_A[0] > 3850 or lambda_vals_rest_A[-1] < 4100:
+        logger.warning(f"Input wavelength range of [{lambda_vals_rest_A[0]:.2f}, {lambda_vals_rest_A[-1]:.2f}] is invalid for computing D4000!")
+
     # Convert datacube & variance cubes to units of F_nu
     data_cube_Hz = data_cube * lambda_vals_rest_A[:, None, None]**2 / (constants.c * 1e10)
     var_cube_Hz2 = var_cube * (lambda_vals_rest_A[:, None, None]**2 / (constants.c * 1e10))**2
@@ -75,6 +79,11 @@ def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A
     NOTE: docstring written with help from ChatGPT 3.5.
     """
     logger.debug(f"computing continuum intensities...")
+
+    # Check input wavelength range
+    if lambda_vals_rest_A[0] > start_A or lambda_vals_rest_A[-1] < stop_A:
+        logger.warning(f"Input wavelength range of [{lambda_vals_rest_A[0]:.2f}, {lambda_vals_rest_A[-1]:.2f}] is invalid for computing continuum intensity in the interval [{start_A:.2f}, {stop_A:.2f}]!")
+
     data_cube_masked, var_cube_masked = get_slices_in_velocity_range(data_cube, var_cube, lambda_vals_rest_A, start_A, stop_A, v_map)
     with warnings.catch_warnings():
         warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="Mean of empty slice")
