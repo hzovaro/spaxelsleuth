@@ -16,9 +16,11 @@ def test_regression_sami():
     """Compare current and reference DataFrames to check that they are the same."""
     for ncomponents in ["recom", "1"]:
         for bin_type in ["default", "adaptive", "sectors"]:
-            logger.info(f"running regression tests for SAMI DataFrame with ncomponens={ncomponents}, bin_type={bin_type}...")
-            run_sami_regression_tests(ncomponents=ncomponents, bin_type=bin_type)
-            logger.info(f"regression tests passed for SAMI DataFrame with ncomponens={ncomponents}, bin_type={bin_type}!")
+            logger.info(f"running regression tests for SAMI DataFrame with ncomponents={ncomponents}, bin_type={bin_type}, extinction_correction=True...")
+            run_sami_regression_tests(ncomponents=ncomponents, bin_type=bin_type, correct_extinction=True)
+            logger.info(f"running regression tests for SAMI DataFrame with ncomponents={ncomponents}, bin_type={bin_type}, extinction_correction=False...")
+            run_sami_regression_tests(ncomponents=ncomponents, bin_type=bin_type, correct_extinction=False)
+            logger.info(f"regression tests passed for SAMI DataFrame with ncomponents={ncomponents}, bin_type={bin_type}!")
 
 
 def run_sami_regression_tests(
@@ -148,4 +150,4 @@ if __name__ == "__main__":
     # Compare
     # NOTE: this will fail on the metallicity columns, so if these are excluded from line 91 then it passes.
     compare_dataframes(df_new, df_reference)
- 
+
