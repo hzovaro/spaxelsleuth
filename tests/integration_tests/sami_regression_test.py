@@ -11,8 +11,6 @@ from spaxelsleuth.config import settings
 import logging
 logger = logging.getLogger(__name__)
 
-from IPython.core.debugger import set_trace
-
 
 def test_regression_sami():
     """Compare current and reference DataFrames to check that they are the same."""
