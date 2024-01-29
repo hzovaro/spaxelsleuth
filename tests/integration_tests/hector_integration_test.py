@@ -41,8 +41,8 @@ def run_hector_assertion_tests(ncomponents,
     }
 
     # Create the DataFrame
-    # make_hector_df(**kwargs, correct_extinction=True, nthreads=nthreads)  
-    # make_hector_df(**kwargs, correct_extinction=False, nthreads=nthreads)  
+    make_hector_df(**kwargs, correct_extinction=True, nthreads=nthreads)  
+    make_hector_df(**kwargs, correct_extinction=False, nthreads=nthreads)  
     
     # Load the DataFrame
     df = load_hector_df(**kwargs, correct_extinction=True)
@@ -79,9 +79,9 @@ def run_hector_assertion_tests(ncomponents,
     #//////////////////////////////////////////////////////////////////////////////
     # DATA QUALITY AND S/N CUT TESTS
     # CHECK: stellar kinematics have been masked out
-    # cond_bad_stekin = df["Bad stellar kinematics"]
-    # for col in [c for c in df.columns if "v_*" in c or "sigma_*" in c]:
-    #     assert all(df.loc[cond_bad_stekin, col].isna())
+    cond_bad_stekin = df["Bad stellar kinematics"]
+    for col in [c for c in df.columns if "v_*" in c or "sigma_*" in c]:
+        assert all(df.loc[cond_bad_stekin, col].isna())
 
     # CHECK: sigma_gas S/N cut
     for nn in range(3 if ncomponents == "rec" else 1):
