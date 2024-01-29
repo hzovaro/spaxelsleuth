@@ -153,9 +153,13 @@ def set_flags(df,
         for nn in range(ncomponents_max):
             if f"v_gas (component {nn + 1})" in df:
                 df[f"Beam smearing flag (component {nn + 1})"] = False
+                df[f"Missing v_gas flag (component {nn + 1})"] = False
             if f"sigma_gas (component {nn + 1})" in df:
                 df[f"Low sigma_gas S/N flag (component {nn + 1})"] = False
+                df[f"Missing sigma_gas flag (component {nn + 1})"] = False
         df[f"Bad stellar kinematics"] = False
+        df["Missing v_* flag"] = False
+        df["Missing sigma_* flag"] = False
 
         for eline in eline_list:
             for nn in range(ncomponents_max):
@@ -213,6 +217,26 @@ def set_flags(df,
                 cond_missing_flux = df[f"{eline} (total)"].isna() & ~df[f"{eline} error (total)"].isna()
                 df.loc[cond_missing_flux, f"Missing flux flag - {eline} (total)"] = True
                 logger.debug(f"{eline} (total): {df[cond_missing_flux].shape[0]:d} spaxels have missing total fluxes")
+
+        ######################################################################
+        # Flag spaxels with "missing" (i.e. NaN) kinematics in which the 
+        # ERROR on the measured quantity is not NaN
+        ######################################################################
+        logger.debug("flagging kinematic components with NaN values and finite errors...")
+        # Gas kinematics
+        for quantity in ["v_gas", "sigma_gas"]:
+            for nn in range(ncomponents_max):
+                if f"{quantity} (component {nn + 1})" in df.columns:
+                    cond_missing_quantity = df[f"{quantity} (component {nn + 1})"].isna() & ~df[f"{quantity} error (component {nn + 1})"].isna()
+                    df.loc[cond_missing_quantity, f"Missing {quantity} flag (component {nn + 1})"] = True
+                    logger.debug(f"{quantity} (component {nn + 1}): {df[cond_missing_quantity].shape[0]:d} spaxels have missing {quantity} in this component")
+        
+        # Stellar kinematics
+        for quantity in ["v_*", "sigma_*"]:
+            if quantity in df.columns:
+                cond_missing_quantity = df[f"{quantity}"].isna() & ~df[f"{quantity} error"].isna()
+                df.loc[cond_missing_quantity, f"Missing {quantity} flag"] = True
+                logger.debug(f"{quantity}: {df[cond_missing_quantity].shape[0]:d} spaxels have missing {quantity} in this component")
 
         ######################################################################
         # Flag rows where any component doesn't meet the amplitude 
@@ -320,6 +344,7 @@ def apply_flags(df,
                 eline_list,
                 line_flux_SNR_cut, 
                 missing_fluxes_cut,
+                missing_kinematics_cut,
                 line_amplitude_SNR_cut,
                 flux_fraction_cut,
                 sigma_gas_SNR_cut,
@@ -347,6 +372,11 @@ def apply_flags(df,
         Whether to NaN out "missing" fluxes - i.e., cells in which the flux
         of an emission line (total or per component) is NaN, but the error 
         is not for some reason.    
+
+    missing_kinematics_cut: bool
+        Whether to NaN out "missing" values for v_gas/sigma_gas/v_*/sigma_* - 
+        i.e., cells in which the measurement itself is NaN, but the error 
+        is not for some reason.
 
     line_amplitude_SNR_cut: bool     
         Whether to NaN emission line components based on the amplitude of the
@@ -488,6 +518,25 @@ def apply_flags(df,
                     else:
                         cols_missing_fluxes = [c for c in df.columns if eline in c and f"(total)" in c and "flag" not in c]
                     df.loc[cond_missing_flux, cols_missing_fluxes] = np.nan
+
+        if missing_kinematics_cut:
+            # Gas kinematics 
+            for quantity in ["v_gas", "sigma_gas"]:
+                logger.debug(f"masking components with missing {quantity}...")
+                for nn in range(ncomponents_max):
+                    if f"{quantity} (component {nn + 1})" in df:
+                        cond_missing_quantity = df[f"Missing {quantity} flag (component {nn + 1})"]
+                        cols_missing_quantity = [f"{quantity} (component {nn + 1})", f"{quantity} error (component {nn + 1})"]
+                        df.loc[cond_missing_quantity, cols_missing_quantity] = np.nan
+
+            # Stellar kinematics
+            logger.debug(f"masking rows with missing {quantity}...")
+            for quantity in ["v_*", "sigma_*"]:
+                if quantity in df:
+                    cond_missing_quantity = df[f"Missing {quantity} flag"]
+                    cols_missing_quantity = [quantity, f"{quantity} error"]
+                    df.loc[cond_missing_quantity, cols_missing_quantity] = np.nan
+
 
         if line_amplitude_SNR_cut:
             logger.debug("masking components that don't meet the amplitude requirements...")
