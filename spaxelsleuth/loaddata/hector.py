@@ -446,7 +446,6 @@ def make_hector_df(ncomponents,
                   eline_SNR_min,
                   eline_ANR_min,
                   correct_extinction,
-                  sigma_inst_kms,
                   gals=None,
                   df_fname=None,
                   sigma_gas_SNR_min=3,
@@ -733,7 +732,7 @@ def make_hector_df(ncomponents,
         correct_extinction=correct_extinction,
         metallicity_diagnostics=metallicity_diagnostics,
         compute_sfr=True,
-        sigma_inst_kms=sigma_inst_kms,  # TODO make this flexible 
+        sigma_inst_kms=settings["hector"]["sigma_inst_kms"],  # TODO make this flexible 
         nthreads=nthreads,
         base_missing_flux_components_on_HALPHA=False,  # NOTE: this is important!!
         )
