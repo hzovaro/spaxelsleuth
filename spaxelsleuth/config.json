@@ -7,7 +7,7 @@
         "N_y": null,
         "x0_px": null,
         "y0_px": null,
-        "sigma_inst_kms": null,
+        "sigma_inst_kms": 29.6,
         "eline_list": [
             "OII3726",
             "OII3729",
