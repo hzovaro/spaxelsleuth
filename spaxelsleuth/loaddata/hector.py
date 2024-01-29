@@ -451,6 +451,7 @@ def make_hector_df(ncomponents,
                   sigma_gas_SNR_min=3,
                   line_flux_SNR_cut=True,
                   missing_fluxes_cut=True,
+                  missing_kinematics_cut=True,
                   line_amplitude_SNR_cut=True,
                   flux_fraction_cut=False,
                   sigma_gas_SNR_cut=True,
@@ -551,6 +552,11 @@ def make_hector_df(ncomponents,
     missing_fluxes_cut:         bool (optional)
         Whether to NaN out "missing" fluxes - i.e., cells in which the flux
         of an emission line (total or per component) is NaN, but the error 
+        is not for some reason. Default: True.
+
+    missing_kinematics_cut: bool
+        Whether to NaN out "missing" values for v_gas/sigma_gas/v_*/sigma_* - 
+        i.e., cells in which the measurement itself is NaN, but the error 
         is not for some reason. Default: True.
 
     line_amplitude_SNR_cut:     bool (optional)
@@ -724,6 +730,7 @@ def make_hector_df(ncomponents,
         eline_list=settings["hector"]["eline_list"],
         line_flux_SNR_cut=line_flux_SNR_cut,
         missing_fluxes_cut=missing_fluxes_cut,
+        missing_kinematics_cut=missing_kinematics_cut,
         line_amplitude_SNR_cut=line_amplitude_SNR_cut,
         flux_fraction_cut=flux_fraction_cut,
         sigma_gas_SNR_cut=sigma_gas_SNR_cut,
