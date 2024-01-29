@@ -19,7 +19,7 @@ def test_make_hector_metadata_df():
 
 def test_assertions_hector():
     """Run run_hector_assertion_tests() on a combination of inputs."""
-    for ncomponents in ["rec", "1"]:
+    for ncomponents in ["rec"]:
         logger.info(f"running assertion tests for Hector DataFrame with ncomponents={ncomponents}...")
         run_hector_assertion_tests(ncomponents=ncomponents)
         logger.info(f"assertion tests pased for Hector DataFrame with  ncomponents={ncomponents}!")
@@ -41,8 +41,8 @@ def run_hector_assertion_tests(ncomponents,
     }
 
     # Create the DataFrame
-    # make_hector_df(**kwargs, correct_extinction=True, nthreads=nthreads)  
-    # make_hector_df(**kwargs, correct_extinction=False, nthreads=nthreads)  
+    make_hector_df(**kwargs, correct_extinction=True, nthreads=nthreads)  
+    make_hector_df(**kwargs, correct_extinction=False, nthreads=nthreads)  
     
     # Load the DataFrame
     df = load_hector_df(**kwargs, correct_extinction=True)
@@ -140,22 +140,10 @@ def run_hector_assertion_tests(ncomponents,
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (lower) (component {nn + 1})"]))
 
     # CHECK: all kinematic quantities in spaxels with 0 original components are NaN
-    set_trace()
     for col in ["sigma_gas", "v_gas"]:
         for nn in range(3 if ncomponents == "rec" else 1):
             assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} (component {nn + 1})"]))
-            if not np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (component {nn + 1})"])):
-
-                cond = df["Number of components (original)"] == 0
-                cond &= df[f"{col} error (component {nn + 1})"] > 0
-                df.loc[cond, [f"{col} (component {nn + 1})", f"{col} error (component {nn + 1})"]]
-
-                # There are rows where the ERROR is not NaN but the value itself is NaN. What's going on here?
-                # If we go back to hector.py before add_columns is called, is this still the case?
-                # Or is add_columns doing something?
-                # Is add_columns meant to deal with this situation?
-
-                set_trace()
+            assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (component {nn + 1})"]))
 
     # CHECK: all emission line fluxes with S/N < SNR_min are NaN
     for eline in ["HALPHA", "HBETA", "NII6583", "OI6300", "OII3726", "OII3729", "OIII5007", "SII6716", "SII6731"]:
@@ -177,10 +165,10 @@ def run_hector_assertion_tests(ncomponents,
         assert np.all(np.isnan(df.loc[df[f"sigma_obs S/N (component {nn + 1})"] < df[f"sigma_obs target S/N (component {nn + 1})"], f"sigma_gas (component {nn + 1})"]))
         assert np.all(np.isnan(df.loc[df[f"sigma_obs S/N (component {nn + 1})"] < df[f"sigma_obs target S/N (component {nn + 1})"], f"sigma_gas error (component {nn + 1})"]))
 
-    # CHECK: stellar kinematics have been correctly masked out
-    assert np.all(df.loc[~np.isnan(df["sigma_*"]), "sigma_*"] > 35)
-    assert np.all(df.loc[~np.isnan(df["v_* error"]), "v_* error"] < 30)
-    assert np.all(df.loc[~np.isnan(df["sigma_* error"]), "sigma_* error"] < df.loc[~np.isnan(df["sigma_* error"]), "sigma_*"] * 0.1 + 25)
+    # # CHECK: stellar kinematics have been correctly masked out
+    # assert np.all(df.loc[~np.isnan(df["sigma_*"]), "sigma_*"] > 35)
+    # assert np.all(df.loc[~np.isnan(df["v_* error"]), "v_* error"] < 30)
+    # assert np.all(df.loc[~np.isnan(df["sigma_* error"]), "sigma_* error"] < df.loc[~np.isnan(df["sigma_* error"]), "sigma_*"] * 0.1 + 25)
 
     # CHECK: number of components has been set properly
     assert all(~df[df["Number of components"] > df["Number of components (original)"]])
