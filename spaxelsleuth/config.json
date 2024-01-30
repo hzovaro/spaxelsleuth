@@ -29,7 +29,8 @@
         ],
         "data_cube_path": "hector/input/",
         "input_path": "hector/input",
-        "output_path": "hector/output"
+        "output_path": "hector/output",
+        "fits_output_path": "hector/output/fits/"
     },
     "sami": {
         "as_per_px": 0.5,
