@@ -407,7 +407,7 @@ def _process_hector(args):
 
     # Compute v_grad using eqn. 1 of Zhou+2017
     for component in range(1, ncomponents_max + 1):
-        _2dmap_dict[f"v_grad (componennt {component})"] = compute_v_grad(_2dmap_dict[f"v_gas (component {component})"])
+        _2dmap_dict[f"v_grad (component {component})"] = compute_v_grad(_2dmap_dict[f"v_gas (component {component})"])
 
     #--------------------------------------------------------------------------
     # OTHER QUANTITIES 
