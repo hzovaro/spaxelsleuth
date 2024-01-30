@@ -158,8 +158,10 @@ def set_flags(df,
                 df[f"Low sigma_gas S/N flag (component {nn + 1})"] = False
                 df[f"Missing sigma_gas flag (component {nn + 1})"] = False
         df[f"Bad stellar kinematics"] = False
-        df["Missing v_* flag"] = False
-        df["Missing sigma_* flag"] = False
+        if "v_*" in df:
+            df["Missing v_* flag"] = False
+        if "sigma_*" in df:
+            df["Missing sigma_* flag"] = False
 
         for eline in eline_list:
             for nn in range(ncomponents_max):
@@ -537,7 +539,6 @@ def apply_flags(df,
                     cols_missing_quantity = [quantity, f"{quantity} error"]
                     df.loc[cond_missing_quantity, cols_missing_quantity] = np.nan
 
-
         if line_amplitude_SNR_cut:
             logger.debug("masking components that don't meet the amplitude requirements...")
             for eline in eline_list:
@@ -608,7 +609,7 @@ def apply_flags(df,
                 cond_bad_stekin = df["Bad stellar kinematics"]
 
                 # Cells to NaN
-                cols_stekin_cut = [c for c in df.columns if "v_*" in c or "sigma_*" in c]
+                cols_stekin_cut = [c for c in df.columns if ("v_*" in c or "sigma_*" in c) and "flag" not in c]
                 df.loc[cond_bad_stekin, cols_stekin_cut] = np.nan
 
         ######################################################################
