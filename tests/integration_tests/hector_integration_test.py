@@ -172,10 +172,10 @@ def run_hector_assertion_tests(ncomponents,
         assert np.all(np.isnan(df.loc[df[f"sigma_obs S/N (component {nn + 1})"] < df[f"sigma_obs target S/N (component {nn + 1})"], f"sigma_gas (component {nn + 1})"]))
         assert np.all(np.isnan(df.loc[df[f"sigma_obs S/N (component {nn + 1})"] < df[f"sigma_obs target S/N (component {nn + 1})"], f"sigma_gas error (component {nn + 1})"]))
 
-    # # CHECK: stellar kinematics have been correctly masked out
-    # assert np.all(df.loc[~np.isnan(df["sigma_*"]), "sigma_*"] > 35)
-    # assert np.all(df.loc[~np.isnan(df["v_* error"]), "v_* error"] < 30)
-    # assert np.all(df.loc[~np.isnan(df["sigma_* error"]), "sigma_* error"] < df.loc[~np.isnan(df["sigma_* error"]), "sigma_*"] * 0.1 + 25)
+    # CHECK: stellar kinematics have been correctly masked out
+    assert np.all(df.loc[~np.isnan(df["sigma_*"]), "sigma_*"] > 35)
+    assert np.all(df.loc[~np.isnan(df["v_* error"]), "v_* error"] < 30)
+    assert np.all(df.loc[~np.isnan(df["sigma_* error"]), "sigma_* error"] < df.loc[~np.isnan(df["sigma_* error"]), "sigma_*"] * 0.1 + 25)
 
     # CHECK: number of components has been set properly
     assert all(~df[df["Number of components"] > df["Number of components (original)"]])
