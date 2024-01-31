@@ -123,7 +123,7 @@ def test_compute_continuum_luminosity():
     Ha_cont_luminosity = 10.0 * 1e-16 * (4 * np.pi * D_cm**2) / 0.025
     Ha_cont_luminosity_err = Ha_cont_luminosity * 0.1 / 10.0
 
-    df = continuum.compute_continuum_luminosity(df_test)
+    df = continuum.compute_continuum_luminosity(df_test, flux_units=1e-16)
 
     assert np.isclose(Ha_cont_luminosity, df["HALPHA continuum luminosity"])
     assert np.isclose(Ha_cont_luminosity_err, df["HALPHA continuum luminosity error"])
