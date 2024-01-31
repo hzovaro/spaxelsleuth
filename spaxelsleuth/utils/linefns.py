@@ -933,7 +933,7 @@ def sfr_fn(df, s=f" (total)"):
 
     # Use the Calzetti relation to calculate the SFR only when the BPT classification in this component is star-forming
     if "HALPHA luminosity" in df and "BPT (numeric)" in df:
-        cond_SF = df["BPT (numeric)"] != 0
+        cond_SF = df["BPT (numeric)"] == 0
         df.loc[cond_SF, "SFR"] = df.loc[cond_SF, "HALPHA luminosity"] * 5.5e-42  # Taken from Calzetti (2013); assumes stellar mass range 0.1–100 M⊙, τ ≥6 Myr, Te=104 k, ne=100 cm−3
         df.loc[cond_SF, "SFR error"] = df.loc[cond_SF, "HALPHA luminosity error"] * 5.5e-42  
 
