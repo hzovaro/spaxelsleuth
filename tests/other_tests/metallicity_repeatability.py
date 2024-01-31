@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     # Subset of star-forming galaxies to speed up execution
     gb = df.loc[df["BPT (total)"] == "SF"].groupby("ID")
-    counts = gb["x, y (pixels)"].count().sort_values(ascending=False)
+    counts = gb["x (pixels)"].count().sort_values(ascending=False)
     gals_SF = counts.index.values[:10]
     df_SF = df.loc[df["ID"].isin(gals_SF)]
 
