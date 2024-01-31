@@ -927,11 +927,11 @@ def _process_gals(args):
     rows_list.append(
         np.array([settings["sami"]["x_0 (pixels)"]] * ngood_bins) *
         settings["sami"]["as_per_px"])
-    colnames.append("x0 (arcsec)")
+    colnames.append("x_0 (arcsec)")
     rows_list.append(
         np.array([settings["sami"]["y_0 (pixels)"]] * ngood_bins) *
         settings["sami"]["as_per_px"])
-    colnames.append("y0 (arcsec)")
+    colnames.append("y_0 (arcsec)")
     rows_list.append(
         np.array(x_c_list).flatten() * settings["sami"]["as_per_px"])
     colnames.append("x (projected, arcsec)")
@@ -1531,9 +1531,6 @@ def load_sami_df(ncomponents,
     df["continuum units"] = "E-16 erg/cm^2/Å/s"  # Units of continuum & emission line flux
 
     # Add back in object-type columns
-    df["x, y (pixels)"] = list(
-    zip(df["x (projected, arcsec)"] / 0.5,
-        df["y (projected, arcsec)"] / 0.5))
     df["Morphology"] = morph_num_to_str(df["Morphology (numeric)"])
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
 
