@@ -209,10 +209,10 @@ def make_hector_metadata_df():
         df_metadata.loc[gal, "D_L (Mpc)"] = D_L_Mpc
         df_metadata.loc[gal, "N_x"] = int(nx_B)
         df_metadata.loc[gal, "N_y"] = int(ny_B)
-        df_metadata.loc[gal, "x0_px"] = int(x0_px_B)
-        df_metadata.loc[gal, "y0_px"] = int(y0_px_B)
-        df_metadata.loc[gal, "Galaxy centre x0_px (projected, arcsec)"] = x0_px_B * settings["hector"]["as_per_px"]
-        df_metadata.loc[gal, "Galaxy centre y0_px (projected, arcsec)"] = y0_px_B * settings["hector"]["as_per_px"]
+        df_metadata.loc[gal, "x_0 (pixels)"] = int(x0_px_B)
+        df_metadata.loc[gal, "y_0 (pixels)"] = int(y0_px_B)
+        df_metadata.loc[gal, "x_0 (arcsec)"] = x0_px_B * settings["hector"]["as_per_px"]
+        df_metadata.loc[gal, "y_0 (arcsec)"] = y0_px_B * settings["hector"]["as_per_px"]
         df_metadata.loc[gal, "kpc per arcsec"] = kpc_per_arcsec
         df_metadata.loc[gal, "Field"] = field
         df_metadata.loc[gal, "Tile"] = tile
@@ -262,11 +262,12 @@ def _process_hector(args):
     kpc_per_arcsec = df_metadata.loc[gal, "kpc per arcsec"]
     nx = df_metadata.loc[gal, "N_x"].astype(int)
     ny = df_metadata.loc[gal, "N_y"].astype(int)
-    x0_px = df_metadata.loc[gal, "x0_px"].astype(int)
-    y0_px = df_metadata.loc[gal, "y0_px"].astype(int)
+    x0_px = df_metadata.loc[gal, "x_0 (pixels)"].astype(int)
+    y0_px = df_metadata.loc[gal, "y_0 (pixels)"].astype(int)
 
     #--------------------------------------------------------------------------
     # Filenames
+    #TODO instead of storing full path in df_metadata just store the filename & append the path
     datacube_B_fname = df_metadata.loc[gal, "Blue data cube FITS file"]
     datacube_R_fname = df_metadata.loc[gal, "Red data cube FITS file"]
     stekin_fname = df_metadata.loc[gal, "Stellar kinematics FITS file"]
@@ -711,10 +712,10 @@ def make_hector_df(ncomponents,
         "D_L (Mpc)",
         "N_x",
         "N_y",
-        "x0_px",
-        "y0_px",
-        "Galaxy centre x0_px (projected, arcsec)",
-        "Galaxy centre y0_px (projected, arcsec)",
+        "x_0 (pixels)",
+        "y_0 (pixels)",
+        "x_0 (arcsec)",
+        "y_0 (arcsec)",
         "kpc per arcsec",
     ]
     df_spaxels = df_spaxels.merge(df_metadata.loc[:, cols_to_merge].reset_index(), how="left", on="ID")

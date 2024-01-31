@@ -219,9 +219,9 @@ def plot2dmap(df,
         ny = int(np.nanmax(df_gal["y (pixels)"].values) + 1)
 
     # Get centre coordinates of image 
-    if "x0_px" in df_gal and "y0_px" in df_gal:
-        x0_px = int(df_gal["x0_px"].unique()[0])
-        y0_px = int(df_gal["y0_px"].unique()[0])
+    if "x_0 (pixels)" in df_gal and "y_0 (pixels)" in df_gal:
+        x0_px = int(df_gal["x_0 (pixels)"].unique()[0])
+        y0_px = int(df_gal["y_0 (pixels)"].unique()[0])
     else:
         logger.warn("x0_px and y0_px were not found in the DataFrame so I am assuming their values from the shape of the data")
         x0_px = nx / 2.

@@ -113,8 +113,8 @@ def make_s7_metadata_df():
         "S7_mosaic?": "Mosaic?",
         "S7_BPT_classification": "BPT (global)",
         "S7_z": "z",
-        "S7_nucleus_index_x": "x0_px",
-        "S7_nucleus_index_y": "y0_px"
+        "S7_nucleus_index_x": "x_0 (pixels)",
+        "S7_nucleus_index_y": "y_0 (pixels)"
     }
     df_metadata = df_metadata.rename(columns=rename_dict)
     df_metadata = df_metadata.set_index(df_metadata["ID"])

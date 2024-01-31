@@ -71,8 +71,8 @@ def _compute_snr(args, plotit=False):
     # De-project the centroids to the coordinate system of the galaxy plane
     ny, nx = data_cube_B.shape[1:]
     ys, xs = np.meshgrid(np.arange(ny), np.arange(nx), indexing="ij")
-    x_cc = xs - settings["sami"]["x0_px"]  # pixels
-    y_cc = ys - settings["sami"]["x0_px"]  # pixels
+    x_cc = xs - settings["sami"]["x_0 (pixels)"]  # pixels
+    y_cc = ys - settings["sami"]["x_0 (pixels)"]  # pixels
     x_prime = x_cc * np.cos(beta_rad) + y_cc * np.sin(beta_rad)
     y_prime_projec = (-x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad))
     y_prime = (-x_cc * np.sin(beta_rad) +
@@ -735,8 +735,8 @@ def _process_gals(args):
     x_prime_list, y_prime_list, r_prime_list = deproject_coordinates(
         x_c_list,
         y_c_list,
-        settings["sami"]["x0_px"],
-        settings["sami"]["y0_px"],
+        settings["sami"]["x_0 (pixels)"],
+        settings["sami"]["y_0 (pixels)"],
         PA_deg,
         i_deg,
     )
@@ -925,13 +925,13 @@ def _process_gals(args):
 
     # Add pixel coordinates
     rows_list.append(
-        np.array([settings["sami"]["x0_px"]] * ngood_bins) *
+        np.array([settings["sami"]["x_0 (pixels)"]] * ngood_bins) *
         settings["sami"]["as_per_px"])
-    colnames.append("Galaxy centre x0_px (projected, arcsec)")
+    colnames.append("x0 (arcsec)")
     rows_list.append(
-        np.array([settings["sami"]["y0_px"]] * ngood_bins) *
+        np.array([settings["sami"]["y_0 (pixels)"]] * ngood_bins) *
         settings["sami"]["as_per_px"])
-    colnames.append("Galaxy centre y0_px (projected, arcsec)")
+    colnames.append("y0 (arcsec)")
     rows_list.append(
         np.array(x_c_list).flatten() * settings["sami"]["as_per_px"])
     colnames.append("x (projected, arcsec)")
@@ -1520,8 +1520,8 @@ def load_sami_df(ncomponents,
     df["as_per_px"] = settings["sami"]["as_per_px"]
     df["N_x"] = settings["sami"]["N_x"]
     df["N_y"] = settings["sami"]["N_y"]
-    df["x0_px"] = settings["sami"]["x0_px"]
-    df["y0_px"] = settings["sami"]["y0_px"]
+    df["x_0 (pixels)"] = settings["sami"]["x_0 (pixels)"]
+    df["y_0 (pixels)"] = settings["sami"]["y_0 (pixels)"]
     df["ncomponents"] = ncomponents
     df["bin_type"] = bin_type
     df["__use_lzifu_fits"] = __use_lzifu_fits
