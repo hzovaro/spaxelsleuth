@@ -886,7 +886,7 @@ def ratio_fn(df, s=None):
             df["log He2"] = np.log10(df["He2"])
 
         if in_df(["SII6716", "SII6731"]):
-            df["S2 ratio"] = df["SII6716"] / df["SII6731"] 
+            df["[SII] ratio"] = df["SII6716"] / df["SII6731"] 
 
         # ERRORS for standard BPT axes
         if in_df(["NII6583 error", "HALPHA error"]):
@@ -910,7 +910,7 @@ def ratio_fn(df, s=None):
             df["log O3 error (upper)"] = np.log10(df["O3"] + df["O3 error"]) -  df["log O3"]
         
         if in_df(["SII6716 error", "SII6731 error"]):
-            df["S2 ratio error"] = df["S2 ratio"] * np.sqrt((df["SII6716 error"] / df["SII6716"])**2 + (df["SII6731 error"] / df["SII6731"])**2)
+            df["[SII] ratio error"] = df["[SII] ratio"] * np.sqrt((df["SII6716 error"] / df["SII6716"])**2 + (df["SII6731 error"] / df["SII6731"])**2)
 
     # Rename columns
     df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)

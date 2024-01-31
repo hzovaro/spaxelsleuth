@@ -75,10 +75,10 @@ cols_to_store_no_suffixes += [
     "log O3 error (lower)",
     "log O3 error (upper)",
     "BPT (numeric)",
-    "S2 ratio error",
-    "log S2 ratio",
-    "log S2 ratio error (lower)",
-    "log S2 ratio error (upper)",
+    "[SII] ratio error",
+    "log [SII] ratio",
+    "log [SII] ratio error (lower)",
+    "log [SII] ratio error (upper)",
 ]
 
 # Stellar kinematics 
