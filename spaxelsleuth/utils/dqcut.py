@@ -42,9 +42,9 @@ def compute_AN(df, ncomponents_max, eline_list):
                 lambda_obs_A = get_wavelength_from_velocity(lambda_rest=lambda_rest_A, 
                                                             v=df[f"v_gas (component {nn + 1})"], 
                                                             units='km/s')
-                df[f"{eline} lambda_obs (component {nn + 1}) (Å)"] = lambda_obs_A
-                df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] = lambda_obs_A * df[f"sigma_gas (component {nn + 1})"] * 1e3 / constants.c
-                df[f"{eline} A (component {nn + 1})"] = df[f"{eline} (component {nn + 1})"] / df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] / np.sqrt(2 * np.pi)
+                df[f"{eline} lambda_obs (Å) (component {nn + 1})"] = lambda_obs_A
+                df[f"{eline} sigma_gas (Å) (component {nn + 1})"] = lambda_obs_A * df[f"sigma_gas (component {nn + 1})"] * 1e3 / constants.c
+                df[f"{eline} A (component {nn + 1})"] = df[f"{eline} (component {nn + 1})"] / df[f"{eline} sigma_gas (Å) (component {nn + 1})"] / np.sqrt(2 * np.pi)
                 df[f"{eline} A/N (component {nn + 1})"] = df[f"{eline} A (component {nn + 1})"] / df[f"{eline} continuum std. dev."]
     
     return df
