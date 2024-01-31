@@ -812,8 +812,6 @@ def load_s7_df(eline_SNR_min,
     df["continuum units"] = "E-16 erg/cm^2/Å/s"  # Units of continuum & emission line flux
 
     # Add back in object-type columns
-    df["x, y (pixels)"] = list(
-        zip(df["x (pixels)"], df["y (pixels)"]))
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
 
     # Return

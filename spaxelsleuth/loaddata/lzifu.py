@@ -765,9 +765,6 @@ def load_lzifu_df(ncomponents,
     df["ncomponents"] = ncomponents
 
     # Add back in object-type columns
-    df["x, y (pixels)"] = list(
-    zip(df["x (projected, arcsec)"] / 0.5,
-        df["y (projected, arcsec)"] / 0.5))
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
 
     # Return
