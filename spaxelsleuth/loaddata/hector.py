@@ -437,6 +437,12 @@ def _process_hector(args):
     rows_list.append([gal] * len(x_c_list))
     colnames.append("ID")
 
+    # Add pixel sizes in arcsec and kpc 
+    rows_list.append([settings["sami"]["as_per_px"]**2] * len(x_c_list))
+    colnames.append("Bin size (square arcsec)")
+    rows_list.append([settings["sami"]["as_per_px"]**2 * df_metadata.loc[gal, "kpc per arcsec"]**2] * len(x_c_list))
+    colnames.append("Bin size (square kpc)")
+
     # Transpose so that each row represents a single pixel & each column a measured quantity.
     rows_arr = np.array(rows_list).T
 
@@ -867,7 +873,7 @@ if __name__ == "__main__":
     load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
     from spaxelsleuth.plotting.plot2dmap import plot2dmap
 
-    from .. import make_hector_metadata_df, make_hector_df, load_hector_df, load_hector_metadata_df
+    from hector import make_hector_metadata_df, make_hector_df, load_hector_df, load_hector_metadata_df
 
     ncomponents = "rec"
     nthreads = 3
@@ -881,7 +887,6 @@ if __name__ == "__main__":
                    eline_SNR_min=eline_SNR_min, 
                    eline_ANR_min=eline_ANR_min, 
                    correct_extinction=correct_extinction, 
-                   sigma_inst_kms=30, 
                    metallicity_diagnostics=["N2Ha_K19", "N2S2Ha_D16"],
                    nthreads=nthreads)
     
