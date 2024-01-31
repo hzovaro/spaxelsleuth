@@ -239,8 +239,8 @@ def plot2dmap(df,
                 xx = int(df_gal.iloc[rr]["x (pixels)"])
                 yy = int(df_gal.iloc[rr]["y (pixels)"])
             elif "x (projected, arcsec)" in df_gal and "y (projected, arcsec)" in df_gal:
-                xx = int(df_gal.iloc[rr]["x (projected, arcsec)"]) / as_per_px
-                yy = int(df_gal.iloc[rr]["y (projected, arcsec)"]) / as_per_px
+                xx = int(df_gal.iloc[rr]["x (projected, arcsec)"] / as_per_px)
+                yy = int(df_gal.iloc[rr]["y (projected, arcsec)"] / as_per_px)
             else:
                 raise ValueError("Columns 'x (pixels)' and 'y (pixels)' are required to reconstruct the 2D image!")
             col_z_map[yy, xx] = df_gal.iloc[rr][col_z]
@@ -362,8 +362,8 @@ def plot2dmap(df,
                     xx = int(df_gal.iloc[rr]["x (pixels)"])
                     yy = int(df_gal.iloc[rr]["y (pixels)"])
                 elif "x (projected, arcsec)" in df_gal and "y (projected, arcsec)" in df_gal:
-                    xx = int(df_gal.iloc[rr]["x (projected, arcsec)"]) / as_per_px
-                    yy = int(df_gal.iloc[rr]["y (projected, arcsec)"]) / as_per_px
+                    xx = int(df_gal.iloc[rr]["x (projected, arcsec)"] / as_per_px)
+                    yy = int(df_gal.iloc[rr]["y (projected, arcsec)"] / as_per_px)
                 else:
                     raise ValueError("Columns 'x (pixels)' and 'y (pixels)' are required to reconstruct the 2D image!")
                 col_z_contour_map[yy, xx] = df_gal.iloc[rr][col_z_contours]
