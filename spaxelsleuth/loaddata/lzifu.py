@@ -657,6 +657,7 @@ def make_lzifu_df(gals,
         correct_extinction=correct_extinction,
         metallicity_diagnostics=metallicity_diagnostics,
         compute_sfr=True,
+        flux_units=settings["lzifu"]["flux_units"],
         sigma_inst_kms=sigma_inst_kms,
         nthreads=nthreads,
         base_missing_flux_components_on_HALPHA=False,  # NOTE: this is important!!
@@ -763,6 +764,8 @@ def load_lzifu_df(ncomponents,
     # Add "metadata" columns to the DataFrame
     df["survey"] = "lzifu"
     df["ncomponents"] = ncomponents
+    df["flux_units"] = f"E{str(settings['lzifu']['flux_units']).lstrip('1e')} erg/cm^2/s"  # Units of emission line flux
+    df["continuum_units"] = f"E{str(settings['lzifu']['flux_units']).lstrip('1e')} erg/cm^2/Å/s"  # Units of continuum flux density
 
     # Add back in object-type columns
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])

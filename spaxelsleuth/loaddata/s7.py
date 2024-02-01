@@ -731,6 +731,7 @@ def make_s7_df(eline_SNR_min,
         correct_extinction=correct_extinction,
         metallicity_diagnostics=metallicity_diagnostics,
         compute_sfr=True,
+        flux_units=settings["s7"]["flux_units"],
         sigma_inst_kms=settings["s7"]["sigma_inst_kms"],
         nthreads=nthreads,
         base_missing_flux_components_on_HALPHA=
@@ -808,8 +809,8 @@ def load_s7_df(eline_SNR_min,
     df["survey"] = "s7"
     df["ncomponents"] = "merge"
     df["bin_type"] = "default"
-    df["flux units"] = "E-16 erg/cm^2/s"  # Units of continuum & emission line flux
-    df["continuum units"] = "E-16 erg/cm^2/Å/s"  # Units of continuum & emission line flux
+    df["flux_units"] = f"E{str(settings['s7']['flux_units']).lstrip('1e')} erg/cm^2/s"  # Units of emission line flux
+    df["continuum_units"] = f"E{str(settings['s7']['flux_units']).lstrip('1e')} erg/cm^2/Å/s"  # Units of continuum flux density
 
     # Add back in object-type columns
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])

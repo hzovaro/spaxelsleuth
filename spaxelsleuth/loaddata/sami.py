@@ -1380,6 +1380,7 @@ def make_sami_df(bin_type,
                              correct_extinction=correct_extinction,
                              metallicity_diagnostics=metallicity_diagnostics,
                              compute_sfr=False,
+                             flux_units=settings["sami"]["flux_units"],
                              sigma_inst_kms=settings["sami"]["sigma_inst_kms"],
                              nthreads=nthreads,
                              __use_lzifu_fits=__use_lzifu_fits,
@@ -1527,8 +1528,8 @@ def load_sami_df(ncomponents,
     df["__use_lzifu_fits"] = __use_lzifu_fits
     df["__lzifu_ncomponents"] = __lzifu_ncomponents
     df["debug"] = debug
-    df["flux units"] = "E-16 erg/cm^2/s"  # Units of continuum & emission line flux
-    df["continuum units"] = "E-16 erg/cm^2/Å/s"  # Units of continuum & emission line flux
+    df["flux_units"] = f"E{str(settings['sami']['flux_units']).lstrip('1e')} erg/cm^2/s"  # Units of emission line flux
+    df["continuum_units"] = f"E{str(settings['sami']['flux_units']).lstrip('1e')} erg/cm^2/Å/s"  # Units of continuum flux density
 
     # Add back in object-type columns
     df["Morphology"] = morph_num_to_str(df["Morphology (numeric)"])

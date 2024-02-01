@@ -746,6 +746,7 @@ def make_hector_df(ncomponents,
         correct_extinction=correct_extinction,
         metallicity_diagnostics=metallicity_diagnostics,
         compute_sfr=True,
+        flux_units=settings["hector"]["flux_units"],
         sigma_inst_kms=settings["hector"]["sigma_inst_kms"],  # TODO make this flexible 
         nthreads=nthreads,
         base_missing_flux_components_on_HALPHA=False,  # NOTE: this is important!!
@@ -851,9 +852,8 @@ def load_hector_df(ncomponents,
     df["ncomponents"] = ncomponents
     df["as_per_px"] = settings["hector"]["as_per_px"]
     df["bin_type"] = "default"
-    df["flux units"] = "E-16 erg/cm^2/s"  # TODO check! Units of continuum & emission line flux
-    df["continuum units"] = "E-16 erg/cm^2/Å/s"  # TODO check! Units of continuum & emission line flux
-
+    df["flux_units"] = f"E{str(settings['hector']['flux_units']).lstrip('1e')} erg/cm^2/s"  # Units of emission line flux
+    df["continuum_units"] = f"E{str(settings['hector']['flux_units']).lstrip('1e')} erg/cm^2/Å/s"  # Units of continuum flux density
     # Add back in object-type columns
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
 
@@ -875,6 +875,9 @@ if __name__ == "__main__":
 
     from hector import make_hector_metadata_df, make_hector_df, load_hector_df, load_hector_metadata_df
 
+    plt.ion()
+    plt.close("all")
+
     ncomponents = "rec"
     nthreads = 3
     eline_SNR_min=0
@@ -887,7 +890,7 @@ if __name__ == "__main__":
                    eline_SNR_min=eline_SNR_min, 
                    eline_ANR_min=eline_ANR_min, 
                    correct_extinction=correct_extinction, 
-                   metallicity_diagnostics=["N2Ha_K19", "N2S2Ha_D16"],
+                   metallicity_diagnostics=[],
                    nthreads=nthreads)
     
     df_spaxels = load_hector_df(ncomponents=ncomponents, 
@@ -900,8 +903,8 @@ if __name__ == "__main__":
         fig.subplots_adjust(wspace=0.4, hspace=0.4, top=0.95, bottom=0.05)
         plot2dmap(df_spaxels, gal=gal, col_z="HALPHA (total)", vmin=0, vmax="auto", ax=axs.flat[0])
         plot2dmap(df_spaxels, gal=gal, col_z="HALPHA EW (total)", ax=axs.flat[1])
-        plot2dmap(df_spaxels, gal=gal, col_z="log(O/H) + 12 (N2Ha_K19/O3O2_K19) (total)", ax=axs.flat[2])
-        plot2dmap(df_spaxels, gal=gal, col_z="BPT (total)", ax=axs.flat[3])
+        plot2dmap(df_spaxels, gal=gal, col_z="BPT (total)", ax=axs.flat[2])
+        plot2dmap(df_spaxels, gal=gal, col_z="log SFR (total)", ax=axs.flat[3])
 
 
 
