@@ -98,10 +98,10 @@ def add_columns(df, **kwargs):
                                             nthreads=kwargs["nthreads"],
                                             s=f" (component {nn + 1})")
 
-        df["Extinction correction applied"] = True
+        df["correct_extinction"] = True
     else:
         logger.info(f"skipping extinction correction...")
-        df["Extinction correction applied"] = False
+        df["correct_extinction"] = False
     df = df.sort_index()
 
     ######################################################################
