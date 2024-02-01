@@ -3,6 +3,7 @@ import datetime
 import numpy as np
 from pathlib import Path
 from time import time
+import warnings
 
 from spaxelsleuth import __version__
 from spaxelsleuth.config import settings
@@ -14,31 +15,17 @@ logger = logging.getLogger(__name__)
 from IPython.core.debugger import set_trace
 
 """
-TODO: store the schema somewhere here (grab from wiki) & use it to add comments in the FITS header
 TODO: units for each quantity 
 """
 
-cols_to_go_in_header = [
-    "ID",
-    "RA (J2000)",
-    "Dec (J2000)",
-    "z",
-    "D_A (Mpc)",
-    "D_L (Mpc)",
-    "N_x",
-    "N_y",
-    "x_0 (pixels)",
-    "y_0 (pixels)",
-    "kpc per arcsec",
-    "H0",
-    "OMEGA_0",
-    "x_0 (arcsec)",
-    "y_0 (arcsec)",
+# spaxelsleuth parameters to store in the PrimaryHDU
+spaxelsleuth_metadata_cols = [
     "eline_SNR_min",
-    "sigma_gas_SNR_min",
     "eline_ANR_min",
+    "sigma_gas_SNR_min",
     "line_flux_SNR_cut",
     "missing_fluxes_cut",
+    "missing_kinematics_cut",
     "line_amplitude_SNR_cut",
     "flux_fraction_cut",
     "vgrad_cut",
@@ -48,9 +35,9 @@ cols_to_go_in_header = [
     "ncomponents",
     "as_per_px",
     "bin_type",
-    "flux units",
-    "continuum units",
-    "Extinction correction applied",
+    "flux_units",
+    "continuum_units",
+    "correct_extinction",
 ]
 
 # Dict for converting DataFrame column names into <7-character strings for use as FITS header keys
@@ -83,6 +70,20 @@ header_strs = {
     "rec-component fit emission line FITS file" : "RECCOMP",
 }
 
+
+# TODO these need to be added back in, in a new section
+bad_keys = [
+    "Blue data cube FITS file",
+    "Red data cube FITS file",
+    "Stellar kinematics FITS file",
+    "Blue continuum fit FITS file",
+    "Red continuum fit FITS file",
+    "1-component fit emission line FITS file",
+    "2-component fit emission line FITS file",
+    "3-component fit emission line FITS file",
+    "rec-component fit emission line FITS file",
+]
+  
 
 def replace_unicode_chars(s):
     s = s.replace("å", "Ang").replace("Å", "Ang")
@@ -120,7 +121,6 @@ def export_fits(df, df_metadata, gals=None, cols_to_store_no_suffixes=None,):
     # Figure out which columns have associated components 
     cols_2d_no_suffixes = []  
     cols_3d_no_suffixes = []  # Contains all columns with associated "total" or "per-components" quantities
-    set_trace()
     for col in cols_to_store_no_suffixes:
         if any([f"{col} (component {component})" in df.columns for component in range(1, ncomponents_max + 1)]) or f"{col} (total)" in df.columns:
             cols_3d_no_suffixes.append(col)
@@ -131,8 +131,8 @@ def export_fits(df, df_metadata, gals=None, cols_to_store_no_suffixes=None,):
     # Determine list of galaxies for which to create FITS files 
     if gals is None:
         gals = df["ID"].unique()
-    for gal in gals:
 
+    for gal in gals:
         # Get subset of rows belonging to this galaxy 
         df_gal = df.loc[df["ID"] == gal]
 
@@ -149,17 +149,59 @@ def export_fits(df, df_metadata, gals=None, cols_to_store_no_suffixes=None,):
         # Add galaxy metadata to Primary HDU
         phdu = fits.PrimaryHDU()
         phdu.header["SURVEY"] = (survey)
-        for col in df_metadata.columns:
-            if col in header_strs.keys():
-                phdu.header[header_strs[col]] = (df_metadata.loc[gal, col], col)
+        lastkey = "SURVEY"
+        for col in [c for c in df_metadata.columns if c not in bad_keys]:
+            value = df_metadata.loc[gal, col]
+            if col in header_strs:
+                key = header_strs[col]
             else:
-                phdu.header[col] = df_metadata.loc[gal, col]
+                key = col
+            phdu.header[key] = (replace_unicode_chars(value) if type(value) == str else value, col)
+        # Append section header
+        # I can't believe that this is the only way to get the comment to go where I want it to go... fml
+        phdu.header.insert(lastkey, ("", ""), after=True)
+        phdu.header.insert(lastkey, ("", "Galaxy metadata"), after=True)
+        phdu.header.insert(lastkey, ("", ""), after=True)
+
+        # Add spaxelsleuth metadata to Primary HDU
+        lastkey = key
+        for col in spaxelsleuth_metadata_cols:
+            key = "hierarch " + col
+            value = df_gal[col].unique()[0]
+            phdu.header[key] = replace_unicode_chars(value) if type(value) == str else value
+        # Append section header
+        phdu.header["NOTES"] = ("See https://github.com/hzovaro/spaxelsleuth/wiki/Column-descriptions/ for parameter descriptions")
+        phdu.header.insert(lastkey, ("", ""), after=True)
+        phdu.header.insert(lastkey, ("", "spaxelsleuth parameters"), after=True)
+        phdu.header.insert(lastkey, ("", ""), after=True)
+
+        # Add filenames to Primary HDU
+        lastkey = "NOTES"
+        for col in bad_keys:
+            value = df_metadata.loc[gal, col]
+            if col in header_strs:
+                key = header_strs[col]
+            else:
+                key = col
+            phdu.header[key] = (replace_unicode_chars(value) if type(value) == str else value, col)
+        # Append section header
+        # I can't believe that this is the only way to get the comment to go where I want it to go... fml
+        phdu.header.insert(lastkey, ("", ""), after=True)
+        phdu.header.insert(lastkey, ("", "Input FITS files"), after=True)
+        phdu.header.insert(lastkey, ("", ""), after=True)
+
 
         # Add other info
+        lastkey = key
         phdu.header["DATE"] = (f"{datetime.datetime.fromtimestamp(time())}", "Date/time modified")
         phdu.header["VERSION"] = (__version__, "Spaxelsleuth version")
         phdu.header["AUTHOR"] = ("Henry Zovaro")
+        # Append section header
+        phdu.header.insert(lastkey, ("", ""), after=True)
+        phdu.header.insert(lastkey, ("", "Other info"), after=True)
+        phdu.header.insert(lastkey, ("", ""), after=True)
         hdulist.append(phdu)
+
 
         # Extract 2D maps corresponding to each column in df_gal
         _2d_maps = {}
@@ -217,9 +259,9 @@ def export_fits(df, df_metadata, gals=None, cols_to_store_no_suffixes=None,):
             hdulist.append(hdu)
 
         # Save to file 
-        # TODO filter warning here 
-        fits_path = Path(settings[survey]["fits_output_path"])
-        fits_fname = f"{gal}_data_products.fits"
-        logger.info(f"Creating FITS file {fits_path / fits_fname} for galaxy {gal}...")
-        hdulist.writeto(fits_path / fits_fname, overwrite=True, output_verify="ignore")
-        
+        with warnings.catch_warnings():
+            warnings.filterwarnings(action="ignore", category=fits.verify.VerifyWarning, message="Card is too long, comment will be truncated.")
+            fits_path = Path(settings[survey]["fits_output_path"])
+            fits_fname = f"{gal}_data_products.fits"
+            logger.info(f"Creating FITS file {fits_path / fits_fname} for galaxy {gal}...")
+            hdulist.writeto(fits_path / fits_fname, overwrite=True, output_verify="ignore")
