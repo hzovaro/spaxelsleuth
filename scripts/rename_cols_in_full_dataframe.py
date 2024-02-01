@@ -9,19 +9,7 @@ load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 from spaxelsleuth.config import settings
 
 rename_dict = {
-    "Galaxy centre x0_px (projected, arcsec)" : "x_0 (arcsec)",
-    "Galaxy centre y0_px (projected, arcsec)" : "y_0 (arcsec)",
-    "HALPHA lambda_obs (component 1) (Å)" : "HALPHA lambda_obs (Å) (component 1)",
-    "HALPHA sigma_gas (component 1) (Å)" : "HALPHA sigma_gas (Å) (component 1)",
-    "HALPHA lambda_obs (component 2) (Å)" : "HALPHA lambda_obs (Å) (component 2)",
-    "HALPHA sigma_gas (component 2) (Å)" : "HALPHA sigma_gas (Å) (component 2)",
-    "HALPHA lambda_obs (component 3) (Å)" : "HALPHA lambda_obs (Å) (component 3)",
-    "HALPHA sigma_gas (component 3) (Å)" : "HALPHA sigma_gas (Å) (component 3)",
-    "S2 ratio (total)" : "[SII] ratio (total)",
-    "S2 ratio error (total)" : "[SII] ratio error (total)",
-    "log S2 ratio (total)" : "log [SII] ratio (total)",
-    "log S2 ratio error (lower) (total)" : "log [SII] ratio error (lower) (total)",
-    "log S2 ratio error (upper) (total)" : "log [SII] ratio error (upper) (total)",
+    "Extinction correction applied": "correct_extinction",
 }
 
 eline_SNR_min = 5
