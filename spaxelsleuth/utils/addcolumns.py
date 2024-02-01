@@ -113,8 +113,8 @@ def add_columns(df, **kwargs):
     ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
     logger.info(f"computing additional quantities...")
-    df = continuum.compute_continuum_luminosity(df)
-    df = linefns.compute_eline_luminosity(df, ncomponents_max, eline_list=["HALPHA"])
+    df = continuum.compute_continuum_luminosity(df, flux_units=kwargs["flux_units"])
+    df = linefns.compute_eline_luminosity(df, ncomponents_max, eline_list=["HALPHA"], flux_units=kwargs["flux_units"])
     if kwargs["compute_sfr"]:
         df = linefns.compute_SFR(df, ncomponents_max)
     df = linefns.compute_FWHM(df, ncomponents_max)
