@@ -18,11 +18,6 @@ from spaxelsleuth.utils.velocity import compute_v_grad
 import logging
 logger = logging.getLogger(__name__)
 
-# TODO: put these in config 
-H0 = 70.0
-OMEGA_0 = 0.3
-
-
 ###############################################################################
 # Paths
 input_path = Path(settings["hector"]["input_path"])
@@ -196,7 +191,7 @@ def make_hector_metadata_df():
         # Get redshift & calculate distances 
         with fits.open(stekin_fname) as hdulist_stekin:
             z = hdulist_stekin[0].header["Z"]
-        cosmo = FlatLambdaCDM(H0=H0, Om0=OMEGA_0)
+        cosmo = FlatLambdaCDM(H0=settings["H_0"], Om0=settings["Omega_0"])
         D_A_Mpc = cosmo.angular_diameter_distance(z).value
         D_L_Mpc = cosmo.luminosity_distance(z).value
         kpc_per_arcsec = D_A_Mpc * 1e3 * np.pi / 180.0 / 3600.0
