@@ -100,10 +100,8 @@ def compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, start_A
     return cont_map, cont_map_std, cont_map_err
 
 ######################################################################
-def compute_continuum_luminosity(df):
-    """Compute HALPHA continuum luminosity.
-
-    NOTE: this calculation assumes that HALPHA continuum is in units of 1e-16 erg s^-1 cm^-2 Å-1.
+def compute_continuum_luminosity(df, flux_units):
+    """Compute HALPHA continuum luminosity, where the continuum line flux density units are given by flux_units erg s^-2 cm^-2 Å^-1.
     
     The output is in units of erg s^-1 Å-1.
 
@@ -123,8 +121,8 @@ def compute_continuum_luminosity(df):
     # HALPHA cont. luminosity: units of erg s^-1 Å-1 kpc^-2
     if all([col in df for col in ["D_L (Mpc)", "Bin size (square kpc)"]]):
         if all([col in df for col in ["HALPHA continuum", "HALPHA continuum error"]]):
-            df[f"HALPHA continuum luminosity"] = df[f"HALPHA continuum"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-            df[f"HALPHA continuum luminosity error"] = df[f"HALPHA continuum error"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+            df[f"HALPHA continuum luminosity"] = df[f"HALPHA continuum"] * flux_units * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+            df[f"HALPHA continuum luminosity error"] = df[f"HALPHA continuum error"] * flux_units * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
 
     return df
 
