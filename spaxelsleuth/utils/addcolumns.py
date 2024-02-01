@@ -136,9 +136,10 @@ def add_columns(df, **kwargs):
     ###############################################################################
     # Save input flags to the DataFrame
     logger.info(f"adding flags to DataFrame...")
-    for flag in ["eline_SNR_min", "sigma_gas_SNR_min", "eline_ANR_min",
-                 "line_flux_SNR_cut", "missing_fluxes_cut", "line_amplitude_SNR_cut",
-                 "flux_fraction_cut", "vgrad_cut", "sigma_gas_SNR_cut", "stekin_cut"]:
+    for flag in ["eline_SNR_min", "eline_ANR_min", "sigma_gas_SNR_min",
+                 "line_flux_SNR_cut", "missing_fluxes_cut", "missing_kinematics_cut", 
+                 "line_amplitude_SNR_cut", "flux_fraction_cut", "vgrad_cut", 
+                 "sigma_gas_SNR_cut", "stekin_cut"]:
         df[flag] = kwargs[flag]
 
     return df
