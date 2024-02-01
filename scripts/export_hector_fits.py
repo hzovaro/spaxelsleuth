@@ -6,12 +6,13 @@ from spaxelsleuth import load_user_config
 load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
 from spaxelsleuth.config import settings
 
-# TODO move these back to top
-
-from spaxelsleuth.loaddata.hector import load_hector_metadata_df, load_hector_df
+from spaxelsleuth.loaddata.hector import make_hector_df, make_hector_metadata_df, load_hector_metadata_df, load_hector_df
 from spaxelsleuth.plotting.plot2dmap import plot2dmap
 from spaxelsleuth.utils.exportfits import export_fits
 
+# Make the DataFrames 
+make_hector_metadata_df()
+make_hector_df(ncomponents="rec", eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
 
 # Load the DataFrames
 df_metadata = load_hector_metadata_df()
@@ -54,14 +55,6 @@ cols_to_store_no_suffixes += [
     "Balmer decrement error",
     "A_V",
     "A_V error",
-    "N2O2",
-    "N2S2",
-    "O3N2",
-    "R23",
-    "O3O2",
-    "O2O3",
-    "O1O3",
-    "Dopita+2016",
     "log N2",
     "log N2 error (lower)",
     "log N2 error (upper)",
@@ -79,6 +72,23 @@ cols_to_store_no_suffixes += [
     "log [SII] ratio",
     "log [SII] ratio error (lower)",
     "log [SII] ratio error (upper)",
+    "SFR",
+    "SFR error",
+    "log(O/H) + 12 (N2Ha_K19/O3O2_K19)",
+    "log(O/H) + 12 (N2Ha_K19/O3O2_K19) error (lower)",
+    "log(O/H) + 12 (N2Ha_K19/O3O2_K19) error (upper)",
+    "log(U) (N2Ha_K19/O3O2_K19)",
+    "log(U) (N2Ha_K19/O3O2_K19) error (lower)",
+    "log(U) (N2Ha_K19/O3O2_K19) error (upper)",
+    "log(O/H) + 12 (N2O2_K19/O3O2_K19)",
+    "log(O/H) + 12 (N2O2_K19/O3O2_K19) error (lower)",
+    "log(O/H) + 12 (N2O2_K19/O3O2_K19) error (upper)",
+    "log(U) (N2O2_K19/O3O2_K19)",
+    "log(U) (N2O2_K19/O3O2_K19) error (lower)",
+    "log(U) (N2O2_K19/O3O2_K19) error (upper)",
+    "log(O/H) + 12 (N2S2Ha_D16)",
+    "log(O/H) + 12 (N2S2Ha_D16) error (lower)",
+    "log(O/H) + 12 (N2S2Ha_D16) error (upper)",
 ]
 
 # Stellar kinematics 
