@@ -1,5 +1,6 @@
 from astropy.io import fits 
 import datetime
+from itertools import product
 import numpy as np
 from pathlib import Path
 from time import time
@@ -93,7 +94,7 @@ def replace_unicode_chars(s):
     return s
 
 
-def export_fits(df, df_metadata, gals=None, cols_to_store_no_suffixes=None,):
+def export_fits(df, df_metadata, gals=None, cols_to_store_no_suffixes=None, include_data_cubes=False):
     """Export a multi-extension FITS file from columns in df."""
 
     # Get survey name 
@@ -190,7 +191,6 @@ def export_fits(df, df_metadata, gals=None, cols_to_store_no_suffixes=None,):
         phdu.header.insert(lastkey, ("", "Input FITS files"), after=True)
         phdu.header.insert(lastkey, ("", ""), after=True)
 
-
         # Add other info
         lastkey = key
         phdu.header["DATE"] = (f"{datetime.datetime.fromtimestamp(time())}", "Date/time modified")
@@ -202,6 +202,29 @@ def export_fits(df, df_metadata, gals=None, cols_to_store_no_suffixes=None,):
         phdu.header.insert(lastkey, ("", ""), after=True)
         hdulist.append(phdu)
 
+        # Add the data and variance cubes
+        if include_data_cubes:
+            for side in ["blue", "red"]:
+                # Open the DataCube 
+                datacube_fname = df_metadata.loc[gal, "Blue data cube FITS file"]
+                with fits.open(datacube_fname) as hdulist_cube:
+                    header = hdulist_cube[0].header
+                    data_cube = hdulist_cube[0].data
+                    var_cube = hdulist_cube[1].data
+
+                    # Create the HDU
+                    hdu = fits.ImageHDU(data=data_cube)
+                    for axis, key in product(["1", "2", "3"], ["CRVAL", "CRPIX", "CDELT", "CUNIT"]):
+                        hdu.header[key + axis] = header[key + axis]
+                    hdu.header["BUNIT"] = header["BUNIT"]                    
+                    hdu.header["EXTNAME"] = f"Data cube - {side}"
+                    hdulist.append(hdu)
+                    hdu = fits.ImageHDU(data=var_cube)
+                    for axis, key in product(["1", "2", "3"], ["CRVAL", "CRPIX", "CDELT", "CUNIT"]):
+                        hdu.header[key + axis] = header[key + axis]
+                    hdu.header["BUNIT"] = header["BUNIT"]                    
+                    hdu.header["EXTNAME"] = f"Variance cube - {side}"
+                    hdulist.append(hdu)
 
         # Extract 2D maps corresponding to each column in df_gal
         _2d_maps = {}
