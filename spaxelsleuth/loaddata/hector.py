@@ -2,11 +2,13 @@
 import datetime
 from astropy.io import fits
 from astropy.cosmology import FlatLambdaCDM
+from glob import glob
 import multiprocessing
 import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+from tqdm import tqdm
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
@@ -66,6 +68,116 @@ def check_row(rows, colname, data, x_c_list, y_c_list, nx, ny):
     axs[2].set_title("Difference")
 
 
+def get_filenames():
+    """
+    Return a DataFrame containing galaxies with at least one data product + associated file names.
+    Putting this in its own function because the file structure is complicated and subject to change...
+    """
+    # Get ALL filenames
+    all_data_cube_files = glob(str(data_cube_path) + "/**/*.fits", recursive=True)
+    data_cube_files_B = [Path(f) for f in all_data_cube_files if "blue" in f]
+    data_cube_files_R = [Path(f) for f in all_data_cube_files if "red" in f]
+    continuum_fit_files_B = [continuum_fit_path / f for f in os.listdir(continuum_fit_path) if "blue" in f]
+    continuum_fit_files_R = [continuum_fit_path / f for f in os.listdir(continuum_fit_path) if "red" in f]
+    stekin_files = [stekin_path / f for f in os.listdir(stekin_path)]
+    eline_fit_files_reccomp = [eline_fit_path / f for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "reccomp" in f]
+    eline_fit_files_1comp = [eline_fit_path / f for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "1comp" in f]
+    eline_fit_files_2comp = [eline_fit_path / f for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "2comp" in f]
+    eline_fit_files_3comp = [eline_fit_path / f for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "3comp" in f]
+
+    # Now, check that each of these has each of Gabby's data products 
+    ids_with_initial_stel_kin = [g for g in set([f.split("_initial_kinematics")[0] for f in os.listdir(stekin_path) if f.endswith(".fits")])    ]
+    logger.info(f"len(ids_with_initial_stel_kin) = {len(ids_with_initial_stel_kin)}")
+
+    ids_with_cont_subtracted = [g for g in set([f.split("_blue_stel_subtract_final")[0] for f in os.listdir(continuum_fit_path) if f.endswith(".fits") and "blue" in f])    ]
+    logger.info(f"len(ids_with_cont_subtracted) = {len(ids_with_cont_subtracted)}")
+
+    ids_with_emission_cubes = [g for g in set([f.split("_reccomp")[0] for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "rec" in f])]
+    logger.info(f"len(ids_with_emission_cubes) = {len(ids_with_emission_cubes)}")
+
+    ids_with_all_data_products = list(set(ids_with_initial_stel_kin) & set(ids_with_cont_subtracted) & set(ids_with_emission_cubes))
+    logger.info(f"len(ids_with_all_data_products) = {len(ids_with_all_data_products)}")
+
+    # Susbet of IDs containing at least one data product
+    ids_all = list(set(ids_with_initial_stel_kin) | set(ids_with_cont_subtracted) | set(ids_with_emission_cubes))
+    df_filenames = pd.DataFrame(index=ids_all)
+
+    file_types = [
+        "Blue data cube FITS file",
+        "Red data cube FITS file",
+        "Blue continuum fit FITS file",
+        "Red continuum fit FITS file",
+        "Stellar kinematics FITS file",
+        f"rec-component fit emission line FITS file",
+        f"1-component fit emission line FITS file",
+        f"2-component fit emission line FITS file",
+        f"3-component fit emission line FITS file",
+    ]
+    file_lists = [
+        data_cube_files_B,
+        data_cube_files_R,
+        continuum_fit_files_B,
+        continuum_fit_files_R,
+        stekin_files,
+        eline_fit_files_reccomp,
+        eline_fit_files_1comp,
+        eline_fit_files_2comp,
+        eline_fit_files_3comp,
+    ]
+
+    # Now, hunt down the data cubes with the same gal AND tile number 
+    for id_str in tqdm(ids_all):
+
+        # Split into galaxy + tile
+        gal, tile = id_str.split("_")
+        tile_number = tile[1:]
+        df_filenames.loc[id_str, "ID"] = gal 
+        df_filenames.loc[id_str, "Tile"] = tile
+        df_filenames.loc[id_str, "Tile number"] = tile_number
+
+        # Find files 
+        for file_type, file_list in zip(file_types, file_lists):
+            
+            # Count how many files contain the galaxy and the tile number 
+            gal_file_list = []
+            for fname in file_list:
+                if gal in str(fname) and ((tile in str(fname)) or (f"tile_{tile_number}" in str(fname))):
+                    gal_file_list.append(fname)
+            
+            # Determine how to 
+            if len(gal_file_list) == 0:
+                logger.info(f"{id_str} has 0 {file_type} files!")
+                df_filenames.loc[id_str, f"Has {file_type}"] = False
+                df_filenames.loc[id_str, f"Duplicate {file_type}"] = False
+                df_filenames.loc[id_str, file_type] = ""
+            elif len(gal_file_list) > 1:
+                logger.info(f"{id_str} has {len(gal_file_list)} {file_type} files:")
+                for fname in gal_file_list:
+                    logger.info("\t" + fname)
+                    df_filenames.loc[id_str, f"Has {file_type}"] = True
+                df_filenames.loc[id_str, f"Duplicate {file_type}"] = True
+                df_filenames.loc[id_str, file_type] = gal_file_list
+            else:    
+                df_filenames.loc[id_str, f"Has {file_type}"] = True
+                df_filenames.loc[id_str, f"Duplicate {file_type}"] = False
+                df_filenames.loc[id_str, file_type] = gal_file_list[0]
+
+    # Determine how many IDs have all required data 
+    cond_good = np.ones(df_filenames.shape[0], dtype="bool")
+    for file_type in file_types:
+        cond_good &= df_filenames[f"Has {file_type}"]
+        cond_good &= ~df_filenames[f"Duplicate {file_type}"]
+    logger.info(f"{df_filenames[cond_good].shape[0]} / {df_filenames.shape[0]} have all required files")
+
+    # Check that all files exist 
+    logger.info("Checking that all files actually exist...")
+    for id_str in df_filenames[cond_good].index.values:
+        for file_type in file_types:
+            assert os.path.exists(df_filenames.loc[id_str, file_type])
+
+    return df_filenames
+
+
 ###############################################################################
 def make_hector_metadata_df():
     """Create the Hector "metadata" DataFrame.
@@ -112,7 +224,15 @@ def make_hector_metadata_df():
     ###########################################################################
     # Get list of unique galaxy IDs 
     ###########################################################################
-    gals = [int(g) for g in set([f.split("_")[0] for f in os.listdir(data_cube_path)])]
+    df_filenames = get_filenames()
+
+    # Check how many repeat gals there are 
+    # NOTE: this will automatically drop the 2nd galaxy if there are duplicates!!! 
+    df_no_duplicates = df_filenames.loc[~df_filenames["ID"].duplicated()]
+    df_no_duplicates.loc[:, "ID string"] = df_no_duplicates.index.values
+    df_no_duplicates = df_no_duplicates.set_index("ID")
+    gals = df_no_duplicates.index.values
+
     df_metadata = pd.DataFrame(data = {"ID": gals,}).set_index("ID")
 
     ###########################################################################
@@ -120,8 +240,12 @@ def make_hector_metadata_df():
     ###########################################################################
     for gal in gals:
         # Get the blue & read data cube names 
-        datacube_B_fnames = [data_cube_path / f for f in os.listdir(data_cube_path) if f.startswith(str(gal)) and "blue" in f]
-        datacube_R_fnames = [data_cube_path / f for f in os.listdir(data_cube_path) if f.startswith(str(gal)) and "red" in f]
+        #TODO check this 
+        data_cube_subdirs = [f for f in os.listdir(data_cube_path) if f.startswith(str(gal))]
+        assert len(data_cube_subdirs) == 1
+        data_cube_subdir = data_cube_subdirs[0]
+        datacube_B_fnames = [data_cube_path / data_cube_subdir / f for f in os.listdir(data_cube_path / data_cube_subdir) if f.startswith(str(gal)) and "blue" in f]
+        datacube_R_fnames = [data_cube_path / data_cube_subdir / f for f in os.listdir(data_cube_path / data_cube_subdir) if f.startswith(str(gal)) and "red" in f]
         assert len(datacube_B_fnames) == 1
         assert len(datacube_R_fnames) == 1
         datacube_B_fname = datacube_B_fnames[0]
@@ -163,6 +287,7 @@ def make_hector_metadata_df():
         field, tile = plateid_B.split("_") 
 
         # FITS filenames for stellar kinematics & continuum fit data products
+        # TODO why the fuck doesn't this work in data_products
         stekin_fnames = [stekin_path / f for f in os.listdir(stekin_path) if f.startswith(str(gal))]
         cont_fit_B_fnames = [continuum_fit_path / f for f in os.listdir(continuum_fit_path) if f.startswith(str(gal)) and "blue" in f]
         cont_fit_R_fnames = [continuum_fit_path / f for f in os.listdir(continuum_fit_path) if f.startswith(str(gal)) and "red" in f]
@@ -177,12 +302,14 @@ def make_hector_metadata_df():
         assert os.path.exists(cont_fit_R_fname)
 
         # Get FITS filenames for emission line fit data products
-        eline_fit_subdirs = [f for f in os.listdir(eline_fit_path) if f.startswith(str(gal))]
-        assert len(eline_fit_subdirs) == 1
-        eline_fit_subdir = eline_fit_subdirs[0]
+        # TODO check this
+        # eline_fit_subdirs = [f for f in os.listdir(eline_fit_path) if f.startswith(str(gal))]
+        # assert len(eline_fit_subdirs) == 1
+        # eline_fit_subdir = eline_fit_subdirs[0]
         eline_fit_fnames = []
         for ncomponents in [1, 2, 3, "rec"]:
-            eline_component_fit_fnames = [eline_fit_path / eline_fit_subdir / f for f in os.listdir(eline_fit_path / eline_fit_subdir) if f.startswith(str(gal)) and f"{ncomponents}comp" in f]
+            eline_component_fit_fnames = [eline_fit_path / f for f in os.listdir(eline_fit_path) if f.startswith(str(gal)) and f"{ncomponents}comp" in f]
+            # eline_component_fit_fnames = [eline_fit_path / eline_fit_subdir / f for f in os.listdir(eline_fit_path / eline_fit_subdir) if f.startswith(str(gal)) and f"{ncomponents}comp" in f]
             assert len(eline_component_fit_fnames) == 1
             eline_fit_fname = eline_component_fit_fnames[0]
             assert os.path.exists(eline_fit_fname)
