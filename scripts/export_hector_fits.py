@@ -11,8 +11,8 @@ from spaxelsleuth.plotting.plot2dmap import plot2dmap
 from spaxelsleuth.utils.exportfits import export_fits
 
 # Make the DataFrames 
-make_hector_metadata_df()
-make_hector_df(ncomponents="rec", eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
+# make_hector_metadata_df()
+# make_hector_df(ncomponents="rec", eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
 
 # Load the DataFrames
 df_metadata = load_hector_metadata_df()
