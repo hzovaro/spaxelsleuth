@@ -236,7 +236,7 @@ def make_hector_metadata_df():
     df_filenames = df_filenames_duplicates_has_all_files.loc[~df_filenames_duplicates_has_all_files["ID"].duplicated()]
     df_filenames.loc[:, "ID string"] = df_filenames.index.values
     df_filenames = df_filenames.set_index("ID")
-    df_filenames.index = df_filenames.index.astype(float)
+    df_filenames.index = df_filenames.index.astype(int)
     gals = df_filenames.index.values
 
     df_metadata = pd.DataFrame(data = {"ID": gals,}).set_index("ID")
@@ -245,18 +245,7 @@ def make_hector_metadata_df():
     # Iterate through all galaxies and scrape data from FITS files 
     ###########################################################################
     for gal in tqdm(gals):
-        # Get the blue & read data cube names 
-        #TODO check this 
-        # data_cube_subdirs = [f for f in os.listdir(data_cube_path) if f.startswith(str(gal))]
-        # assert len(data_cube_subdirs) == 1
-        # data_cube_subdir = data_cube_subdirs[0]
-        # datacube_B_fnames = [data_cube_path / data_cube_subdir / f for f in os.listdir(data_cube_path / data_cube_subdir) if f.startswith(str(gal)) and "blue" in f]
-        # datacube_R_fnames = [data_cube_path / data_cube_subdir / f for f in os.listdir(data_cube_path / data_cube_subdir) if f.startswith(str(gal)) and "red" in f]
-        # assert len(datacube_B_fnames) == 1
-        # assert len(datacube_R_fnames) == 1
-        # datacube_B_fname = datacube_B_fnames[0]
-        # datacube_R_fname = datacube_R_fnames[0]
-
+        # Get the blue & red data cube names
         datacube_B_fname = df_filenames.loc[gal, "Blue data cube FITS file"]
         datacube_R_fname = df_filenames.loc[gal, "Red data cube FITS file"]
         assert os.path.exists(datacube_B_fname)
@@ -296,17 +285,6 @@ def make_hector_metadata_df():
         field, tile = plateid_B.split("_") 
 
         # FITS filenames for stellar kinematics & continuum fit data products
-        # TODO why the fuck doesn't this work in data_products
-        # stekin_fnames = [stekin_path / f for f in os.listdir(stekin_path) if f.startswith(str(gal))]
-        # cont_fit_B_fnames = [continuum_fit_path / f for f in os.listdir(continuum_fit_path) if f.startswith(str(gal)) and "blue" in f]
-        # cont_fit_R_fnames = [continuum_fit_path / f for f in os.listdir(continuum_fit_path) if f.startswith(str(gal)) and "red" in f]
-        # assert len(stekin_fnames) == 1
-        # assert len(cont_fit_B_fnames) == 1
-        # assert len(cont_fit_R_fnames) == 1
-        # stekin_fname = stekin_fnames[0]
-        # cont_fit_B_fname = cont_fit_B_fnames[0]
-        # cont_fit_R_fname = cont_fit_R_fnames[0]
-
         stekin_fname = df_filenames.loc[gal, "Stellar kinematics FITS file"]
         cont_fit_B_fname = df_filenames.loc[gal, "Blue continuum fit FITS file"]
         cont_fit_R_fname = df_filenames.loc[gal, "Red continuum fit FITS file"]
@@ -315,19 +293,6 @@ def make_hector_metadata_df():
         assert os.path.exists(cont_fit_R_fname)
 
         # Get FITS filenames for emission line fit data products
-        # TODO check this
-        # eline_fit_subdirs = [f for f in os.listdir(eline_fit_path) if f.startswith(str(gal))]
-        # assert len(eline_fit_subdirs) == 1
-        # eline_fit_subdir = eline_fit_subdirs[0]
-        # eline_fit_fnames = []
-        # for ncomponents in [1, 2, 3, "rec"]:
-        #     eline_component_fit_fnames = [eline_fit_path / f for f in os.listdir(eline_fit_path) if f.startswith(str(gal)) and f"{ncomponents}comp" in f]
-        #     # eline_component_fit_fnames = [eline_fit_path / eline_fit_subdir / f for f in os.listdir(eline_fit_path / eline_fit_subdir) if f.startswith(str(gal)) and f"{ncomponents}comp" in f]
-        #     assert len(eline_component_fit_fnames) == 1
-        #     eline_fit_fname = eline_component_fit_fnames[0]
-        #     assert os.path.exists(eline_fit_fname)
-        #     eline_fit_fnames.append(eline_fit_fname)
-
         eline_fit_fnames = []
         for ncomponents in [1, 2, 3, "rec"]:
             eline_fit_fname = df_filenames.loc[gal, f"{ncomponents}-component fit emission line FITS file"]
@@ -408,7 +373,6 @@ def _process_hector(args):
 
     #--------------------------------------------------------------------------
     # Filenames
-    #TODO instead of storing full path in df_metadata just store the filename & append the path
     datacube_B_fname = df_metadata.loc[gal, "Blue data cube FITS file"]
     datacube_R_fname = df_metadata.loc[gal, "Red data cube FITS file"]
     stekin_fname = df_metadata.loc[gal, "Stellar kinematics FITS file"]

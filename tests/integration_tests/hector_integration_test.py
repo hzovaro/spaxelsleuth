@@ -1,9 +1,12 @@
 import numpy as np
 
 from spaxelsleuth import load_user_config, configure_logger
-load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
+try:
+    load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
+except FileNotFoundError:
+    load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 configure_logger(level="INFO")
-from spaxelsleuth.loaddata.hector import make_hector_metadata_df, make_hector_df, load_hector_df
+from spaxelsleuth.loaddata.hector import load_hector_metadata_df, make_hector_metadata_df, make_hector_df, load_hector_df
 
 from IPython.core.debugger import set_trace
 
@@ -19,13 +22,16 @@ def test_make_hector_metadata_df():
 
 def test_assertions_hector():
     """Run run_hector_assertion_tests() on a combination of inputs."""
+    df_metadata = load_hector_metadata_df()
+    gals = df_metadata.index.values[:10]
     for ncomponents in ["rec"]:
         logger.info(f"running assertion tests for Hector DataFrame with ncomponents={ncomponents}...")
-        run_hector_assertion_tests(ncomponents=ncomponents)
+        run_hector_assertion_tests(ncomponents=ncomponents, gals=gals)
         logger.info(f"assertion tests pased for Hector DataFrame with  ncomponents={ncomponents}!")
 
 
 def run_hector_assertion_tests(ncomponents,
+                   gals=None,
                    eline_SNR_min=5, 
                    eline_ANR_min=3, 
                    nthreads=10):
@@ -41,8 +47,8 @@ def run_hector_assertion_tests(ncomponents,
     }
 
     # Create the DataFrame
-    make_hector_df(**kwargs, correct_extinction=True, nthreads=nthreads)  
-    make_hector_df(**kwargs, correct_extinction=False, nthreads=nthreads)  
+    make_hector_df(**kwargs, gals=gals, correct_extinction=True, nthreads=nthreads)  
+    make_hector_df(**kwargs, gals=gals, correct_extinction=False, nthreads=nthreads)  
     
     # Load the DataFrame
     df = load_hector_df(**kwargs, correct_extinction=True)
@@ -64,8 +70,7 @@ def run_hector_assertion_tests(ncomponents,
     components = df.loc[~df["Number of components"].isna(), "Number of components"].unique()
     components.sort()
     if ncomponents == "rec":
-        # assert np.all(components == [0, 1, 2, 3])
-        assert np.all(components == [0, 1, 2])
+        assert np.all(components == [0, 1, 2, 3])
     elif ncomponents == "1":
         assert np.all(components == [0, 1])
 
