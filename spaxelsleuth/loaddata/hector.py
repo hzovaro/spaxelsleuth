@@ -77,22 +77,30 @@ def get_filenames():
     all_data_cube_files = glob(str(data_cube_path) + "/**/*.fits", recursive=True)
     data_cube_files_B = [Path(f) for f in all_data_cube_files if "blue" in f]
     data_cube_files_R = [Path(f) for f in all_data_cube_files if "red" in f]
-    continuum_fit_files_B = [continuum_fit_path / f for f in os.listdir(continuum_fit_path) if "blue" in f]
-    continuum_fit_files_R = [continuum_fit_path / f for f in os.listdir(continuum_fit_path) if "red" in f]
-    stekin_files = [stekin_path / f for f in os.listdir(stekin_path)]
-    eline_fit_files_reccomp = [eline_fit_path / f for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "reccomp" in f]
-    eline_fit_files_1comp = [eline_fit_path / f for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "1comp" in f]
-    eline_fit_files_2comp = [eline_fit_path / f for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "2comp" in f]
-    eline_fit_files_3comp = [eline_fit_path / f for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "3comp" in f]
+    
+    all_continuum_fit_files = glob(str(continuum_fit_path) + "/**/*.fits", recursive=True)
+    continuum_fit_files_B = [Path(f) for f in all_continuum_fit_files if "blue" in f]
+    continuum_fit_files_R = [Path(f) for f in all_continuum_fit_files if "red" in f]
+    
+    stekin_files = [Path(f) for f in glob(str(stekin_path) + "/**/*.fits", recursive=True)]
+
+    all_eline_fit_files = glob(str(eline_fit_path) + "/**/*.fits", recursive=True)
+    eline_fit_files_reccomp = [Path(f) for f in all_eline_fit_files if f.endswith(".fits") and "reccomp" in f]
+    eline_fit_files_1comp = [Path(f) for f in all_eline_fit_files if f.endswith(".fits") and "1comp" in f]
+    eline_fit_files_2comp = [Path(f) for f in all_eline_fit_files if f.endswith(".fits") and "2comp" in f]
+    eline_fit_files_3comp = [Path(f) for f in all_eline_fit_files if f.endswith(".fits") and "3comp" in f]
 
     # Now, check that each of these has each of Gabby's data products 
-    ids_with_initial_stel_kin = [g for g in set([f.split("_initial_kinematics")[0] for f in os.listdir(stekin_path) if f.endswith(".fits")])    ]
+    ids_with_initial_stel_kin = [f.stem.split("_initial_kinematics")[0] for f in stekin_files]
+    # ids_with_initial_stel_kin = [g for g in set([f.split("_initial_kinematics")[0] for f in os.listdir(stekin_path) if f.endswith(".fits")])    ]
     logger.info(f"len(ids_with_initial_stel_kin) = {len(ids_with_initial_stel_kin)}")
 
-    ids_with_cont_subtracted = [g for g in set([f.split("_blue_stel_subtract_final")[0] for f in os.listdir(continuum_fit_path) if f.endswith(".fits") and "blue" in f])    ]
+    ids_with_cont_subtracted = [f.stem.split("_blue_stel_subtract_final")[0] for f in continuum_fit_files_B]
+    # ids_with_cont_subtracted = [g for g in set([f.split("_blue_stel_subtract_final")[0] for f in os.listdir(continuum_fit_path) if f.endswith(".fits") and "blue" in f])    ]
     logger.info(f"len(ids_with_cont_subtracted) = {len(ids_with_cont_subtracted)}")
 
-    ids_with_emission_cubes = [g for g in set([f.split("_reccomp")[0] for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "rec" in f])]
+    ids_with_emission_cubes = [f.stem.split("_reccomp")[0] for f in eline_fit_files_reccomp]
+    # ids_with_emission_cubes = [g for g in set([f.split("_reccomp")[0] for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "rec" in f])]
     logger.info(f"len(ids_with_emission_cubes) = {len(ids_with_emission_cubes)}")
 
     ids_with_all_data_products = list(set(ids_with_initial_stel_kin) & set(ids_with_cont_subtracted) & set(ids_with_emission_cubes))
@@ -240,6 +248,24 @@ def make_hector_metadata_df():
     gals = df_filenames.index.values
 
     df_metadata = pd.DataFrame(data = {"ID": gals,}).set_index("ID")
+    # Initialise object-type columns to avoid pandas FutureWarning
+    for col in [
+        "Field",
+        "Tile",
+        "Spectrograph",
+        "Bundle",
+        "Plate ID",
+        "Blue data cube FITS file",
+        "Red data cube FITS file",
+        "Stellar kinematics FITS file",
+        "Blue continuum fit FITS file",
+        "Red continuum fit FITS file",
+        f"1-component fit emission line FITS file",
+        f"2-component fit emission line FITS file",
+        f"3-component fit emission line FITS file",
+        f"rec-component fit emission line FITS file",
+    ]:
+        df_metadata[col] = ""
 
     ###########################################################################
     # Iterate through all galaxies and scrape data from FITS files 
@@ -560,6 +586,7 @@ def make_hector_df(ncomponents,
                   correct_extinction,
                   gals=None,
                   df_fname=None,
+                  df_fname_tag=None,
                   sigma_gas_SNR_min=3,
                   line_flux_SNR_cut=True,
                   missing_fluxes_cut=True,
@@ -639,7 +666,7 @@ def make_hector_df(ncomponents,
         Minimum emission line flux S/N to adopt when making S/N and data 
         quality cuts.
 
-    eline_ANR_min:          float
+    eline_ANR_min:              float
         Minimum A/N to adopt for emission lines in each kinematic component,
         defined as the Gaussian amplitude divided by the continuum standard
         deviation in a nearby wavelength range.
@@ -651,6 +678,24 @@ def make_hector_df(ncomponents,
         correct_extinction is True. This is because stellar continuum extinction 
         measurements are not available, and so applying the correction only to the 
         Halpha fluxes may over-estimate the true EW.
+
+    gals:                       list of int (optional)
+        If specified, only create the DataFrame for the specified galaxies.
+
+    df_fname:                   str (optional)
+        If specified, overwrite the default DataFrame filename and save in 
+        output_path / df_fname instead. A .hd5 extension will be added if not
+        included in the filename. Can be useful in cases where you want to make 
+        multiple DataFrames with differing options that are not reflected in 
+        the default filename, e.g. line_flux_SNR_cut, or if you want to make 
+        separate DataFrames for different sets of galaxies.
+
+    df_fname_tag:               str (optional)
+        If specified, add a tag to the end of the default filename. Can be 
+        useful in cases where you want to make multiple DataFrames with differing
+        options that are not reflected in the default filename, e.g. 
+        line_flux_SNR_cut, or if you want to make separate DataFrames for different 
+        sets of galaxies.
 
     sigma_gas_SNR_min:          float (optional)
         Minimum velocity dipersion S/N to accept. Defaults to 3.
@@ -767,7 +812,11 @@ def make_hector_df(ncomponents,
         df_fname = f"hector_{ncomponents}-comp"
         if correct_extinction:
             df_fname += "_extcorr"
-        df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5"
+        df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}"
+        if df_fname_tag is not None:
+            df_fname += f"_{df_fname_tag}.hd5"
+        else:
+            df_fname += ".hd5"
 
     if (type(ncomponents) not in [int, str]) or (type(ncomponents) == str
                                                  and ncomponents != "rec"):
@@ -871,6 +920,7 @@ def load_hector_df(ncomponents,
                   eline_ANR_min,
                   correct_extinction,
                   df_fname=None,
+                  df_fname_tag=None,
                   key=None):
     """
     DESCRIPTION
@@ -936,7 +986,11 @@ def load_hector_df(ncomponents,
         df_fname = f"hector_{ncomponents}-comp"
         if correct_extinction:
             df_fname += "_extcorr"
-        df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5"
+        df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}"
+        if df_fname_tag is not None:
+            df_fname += f"_{df_fname_tag}.hd5"
+        else:
+            df_fname += ".hd5"
 
     if not os.path.exists(output_path / df_fname):
         raise FileNotFoundError(
