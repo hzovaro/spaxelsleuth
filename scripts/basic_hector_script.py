@@ -23,7 +23,7 @@ if __name__ == "__main__":
                 eline_SNR_min=5, 
                 eline_ANR_min=3, 
                 correct_extinction=True,
-                metallicity_diagnostics=["R23_KK04"],
+                metallicity_diagnostics=["N2Ha_K19"],
                 gals=gals,
                 nthreads=nthreads)
 
