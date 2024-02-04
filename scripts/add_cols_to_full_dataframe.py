@@ -33,8 +33,18 @@ for ncomponents in ["recom", "1"]:
                     )
 
                     # Add                    
+                    old_cols = df.columns
                     if "missing_kinematics_cut" not in df.columns:
                         df["missing_kinematics_cut"] = True
+                    new_cols = df.columns  
+                    added_cols = [c for c in new_cols if c not in old_cols]                      
+                    removed_cols = [c for c in old_cols if c not in new_cols]                      
+                    print("The following columns have been ADDED:")
+                    for col in added_cols:
+                        print(f"\t{col}")
+                    print("The following columns have been REMOVED:")
+                    for col in removed_cols:
+                        print(f"\t{col}")
 
                     # Overwrite 
                     df.to_hdf(
