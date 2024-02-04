@@ -106,8 +106,6 @@ def export_fits(df, df_metadata, gals=None, cols_to_store_no_suffixes=None,):
         ncomponents_max = df["ncomponents"].unique()[0]
 
     # Get numeric-type columns that can be stored as extensions in the FITS file
-    # TODO can we add sub-dividers into FITS headers to make them easier to read?
-
     all_numeric_cols = [c for c in df.columns if df[c].dtype != "object"]
     
     # User to optionally specify numeric-type columns. These must have their suffixes removed (i.e., "HALPHA" is OK, but "HALPHA (component 1)" is not)
