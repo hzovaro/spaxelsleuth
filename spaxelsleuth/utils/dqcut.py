@@ -576,7 +576,7 @@ def apply_flags(df,
                         # Cells to NaN
                         if eline == "HALPHA":
                             # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
-                            cols_low_flux_fraction += [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
+                            cols_low_flux_fraction = [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
                         else:
                             cols_low_flux_fraction = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
                         df.loc[cond_low_flux_fraction, cols_low_flux_fraction] = np.nan
