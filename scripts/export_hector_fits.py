@@ -14,12 +14,27 @@ from spaxelsleuth.plotting.plot2dmap import plot2dmap
 from spaxelsleuth.utils.exportfits import export_fits
 
 # Make the DataFrames 
-# make_hector_metadata_df()
-# make_hector_df(ncomponents="rec", eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
+make_hector_metadata_df()
+make_hector_df(ncomponents="rec", 
+               eline_SNR_min=5, 
+               eline_ANR_min=3, 
+               line_flux_SNR_cut=False,
+               missing_fluxes_cut=False,
+               missing_kinematics_cut=False,
+               line_amplitude_SNR_cut=False,
+               flux_fraction_cut=False,
+               sigma_gas_SNR_cut=False,
+               vgrad_cut=False,
+               correct_extinction=True,
+               df_fname_tag="nocuts")
 
 # Load the DataFrames
 df_metadata = load_hector_metadata_df()
-df = load_hector_df(ncomponents="rec", eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
+df = load_hector_df(ncomponents="rec", 
+                    eline_SNR_min=5, 
+                    eline_ANR_min=3, 
+                    correct_extinction=True,
+                    df_fname_tag="nocuts")
 
 # List of columns to export 
 cols_to_store_no_suffixes = []
@@ -78,21 +93,12 @@ cols_to_store_no_suffixes += [
     "SFR",
     "SFR error",
     # NOTE: the below must be in the DataFrame
-    # "log(O/H) + 12 (N2Ha_K19/O3O2_K19)",
-    # "log(O/H) + 12 (N2Ha_K19/O3O2_K19) error (lower)",
-    # "log(O/H) + 12 (N2Ha_K19/O3O2_K19) error (upper)",
-    # "log(U) (N2Ha_K19/O3O2_K19)",
-    # "log(U) (N2Ha_K19/O3O2_K19) error (lower)",
-    # "log(U) (N2Ha_K19/O3O2_K19) error (upper)",
-    # "log(O/H) + 12 (N2O2_K19/O3O2_K19)",
-    # "log(O/H) + 12 (N2O2_K19/O3O2_K19) error (lower)",
-    # "log(O/H) + 12 (N2O2_K19/O3O2_K19) error (upper)",
-    # "log(U) (N2O2_K19/O3O2_K19)",
-    # "log(U) (N2O2_K19/O3O2_K19) error (lower)",
-    # "log(U) (N2O2_K19/O3O2_K19) error (upper)",
-    # "log(O/H) + 12 (N2S2Ha_D16)",
-    # "log(O/H) + 12 (N2S2Ha_D16) error (lower)",
-    # "log(O/H) + 12 (N2S2Ha_D16) error (upper)",
+    "log(O/H) + 12 (N2Ha_K19/O3O2_K19)",
+    "log(O/H) + 12 (N2Ha_K19/O3O2_K19) error (lower)",
+    "log(O/H) + 12 (N2Ha_K19/O3O2_K19) error (upper)",
+    "log(U) (N2Ha_K19/O3O2_K19)",
+    "log(U) (N2Ha_K19/O3O2_K19) error (lower)",
+    "log(U) (N2Ha_K19/O3O2_K19) error (upper)",
 ]
 
 # Stellar kinematics 
@@ -122,4 +128,4 @@ cols_to_store_no_suffixes += [
     "Median spectral value (red)",
 ]
 
-export_fits(df, df_metadata, gals=df_metadata.index.values[:3], cols_to_store_no_suffixes=cols_to_store_no_suffixes)
+export_fits(df, df_metadata, cols_to_store_no_suffixes=cols_to_store_no_suffixes)
