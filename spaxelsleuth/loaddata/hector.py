@@ -210,7 +210,7 @@ def make_hector_metadata_df():
     USAGE
     ---------------------------------------------------------------------------
             
-            >>> from spaxelsleuth.loaddata.hector import make_hector_metadata_df
+            >>> from spaxelsleuth.io.hector import make_hector_metadata_df
             >>> make_hector_metadata_df()
 
     INPUTS
@@ -634,7 +634,7 @@ def make_hector_df(ncomponents,
     USAGE
     ---------------------------------------------------------------------------
     
-        >>> from spaxelsleuth.loaddata.hector import make_hector_df()
+        >>> from spaxelsleuth.io.hector import make_hector_df()
         >>> make_hector_df(ncomponents="1", bin_type="default", 
                          eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
 
@@ -966,7 +966,7 @@ def load_hector_df(ncomponents,
     ---------------------------------------------------------------------------
     load_hector_df() is called as follows:
 
-        >>> from spaxelsleuth.loaddata.hector import load_hector_df
+        >>> from spaxelsleuth.io.hector import load_hector_df
         >>> df = load_hector_df(ncomponents, eline_SNR_min, eline_ANR_min, 
                                correct_extinction)
 

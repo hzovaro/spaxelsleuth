@@ -138,7 +138,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     USAGE
     ---------------------------------------------------------------------------
             
-            >>> from spaxelsleuth.loaddata.sami import make_sami_metadata_df
+            >>> from spaxelsleuth.io.sami import make_sami_metadata_df
             >>> make_sami_metadata_df()
 
     INPUTS
@@ -1030,7 +1030,7 @@ def make_sami_df(bin_type,
     USAGE
     ---------------------------------------------------------------------------
     
-        >>> from spaxelsleuth.loaddata.sami import make_sami_df()
+        >>> from spaxelsleuth.io.sami import make_sami_df()
         >>> make_sami_df(ncomponents="1", bin_type="default", 
                          eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
 
@@ -1468,7 +1468,7 @@ def load_sami_df(ncomponents,
     ---------------------------------------------------------------------------
     load_sami_df() is called as follows:
 
-        >>> from spaxelsleuth.loaddata.sami import load_sami_df
+        >>> from spaxelsleuth.io.sami import load_sami_df
         >>> df = load_sami_df(ncomponents, bin_type, correct_extinction, 
                               eline_SNR_min, debug)
 

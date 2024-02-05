@@ -422,7 +422,7 @@ def make_lzifu_df(gals,
     USAGE
     ---------------------------------------------------------------------------
     
-        >>> from spaxelsleuth.loaddata.lzifu import make_lzifu_df()
+        >>> from spaxelsleuth.io.lzifu import make_lzifu_df()
         >>> make_lzifu_df(gals=gal_list, ncomponents=1, eline_SNR_min=5, 
                           eline_ANR_min=3, correct_extinction=True, 
                           sigma_inst_kms=30)
@@ -721,7 +721,7 @@ def load_lzifu_df(ncomponents,
     ---------------------------------------------------------------------------
     load_lzifu_df() is called as follows:
 
-        >>> from spaxelsleuth.loaddata.lzifu import load_lzifu_df
+        >>> from spaxelsleuth.io.lzifu import load_lzifu_df
         >>> df = load_lzifu_df(ncomponents, eline_SNR_min, eline_ANR_min, 
                                correct_extinction)
 

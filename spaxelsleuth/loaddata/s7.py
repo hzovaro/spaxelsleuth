@@ -46,7 +46,7 @@ def make_s7_metadata_df():
     USAGE
     ---------------------------------------------------------------------------
             
-            >>> from spaxelsleuth.loaddata.s7 import make_s7_metadata_df
+            >>> from spaxelsleuth.io.s7 import make_s7_metadata_df
             >>> make_s7_metadata_df()
 
     INPUTS
@@ -478,7 +478,7 @@ def make_s7_df(eline_SNR_min,
     USAGE
     ---------------------------------------------------------------------------
     
-        >>> from spaxelsleuth.loaddata.s7 import make_s7_df()
+        >>> from spaxelsleuth.io.s7 import make_s7_df()
         >>> make_s7_df(eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
 
     will create a DataFrame using the data products from 1-component Gaussian 
@@ -777,7 +777,7 @@ def load_s7_df(eline_SNR_min,
     ---------------------------------------------------------------------------
     load_s7_df() is called as follows:
 
-        >>> from spaxelsleuth.loaddata.s7 import load_s7_df
+        >>> from spaxelsleuth.io.s7 import load_s7_df
         >>> df = load_s7_df(eline_SNR_min, eline_ANR_min, correct_extinction)
 
     OUTPUTS
