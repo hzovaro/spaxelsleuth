@@ -287,6 +287,7 @@ def make_hector_metadata_df():
             ra_B = header_B["CRVAL1"]
             dec_B = header_B["CRVAL2"]
             plateid_B = header_B["PLATEID"]
+            ndither_B = int(header_B["NDITHER"])
             x0_px_B, y0_px_B = np.floor(header_B["CRPIX1"]).astype(int), np.floor(header_B["CRPIX2"]).astype(int)
             nx_B, ny_B = np.floor(header_B["NAXIS1"]).astype(int), np.floor(header_B["NAXIS2"]).astype(int)
             
@@ -297,6 +298,7 @@ def make_hector_metadata_df():
             ra_R = header_R["CRVAL1"]
             dec_R = header_R["CRVAL2"]
             plateid_R = header_R["PLATEID"]
+            ndither_R = int(header_R["NDITHER"])
             x0_px_R, y0_px_R = np.floor(header_R["CRPIX1"]).astype(int), np.floor(header_R["CRPIX2"]).astype(int)
             nx_R, ny_R = np.floor(header_R["NAXIS1"]).astype(int), np.floor(header_R["NAXIS2"]).astype(int)
             
@@ -310,6 +312,7 @@ def make_hector_metadata_df():
         assert ny_B == ny_R
         assert x0_px_B == x0_px_R
         assert y0_px_B == y0_px_R
+        assert ndither_B == ndither_R
         field, tile = plateid_B.split("_") 
 
         # FITS filenames for stellar kinematics & continuum fit data products
@@ -350,6 +353,7 @@ def make_hector_metadata_df():
         df_metadata.loc[gal, "kpc per arcsec"] = kpc_per_arcsec
         df_metadata.loc[gal, "Field"] = field
         df_metadata.loc[gal, "Tile"] = tile
+        df_metadata.loc[gal, "Dithers"] = ndither_B
         df_metadata.loc[gal, "Spectrograph"] = spectrograph_B
         df_metadata.loc[gal, "Bundle"] = bundle_B
         df_metadata.loc[gal, "Plate ID"] = plateid_B
