@@ -9,6 +9,7 @@ import warnings
 from spaxelsleuth import __version__
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.linefns import bpt_dict
+from spaxelsleuth.loaddata.hector import load_hector_metadata_df, load_hector_df
 
 import logging
 logger = logging.getLogger(__name__)
@@ -95,17 +96,24 @@ def replace_unicode_chars(s):
 
 
 def export_fits(
-    df, 
-    df_metadata, 
+    survey,
     gals=None, 
     cols_to_store_no_suffixes=None, 
     include_data_cubes=False,
     fname_suffix="",
+    **kwargs,
 ):
     """Export a multi-extension FITS file from columns in df."""
 
-    # Get survey name
-    survey = df["survey"].unique()[0]
+    # Load DataFrame
+    if survey == "hector":
+        df_metadata = load_hector_metadata_df()
+        df = load_hector_df(**kwargs)
+    elif survey == "sami":
+        df_metadata = load_sami_metadata_df()
+        df = load_sami_df(**kwargs)
+    else:
+        raise ValueError(f"Survey {survey} is not yet supported!")
 
     # Get number of components
     if df["ncomponents"].unique()[0] == "rec":
@@ -231,8 +239,8 @@ def export_fits(
             f"{datetime.datetime.fromtimestamp(time())}",
             "Date/time modified",
         )
-        phdu.header["FNAME"] = (df["fname"].unique()[0], "Input Spaxelsleuth DataFrame filename")
-        phdu.header["TSTAMP"] = (df["timestamp"].unique()[0], "Input Spaxelsleuth DataFrame timestamp")
+        phdu.header["FNAME"] = (str(df["fname"].unique()[0]), "Input Spaxelsleuth DataFrame filename")
+        phdu.header["TSTAMP"] = (str(df["timestamp"].unique()[0]), "Input Spaxelsleuth DataFrame timestamp")
         phdu.header["VERSION"] = (__version__, "Spaxelsleuth version")
         phdu.header["AUTHOR"] = "Henry Zovaro"
         # Append section header
