@@ -231,6 +231,8 @@ def export_fits(
             f"{datetime.datetime.fromtimestamp(time())}",
             "Date/time modified",
         )
+        phdu.header["FNAME"] = (df["fname"].unique()[0], "Input Spaxelsleuth DataFrame filename")
+        phdu.header["TSTAMP"] = (df["timestamp"].unique()[0], "Input Spaxelsleuth DataFrame timestamp")
         phdu.header["VERSION"] = (__version__, "Spaxelsleuth version")
         phdu.header["AUTHOR"] = "Henry Zovaro"
         # Append section header
