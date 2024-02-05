@@ -4,7 +4,7 @@ if __name__ == "__main__":
         load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
     except FileNotFoundError:
         load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
-    from spaxelsleuth.loaddata.s7 import make_s7_metadata_df, make_s7_df, load_s7_metadata_df, load_s7_df
+    from spaxelsleuth.io.s7 import make_s7_metadata_df, make_s7_df, load_s7_metadata_df, load_s7_df
 
     nthreads = 10
     eline_SNR_min = 3

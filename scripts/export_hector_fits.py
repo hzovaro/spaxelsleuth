@@ -10,7 +10,7 @@ except FileNotFoundError:
     load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 from spaxelsleuth.config import settings
 
-from spaxelsleuth.loaddata.hector import make_hector_df, make_hector_metadata_df, load_hector_metadata_df, load_hector_df
+from spaxelsleuth.io.hector import make_hector_df, make_hector_metadata_df, load_hector_metadata_df, load_hector_df
 from spaxelsleuth.plotting.plot2dmap import plot2dmap
 from spaxelsleuth.utils.exportfits import export_fits
 

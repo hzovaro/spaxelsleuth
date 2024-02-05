@@ -7,7 +7,7 @@ if __name__ == "__main__":
         load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
     except FileNotFoundError:
         load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
-    from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_df, load_sami_metadata_df, load_sami_df
+    from spaxelsleuth.io.sami import make_sami_metadata_df, make_sami_df, load_sami_metadata_df, load_sami_df
     from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
     from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours, plot2dscatter
 

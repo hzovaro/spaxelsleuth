@@ -7,7 +7,7 @@ if __name__ == "__main__":
         load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
     except FileNotFoundError:
         load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
-    from spaxelsleuth.loaddata.hector import make_hector_metadata_df, make_hector_df, load_hector_metadata_df, load_hector_df
+    from spaxelsleuth.io.hector import make_hector_metadata_df, make_hector_df, load_hector_metadata_df, load_hector_df
     from spaxelsleuth.plotting.plot2dmap import plot2dmap
 
     nthreads = 1
