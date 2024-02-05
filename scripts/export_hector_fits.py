@@ -10,61 +10,8 @@ except FileNotFoundError:
     load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 from spaxelsleuth.config import settings
 
-from spaxelsleuth.loaddata.hector import make_hector_df, make_hector_metadata_df, load_hector_metadata_df, load_hector_df
 from spaxelsleuth.plotting.plot2dmap import plot2dmap
 from spaxelsleuth.utils.exportfits import export_fits
-
-# Make the DataFrames 
-# make_hector_metadata_df()
-
-df_metadata = load_hector_metadata_df()
-gals = df_metadata.index.values
-
-# make_hector_df(ncomponents="rec", 
-#                eline_SNR_min=5, 
-#                eline_ANR_min=3, 
-#                line_flux_SNR_cut=False,
-#                missing_fluxes_cut=False,
-#                missing_kinematics_cut=False,
-#                line_amplitude_SNR_cut=False,
-#                flux_fraction_cut=False,
-#                sigma_gas_SNR_cut=False,
-#                vgrad_cut=False,
-#             #    gals=gals,
-#                metallicity_diagnostics=["N2Ha_K19"],
-#                correct_extinction=True,
-#                nthreads=40,
-#                df_fname_tag="nocuts")
-
-# make_hector_df(ncomponents="rec", 
-#                eline_SNR_min=5, 
-#                eline_ANR_min=3, 
-#                line_flux_SNR_cut=True,
-#                missing_fluxes_cut=True,
-#                missing_kinematics_cut=True,
-#                line_amplitude_SNR_cut=True,
-#                flux_fraction_cut=True,
-#                sigma_gas_SNR_cut=True,
-#                vgrad_cut=False,
-#             #    gals=gals,
-#                metallicity_diagnostics=["N2Ha_K19"],
-#                correct_extinction=True,
-#                nthreads=40,
-#                df_fname_tag="cuts")
-
-# Load the DataFrames
-df_nocuts = load_hector_df(ncomponents="rec", 
-                    eline_SNR_min=5, 
-                    eline_ANR_min=3, 
-                    correct_extinction=True,
-                    df_fname_tag="nocuts")
-
-# Load the DataFrames
-df_cuts = load_hector_df(ncomponents="rec", 
-                    eline_SNR_min=5, 
-                    eline_ANR_min=3, 
-                    correct_extinction=True,
-                    df_fname_tag="cuts")
 
 # List of columns to export 
 cols_to_store_no_suffixes = []
@@ -158,5 +105,22 @@ cols_to_store_no_suffixes += [
     "Median spectral value (red)",
 ]
 
-export_fits(df_cuts, df_metadata, cols_to_store_no_suffixes=cols_to_store_no_suffixes)
-export_fits(df_nocuts, df_metadata, cols_to_store_no_suffixes=cols_to_store_no_suffixes, fname_suffix="nocuts")
+export_fits(survey="hector",
+            cols_to_store_no_suffixes=cols_to_store_no_suffixes,
+            ncomponents="rec", 
+            eline_SNR_min=5, 
+            eline_ANR_min=3, 
+            correct_extinction=True,
+            df_fname_tag="nocuts",
+            fname_suffix="nocuts"
+)
+
+export_fits(survey="hector",
+            cols_to_store_no_suffixes=cols_to_store_no_suffixes,
+            ncomponents="rec", 
+            eline_SNR_min=5, 
+            eline_ANR_min=3, 
+            correct_extinction=True,
+            df_fname_tag="cuts",
+            fname_suffix="cuts"
+)
