@@ -83,7 +83,7 @@ def run_sami_assertion_tests(ncomponents,
     # DATA QUALITY AND S/N CUT TESTS
     # CHECK: stellar kinematics have been masked out
     cond_bad_stekin = df["Bad stellar kinematics"]
-    for col in [c for c in df.columns if "v_*" in c or "sigma_*" in c]:
+    for col in [c for c in df.columns if ("v_*" in c or "sigma_*" in c) and "flag" not in c]:
         assert all(df.loc[cond_bad_stekin, col].isna())
 
     # CHECK: sigma_gas S/N cut
@@ -142,6 +142,13 @@ def run_sami_assertion_tests(ncomponents,
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (upper) (component {nn + 1})"]))
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (lower) (component {nn + 1})"]))
 
+    # CHECK: no "missing" kinematics 
+    for col in ["sigma_gas", "v_gas"]:
+        for nn in range(3 if ncomponents == "rec" else 1):
+            assert not any(df[f"{col} (component {nn + 1})"].isna() & ~df[f"{col} error (component {nn + 1})"].isna())
+    for col in ["sigma_*", "v_*"]:
+        assert not any(df[col].isna() & ~df[f"{col} error"].isna())
+        
     # CHECK: all kinematic quantities in spaxels with 0 original components are NaN
     for col in ["sigma_gas", "v_gas"]:
         for nn in range(3 if ncomponents == "recom" else 1):

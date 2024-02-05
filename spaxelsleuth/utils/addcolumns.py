@@ -98,10 +98,10 @@ def add_columns(df, **kwargs):
                                             nthreads=kwargs["nthreads"],
                                             s=f" (component {nn + 1})")
 
-        df["Extinction correction applied"] = True
+        df["correct_extinction"] = True
     else:
         logger.info(f"skipping extinction correction...")
-        df["Extinction correction applied"] = False
+        df["correct_extinction"] = False
     df = df.sort_index()
 
     ######################################################################
@@ -113,8 +113,8 @@ def add_columns(df, **kwargs):
     ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
     logger.info(f"computing additional quantities...")
-    df = continuum.compute_continuum_luminosity(df)
-    df = linefns.compute_eline_luminosity(df, ncomponents_max, eline_list=["HALPHA"])
+    df = continuum.compute_continuum_luminosity(df, flux_units=kwargs["flux_units"])
+    df = linefns.compute_eline_luminosity(df, ncomponents_max, eline_list=["HALPHA"], flux_units=kwargs["flux_units"])
     if kwargs["compute_sfr"]:
         df = linefns.compute_SFR(df, ncomponents_max)
     df = linefns.compute_FWHM(df, ncomponents_max)
@@ -136,9 +136,10 @@ def add_columns(df, **kwargs):
     ###############################################################################
     # Save input flags to the DataFrame
     logger.info(f"adding flags to DataFrame...")
-    for flag in ["eline_SNR_min", "sigma_gas_SNR_min", "eline_ANR_min",
-                 "line_flux_SNR_cut", "missing_fluxes_cut", "line_amplitude_SNR_cut",
-                 "flux_fraction_cut", "vgrad_cut", "sigma_gas_SNR_cut", "stekin_cut"]:
+    for flag in ["eline_SNR_min", "eline_ANR_min", "sigma_gas_SNR_min",
+                 "line_flux_SNR_cut", "missing_fluxes_cut", "missing_kinematics_cut", 
+                 "line_amplitude_SNR_cut", "flux_fraction_cut", "vgrad_cut", 
+                 "sigma_gas_SNR_cut", "stekin_cut"]:
         df[flag] = kwargs[flag]
 
     return df

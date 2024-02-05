@@ -71,8 +71,8 @@ def _compute_snr(args, plotit=False):
     # De-project the centroids to the coordinate system of the galaxy plane
     ny, nx = data_cube_B.shape[1:]
     ys, xs = np.meshgrid(np.arange(ny), np.arange(nx), indexing="ij")
-    x_cc = xs - settings["sami"]["x0_px"]  # pixels
-    y_cc = ys - settings["sami"]["x0_px"]  # pixels
+    x_cc = xs - settings["sami"]["x_0 (pixels)"]  # pixels
+    y_cc = ys - settings["sami"]["x_0 (pixels)"]  # pixels
     x_prime = x_cc * np.cos(beta_rad) + y_cc * np.sin(beta_rad)
     y_prime_projec = (-x_cc * np.sin(beta_rad) + y_cc * np.cos(beta_rad))
     y_prime = (-x_cc * np.sin(beta_rad) +
@@ -430,7 +430,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     # Add angular scale info
     ###########################################################################
     logger.info(f"computing distances...")
-    cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
+    cosmo = FlatLambdaCDM(H0=settings["H_0"], Om0=settings["Omega_0"])
     for gal in gal_ids_dq_cut:
         D_A_Mpc = cosmo.angular_diameter_distance(df_metadata.loc[gal,
                                                                   "z"]).value
@@ -735,8 +735,8 @@ def _process_gals(args):
     x_prime_list, y_prime_list, r_prime_list = deproject_coordinates(
         x_c_list,
         y_c_list,
-        settings["sami"]["x0_px"],
-        settings["sami"]["y0_px"],
+        settings["sami"]["x_0 (pixels)"],
+        settings["sami"]["y_0 (pixels)"],
         PA_deg,
         i_deg,
     )
@@ -925,13 +925,13 @@ def _process_gals(args):
 
     # Add pixel coordinates
     rows_list.append(
-        np.array([settings["sami"]["x0_px"]] * ngood_bins) *
+        np.array([settings["sami"]["x_0 (pixels)"]] * ngood_bins) *
         settings["sami"]["as_per_px"])
-    colnames.append("Galaxy centre x0_px (projected, arcsec)")
+    colnames.append("x_0 (arcsec)")
     rows_list.append(
-        np.array([settings["sami"]["y0_px"]] * ngood_bins) *
+        np.array([settings["sami"]["y_0 (pixels)"]] * ngood_bins) *
         settings["sami"]["as_per_px"])
-    colnames.append("Galaxy centre y0_px (projected, arcsec)")
+    colnames.append("y_0 (arcsec)")
     rows_list.append(
         np.array(x_c_list).flatten() * settings["sami"]["as_per_px"])
     colnames.append("x (projected, arcsec)")
@@ -988,6 +988,7 @@ def make_sami_df(bin_type,
                  eline_list=settings["sami"]["eline_list"],
                  line_flux_SNR_cut=True,
                  missing_fluxes_cut=True,
+                 missing_kinematics_cut=True,
                  line_amplitude_SNR_cut=True,
                  flux_fraction_cut=False,
                  sigma_gas_SNR_cut=True,
@@ -1096,6 +1097,11 @@ def make_sami_df(bin_type,
     missing_fluxes_cut:         bool (optional)
         Whether to NaN out "missing" fluxes - i.e., cells in which the flux
         of an emission line (total or per component) is NaN, but the error 
+        is not for some reason. Default: True.
+
+    missing_kinematics_cut: bool
+        Whether to NaN out "missing" values for v_gas/sigma_gas/v_*/sigma_* - 
+        i.e., cells in which the measurement itself is NaN, but the error 
         is not for some reason. Default: True.
 
     line_amplitude_SNR_cut:     bool (optional)
@@ -1365,6 +1371,7 @@ def make_sami_df(bin_type,
                              eline_list=eline_list,
                              line_flux_SNR_cut=line_flux_SNR_cut,
                              missing_fluxes_cut=missing_fluxes_cut,
+                             missing_kinematics_cut=missing_kinematics_cut,
                              line_amplitude_SNR_cut=line_amplitude_SNR_cut,
                              flux_fraction_cut=flux_fraction_cut,
                              sigma_gas_SNR_cut=sigma_gas_SNR_cut,
@@ -1373,6 +1380,7 @@ def make_sami_df(bin_type,
                              correct_extinction=correct_extinction,
                              metallicity_diagnostics=metallicity_diagnostics,
                              compute_sfr=False,
+                             flux_units=settings["sami"]["flux_units"],
                              sigma_inst_kms=settings["sami"]["sigma_inst_kms"],
                              nthreads=nthreads,
                              __use_lzifu_fits=__use_lzifu_fits,
@@ -1513,20 +1521,17 @@ def load_sami_df(ncomponents,
     df["as_per_px"] = settings["sami"]["as_per_px"]
     df["N_x"] = settings["sami"]["N_x"]
     df["N_y"] = settings["sami"]["N_y"]
-    df["x0_px"] = settings["sami"]["x0_px"]
-    df["y0_px"] = settings["sami"]["y0_px"]
+    df["x_0 (pixels)"] = settings["sami"]["x_0 (pixels)"]
+    df["y_0 (pixels)"] = settings["sami"]["y_0 (pixels)"]
     df["ncomponents"] = ncomponents
     df["bin_type"] = bin_type
     df["__use_lzifu_fits"] = __use_lzifu_fits
     df["__lzifu_ncomponents"] = __lzifu_ncomponents
     df["debug"] = debug
-    df["flux units"] = "E-16 erg/cm^2/s"  # Units of continuum & emission line flux
-    df["continuum units"] = "E-16 erg/cm^2/Å/s"  # Units of continuum & emission line flux
+    df["flux_units"] = f"E{str(settings['sami']['flux_units']).lstrip('1e')} erg/cm^2/s"  # Units of emission line flux
+    df["continuum_units"] = f"E{str(settings['sami']['flux_units']).lstrip('1e')} erg/cm^2/Å/s"  # Units of continuum flux density
 
     # Add back in object-type columns
-    df["x, y (pixels)"] = list(
-    zip(df["x (projected, arcsec)"] / 0.5,
-        df["y (projected, arcsec)"] / 0.5))
     df["Morphology"] = morph_num_to_str(df["Morphology (numeric)"])
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
 

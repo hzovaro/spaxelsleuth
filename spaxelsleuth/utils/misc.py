@@ -151,7 +151,7 @@ def compute_log_columns(df, ncomponents_max):
     # Halpha flux and EW for individual components
     with warnings.catch_warnings():
         warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="invalid value encountered in log10")
-        for col in ["HALPHA luminosity", "HALPHA continuum", "HALPHA EW", "sigma_gas", "S2 ratio"]:
+        for col in ["HALPHA luminosity", "HALPHA continuum", "HALPHA EW", "sigma_gas", "[SII] ratio"]:
             for s in ["(total)"] + [f"(component {nn})" for nn in range(1, ncomponents_max + 1)]:
                 # Compute log quantities for total 
                 if f"{col} {s}" in df:

@@ -19,19 +19,19 @@ def bpt_num_to_str(s):
     return [bpt_dict[str(a)] for a in s]
 
 ######################################################################
-def compute_eline_luminosity(df, ncomponents_max, eline_list):
-    """Compute emission line luminosities."""
+def compute_eline_luminosity(df, ncomponents_max, eline_list, flux_units):
+    """Compute emission line luminosities, where the emission line flux units are given by flux_units erg s^-2 cm^-2."""
     logger.debug(f"computing emission line luminosities...")
     # Line luminosity: units of erg s^-1 kpc^-2
     if all([col in df for col in ["D_L (Mpc)", "Bin size (square kpc)"]]):
         for eline in eline_list:
             if all([col in df for col in [f"{eline} (total)", f"{eline} error (total)"]]):
-                df[f"{eline} luminosity (total)"] = df[f"{eline} (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-                df[f"{eline} luminosity error (total)"] = df[f"{eline} error (total)"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+                df[f"{eline} luminosity (total)"] = df[f"{eline} (total)"] * flux_units * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+                df[f"{eline} luminosity error (total)"] = df[f"{eline} error (total)"] * flux_units * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
             for nn in range(ncomponents_max):
                 if all([col in df for col in [f"{eline} (component {nn + 1})", f"{eline} error (component {nn + 1})"]]):
-                    df[f"{eline} luminosity (component {nn + 1})"] = df[f"{eline} (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
-                    df[f"{eline} luminosity error (component {nn + 1})"] = df[f"{eline} error (component {nn + 1})"] * 1e-16 * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+                    df[f"{eline} luminosity (component {nn + 1})"] = df[f"{eline} (component {nn + 1})"] * flux_units * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
+                    df[f"{eline} luminosity error (component {nn + 1})"] = df[f"{eline} error (component {nn + 1})"] * flux_units * 4 * np.pi * (df["D_L (Mpc)"] * 1e6 * 3.086e18)**2 * 1 / df["Bin size (square kpc)"]
 
     return df
 
@@ -886,7 +886,7 @@ def ratio_fn(df, s=None):
             df["log He2"] = np.log10(df["He2"])
 
         if in_df(["SII6716", "SII6731"]):
-            df["S2 ratio"] = df["SII6716"] / df["SII6731"] 
+            df["[SII] ratio"] = df["SII6716"] / df["SII6731"] 
 
         # ERRORS for standard BPT axes
         if in_df(["NII6583 error", "HALPHA error"]):
@@ -910,7 +910,7 @@ def ratio_fn(df, s=None):
             df["log O3 error (upper)"] = np.log10(df["O3"] + df["O3 error"]) -  df["log O3"]
         
         if in_df(["SII6716 error", "SII6731 error"]):
-            df["S2 ratio error"] = df["S2 ratio"] * np.sqrt((df["SII6716 error"] / df["SII6716"])**2 + (df["SII6731 error"] / df["SII6731"])**2)
+            df["[SII] ratio error"] = df["[SII] ratio"] * np.sqrt((df["SII6716 error"] / df["SII6716"])**2 + (df["SII6731 error"] / df["SII6731"])**2)
 
     # Rename columns
     df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)
@@ -933,7 +933,7 @@ def sfr_fn(df, s=f" (total)"):
 
     # Use the Calzetti relation to calculate the SFR only when the BPT classification in this component is star-forming
     if "HALPHA luminosity" in df and "BPT (numeric)" in df:
-        cond_SF = df["BPT (numeric)"] != 0
+        cond_SF = df["BPT (numeric)"] == 0
         df.loc[cond_SF, "SFR"] = df.loc[cond_SF, "HALPHA luminosity"] * 5.5e-42  # Taken from Calzetti (2013); assumes stellar mass range 0.1–100 M⊙, τ ≥6 Myr, Te=104 k, ne=100 cm−3
         df.loc[cond_SF, "SFR error"] = df.loc[cond_SF, "HALPHA luminosity error"] * 5.5e-42  
 

@@ -64,6 +64,8 @@ def test_get_slices_in_velocity_range():
 
     # Test case 1: all zeros - wavelength range should simply be the input wavelength ranges
     v_map = np.zeros((3, 3))
+    v_map[:1] = np.nan
+    v_is_nan = np.isnan(v_map)
     result_data_cube, result_var_cube = velocity.get_slices_in_velocity_range(
         data_cube,
         var_cube,
@@ -72,6 +74,9 @@ def test_get_slices_in_velocity_range():
         lambda_rest_stop_A,
         v_map,
     )
+
+    # Check NaNs in v_map haven't been overwritten
+    assert np.all(np.isnan(v_map[v_is_nan]))
 
     # Check if the shape of the result matches the input
     assert result_data_cube.shape == data_cube.shape, "Result data cube shape mismatch!"

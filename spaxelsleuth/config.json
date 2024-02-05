@@ -1,12 +1,47 @@
 {   
-    "comments": "NOTE: for large surveys with a fixed, well-defined data format such as SAMI, we define variables such as the cube size (N_x, N_y), centre coordinates (x0_px, y0_px) and plate scale (as_per_px) here because we can safely assume that they will be the same for all objects. For others such as S7 and lzifu, it makes more sense to measure these from the data directly as they can change from object to object. That is why these variables are not defined here. But we have to make sure they are measured and recorded in the DataFrame in a consistent format!!",
+    "comments": "NOTE: for large surveys with a fixed, well-defined data format such as SAMI, we define variables such as the cube size (N_x, N_y), centre coordinates (x_0 (pixels), y_0 (pixels)) and plate scale (as_per_px) here because we can safely assume that they will be the same for all objects. For others such as S7 and lzifu, it makes more sense to measure these from the data directly as they can change from object to object. That is why these variables are not defined here. But we have to make sure they are measured and recorded in the DataFrame in a consistent format!!",
     "sdss_im_path": "sami/sdss/",
+    "H_0": 70,
+    "Omega_0": 0.3,
+    "hector": {
+        "flux_units": 1e-16,
+        "as_per_px": 0.5,
+        "N_x": null,
+        "N_y": null,
+        "x_0 (pixels)": null,
+        "y_0 (pixels)": null,
+        "sigma_inst_kms": 29.6,
+        "eline_list": [
+            "OII3726",
+            "OII3729",
+            "HDELTA",
+            "HGAMMA",
+            "HBETA",
+            "OIII4959",
+            "OIII5007",
+            "OI6300",
+            "OI6364",
+            "NII6548",
+            "NII6583",
+            "HALPHA",
+            "SII6716",
+            "SII6731"
+        ],
+        "bin_types": [
+            "default"
+        ],
+        "data_cube_path": "hector/input/",
+        "input_path": "hector/input",
+        "output_path": "hector/output",
+        "fits_output_path": "hector/output/fits/"
+    },
     "sami": {
+        "flux_units": 1e-16,
         "as_per_px": 0.5,
         "N_x": 50,
         "N_y": 50,
-        "x0_px": 24.5,
-        "y0_px": 24.5,
+        "x_0 (pixels)": 24.5,
+        "y_0 (pixels)": 24.5,
         "sigma_inst_kms": 29.6,
         "eline_list": [
             "HALPHA",
@@ -29,6 +64,7 @@
         "lzifu_products_path": "sami/lzifu/products/"
     },
     "s7": {
+        "flux_units": 1e-16,
         "as_per_px": 1.0,
         "bin_types": [
             "default"
@@ -39,6 +75,7 @@
         "sigma_inst_kms": 17.45887754671766
     },
     "lzifu": {
+        "flux_units": 1e-16,
         "bin_types": [
             "default"
         ],
@@ -47,6 +84,7 @@
         "output_path": "lzifu/output"
     },
     "manga": {
+        "flux_units": 1e-16,
         "bin_types": [
             "default"
         ],

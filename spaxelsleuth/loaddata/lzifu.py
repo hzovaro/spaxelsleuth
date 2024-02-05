@@ -91,7 +91,7 @@ def _process_lzifu(args):
     z = t["Z"][0]
 
     # Calculate cosmological distances from the redshift
-    cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
+    cosmo = FlatLambdaCDM(H0=settings["H_0"], Om0=settings["Omega_0"])
     D_A_Mpc = cosmo.angular_diameter_distance(z).value
     D_L_Mpc = cosmo.luminosity_distance(z).value
     kpc_per_arcsec = D_A_Mpc * 1e3 * np.pi / 180.0 / 3600.0
@@ -380,6 +380,7 @@ def make_lzifu_df(gals,
                   sigma_gas_SNR_min=3,
                   line_flux_SNR_cut=True,
                   missing_fluxes_cut=True,
+                  missing_kinematics_cut=True,
                   line_amplitude_SNR_cut=True,
                   flux_fraction_cut=False,
                   sigma_gas_SNR_cut=True,
@@ -486,6 +487,11 @@ def make_lzifu_df(gals,
     missing_fluxes_cut:         bool (optional)
         Whether to NaN out "missing" fluxes - i.e., cells in which the flux
         of an emission line (total or per component) is NaN, but the error 
+        is not for some reason. Default: True.
+
+    missing_kinematics_cut: bool
+        Whether to NaN out "missing" values for v_gas/sigma_gas/v_*/sigma_* - 
+        i.e., cells in which the measurement itself is NaN, but the error 
         is not for some reason. Default: True.
 
     line_amplitude_SNR_cut:     bool (optional)
@@ -642,6 +648,7 @@ def make_lzifu_df(gals,
         eline_list=eline_list,
         line_flux_SNR_cut=line_flux_SNR_cut,
         missing_fluxes_cut=missing_fluxes_cut,
+        missing_kinematics_cut=missing_kinematics_cut,
         line_amplitude_SNR_cut=line_amplitude_SNR_cut,
         flux_fraction_cut=flux_fraction_cut,
         sigma_gas_SNR_cut=sigma_gas_SNR_cut,
@@ -650,6 +657,7 @@ def make_lzifu_df(gals,
         correct_extinction=correct_extinction,
         metallicity_diagnostics=metallicity_diagnostics,
         compute_sfr=True,
+        flux_units=settings["lzifu"]["flux_units"],
         sigma_inst_kms=sigma_inst_kms,
         nthreads=nthreads,
         base_missing_flux_components_on_HALPHA=False,  # NOTE: this is important!!
@@ -756,11 +764,10 @@ def load_lzifu_df(ncomponents,
     # Add "metadata" columns to the DataFrame
     df["survey"] = "lzifu"
     df["ncomponents"] = ncomponents
+    df["flux_units"] = f"E{str(settings['lzifu']['flux_units']).lstrip('1e')} erg/cm^2/s"  # Units of emission line flux
+    df["continuum_units"] = f"E{str(settings['lzifu']['flux_units']).lstrip('1e')} erg/cm^2/Å/s"  # Units of continuum flux density
 
     # Add back in object-type columns
-    df["x, y (pixels)"] = list(
-    zip(df["x (projected, arcsec)"] / 0.5,
-        df["y (projected, arcsec)"] / 0.5))
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
 
     # Return

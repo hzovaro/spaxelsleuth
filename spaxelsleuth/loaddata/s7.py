@@ -113,8 +113,8 @@ def make_s7_metadata_df():
         "S7_mosaic?": "Mosaic?",
         "S7_BPT_classification": "BPT (global)",
         "S7_z": "z",
-        "S7_nucleus_index_x": "x0_px",
-        "S7_nucleus_index_y": "y0_px"
+        "S7_nucleus_index_x": "x_0 (pixels)",
+        "S7_nucleus_index_y": "y_0 (pixels)"
     }
     df_metadata = df_metadata.rename(columns=rename_dict)
     df_metadata = df_metadata.set_index(df_metadata["ID"])
@@ -128,7 +128,7 @@ def make_s7_metadata_df():
     # Add angular scale info
     ###############################################################################
     logger.info(f"computing distances...")
-    cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
+    cosmo = FlatLambdaCDM(H0=settings["H_0"], Om0=settings["Omega_0"])
     for gal in gals:
         D_A_Mpc = cosmo.angular_diameter_distance(df_metadata.loc[gal, "z"]).value
         D_L_Mpc = cosmo.luminosity_distance(df_metadata.loc[gal, "z"]).value
@@ -440,6 +440,7 @@ def make_s7_df(eline_SNR_min,
                sigma_gas_SNR_min=3,
                line_flux_SNR_cut=True,
                missing_fluxes_cut=True,
+               missing_kinematics_cut=True,
                line_amplitude_SNR_cut=True,
                flux_fraction_cut=False,
                sigma_gas_SNR_cut=True,
@@ -523,6 +524,11 @@ def make_s7_df(eline_SNR_min,
     missing_fluxes_cut:         bool (optional)
         Whether to NaN out "missing" fluxes - i.e., cells in which the flux
         of an emission line (total or per component) is NaN, but the error 
+        is not for some reason. Default: True.
+
+    missing_kinematics_cut: bool
+        Whether to NaN out "missing" values for v_gas/sigma_gas/v_*/sigma_* - 
+        i.e., cells in which the measurement itself is NaN, but the error 
         is not for some reason. Default: True.
 
     line_amplitude_SNR_cut:     bool (optional)
@@ -716,6 +722,7 @@ def make_s7_df(eline_SNR_min,
         eline_list=eline_list,
         line_flux_SNR_cut=line_flux_SNR_cut,
         missing_fluxes_cut=missing_fluxes_cut,
+        missing_kinematics_cut=missing_kinematics_cut,
         line_amplitude_SNR_cut=line_amplitude_SNR_cut,
         flux_fraction_cut=flux_fraction_cut,
         sigma_gas_SNR_cut=sigma_gas_SNR_cut,
@@ -724,6 +731,7 @@ def make_s7_df(eline_SNR_min,
         correct_extinction=correct_extinction,
         metallicity_diagnostics=metallicity_diagnostics,
         compute_sfr=True,
+        flux_units=settings["s7"]["flux_units"],
         sigma_inst_kms=settings["s7"]["sigma_inst_kms"],
         nthreads=nthreads,
         base_missing_flux_components_on_HALPHA=
@@ -801,12 +809,10 @@ def load_s7_df(eline_SNR_min,
     df["survey"] = "s7"
     df["ncomponents"] = "merge"
     df["bin_type"] = "default"
-    df["flux units"] = "E-16 erg/cm^2/s"  # Units of continuum & emission line flux
-    df["continuum units"] = "E-16 erg/cm^2/Å/s"  # Units of continuum & emission line flux
+    df["flux_units"] = f"E{str(settings['s7']['flux_units']).lstrip('1e')} erg/cm^2/s"  # Units of emission line flux
+    df["continuum_units"] = f"E{str(settings['s7']['flux_units']).lstrip('1e')} erg/cm^2/Å/s"  # Units of continuum flux density
 
     # Add back in object-type columns
-    df["x, y (pixels)"] = list(
-        zip(df["x (pixels)"], df["y (pixels)"]))
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
 
     # Return

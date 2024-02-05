@@ -472,7 +472,7 @@ def make_sami_aperture_df(eline_SNR_min,
                 a_v_col_name=f"A_V ({ap})",
                 nthreads=nthreads,
                 s=f" ({ap})")
-    df_ap["Extinction correction applied"] = correct_extinction
+    df_ap["correct_extinction"] = correct_extinction
     df_ap = df_ap.sort_index()
 
     ######################################################################

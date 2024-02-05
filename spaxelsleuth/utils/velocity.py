@@ -83,6 +83,7 @@ def get_slices_in_velocity_range(
     lambda_vals_rest_A_cube[:] = lambda_vals_rest_A[:, None, None]
 
     # For indices where the velocity is NaN - assume that it's zero
+    v_map = v_map.copy()  # Make a copy so that we don't accidentally overwrite the original velocity field
     v_map[np.isnan(v_map)] = 0
 
     # Min/max wavelength values taking into account the velocities in each spaxel

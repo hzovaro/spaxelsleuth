@@ -42,9 +42,9 @@ def compute_AN(df, ncomponents_max, eline_list):
                 lambda_obs_A = get_wavelength_from_velocity(lambda_rest=lambda_rest_A, 
                                                             v=df[f"v_gas (component {nn + 1})"], 
                                                             units='km/s')
-                df[f"{eline} lambda_obs (component {nn + 1}) (Å)"] = lambda_obs_A
-                df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] = lambda_obs_A * df[f"sigma_gas (component {nn + 1})"] * 1e3 / constants.c
-                df[f"{eline} A (component {nn + 1})"] = df[f"{eline} (component {nn + 1})"] / df[f"{eline} sigma_gas (component {nn + 1}) (Å)"] / np.sqrt(2 * np.pi)
+                df[f"{eline} lambda_obs (Å) (component {nn + 1})"] = lambda_obs_A
+                df[f"{eline} sigma_gas (Å) (component {nn + 1})"] = lambda_obs_A * df[f"sigma_gas (component {nn + 1})"] * 1e3 / constants.c
+                df[f"{eline} A (component {nn + 1})"] = df[f"{eline} (component {nn + 1})"] / df[f"{eline} sigma_gas (Å) (component {nn + 1})"] / np.sqrt(2 * np.pi)
                 df[f"{eline} A/N (component {nn + 1})"] = df[f"{eline} A (component {nn + 1})"] / df[f"{eline} continuum std. dev."]
     
     return df
@@ -64,6 +64,16 @@ def compute_measured_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_
 
     # Wavelength window in which to compute A/N
     # NOTE: these wavelength values apply to the REST-FRAME wavelength grid, NOT the observer-frame one.
+    # BUG: before we fixed get_slices_in_velocity_range, which was used in 
+    # compute_continuum_intensity which is called prior to this in sami.py, 
+    # any NaNs in v_map would have been replaced by zeros. 
+    # BUT... this is actually desired behaviour!!! If there is a very weak 
+    # emission line, it may fall below the threshold at which LZIFU performs
+    # the fit, but we still want to measure the S/N even if no fit was performed.
+
+    # For indices where the gas velocity is NaN - assume that it's zero.
+    v_map = v_map.copy()  # Make a copy so that we don't accidentally overwrite the original velocity field
+    v_map[np.isnan(v_map)] = 0
     lambda_max_A = get_wavelength_from_velocity(6562.8, v_map + dv, units="km/s")
     lambda_min_A = get_wavelength_from_velocity(6562.8, v_map - dv, units="km/s")
 
@@ -79,13 +89,13 @@ def compute_measured_HALPHA_amplitude_to_noise(data_cube, var_cube, lambda_vals_
     return AN_HALPHA_map
 
 ###############################################################################
-def  set_flags(df, 
-               eline_SNR_min, 
-               eline_ANR_min,
-               eline_list, 
-               ncomponents_max,
-               sigma_inst_kms,
-               sigma_gas_SNR_min=3,):
+def set_flags(df, 
+              eline_SNR_min, 
+              eline_ANR_min,
+              eline_list, 
+              ncomponents_max,
+              sigma_inst_kms,
+              sigma_gas_SNR_min=3,):
     """Set data quality & S/N flags.
     This function can be used to determine whether certain cells pass or fail 
     a number of data quality and S/N criteria. 
@@ -143,9 +153,15 @@ def  set_flags(df,
         for nn in range(ncomponents_max):
             if f"v_gas (component {nn + 1})" in df:
                 df[f"Beam smearing flag (component {nn + 1})"] = False
+                df[f"Missing v_gas flag (component {nn + 1})"] = False
             if f"sigma_gas (component {nn + 1})" in df:
                 df[f"Low sigma_gas S/N flag (component {nn + 1})"] = False
+                df[f"Missing sigma_gas flag (component {nn + 1})"] = False
         df[f"Bad stellar kinematics"] = False
+        if "v_*" in df:
+            df["Missing v_* flag"] = False
+        if "sigma_*" in df:
+            df["Missing sigma_* flag"] = False
 
         for eline in eline_list:
             for nn in range(ncomponents_max):
@@ -203,6 +219,26 @@ def  set_flags(df,
                 cond_missing_flux = df[f"{eline} (total)"].isna() & ~df[f"{eline} error (total)"].isna()
                 df.loc[cond_missing_flux, f"Missing flux flag - {eline} (total)"] = True
                 logger.debug(f"{eline} (total): {df[cond_missing_flux].shape[0]:d} spaxels have missing total fluxes")
+
+        ######################################################################
+        # Flag spaxels with "missing" (i.e. NaN) kinematics in which the 
+        # ERROR on the measured quantity is not NaN
+        ######################################################################
+        logger.debug("flagging kinematic components with NaN values and finite errors...")
+        # Gas kinematics
+        for quantity in ["v_gas", "sigma_gas"]:
+            for nn in range(ncomponents_max):
+                if f"{quantity} (component {nn + 1})" in df.columns:
+                    cond_missing_quantity = df[f"{quantity} (component {nn + 1})"].isna() & ~df[f"{quantity} error (component {nn + 1})"].isna()
+                    df.loc[cond_missing_quantity, f"Missing {quantity} flag (component {nn + 1})"] = True
+                    logger.debug(f"{quantity} (component {nn + 1}): {df[cond_missing_quantity].shape[0]:d} spaxels have missing {quantity} in this component")
+        
+        # Stellar kinematics
+        for quantity in ["v_*", "sigma_*"]:
+            if quantity in df.columns:
+                cond_missing_quantity = df[f"{quantity}"].isna() & ~df[f"{quantity} error"].isna()
+                df.loc[cond_missing_quantity, f"Missing {quantity} flag"] = True
+                logger.debug(f"{quantity}: {df[cond_missing_quantity].shape[0]:d} spaxels have missing {quantity} in this component")
 
         ######################################################################
         # Flag rows where any component doesn't meet the amplitude 
@@ -310,6 +346,7 @@ def apply_flags(df,
                 eline_list,
                 line_flux_SNR_cut, 
                 missing_fluxes_cut,
+                missing_kinematics_cut,
                 line_amplitude_SNR_cut,
                 flux_fraction_cut,
                 sigma_gas_SNR_cut,
@@ -337,6 +374,11 @@ def apply_flags(df,
         Whether to NaN out "missing" fluxes - i.e., cells in which the flux
         of an emission line (total or per component) is NaN, but the error 
         is not for some reason.    
+
+    missing_kinematics_cut: bool
+        Whether to NaN out "missing" values for v_gas/sigma_gas/v_*/sigma_* - 
+        i.e., cells in which the measurement itself is NaN, but the error 
+        is not for some reason.
 
     line_amplitude_SNR_cut: bool     
         Whether to NaN emission line components based on the amplitude of the
@@ -479,6 +521,24 @@ def apply_flags(df,
                         cols_missing_fluxes = [c for c in df.columns if eline in c and f"(total)" in c and "flag" not in c]
                     df.loc[cond_missing_flux, cols_missing_fluxes] = np.nan
 
+        if missing_kinematics_cut:
+            # Gas kinematics 
+            for quantity in ["v_gas", "sigma_gas"]:
+                logger.debug(f"masking components with missing {quantity}...")
+                for nn in range(ncomponents_max):
+                    if f"{quantity} (component {nn + 1})" in df:
+                        cond_missing_quantity = df[f"Missing {quantity} flag (component {nn + 1})"]
+                        cols_missing_quantity = [f"{quantity} (component {nn + 1})", f"{quantity} error (component {nn + 1})"]
+                        df.loc[cond_missing_quantity, cols_missing_quantity] = np.nan
+
+            # Stellar kinematics
+            logger.debug(f"masking rows with missing {quantity}...")
+            for quantity in ["v_*", "sigma_*"]:
+                if quantity in df:
+                    cond_missing_quantity = df[f"Missing {quantity} flag"]
+                    cols_missing_quantity = [quantity, f"{quantity} error"]
+                    df.loc[cond_missing_quantity, cols_missing_quantity] = np.nan
+
         if line_amplitude_SNR_cut:
             logger.debug("masking components that don't meet the amplitude requirements...")
             for eline in eline_list:
@@ -516,7 +576,7 @@ def apply_flags(df,
                         # Cells to NaN
                         if eline == "HALPHA":
                             # Then NaN out EVERYTHING associated with this component - if we can't trust HALPHA then we probably can't trust anything else either!
-                            cols_low_flux_fraction += [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
+                            cols_low_flux_fraction = [c for c in df.columns if f"(component {nn + 1})" in c and "flag" not in c]
                         else:
                             cols_low_flux_fraction = [c for c in df.columns if eline in c and f"(component {nn + 1})" in c and "flag" not in c]
                         df.loc[cond_low_flux_fraction, cols_low_flux_fraction] = np.nan
@@ -549,7 +609,7 @@ def apply_flags(df,
                 cond_bad_stekin = df["Bad stellar kinematics"]
 
                 # Cells to NaN
-                cols_stekin_cut = [c for c in df.columns if "v_*" in c or "sigma_*" in c]
+                cols_stekin_cut = [c for c in df.columns if ("v_*" in c or "sigma_*" in c) and "flag" not in c]
                 df.loc[cond_bad_stekin, cols_stekin_cut] = np.nan
 
         ######################################################################
