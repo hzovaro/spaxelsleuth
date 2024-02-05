@@ -6,7 +6,7 @@ try:
 except FileNotFoundError:
     load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 configure_logger(level="INFO")
-from spaxelsleuth.loaddata.hector import load_hector_metadata_df, make_hector_metadata_df, make_hector_df, load_hector_df
+from spaxelsleuth.io.hector import load_hector_metadata_df, make_hector_metadata_df, make_hector_df, load_hector_df
 
 from IPython.core.debugger import set_trace
 

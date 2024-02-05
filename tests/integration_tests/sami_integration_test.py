@@ -3,7 +3,7 @@ import numpy as np
 from spaxelsleuth import load_user_config, configure_logger
 load_user_config("test_config.json")
 configure_logger(level="INFO")
-from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_df, load_sami_df
+from spaxelsleuth.io.sami import make_sami_metadata_df, make_sami_df, load_sami_df
 
 import logging
 logger = logging.getLogger(__name__)
