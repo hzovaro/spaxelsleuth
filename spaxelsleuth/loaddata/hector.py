@@ -1002,8 +1002,9 @@ def load_hector_df(ncomponents,
 
     # Load the data frame
     t = os.path.getmtime(output_path / df_fname)
+    timestamp = datetime.datetime.fromtimestamp(t)
     logger.info(
-        f"loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
+        f"loading DataFrame from file {output_path / df_fname} [last modified {timestamp}]..."
     )
     if key is not None:
         df = pd.read_hdf(output_path / df_fname, key=key)
@@ -1019,6 +1020,8 @@ def load_hector_df(ncomponents,
     df["continuum_units"] = f"E{str(settings['hector']['flux_units']).lstrip('1e')} erg/cm^2/Å/s"  # Units of continuum flux density
     # Add back in object-type columns
     df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
+    df["fname"] = output_path / df_fname
+    df["timestamp"] = timestamp
 
     # Return
     logger.info("finished!")
