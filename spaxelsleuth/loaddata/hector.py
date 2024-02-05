@@ -133,6 +133,8 @@ def get_filenames():
         eline_fit_files_3comp,
     ]
 
+    # TODO check for duplicate galaxies - discard whichever comes second in the list
+
     # Now, hunt down the data cubes with the same gal AND tile number 
     for id_str in tqdm(ids_all):
 
@@ -383,7 +385,7 @@ def load_hector_metadata_df():
 ###############################################################################
 def _process_hector(args):
     # Extract input arguments
-    gal, ncomponents, df_metadata = args 
+    gg, gal, ncomponents, df_metadata = args 
     ncomponents = "rec"
     if ncomponents == "rec":
         ncomponents_max = 3
@@ -576,6 +578,8 @@ def _process_hector(args):
 
     # Transpose so that each row represents a single pixel & each column a measured quantity.
     rows_arr = np.array(rows_list).T
+
+    logger.info(f"Finished processing galaxy {gal} ({gg})")
 
     return rows_arr, colnames
 
@@ -824,22 +828,22 @@ def make_hector_df(ncomponents,
 
     logger.info(f"input parameters: ncomponents={ncomponents}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
 
-    # Determine number of threads
-    if nthreads is None:
-        nthreads = os.cpu_count()
-        logger.warning(f"nthreads not specified: running make_hector_df() on {nthreads} threads...")
-
     ###############################################################################
     # Load metadata DataFrame to get list of galaxies & associated fields and tiles
     ###############################################################################
     df_metadata = load_hector_metadata_df()
     if gals is None:
         gals = df_metadata.index.values
+    
+    # Determine number of threads
+    if nthreads is None:
+        nthreads = min(len(gals), os.cpu_count())
+        logger.warning(f"nthreads not specified: running make_hector_df() on {nthreads} threads...")
 
     ###############################################################################
     # Scrape measurements for each galaxy from FITS files
     ###############################################################################
-    args_list = [[gal, ncomponents, df_metadata] for gal in gals]
+    args_list = [[gg, gal, ncomponents, df_metadata] for gg, gal in enumerate(gals)]
     if len(gals) == 1:
         res_list = [_process_hector(args_list[0])]
     else:
