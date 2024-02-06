@@ -12,8 +12,6 @@ if __name__ == "__main__":
 
     # Create the DataFrames
     make_metadata_df(survey="s7")
-    df_metadata = load_metadata_df(survey="s7")
-    
     make_df(survey="s7",
             bin_type="default",
             ncomponents="merge",
@@ -24,6 +22,7 @@ if __name__ == "__main__":
             nthreads=nthreads)
 
     # Load the DataFrames
+    df_metadata = load_metadata_df(survey="s7")
     df = load_df(survey="s7",
                  bin_type="default",
                  ncomponents="merge",
