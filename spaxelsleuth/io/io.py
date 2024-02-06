@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 def make_metadata_df(survey, **kwargs):
     """Create a "metadata" DataFrame.
     """
-    if survey == "hector" or survey == "sami":
+    if survey in ["hector", "sami", "s7"]:
         import_module(f"spaxelsleuth.io.{survey}").make_metadata_df(**kwargs)
     else:
         logger.warning(f"make_metadata_df() has not been implemented for survey {survey}!")
