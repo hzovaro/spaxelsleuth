@@ -190,7 +190,7 @@ def get_filenames():
 
 
 ###############################################################################
-def make_hector_metadata_df():
+def make_metadata_df():
     """Create the Hector "metadata" DataFrame.
 
     DESCRIPTION
@@ -210,8 +210,8 @@ def make_hector_metadata_df():
     USAGE
     ---------------------------------------------------------------------------
             
-            >>> from spaxelsleuth.io.hector import make_hector_metadata_df
-            >>> make_hector_metadata_df()
+            >>> from spaxelsleuth.io.hector import make_metadata_df
+            >>> make_metadata_df()
 
     INPUTS
     ---------------------------------------------------------------------------
@@ -372,20 +372,20 @@ def make_hector_metadata_df():
 
 
 ###############################################################################
-def load_hector_metadata_df():
+def load_metadata_df():
     """Load the Hector metadata DataFrame, containing "metadata" for each galaxy."""
     if not os.path.exists(output_path / "hector_metadata.hd5"):
         raise FileNotFoundError(
-            f"File {output_path / 'hector_metadata.hd5'} not found. Did you remember to run make_hector_metadata_df() first?"
+            f"File {output_path / 'hector_metadata.hd5'} not found. Did you remember to run make_metadata_df() first?"
         )
     df_metadata = pd.read_hdf(output_path / "hector_metadata.hd5")
     return df_metadata
 
 
 ###############################################################################
-def _process_hector(args):
+def _process_gals(args):
     # Extract input arguments
-    gg, gal, ncomponents, df_metadata = args 
+    gg, gal, ncomponents, bin_type, df_metadata, kwargs = args 
     ncomponents = "rec"
     if ncomponents == "rec":
         ncomponents_max = 3
@@ -800,7 +800,7 @@ def make_hector_df(ncomponents,
 
     PREREQUISITES
     ---------------------------------------------------------------------------
-    make_hector_metadata_df() must be run first.
+    make_metadata_df() must be run first.
 
     Hector data products must be stored in the folders specified in the config
     file.
@@ -845,19 +845,19 @@ def make_hector_df(ncomponents,
     ###############################################################################
     args_list = [[gg, gal, ncomponents, df_metadata] for gg, gal in enumerate(gals)]
     if len(gals) == 1:
-        res_list = [_process_hector(args_list[0])]
+        res_list = [_process_gals(args_list[0])]
     else:
         if nthreads > 1:
             logger.info(f"beginning pool...")
             pool = multiprocessing.Pool(min([nthreads, len(gals)]))
-            res_list = pool.map(_process_hector, args_list)
+            res_list = pool.map(_process_gals, args_list)
             pool.close()
             pool.join()
         else:
             logger.info(f"running sequentially...")
             res_list = []
             for args in args_list:
-                res = _process_hector(args)
+                res = _process_gals(args)
                 res_list.append(res)
 
     ###############################################################################
@@ -1036,7 +1036,7 @@ if __name__ == "__main__":
     load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
     from spaxelsleuth.plotting.plot2dmap import plot2dmap
 
-    from hector import make_hector_metadata_df, make_hector_df, load_hector_df, load_hector_metadata_df
+    from hector import make_metadata_df, make_hector_df, load_hector_df, load_hector_metadata_df
 
     plt.ion()
     plt.close("all")
@@ -1047,7 +1047,7 @@ if __name__ == "__main__":
     eline_ANR_min=0
     correct_extinction=True
 
-    make_hector_metadata_df()
+    make_metadata_df()
 
     make_hector_df(ncomponents=ncomponents, 
                    eline_SNR_min=eline_SNR_min, 

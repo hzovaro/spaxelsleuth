@@ -17,7 +17,7 @@ from spaxelsleuth.utils.geometry import deproject_coordinates
 from spaxelsleuth.utils.dqcut import compute_measured_HALPHA_amplitude_to_noise
 from spaxelsleuth.utils.velocity import compute_v_grad
 from spaxelsleuth.utils.addcolumns import add_columns
-from spaxelsleuth.utils.misc import morph_dict, morph_num_to_str
+from spaxelsleuth.utils.misc import morph_num_to_str
 from spaxelsleuth.utils.linefns import bpt_num_to_str
 
 import logging
@@ -32,7 +32,7 @@ __lzifu_products_path = Path(settings["sami"]["lzifu_products_path"])
 
 
 ###############################################################################
-# For computing median continuum S/N values in make_sami_metadata_df()
+# For computing median continuum S/N values in make_metadata_df(survey="sami",)
 def _compute_snr(args, plotit=False):
     gal, df_metadata = args
 
@@ -107,7 +107,7 @@ def _compute_snr(args, plotit=False):
 
 
 ###############################################################################
-def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
+def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None):
     """Create the SAMI "metadata" DataFrame.
 
     DESCRIPTION
@@ -118,7 +118,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     catalogues, the angular scale (in kpc per arcsecond) and inclination are 
     computed for each galaxy.
 
-    This script must be run before make_sami_df() as the resulting DataFrame
+    This script must be run before make_df(survey="sami",) as the resulting DataFrame
     is used there.
 
     The information used here is from the catalogues are available at 
@@ -138,8 +138,8 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     USAGE
     ---------------------------------------------------------------------------
             
-            >>> from spaxelsleuth.io.sami import make_sami_metadata_df
-            >>> make_sami_metadata_df()
+            >>> from spaxelsleuth.io.sami import make_metadata_df
+            >>> make_metadata_df(survey="sami",)
 
     INPUTS
     ---------------------------------------------------------------------------
@@ -198,7 +198,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     # Determine number of threads
     if nthreads is None:
         nthreads = os.cpu_count()
-        logger.warning(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
+        logger.warning(f"nthreads not specified: running make_metadata_df() on {nthreads} threads...")
 
     ###########################################################################
     # Filenames
@@ -535,7 +535,7 @@ def _process_gals(args):
     DESCRIPTION
     ---------------------------------------------------------------------------
     Helper function used to multithread the processing of SAMI galaxies in 
-    make_sami_df().
+    make_df(survey="sami",).
 
     INPUTS
     ---------------------------------------------------------------------------
@@ -549,7 +549,10 @@ def _process_gals(args):
 
     """
     # Extract input arguments
-    gal_idx, gal, ncomponents, bin_type, df_metadata, use_lzifu_fits, lzifu_ncomponents = args
+    gal_idx, gal, ncomponents, bin_type, df_metadata, kwargs = args
+
+    use_lzifu_fits = kwargs["__use_lzifu_fits"]
+    lzifu_ncomponents = kwargs["__lzifu_ncomponents"]
 
     # List of filenames for SAMI data products
     fname_list = [
@@ -979,7 +982,7 @@ def _process_gals(args):
 
 
 ###############################################################################
-def make_sami_df(bin_type, 
+def make_df(bin_type, 
                  ncomponents,
                  eline_SNR_min,
                  eline_ANR_min,
@@ -1030,8 +1033,8 @@ def make_sami_df(bin_type,
     USAGE
     ---------------------------------------------------------------------------
     
-        >>> from spaxelsleuth.io.sami import make_sami_df()
-        >>> make_sami_df(ncomponents="1", bin_type="default", 
+        >>> from spaxelsleuth.io.sami import make_df()
+        >>> make_df(survey="sami",ncomponents="1", bin_type="default", 
                          eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
 
     will create a DataFrame using the data products from 1-component Gaussian 
@@ -1199,7 +1202,7 @@ def make_sami_df(bin_type,
 
     PREREQUISITES
     ---------------------------------------------------------------------------
-    make_sami_metadata_df() must be run first.
+    make_metadata_df(survey="sami",) must be run first.
 
     SAMI data products must be downloaded from DataCentral
 
@@ -1263,7 +1266,7 @@ def make_sami_df(bin_type,
     # Determine number of threads
     if nthreads is None:
         nthreads = os.cpu_count()
-        logger.warning(f"nthreads not specified: running make_sami_df() on {nthreads} threads...")
+        logger.warning(f"nthreads not specified: running make_df on {nthreads} threads...")
 
     ###############################################################################
     # Filenames
@@ -1291,7 +1294,7 @@ def make_sami_df(bin_type,
                                   key="metadata")
     except:
         raise FileNotFoundError(
-            f"metadata DataFrame file not found ({output_path / df_metadata_fname}). Please run make_sami_metadata_df.py first!"
+            f"metadata DataFrame file not found ({output_path / df_metadata_fname}). Please run make_metadata_df() first!"
         )
 
     # Only include galaxies flagged as "good" & for which we have data
@@ -1364,11 +1367,12 @@ def make_sami_df(bin_type,
     ###############################################################################
     # Generic stuff: compute additional columns - extinction, metallicity, etc.
     ###############################################################################
-    df_spaxels = add_columns(df_spaxels,
+    df_spaxels = add_columns("sami",
+                             df_spaxels,
                              eline_SNR_min=eline_SNR_min,
                              eline_ANR_min=eline_ANR_min,
                              sigma_gas_SNR_min=sigma_gas_SNR_min,
-                             eline_list=eline_list,
+                            #  eline_list=eline_list,
                              line_flux_SNR_cut=line_flux_SNR_cut,
                              missing_fluxes_cut=missing_fluxes_cut,
                              missing_kinematics_cut=missing_kinematics_cut,
@@ -1379,9 +1383,9 @@ def make_sami_df(bin_type,
                              stekin_cut=stekin_cut,
                              correct_extinction=correct_extinction,
                              metallicity_diagnostics=metallicity_diagnostics,
-                             compute_sfr=False,
-                             flux_units=settings["sami"]["flux_units"],
-                             sigma_inst_kms=settings["sami"]["sigma_inst_kms"],
+                            #  compute_sfr=False,
+                            #  flux_units=settings["sami"]["flux_units"],
+                            #  sigma_inst_kms=settings["sami"]["sigma_inst_kms"],
                              nthreads=nthreads,
                              __use_lzifu_fits=__use_lzifu_fits,
                              __lzifu_ncomponents=__lzifu_ncomponents)
@@ -1416,7 +1420,7 @@ def load_sami_df(ncomponents,
     DESCRIPTION
     ---------------------------------------------------------------------------
     Load and return the Pandas DataFrame containing spaxel-by-spaxel 
-    information for all SAMI galaxies which was created using make_sami_df(),
+    information for all SAMI galaxies which was created using make_df(survey="sami",),
     making a series of optional S/N and data quality cuts.
 
     INPUTS
@@ -1462,7 +1466,7 @@ def load_sami_df(ncomponents,
 
     debug:                      bool
         If True, load the "debug" version of the DataFrame created when 
-        running make_sami_df() with debug=True.
+        running make_df(survey="sami",) with debug=True.
     
     USAGE
     ---------------------------------------------------------------------------
@@ -1541,15 +1545,18 @@ def load_sami_df(ncomponents,
 
 
 ###############################################################################
-def load_sami_metadata_df():
+def load_metadata_df():
     """Load the SAMI metadata DataFrame, containing "metadata" for each galaxy."""
     if not os.path.exists(output_path / "sami_dr3_metadata.hd5"):
         raise FileNotFoundError(
-            f"File {output_path / 'sami_dr3_metadata.hd5'} not found. Did you remember to run make_sami_metadata_df() first?"
+            f"File {output_path / 'sami_dr3_metadata.hd5'} not found. Did you remember to run make_metadata_df first?"
         )
     df_metadata = pd.read_hdf(output_path / "sami_dr3_metadata.hd5")
 
     # Add back in object-type columns
     df_metadata["Morphology"] = morph_num_to_str(df_metadata["Morphology (numeric)"])
+
+    # Cast to float to avoid issues around Object data types
+    df_metadata["Good?"] = df_metadata["Good?"].astype("float")
 
     return df_metadata
