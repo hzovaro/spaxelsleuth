@@ -85,7 +85,8 @@ def make_metadata_df():
     assert os.path.exists(data_path / input_catalogue_fname),\
         f"File {data_path / input_catalogue_fname} not found!"
     df_metadata = pd.read_csv(data_path / input_catalogue_fname, skiprows=58)
-    gals = df_metadata["S7_Name"].values
+    gals_str = df_metadata["S7_Name"].values
+    gals = list(range(len(gals_str)))
 
     ###############################################################################
     # Convert object coordinates to degrees
@@ -99,7 +100,7 @@ def make_metadata_df():
     # Rename columns
     ###############################################################################
     rename_dict = {
-        "S7_Name": "ID",
+        "S7_Name": "ID (string)",
         "HL_inclination": "i (degrees)",
         "HL_Re": "R_e (arcsec)",
         "HL_Re_err": "R_e error (arcsec)",
@@ -117,11 +118,12 @@ def make_metadata_df():
         "S7_nucleus_index_y": "y_0 (pixels)"
     }
     df_metadata = df_metadata.rename(columns=rename_dict)
-    df_metadata = df_metadata.set_index(df_metadata["ID"])
-    df_metadata.index.name = ""
+    df_metadata["ID"] = list(range(df_metadata.shape[0]))
+    # df_metadata = df_metadata.set_index(df_metadata["ID"])
+    # df_metadata.index.name = "ID"
 
     # Get rid of unneeded columns
-    good_cols = [rename_dict[k] for k in rename_dict.keys()] + ["RA (J2000)", "Dec (J2000)"]
+    good_cols = [rename_dict[k] for k in rename_dict.keys()] + ["RA (J2000)", "Dec (J2000)", "ID"]
     df_metadata = df_metadata[good_cols]
 
     ###############################################################################
@@ -155,7 +157,10 @@ def make_metadata_df():
 #/////////////////////////////////////////////////////////////////////////////////
 def _process_gals(args):
     """Helper function that is used in make_s7_df() to process S7 galaxies across multiple threads."""
-    gal, df_metadata = args
+    gal_idx, _, ncomponents, bin_type, df_metadata, kwargs = args
+
+    # Get the gal name 
+    gal = df_metadata.loc[gal_idx, "ID (string)"]
 
     #######################################################################
     # Scrape outputs from LZIFU output
@@ -165,7 +170,7 @@ def _process_gals(args):
 
     # Angular scale
     z = hdr["Z"]
-    D_A_Mpc = df_metadata.loc[gal, "D_A (Mpc)"]
+    D_A_Mpc = df_metadata.loc[gal_idx, "D_A (Mpc)"]
     kpc_per_arcsec = D_A_Mpc * 1e3 * np.pi / 180.0 / 3600.0
 
     # Angular scale
@@ -240,25 +245,29 @@ def _process_gals(args):
     #######################################################################
     # SCRAPE LZIFU MEASUREMENTS
     #######################################################################
-    # Get extension names
-    extnames = [
-        hdr[e] for e in hdr if e.startswith("EXT") and type(hdr[e]) == str
-    ]
-    quantities = [e.rstrip("_ERR")
-                  for e in extnames if e.endswith("_ERR")] + ["CHI2", "DOF", "STAR_V", "STAR_VDISP"]
     rows_list = []
     colnames = []
-    eline_list = [
-        q for q in quantities if q not in ["V", "VDISP", "CHI2", "DOF", "STAR_V", "STAR_VDISP"]
-    ]
     lzifu_ncomponents = hdulist_best_components["V"].shape[0] - 1
 
     # Scrape the FITS file: emission line flues, velocity/velocity dispersion, fit quality
     # NOTE: fluxes are in units of E-16 erg / cm^2 / s
+    eline_list = settings["s7"]["eline_list"]
+    quantities = eline_list + ["V", "VDISP", "CHI2", "DOF", "STAR_V", "STAR_VDISP"]
     for quantity in quantities:
-        data = hdulist_best_components[quantity].data
-        if f"{quantity}_ERR" in hdulist_best_components:
-            err = hdulist_best_components[f"{quantity}_ERR"].data
+        if quantity in eline_list and quantity not in hdulist_best_components:
+            missing_eline = True
+            # Make dummy data 
+            if (lzifu_ncomponents == 1) or (quantity in ["OII3726", "OII3729", "OIII4363"]):
+                data = np.full((ny, nx), np.nan)
+                err = np.full((ny, nx), np.nan)
+            else:
+                data = np.full((lzifu_ncomponents + 1, ny, nx), np.nan)
+                err = np.full((lzifu_ncomponents + 1, ny, nx), np.nan)
+        else:
+            missing_eline = False
+            data = hdulist_best_components[quantity].data
+            if f"{quantity}_ERR" in hdulist_best_components:
+                err = hdulist_best_components[f"{quantity}_ERR"].data
         
         if quantity in ["OII3726", "OII3729", "OIII4363"]:
             # Special case for these lines: only total fluxes are available 
@@ -279,14 +288,14 @@ def _process_gals(args):
                 if quantity not in ["V", "VDISP"]:
                     rows_list.append(_2d_map_to_1d_list(data[0]))
                     colnames.append(f"{quantity} (total)")
-                    if f"{quantity}_ERR" in hdulist_best_components:
+                    if (f"{quantity}_ERR" in hdulist_best_components) or missing_eline:
                         rows_list.append(_2d_map_to_1d_list(err[0]))
                         colnames.append(f"{quantity} error (total)")
                 # Fluxes/values for individual components
                 for nn in range(lzifu_ncomponents):
                     rows_list.append(_2d_map_to_1d_list(data[nn + 1]))
                     colnames.append(f"{quantity} (component {nn + 1})")
-                    if f"{quantity}_ERR" in hdulist_best_components:
+                    if (f"{quantity}_ERR" in hdulist_best_components) or missing_eline:
                         rows_list.append(_2d_map_to_1d_list(err[nn + 1]))
                         colnames.append(f"{quantity} error (component {nn + 1})")
             # Otherwise it's a 2D map
@@ -312,6 +321,11 @@ def _process_gals(args):
         colnames.append(f"D4000")
         rows_list.append(_2d_map_to_1d_list(d4000_map_err))
         colnames.append(f"D4000 error")
+    else:
+        rows_list.append(_2d_map_to_1d_list(np.full((ny, nx), np.nan)))
+        colnames.append(f"D4000")
+        rows_list.append(_2d_map_to_1d_list(np.full((ny, nx), np.nan)))
+        colnames.append(f"D4000 error")
 
     # Compute the continuum intensity so that we can compute the Halpha equivalent width.
     # Continuum wavelength range taken from here: https://ui.adsabs.harvard.edu/abs/2019MNRAS.485.4024V/abstract
@@ -329,6 +343,13 @@ def _process_gals(args):
         colnames.append(f"HALPHA continuum std. dev.")
         rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_err))
         colnames.append(f"HALPHA continuum error")
+    else:
+        rows_list.append(_2d_map_to_1d_list(np.full((ny, nx), np.nan)))
+        colnames.append(f"HALPHA continuum")
+        rows_list.append(_2d_map_to_1d_list(np.full((ny, nx), np.nan)))
+        colnames.append(f"HALPHA continuum std. dev.")
+        rows_list.append(_2d_map_to_1d_list(np.full((ny, nx), np.nan)))
+        colnames.append(f"HALPHA continuum error")
 
     # Compute the approximate B-band continuum
     if lambda_vals_B_rest_A[0] <= 4000 and lambda_vals_B_rest_A[-1] >= 5000:
@@ -345,6 +366,13 @@ def _process_gals(args):
         colnames.append(f"B-band continuum std. dev.")
         rows_list.append(_2d_map_to_1d_list(cont_B_map_err))
         colnames.append(f"B-band continuum error")
+    else:
+        rows_list.append(_2d_map_to_1d_list(np.full((ny, nx), np.nan)))
+        colnames.append(f"B-band continuum")
+        rows_list.append(_2d_map_to_1d_list(np.full((ny, nx), np.nan)))
+        colnames.append(f"B-band continuum std. dev.")
+        rows_list.append(_2d_map_to_1d_list(np.full((ny, nx), np.nan)))
+        colnames.append(f"B-band continuum error")
 
     # Compute the HALPHA amplitude-to-noise
     if lambda_vals_R_rest_A[0] <= 6562.8 and lambda_vals_R_rest_A[-1] >= 6562.8:
@@ -357,6 +385,9 @@ def _process_gals(args):
             v_map=v_map[0],
             dv=300)
         rows_list.append(_2d_map_to_1d_list(AN_HALPHA_map))
+        colnames.append(f"HALPHA A/N (measured)")
+    else:
+        rows_list.append(_2d_map_to_1d_list(np.full((ny, nx), np.nan)))
         colnames.append(f"HALPHA A/N (measured)")
 
     ##########################################################
@@ -413,23 +444,22 @@ def _process_gals(args):
         if colnames[cc] in rename_dict:
             colnames[cc] = rename_dict[colnames[cc]]
 
+
     ##########################################################
+    # Add galaxy ID (numerical index)
+    rows_list.append([gal_idx] * len(x_c_list))
+    colnames.append("ID")
+
     # Transpose so that each row represents a single pixel & each column a measured quantity.
     rows_arr = np.array(rows_list).T
-
+ 
     # Get rid of rows that are all NaNs
     bad_rows = np.all(np.isnan(rows_arr), axis=1)
     rows_good = rows_arr[~bad_rows]
 
-    # Append a column with the galaxy ID, so we know which galaxy these rows belong to
-    gal_metadata = np.tile(
-        df_metadata.loc[df_metadata.loc[:, "ID"] == gal]["ID"].values,
-        (len(x_c_list), 1))
-    rows_good = np.hstack((gal_metadata, rows_good))
+    logger.info(f"finished processing {gal} ({gal_idx})")
 
-    logger.info(f"finished processing {gal}")
-
-    return rows_good, ["ID"] + colnames, eline_list
+    return rows_good, colnames
 
 
 #/////////////////////////////////////////////////////////////////////////////////
@@ -820,7 +850,7 @@ def load_s7_df(eline_SNR_min,
     return df.sort_index()
 
 ###############################################################################
-def load_s7_metadata_df():
+def load_metadata_df():
     """Load the S7 metadata DataFrame, containing "metadata" for each galaxy."""
     if not os.path.exists(Path(settings["s7"]["output_path"]) / "s7_metadata.hd5"):
         raise FileNotFoundError(
