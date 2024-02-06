@@ -123,7 +123,7 @@ def set_flags(df,
         Maximum number of Gaussian components that were fitted to the emission 
         lines in each spaxel.
         
-    sigma_inst_kms:         flat
+    sigma_inst_kms:         float
         Instrumental velocity dispersion (in km/s).
 
     sigma_gas_SNR_min:      float
