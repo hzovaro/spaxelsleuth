@@ -1,5 +1,6 @@
 import numpy as np
 
+from spaxelsleuth.config import settings
 from spaxelsleuth.utils import continuum, dqcut, linefns, metallicity, extcorr, misc
 from spaxelsleuth.utils.misc import in_dataframe
 
@@ -7,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 ###############################################################################
-def add_columns(df, **kwargs):
+def add_columns(survey, df, **kwargs):
     """Computes quantities such as metallicities, extinctions, etc. for each row in df."""
     logger.info(f"adding columns to the DataFrame...")
 
@@ -24,14 +25,23 @@ def add_columns(df, **kwargs):
         ncomponents_original += (~df[f"sigma_gas (component {nn + 1})"].isna()).astype(int)
     df["Number of components (original)"] = ncomponents_original
 
+    # Options that are survey-specific 
+    eline_list = settings[survey]["eline_list"]
+    if survey == "sami":
+        compute_sfr = False
+        kwargs["base_missing_flux_components_on_HALPHA"] = True
+    else:
+        compute_sfr = True
+        kwargs["base_missing_flux_components_on_HALPHA"] = False
+
     ######################################################################
     # Calculate equivalent widths
     df = continuum.compute_EW(df, ncomponents_max, eline_list=["HALPHA"])
     
     ######################################################################
     # Compute S/N and A/N in all lines
-    df = dqcut.compute_SN(df, ncomponents_max, kwargs["eline_list"])
-    df = dqcut.compute_AN(df, ncomponents_max, kwargs["eline_list"])
+    df = dqcut.compute_SN(df, ncomponents_max, eline_list)
+    df = dqcut.compute_AN(df, ncomponents_max, eline_list)
 
     ######################################################################
     # DQ and S/N CUTS
@@ -39,12 +49,15 @@ def add_columns(df, **kwargs):
     df = dqcut.set_flags(df=df, 
                          eline_SNR_min=kwargs["eline_SNR_min"],
                          eline_ANR_min=kwargs["eline_ANR_min"],
-                         eline_list=kwargs["eline_list"],
+                         eline_list=eline_list,
                          ncomponents_max=ncomponents_max,
-                         sigma_inst_kms=kwargs["sigma_inst_kms"],
+                         sigma_inst_kms=settings[survey]["sigma_inst_kms"],
                          sigma_gas_SNR_min=kwargs["sigma_gas_SNR_min"]
                          )
-    df = dqcut.apply_flags(df=df, ncomponents_max=ncomponents_max, **kwargs)
+    df = dqcut.apply_flags(df=df, 
+                           ncomponents_max=ncomponents_max, 
+                           eline_list=settings[survey]["eline_list"],
+                           **kwargs)
 
     ######################################################################
     # Fix SFR columns
@@ -84,7 +97,7 @@ def add_columns(df, **kwargs):
         # Apply the extinction correction to total emission line fluxes
         df = extcorr.apply_extinction_correction(df,
                                         reddening_curve="fm07",
-                                        eline_list=[e for e in kwargs["eline_list"] if f"{e} (total)" in df],
+                                        eline_list=[e for e in eline_list if f"{e} (total)" in df],
                                         a_v_col_name="A_V (total)",
                                         nthreads=kwargs["nthreads"],
                                         s=f" (total)")
@@ -93,7 +106,7 @@ def add_columns(df, **kwargs):
         for nn in range(ncomponents_max):
             df = extcorr.apply_extinction_correction(df,
                                             reddening_curve="fm07",
-                                            eline_list=[e for e in kwargs["eline_list"] if f"{e} (component {nn + 1})" in df],
+                                            eline_list=[e for e in eline_list if f"{e} (component {nn + 1})" in df],
                                             a_v_col_name="A_V (total)",
                                             nthreads=kwargs["nthreads"],
                                             s=f" (component {nn + 1})")
@@ -113,14 +126,20 @@ def add_columns(df, **kwargs):
     ######################################################################
     # EVALUATE ADDITIONAL COLUMNS - log quantites, etc.
     logger.info(f"computing additional quantities...")
-    df = continuum.compute_continuum_luminosity(df, flux_units=kwargs["flux_units"])
-    df = linefns.compute_eline_luminosity(df, ncomponents_max, eline_list=["HALPHA"], flux_units=kwargs["flux_units"])
-    if kwargs["compute_sfr"]:
+    df = continuum.compute_continuum_luminosity(df, flux_units=settings[survey]["flux_units"])
+    df = linefns.compute_eline_luminosity(df, ncomponents_max, eline_list=["HALPHA"], flux_units=settings[survey]["flux_units"])
+    if compute_sfr:
         df = linefns.compute_SFR(df, ncomponents_max)
     df = linefns.compute_FWHM(df, ncomponents_max)
     df = misc.compute_gas_stellar_offsets(df, ncomponents_max)
     df = misc.compute_log_columns(df, ncomponents_max)
     df = misc.compute_component_offsets(df, ncomponents_max)
+
+    ######################################################################
+    # GEOMETRY
+    if "r (relative to galaxy centre, deprojected, arcsec)" in df and "R_e (arcsec)" in df:
+        df["r/R_e"] = df["r (relative to galaxy centre, deprojected, arcsec)"] / df[
+                "R_e (arcsec)"]
 
     ######################################################################
     # EVALUATE METALLICITY (only for spaxels with extinction correction)
@@ -136,6 +155,7 @@ def add_columns(df, **kwargs):
     ###############################################################################
     # Save input flags to the DataFrame
     logger.info(f"adding flags to DataFrame...")
+    # TODO add all kwargs here instead? 
     for flag in ["eline_SNR_min", "eline_ANR_min", "sigma_gas_SNR_min",
                  "line_flux_SNR_cut", "missing_fluxes_cut", "missing_kinematics_cut", 
                  "line_amplitude_SNR_cut", "flux_fraction_cut", "vgrad_cut", 
