@@ -5,7 +5,7 @@ from pathlib import Path
 from spaxelsleuth import load_user_config, configure_logger
 load_user_config("test_config.json")
 configure_logger(level="INFO")
-from spaxelsleuth.io.sami import make_sami_df
+from spaxelsleuth.io.io import make_df
 from spaxelsleuth.config import settings
 
 import logging
@@ -32,7 +32,7 @@ def run_sami_regression_tests(
     correct_extinction=True,
     debug=False,
 ):
-    """Run make_sami_df and load_sami_df for the given inputs and compare the output against a reference DataFrame."""
+    """Run make_df for the given inputs and compare the output against a reference DataFrame."""
 
     kwargs = {
         "ncomponents": ncomponents,
@@ -44,7 +44,7 @@ def run_sami_regression_tests(
     }
 
     # Create the DataFrame
-    make_sami_df(**kwargs, nthreads=nthreads)
+    make_df(survey="sami",**kwargs, nthreads=nthreads)
 
     # Get the filename
     df_fname = f"sami_{bin_type}_{ncomponents}-comp"
@@ -55,7 +55,7 @@ def run_sami_regression_tests(
         df_fname += "_DEBUG"
     df_fname += ".hd5"
 
-    # Load the DataFrame. Note that we do not use load_sami_df() here because we don't need to check the extra columns added at runtime. 
+    # Load the DataFrame. Note that we do not use load_df() here because we don't need to check the extra columns added at runtime. 
     df_new = pd.read_hdf(
         Path(settings["sami"]["output_path"]) / df_fname,
         key=f"{bin_type}{ncomponents}comp",
@@ -133,7 +133,7 @@ if __name__ == "__main__":
         df_fname += "_DEBUG"
     df_fname += ".hd5"
 
-    # Load the DataFrame. Note that we do not use load_sami_df() here because we don't need to check the extra columns added at runtime. 
+    # Load the DataFrame. Note that we do not use load_df() here because we don't need to check the extra columns added at runtime. 
     logger.info("Loading most recent DataFrame...")
     df_new = pd.read_hdf(
         Path(settings["sami"]["output_path"]) / df_fname,
