@@ -45,6 +45,15 @@ def add_columns(survey, df, **kwargs):
 
     ######################################################################
     # DQ and S/N CUTS
+    if "sigma_inst_kms" not in kwargs.keys():
+        try:
+            sigma_inst_kms = settings[survey]["sigma_inst_kms"]
+        except KeyError:
+            logger.warning(f"I could not find find sigma_inst_kms in settings[{survey}] or in kwargs, so I am assuming sigma_inst_kms = 0!")
+            sigma_inst_kms = 0
+    else:
+        sigma_inst_kms = kwargs["sigma_inst_kms"]
+
     logger.info(f"setting & aplying data quality and S/N cuts...")
     df = dqcut.set_flags(df=df, 
                          eline_SNR_min=kwargs["eline_SNR_min"],
