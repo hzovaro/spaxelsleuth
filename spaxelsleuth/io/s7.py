@@ -28,7 +28,7 @@ data_cube_path = Path(settings["s7"]["data_cube_path"])
 
 
 ###############################################################################
-def make_s7_metadata_df():
+def make_metadata_df():
     """
     Create a DataFrame containing "metadata" for all S7 galaxies.
 
@@ -46,8 +46,8 @@ def make_s7_metadata_df():
     USAGE
     ---------------------------------------------------------------------------
             
-            >>> from spaxelsleuth.io.s7 import make_s7_metadata_df
-            >>> make_s7_metadata_df()
+            >>> from spaxelsleuth.io.s7 import make_metadata_df
+            >>> make_metadata_df()
 
     INPUTS
     ---------------------------------------------------------------------------
@@ -153,7 +153,7 @@ def make_s7_metadata_df():
     return
 
 #/////////////////////////////////////////////////////////////////////////////////
-def _process_s7(args):
+def _process_gals(args):
     """Helper function that is used in make_s7_df() to process S7 galaxies across multiple threads."""
     gal, df_metadata = args
 
@@ -599,7 +599,7 @@ def make_s7_df(eline_SNR_min,
 
     PREREQUISITES
     ---------------------------------------------------------------------------
-    make_s7_metadata_df() must be run first.
+    make_metadata_df() must be run first.
 
     S7 data products are available at 
 
@@ -638,7 +638,7 @@ def make_s7_df(eline_SNR_min,
     try:
         df_metadata = pd.read_hdf(output_path / "s7_metadata.hd5", key="metadata")
     except FileNotFoundError:
-        raise FileNotFoundError(f"Metadata DataFrame {output_path / 's7_metadata.hd5'} not found - have you run make_s7_metadata_df() first?")
+        raise FileNotFoundError(f"Metadata DataFrame {output_path / 's7_metadata.hd5'} not found - have you run make_metadata_df() first?")
 
     # Check validity of input galaxies
     if gals is None:
@@ -657,26 +657,26 @@ def make_s7_df(eline_SNR_min,
     # Determine number of threads
     if nthreads is None:
         nthreads = os.cpu_count()
-        logger.warning(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
+        logger.warning(f"nthreads not specified: running make_metadata_df() on {nthreads} threads...")
 
     ###############################################################################
     # Scrape measurements for each galaxy from FITS files
     ###############################################################################
     args_list = [[g, df_metadata] for g in gals]
     if len(gals) == 1:
-        res_list = [_process_s7(args_list[0])]
+        res_list = [_process_gals(args_list[0])]
     else:
         if nthreads > 1:
             logger.info(f"beginning pool...")
             pool = multiprocessing.Pool(min([nthreads, len(gals)]))
-            res_list = pool.map(_process_s7, args_list)
+            res_list = pool.map(_process_gals, args_list)
             pool.close()
             pool.join()
         else:
             logger.info(f"running sequentially...")
             res_list = []
             for args in args_list:
-                res = _process_s7(args)
+                res = _process_gals(args)
                 res_list.append(res)
 
     ###############################################################################
@@ -824,7 +824,7 @@ def load_s7_metadata_df():
     """Load the S7 metadata DataFrame, containing "metadata" for each galaxy."""
     if not os.path.exists(Path(settings["s7"]["output_path"]) / "s7_metadata.hd5"):
         raise FileNotFoundError(
-            f"File {Path(settings['s7']['output_path']) / 's7_metadata.hd5'} not found. Did you remember to run make_s7_metadata_df() first?"
+            f"File {Path(settings['s7']['output_path']) / 's7_metadata.hd5'} not found. Did you remember to run make_metadata_df() first?"
         )
     return pd.read_hdf(
         Path(settings["s7"]["output_path"]) / "s7_metadata.hd5")
