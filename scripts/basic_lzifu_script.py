@@ -8,9 +8,8 @@ if __name__ == "__main__":
         load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
     except FileNotFoundError:
         load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
-    from spaxelsleuth.io.lzifu import make_lzifu_df, load_lzifu_df
     from spaxelsleuth.config import settings
-    from spaxelsleuth.io.sami import make_sami_metadata_df, make_sami_df, load_sami_metadata_df, load_sami_df
+    from spaxelsleuth.io.io import make_df, load_df
     from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
     from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours, plot2dscatter
 
@@ -24,19 +23,21 @@ if __name__ == "__main__":
     gals = [int(f.split("_")[0]) for f in os.listdir(settings["lzifu"]["input_path"]) if f.endswith("1_comp.fits") and not f.startswith(".")]
 
     # Create the DataFrame
-    make_lzifu_df(gals=gals,
-                ncomponents=ncomponents,
-                eline_SNR_min=eline_SNR_min,
-                eline_ANR_min=eline_ANR_min,
-                correct_extinction=correct_extinction,
-                metallicity_diagnostics=[
-                    "N2Ha_PP04",
-                ],
-                sigma_inst_kms=29.6,
-                nthreads=nthreads)
+    make_df(survey="lzifu",
+            gals=gals,
+            ncomponents=ncomponents,
+            eline_SNR_min=eline_SNR_min,
+            eline_ANR_min=eline_ANR_min,
+            correct_extinction=correct_extinction,
+            metallicity_diagnostics=[
+                "N2Ha_PP04",
+            ],
+            sigma_inst_kms=29.6,
+            nthreads=nthreads)
 
     # Load the DataFrames
-    df = load_lzifu_df(
+    df = load_df(
+         survey="lzifu",
         ncomponents=ncomponents,
         eline_SNR_min=eline_SNR_min,
         eline_ANR_min=eline_ANR_min,
@@ -50,7 +51,7 @@ if __name__ == "__main__":
     ax.set_xlabel(r"\sigma_{\rm gas}")
     ax.set_ylabel(r"N (normalised)")
 
-    # Plot a 2D histogram showing the distribution of SAMI spaxels in the WHAN diagram
+    # Plot a 2D histogram showing the distribution of spaxels in the WHAN diagram
     plot2dhistcontours(df=df,
                 col_x=f"log N2 (total)",
                 col_y=f"log HALPHA EW (total)",
