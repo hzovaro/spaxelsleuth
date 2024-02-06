@@ -14,14 +14,14 @@ if __name__ == "__main__":
     make_metadata_df(survey="s7")
     df_metadata = load_metadata_df(survey="s7")
     
-    # make_df(survey="s7",
-    #         bin_type="default",
-    #         ncomponents="merge",
-    #         eline_SNR_min=eline_SNR_min,
-    #         eline_ANR_min=eline_ANR_min,
-    #         correct_extinction=True,
-    #         metallicity_diagnostics=["N2Ha_PP04",],
-    #         nthreads=nthreads)
+    make_df(survey="s7",
+            bin_type="default",
+            ncomponents="merge",
+            eline_SNR_min=eline_SNR_min,
+            eline_ANR_min=eline_ANR_min,
+            correct_extinction=True,
+            metallicity_diagnostics=["N2Ha_PP04",],
+            nthreads=nthreads)
 
     # Load the DataFrames
     df = load_df(survey="s7",
