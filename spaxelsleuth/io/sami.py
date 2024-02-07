@@ -1,4 +1,3 @@
-# Imports
 import multiprocessing
 import numpy as np
 import os
@@ -12,14 +11,14 @@ from astropy.io import fits
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
-from spaxelsleuth.utils.geometry import deproject_coordinates
 from spaxelsleuth.utils.dqcut import compute_measured_HALPHA_amplitude_to_noise
+from spaxelsleuth.utils.geometry import deproject_coordinates
+from spaxelsleuth.utils.misc import morph_num_to_str
 from spaxelsleuth.utils.velocity import compute_v_grad
 
 import logging
 logger = logging.getLogger(__name__)
 
-###############################################################################
 # Paths
 input_path = Path(settings["sami"]["input_path"])
 output_path = Path(settings["sami"]["output_path"])
@@ -27,9 +26,8 @@ data_cube_path = Path(settings["sami"]["data_cube_path"])
 __lzifu_products_path = Path(settings["sami"]["lzifu_products_path"])
 
 
-###############################################################################
-# For computing median continuum S/N values in make_metadata_df(survey="sami",)
 def _compute_snr(args, plotit=False):
+    """Compute median continuum S/N values for each galaxy. Used in make_metadata_df()."""
     gal, df_metadata = args
 
     # Load the red & blue data cubes.
@@ -55,7 +53,6 @@ def _compute_snr(args, plotit=False):
     im_SNR_B = np.nanmedian(data_cube_B / np.sqrt(var_cube_B), axis=0)
     im_SNR_R = np.nanmedian(data_cube_R / np.sqrt(var_cube_R), axis=0)
 
-    #######################################################################
     # Use R_e to compute the median S/N within 1, 1.5, 2 R_e.
     # Transform coordinates into the galaxy plane
     e = df_metadata.loc[gal, "e"]
@@ -93,8 +90,7 @@ def _compute_snr(args, plotit=False):
     SNR_2Re_B = np.nanmedian(im_SNR_B[mask_2Re])
     SNR_2Re_R = np.nanmedian(im_SNR_R[mask_2Re])
 
-    #######################################################################
-    # End
+
     logger.info(f"finished processing {gal}")
     return [
         gal, SNR_full_B, SNR_full_R, SNR_1Re_B, SNR_1Re_R, SNR_15Re_B,
@@ -102,7 +98,6 @@ def _compute_snr(args, plotit=False):
     ]
 
 
-###############################################################################
 def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None):
     """Create the SAMI "metadata" DataFrame.
 
@@ -196,7 +191,6 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
         nthreads = os.cpu_count()
         logger.warning(f"nthreads not specified: running make_metadata_df() on {nthreads} threads...")
 
-    ###########################################################################
     # Filenames
     df_fname = f"sami_dr3_metadata.hd5"
     gama_metadata_fname = "sami_InputCatGAMADR3.csv"
@@ -215,17 +209,13 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
         assert os.path.exists(data_path / fname),\
             f"File {data_path / fname} not found!"
 
-    ###########################################################################
     # Read in galaxy metadata
-    ###########################################################################
     df_metadata_gama = pd.read_csv(data_path / gama_metadata_fname)  # ALL possible GAMA targets
     df_metadata_cluster = pd.read_csv(data_path / cluster_metadata_fname)  # ALL possible cluster targets
     df_metadata_filler = pd.read_csv(data_path / filler_metadata_fname)  # ALL possible filler targets
     df_metadata = pd.concat([df_metadata_gama, df_metadata_cluster, df_metadata_filler], sort=True).drop(["Unnamed: 0"], axis=1)
 
-    ###########################################################################
     # Append morphology data
-    ###########################################################################
     df_morphologies = pd.read_csv(data_path / morphologies_fname).drop(["Unnamed: 0"], axis=1)
     df_morphologies = df_morphologies.rename(
         columns={"type": "Morphology (numeric)"})
@@ -244,9 +234,7 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
         df_morphologies[["catid", "Morphology (numeric)"]],
         on="catid")
 
-    ###########################################################################
     # Read in flag metadata
-    ###########################################################################
     df_flags = pd.read_csv(data_path / flag_metadata_fname).drop(
         ["Unnamed: 0"], axis=1)
     df_flags = df_flags.astype(
@@ -290,10 +278,8 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
     # Reset index
     df_metadata = df_metadata.set_index(df_metadata["catid"])
 
-    ###########################################################################
     # Add R_e and other parameters derived from MGE fits
     # Note: these are based on SDSS and VST photometry, not GAMA.
-    ###########################################################################
     df_mge = pd.read_csv(data_path / mge_fits_metadata_fname).drop(["Unnamed: 0"], axis=1).set_index("catid")  # Data from multi-expansion fits
 
     # Drop duplicated rows: those with both SDSS and VST photometry
@@ -318,7 +304,6 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
                                     left_index=True,
                                     right_index=True)
 
-    ###############################################################################
     """
     Drop and rename columns. The following columns are included in the input tables used here:
     a_g               g-band extinction - keep
@@ -365,7 +350,6 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
     log(M/R_e)        stellar mass / R_e (proxy for gravitational potential)
     Inclination i (degrees)  Inclination (computed from ellpiticity)
     """
-    ###############################################################################
     # Drop unnecessary columns (including object-type columns) & rename others for readability
     cols_to_remove = [
         "r_auto", "r_petro", "surv_sami", "rextinction", "dist2nneigh", "chi2",
@@ -405,11 +389,9 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
     df_metadata = df_metadata.rename(columns=rename_dict)
     df_metadata = df_metadata.drop(columns=cols_to_remove)
 
-    ###########################################################################
     # Assign redshifts based on cluster membership.
     # For all galaxies, column "z" will contain the Tonry redshift for
     # non-cluster members and the cluster redshift for cluster members.
-    ###########################################################################
     cond_has_no_Tonry_z = df_metadata["z (flow-corrected)"].isna()
     df_metadata.loc[cond_has_no_Tonry_z,
                     "z"] = df_metadata.loc[cond_has_no_Tonry_z,
@@ -422,9 +404,7 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
     assert not any((df_metadata["Cluster member"] == 1.0)
                    & ~df_metadata["z (flow-corrected)"].isna())
 
-    ###########################################################################
     # Add angular scale info
-    ###########################################################################
     logger.info(f"computing distances...")
     cosmo = FlatLambdaCDM(H0=settings["H_0"], Om0=settings["Omega_0"])
     for gal in gal_ids_dq_cut:
@@ -448,9 +428,7 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
     df_metadata["log(M/R_e^2) (MGE)"] = df_metadata["log M_*"] - 2 * np.log10(
         df_metadata["R_e (MGE) (kpc)"])
 
-    ###########################################################################
     # Compute inclination
-    ###########################################################################
     e = df_metadata["e"]
     PA = df_metadata["PA (degrees)"]
     beta_rad = np.deg2rad(PA - 90)
@@ -462,9 +440,7 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
             (b_over_a**2 - q0**2) / (1 - q0**2)))  # Want to store this!
     df_metadata["i (degrees)"] = np.rad2deg(i_rad)
 
-    ###############################################################################
     # Compute continuum SNRs from the data cubes
-    ###############################################################################
     logger.info("computing continuum SNRs...")
     if not recompute_continuum_SNRs and os.path.exists(output_path / "sami_dr3_aperture_snrs.hd5"):
         logger.warning(
@@ -485,9 +461,7 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
             for arg in args_list:
                 res_list.append(_compute_snr(arg))
 
-        ###########################################################################
         # Create DataFrame from results
-        ###############################################################################
         df_snr = pd.DataFrame(
             np.vstack(res_list),
             columns=[
@@ -506,15 +480,11 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
         )
         df_snr.to_hdf(output_path / "sami_dr3_aperture_snrs.hd5", key="SNR")
 
-    ###############################################################################
     # Merge with the metadata DataFrame
-    ###############################################################################
     df_snr = df_snr.set_index("ID")
     df_metadata = pd.concat([df_snr, df_metadata], axis=1)
 
-    ###########################################################################
     # Save to file
-    ###########################################################################
     logger.info(
         f"saving metadata DataFrame to file {output_path / df_fname}..."
     )
@@ -525,7 +495,23 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
     return
 
 
-###############################################################################
+def load_metadata_df():
+    """Load the SAMI metadata DataFrame, containing "metadata" for each galaxy."""
+    if not os.path.exists(output_path / "sami_dr3_metadata.hd5"):
+        raise FileNotFoundError(
+            f"File {output_path / 'sami_dr3_metadata.hd5'} not found. Did you remember to run make_metadata_df first?"
+        )
+    df_metadata = pd.read_hdf(output_path / "sami_dr3_metadata.hd5")
+
+    # Add back in object-type columns
+    df_metadata["Morphology"] = morph_num_to_str(df_metadata["Morphology (numeric)"])
+
+    # Cast to float to avoid issues around Object data types
+    df_metadata["Good?"] = df_metadata["Good?"].astype("float")
+
+    return df_metadata
+
+
 def _process_gals(args):
     """
     DESCRIPTION
@@ -575,7 +561,6 @@ def _process_gals(args):
         str(input_path / f"ifs/{gal}/{gal}_A_{f}.fits") for f in fname_list
     ]
 
-    #######################################################################
     # Open the red & blue cubes.
     with fits.open(data_cube_path / f"ifs/{gal}/{gal}_A_cube_blue.fits.gz") as hdulist_B_cube:
         header_R = hdulist_B_cube[0].header
@@ -608,9 +593,7 @@ def _process_gals(args):
             1 + df_metadata.loc[gal, "z (spectroscopic)"]
         )  #NOTE: we use the spectroscopic redshift here, because when it comes to measuring e.g. continuum levels, it's important that the wavelength range we use is consistent between galaxies. For some galaxies the flow-corrected redshift is sufficiently different from the spectroscopic redshift that when we use it to define wavelength windows for computing the continuum level for instance we end up enclosing an emission line which throws the measurement way out of whack (e.g. for 572402)
 
-    #######################################################################
     # Compute continuum quantities
-
     # Load gas/stellar velocity maps so that we can window in around wavelength ranges accounting for velocity shifts
     with fits.open(input_path / f"ifs/{gal}/{gal}_A_stellar-velocity_{bin_type}_two-moment.fits") as hdulist_v_star:
         v_star_map = hdulist_v_star[0].data.astype(np.float64)
@@ -663,8 +646,6 @@ def _process_gals(args):
         v_map=v_map[0],
         dv=300)
 
-    #######################################################################
-    #######################################################################
     # X, Y pixel coordinates
     # Compute the spaxel or bin coordinates, depending on the binning scheme
     im = np.nansum(data_cube_B, axis=0)
@@ -715,7 +696,6 @@ def _process_gals(args):
                 x_c_list[ii] = x_c
                 y_c_list[ii] = y_c
 
-        #######################################################################
         # Bin numbers corresponding to bins actually present in the image
         good_bins = np.argwhere(~np.isnan(x_c_list)).flatten()
         ngood_bins = len(good_bins)
@@ -724,7 +704,6 @@ def _process_gals(args):
         bin_size_list_px = bin_size_list_px[good_bins]
         bin_number_list = bin_number_list[good_bins]
 
-    #######################################################################
     # Compute deprojected pixel coordinates
     PA_deg = df_metadata.loc[gal, "PA (degrees)"]
     i_deg = 0 if np.isnan(
@@ -740,7 +719,6 @@ def _process_gals(args):
         i_deg,
     )
 
-    #######################################################################
     # Open each FITS file, extract the values from the maps in each bin & append
     rows_list = []
     colnames = []
@@ -961,8 +939,7 @@ def _process_gals(args):
     # Add galaxy ID 
     rows_list.append([gal] * len(x_c_list))
     colnames.append("ID")
-    
-    ##########################################################
+
     # Transpose so that each row represents a single pixel & each column a measured quantity.
     rows_arr = np.array(rows_list).T
 
