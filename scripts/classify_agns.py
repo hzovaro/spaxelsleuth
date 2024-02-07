@@ -10,7 +10,7 @@ from astroquery.exceptions import TableParseError, RemoteServiceError
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 
-from spaxelsleuth.loaddata.linefns import ratio_fn, bpt_fn
+from spaxelsleuth.io.linefns import ratio_fn, bpt_fn
 from spaxelsleuth.plotting.plottools import plot_BPT_lines
 
 

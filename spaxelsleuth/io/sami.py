@@ -1,5 +1,3 @@
-# Imports
-import datetime
 import multiprocessing
 import numpy as np
 import os
@@ -13,17 +11,14 @@ from astropy.io import fits
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
-from spaxelsleuth.utils.geometry import deproject_coordinates
 from spaxelsleuth.utils.dqcut import compute_measured_HALPHA_amplitude_to_noise
+from spaxelsleuth.utils.geometry import deproject_coordinates
+from spaxelsleuth.utils.misc import morph_num_to_str, _2d_map_to_1d_list
 from spaxelsleuth.utils.velocity import compute_v_grad
-from spaxelsleuth.utils.addcolumns import add_columns
-from spaxelsleuth.utils.misc import morph_dict, morph_num_to_str
-from spaxelsleuth.utils.linefns import bpt_num_to_str
 
 import logging
 logger = logging.getLogger(__name__)
 
-###############################################################################
 # Paths
 input_path = Path(settings["sami"]["input_path"])
 output_path = Path(settings["sami"]["output_path"])
@@ -31,9 +26,8 @@ data_cube_path = Path(settings["sami"]["data_cube_path"])
 __lzifu_products_path = Path(settings["sami"]["lzifu_products_path"])
 
 
-###############################################################################
-# For computing median continuum S/N values in make_sami_metadata_df()
 def _compute_snr(args, plotit=False):
+    """Compute median continuum S/N values for each galaxy. Used in make_metadata_df()."""
     gal, df_metadata = args
 
     # Load the red & blue data cubes.
@@ -59,7 +53,6 @@ def _compute_snr(args, plotit=False):
     im_SNR_B = np.nanmedian(data_cube_B / np.sqrt(var_cube_B), axis=0)
     im_SNR_R = np.nanmedian(data_cube_R / np.sqrt(var_cube_R), axis=0)
 
-    #######################################################################
     # Use R_e to compute the median S/N within 1, 1.5, 2 R_e.
     # Transform coordinates into the galaxy plane
     e = df_metadata.loc[gal, "e"]
@@ -97,8 +90,7 @@ def _compute_snr(args, plotit=False):
     SNR_2Re_B = np.nanmedian(im_SNR_B[mask_2Re])
     SNR_2Re_R = np.nanmedian(im_SNR_R[mask_2Re])
 
-    #######################################################################
-    # End
+
     logger.info(f"finished processing {gal}")
     return [
         gal, SNR_full_B, SNR_full_R, SNR_1Re_B, SNR_1Re_R, SNR_15Re_B,
@@ -106,8 +98,7 @@ def _compute_snr(args, plotit=False):
     ]
 
 
-###############################################################################
-def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
+def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None):
     """Create the SAMI "metadata" DataFrame.
 
     DESCRIPTION
@@ -118,7 +109,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     catalogues, the angular scale (in kpc per arcsecond) and inclination are 
     computed for each galaxy.
 
-    This script must be run before make_sami_df() as the resulting DataFrame
+    This script must be run before make_df(survey="sami",) as the resulting DataFrame
     is used there.
 
     The information used here is from the catalogues are available at 
@@ -126,7 +117,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
 
     Details:
         - Distances are computed from the redshifts assuming a flat ΛCDM cosmology 
-    with H0 = 70 km/s/Mpc, ΩM = 0.3 and ΩΛ = 0.7. Flow-corrected redshifts are 
+    with cosmological parameters (H0 and ΩM) specified in the config file.Flow-corrected redshifts are 
     used to compute distances when available. 
         - Morphologies are taken from the `VisualMorphologyDR3` catalogue. For 
     simplicity, the `?`, `No agreement` and `Unknown` categories are all merged 
@@ -138,8 +129,8 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     USAGE
     ---------------------------------------------------------------------------
             
-            >>> from spaxelsleuth.loaddata.sami import make_sami_metadata_df
-            >>> make_sami_metadata_df()
+            >>> from spaxelsleuth.io.sami import make_metadata_df
+            >>> make_metadata_df(survey="sami",)
 
     INPUTS
     ---------------------------------------------------------------------------
@@ -198,9 +189,8 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     # Determine number of threads
     if nthreads is None:
         nthreads = os.cpu_count()
-        logger.warning(f"nthreads not specified: running make_sami_metadata_df() on {nthreads} threads...")
+        logger.warning(f"nthreads not specified: running make_metadata_df() on {nthreads} threads...")
 
-    ###########################################################################
     # Filenames
     df_fname = f"sami_dr3_metadata.hd5"
     gama_metadata_fname = "sami_InputCatGAMADR3.csv"
@@ -219,17 +209,13 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
         assert os.path.exists(data_path / fname),\
             f"File {data_path / fname} not found!"
 
-    ###########################################################################
     # Read in galaxy metadata
-    ###########################################################################
     df_metadata_gama = pd.read_csv(data_path / gama_metadata_fname)  # ALL possible GAMA targets
     df_metadata_cluster = pd.read_csv(data_path / cluster_metadata_fname)  # ALL possible cluster targets
     df_metadata_filler = pd.read_csv(data_path / filler_metadata_fname)  # ALL possible filler targets
     df_metadata = pd.concat([df_metadata_gama, df_metadata_cluster, df_metadata_filler], sort=True).drop(["Unnamed: 0"], axis=1)
 
-    ###########################################################################
     # Append morphology data
-    ###########################################################################
     df_morphologies = pd.read_csv(data_path / morphologies_fname).drop(["Unnamed: 0"], axis=1)
     df_morphologies = df_morphologies.rename(
         columns={"type": "Morphology (numeric)"})
@@ -248,9 +234,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
         df_morphologies[["catid", "Morphology (numeric)"]],
         on="catid")
 
-    ###########################################################################
     # Read in flag metadata
-    ###########################################################################
     df_flags = pd.read_csv(data_path / flag_metadata_fname).drop(
         ["Unnamed: 0"], axis=1)
     df_flags = df_flags.astype(
@@ -294,10 +278,8 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     # Reset index
     df_metadata = df_metadata.set_index(df_metadata["catid"])
 
-    ###########################################################################
     # Add R_e and other parameters derived from MGE fits
     # Note: these are based on SDSS and VST photometry, not GAMA.
-    ###########################################################################
     df_mge = pd.read_csv(data_path / mge_fits_metadata_fname).drop(["Unnamed: 0"], axis=1).set_index("catid")  # Data from multi-expansion fits
 
     # Drop duplicated rows: those with both SDSS and VST photometry
@@ -322,7 +304,6 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
                                     left_index=True,
                                     right_index=True)
 
-    ###############################################################################
     """
     Drop and rename columns. The following columns are included in the input tables used here:
     a_g               g-band extinction - keep
@@ -369,7 +350,6 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     log(M/R_e)        stellar mass / R_e (proxy for gravitational potential)
     Inclination i (degrees)  Inclination (computed from ellpiticity)
     """
-    ###############################################################################
     # Drop unnecessary columns (including object-type columns) & rename others for readability
     cols_to_remove = [
         "r_auto", "r_petro", "surv_sami", "rextinction", "dist2nneigh", "chi2",
@@ -409,11 +389,9 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     df_metadata = df_metadata.rename(columns=rename_dict)
     df_metadata = df_metadata.drop(columns=cols_to_remove)
 
-    ###########################################################################
     # Assign redshifts based on cluster membership.
     # For all galaxies, column "z" will contain the Tonry redshift for
     # non-cluster members and the cluster redshift for cluster members.
-    ###########################################################################
     cond_has_no_Tonry_z = df_metadata["z (flow-corrected)"].isna()
     df_metadata.loc[cond_has_no_Tonry_z,
                     "z"] = df_metadata.loc[cond_has_no_Tonry_z,
@@ -426,9 +404,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     assert not any((df_metadata["Cluster member"] == 1.0)
                    & ~df_metadata["z (flow-corrected)"].isna())
 
-    ###########################################################################
     # Add angular scale info
-    ###########################################################################
     logger.info(f"computing distances...")
     cosmo = FlatLambdaCDM(H0=settings["H_0"], Om0=settings["Omega_0"])
     for gal in gal_ids_dq_cut:
@@ -452,9 +428,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     df_metadata["log(M/R_e^2) (MGE)"] = df_metadata["log M_*"] - 2 * np.log10(
         df_metadata["R_e (MGE) (kpc)"])
 
-    ###########################################################################
     # Compute inclination
-    ###########################################################################
     e = df_metadata["e"]
     PA = df_metadata["PA (degrees)"]
     beta_rad = np.deg2rad(PA - 90)
@@ -466,9 +440,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
             (b_over_a**2 - q0**2) / (1 - q0**2)))  # Want to store this!
     df_metadata["i (degrees)"] = np.rad2deg(i_rad)
 
-    ###############################################################################
     # Compute continuum SNRs from the data cubes
-    ###############################################################################
     logger.info("computing continuum SNRs...")
     if not recompute_continuum_SNRs and os.path.exists(output_path / "sami_dr3_aperture_snrs.hd5"):
         logger.warning(
@@ -489,9 +461,7 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
             for arg in args_list:
                 res_list.append(_compute_snr(arg))
 
-        ###########################################################################
         # Create DataFrame from results
-        ###############################################################################
         df_snr = pd.DataFrame(
             np.vstack(res_list),
             columns=[
@@ -510,15 +480,11 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
         )
         df_snr.to_hdf(output_path / "sami_dr3_aperture_snrs.hd5", key="SNR")
 
-    ###############################################################################
     # Merge with the metadata DataFrame
-    ###############################################################################
     df_snr = df_snr.set_index("ID")
     df_metadata = pd.concat([df_snr, df_metadata], axis=1)
 
-    ###########################################################################
     # Save to file
-    ###########################################################################
     logger.info(
         f"saving metadata DataFrame to file {output_path / df_fname}..."
     )
@@ -529,13 +495,29 @@ def make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=None):
     return
 
 
-###############################################################################
-def _process_gals(args):
+def load_metadata_df():
+    """Load the SAMI metadata DataFrame, containing "metadata" for each galaxy."""
+    if not os.path.exists(output_path / "sami_dr3_metadata.hd5"):
+        raise FileNotFoundError(
+            f"File {output_path / 'sami_dr3_metadata.hd5'} not found. Did you remember to run make_metadata_df first?"
+        )
+    df_metadata = pd.read_hdf(output_path / "sami_dr3_metadata.hd5")
+
+    # Add back in object-type columns
+    df_metadata["Morphology"] = morph_num_to_str(df_metadata["Morphology (numeric)"])
+
+    # Cast to float to avoid issues around Object data types
+    df_metadata["Good?"] = df_metadata["Good?"].astype("float")
+
+    return df_metadata
+
+
+def process_galaxies(args):
     """
     DESCRIPTION
     ---------------------------------------------------------------------------
     Helper function used to multithread the processing of SAMI galaxies in 
-    make_sami_df().
+    make_df(survey="sami",).
 
     INPUTS
     ---------------------------------------------------------------------------
@@ -549,7 +531,10 @@ def _process_gals(args):
 
     """
     # Extract input arguments
-    gal_idx, gal, ncomponents, bin_type, df_metadata, use_lzifu_fits, lzifu_ncomponents = args
+    gal_idx, gal, ncomponents, bin_type, df_metadata, kwargs = args
+
+    use_lzifu_fits = kwargs["__use_lzifu_fits"]
+    lzifu_ncomponents = kwargs["__lzifu_ncomponents"]
 
     # List of filenames for SAMI data products
     fname_list = [
@@ -576,7 +561,6 @@ def _process_gals(args):
         str(input_path / f"ifs/{gal}/{gal}_A_{f}.fits") for f in fname_list
     ]
 
-    #######################################################################
     # Open the red & blue cubes.
     with fits.open(data_cube_path / f"ifs/{gal}/{gal}_A_cube_blue.fits.gz") as hdulist_B_cube:
         header_R = hdulist_B_cube[0].header
@@ -609,9 +593,7 @@ def _process_gals(args):
             1 + df_metadata.loc[gal, "z (spectroscopic)"]
         )  #NOTE: we use the spectroscopic redshift here, because when it comes to measuring e.g. continuum levels, it's important that the wavelength range we use is consistent between galaxies. For some galaxies the flow-corrected redshift is sufficiently different from the spectroscopic redshift that when we use it to define wavelength windows for computing the continuum level for instance we end up enclosing an emission line which throws the measurement way out of whack (e.g. for 572402)
 
-    #######################################################################
     # Compute continuum quantities
-
     # Load gas/stellar velocity maps so that we can window in around wavelength ranges accounting for velocity shifts
     with fits.open(input_path / f"ifs/{gal}/{gal}_A_stellar-velocity_{bin_type}_two-moment.fits") as hdulist_v_star:
         v_star_map = hdulist_v_star[0].data.astype(np.float64)
@@ -664,8 +646,6 @@ def _process_gals(args):
         v_map=v_map[0],
         dv=300)
 
-    #######################################################################
-    #######################################################################
     # X, Y pixel coordinates
     # Compute the spaxel or bin coordinates, depending on the binning scheme
     im = np.nansum(data_cube_B, axis=0)
@@ -716,7 +696,6 @@ def _process_gals(args):
                 x_c_list[ii] = x_c
                 y_c_list[ii] = y_c
 
-        #######################################################################
         # Bin numbers corresponding to bins actually present in the image
         good_bins = np.argwhere(~np.isnan(x_c_list)).flatten()
         ngood_bins = len(good_bins)
@@ -725,7 +704,6 @@ def _process_gals(args):
         bin_size_list_px = bin_size_list_px[good_bins]
         bin_number_list = bin_number_list[good_bins]
 
-    #######################################################################
     # Compute deprojected pixel coordinates
     PA_deg = df_metadata.loc[gal, "PA (degrees)"]
     i_deg = 0 if np.isnan(
@@ -741,25 +719,9 @@ def _process_gals(args):
         i_deg,
     )
 
-    #######################################################################
     # Open each FITS file, extract the values from the maps in each bin & append
     rows_list = []
     colnames = []
-
-    def _2d_map_to_1d_list(colmap):
-        """Returns a 1D array of values extracted from from spaxels in x_c_list and y_c_list in 2D array colmap."""
-        if colmap.ndim != 2:
-            raise ValueError(
-                f"colmap must be a 2D array but has ndim = {colmap.ndim}!")
-        row = np.full_like(x_c_list, np.nan, dtype="float")
-        for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-            x_c, y_c = coords
-            y, x = (int(np.round(y_c)), int(np.round(x_c)))
-            if x > nx - 1 or y > ny - 1:
-                x = min([x, nx - 1])
-                y = min([y, ny - 1])
-            row[jj] = colmap[y, x]
-        return row
 
     # Tidy up column names
     colname_dict = {
@@ -790,9 +752,9 @@ def _process_gals(args):
         # HALPHA, SFR quantities
         if data.ndim > 2:
             if "Halpha" in fname or "sfr" in fname:
-                rows_list.append(_2d_map_to_1d_list(data[0]))
+                rows_list.append(_2d_map_to_1d_list(data[0], x_c_list, y_c_list, nx, ny))
                 colnames.append(f"{colname_dict[fname_list[ff]]} (total)")
-                rows_list.append(_2d_map_to_1d_list(data_err[0]))
+                rows_list.append(_2d_map_to_1d_list(data_err[0], x_c_list, y_c_list, nx, ny))
                 colnames.append(
                     f"{colname_dict[fname_list[ff]]} error (total)")
                 # Trim the 0th slice
@@ -800,18 +762,18 @@ def _process_gals(args):
                 data_err = data_err[1:]
             # Add individual components
             for nn in range(3 if ncomponents == "recom" else 1):
-                rows_list.append(_2d_map_to_1d_list(data[nn]))
+                rows_list.append(_2d_map_to_1d_list(data[nn], x_c_list, y_c_list, nx, ny))
                 colnames.append(
                     f"{colname_dict[fname_list[ff]]} (component {nn + 1})")
-                rows_list.append(_2d_map_to_1d_list(data_err[nn]))
+                rows_list.append(_2d_map_to_1d_list(data_err[nn], x_c_list, y_c_list, nx, ny))
                 colnames.append(
                     f"{colname_dict[fname_list[ff]]} error (component {nn + 1})"
                 )
 
         # EXTINCTION, STELLAR KINEMATICS & EMISSION LINES EXCEPT FOR HALPHA
         else:
-            rows_list.append(_2d_map_to_1d_list(data))
-            rows_list.append(_2d_map_to_1d_list(data_err))
+            rows_list.append(_2d_map_to_1d_list(data, x_c_list, y_c_list, nx, ny))
+            rows_list.append(_2d_map_to_1d_list(data_err, x_c_list, y_c_list, nx, ny))
             # Column name
             # If adding the stellar kinematics, no point in adding "total" here
             if "stellar" in fname:
@@ -843,8 +805,8 @@ def _process_gals(args):
 
             # Total fluxes
             if quantity not in ["V", "VDISP"]:
-                rows_list.append(_2d_map_to_1d_list(data[0]))
-                rows_list.append(_2d_map_to_1d_list(data_err[0]))
+                rows_list.append(_2d_map_to_1d_list(data[0], x_c_list, y_c_list, nx, ny))
+                rows_list.append(_2d_map_to_1d_list(data_err[0], x_c_list, y_c_list, nx, ny))
                 # Column name
                 if quantity == "V":
                     quantity_colname = "v_gas"
@@ -857,8 +819,8 @@ def _process_gals(args):
 
             # Fluxes/kinematics in components 1, 2 and 3
             for nn in range(data.shape[0] - 1):
-                rows_list.append(_2d_map_to_1d_list(data[nn + 1]))
-                rows_list.append(_2d_map_to_1d_list(data_err[nn + 1]))
+                rows_list.append(_2d_map_to_1d_list(data[nn + 1], x_c_list, y_c_list, nx, ny))
+                rows_list.append(_2d_map_to_1d_list(data_err[nn + 1], x_c_list, y_c_list, nx, ny))
                 # Column name
                 if quantity == "V":
                     quantity_colname = "v_gas"
@@ -880,47 +842,47 @@ def _process_gals(args):
         data_err = np.sqrt(data_OII3726_err**2 + data_OII3729_err**2)
 
         # Total fluxes
-        rows_list.append(_2d_map_to_1d_list(data[0]))
+        rows_list.append(_2d_map_to_1d_list(data[0], x_c_list, y_c_list, nx, ny))
         colnames.append(f"OII3726+OII3729 (total)")
-        rows_list.append(_2d_map_to_1d_list(data_err[0]))
+        rows_list.append(_2d_map_to_1d_list(data_err[0], x_c_list, y_c_list, nx, ny))
         colnames.append(f"OII3726+OII3729 error (total)")
 
         # Fluxes in components 1, 2 and 3
         for nn in range(data.shape[0] - 1):
-            rows_list.append(_2d_map_to_1d_list(data[nn + 1]))
+            rows_list.append(_2d_map_to_1d_list(data[nn + 1], x_c_list, y_c_list, nx, ny))
             colnames.append(f"OII3726+OII3729 (component {nn + 1})")
-            rows_list.append(_2d_map_to_1d_list(data_err[nn + 1]))
+            rows_list.append(_2d_map_to_1d_list(data_err[nn + 1], x_c_list, y_c_list, nx, ny))
             colnames.append(f"OII3726+OII3729 error (component {nn + 1})")
 
     # Add v_grad
     for nn in range(v_grad.shape[0]):
-        rows_list.append(_2d_map_to_1d_list(v_grad[nn]))
+        rows_list.append(_2d_map_to_1d_list(v_grad[nn], x_c_list, y_c_list, nx, ny))
         colnames.append(f"v_grad (component {nn + 1})")
 
     # Add HALPHA amplitude-to-noise
-    rows_list.append(_2d_map_to_1d_list(AN_HALPHA_map))
+    rows_list.append(_2d_map_to_1d_list(AN_HALPHA_map, x_c_list, y_c_list, nx, ny))
     colnames.append(f"HALPHA A/N (measured)")
 
     # Add the continuum intensity for calculating the HALPHA EW
-    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map))
+    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map, x_c_list, y_c_list, nx, ny))
     colnames.append(f"HALPHA continuum")
-    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_std))
+    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_std, x_c_list, y_c_list, nx, ny))
     colnames.append(f"HALPHA continuum std. dev.")
-    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_err))
+    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_err, x_c_list, y_c_list, nx, ny))
     colnames.append(f"HALPHA continuum error")
 
     # Add the B-band continuum intensity
-    rows_list.append(_2d_map_to_1d_list(cont_B_map))
+    rows_list.append(_2d_map_to_1d_list(cont_B_map, x_c_list, y_c_list, nx, ny))
     colnames.append(f"B-band continuum")
-    rows_list.append(_2d_map_to_1d_list(cont_B_map_std))
+    rows_list.append(_2d_map_to_1d_list(cont_B_map_std, x_c_list, y_c_list, nx, ny))
     colnames.append(f"B-band continuum std. dev.")
-    rows_list.append(_2d_map_to_1d_list(cont_B_map_err))
+    rows_list.append(_2d_map_to_1d_list(cont_B_map_err, x_c_list, y_c_list, nx, ny))
     colnames.append(f"B-band continuum error")
 
     # Add the D4000Å break
-    rows_list.append(_2d_map_to_1d_list(d4000_map))
+    rows_list.append(_2d_map_to_1d_list(d4000_map, x_c_list, y_c_list, nx, ny))
     colnames.append(f"D4000")
-    rows_list.append(_2d_map_to_1d_list(d4000_map_err))
+    rows_list.append(_2d_map_to_1d_list(d4000_map_err, x_c_list, y_c_list, nx, ny))
     colnames.append(f"D4000 error")
 
     # Add pixel coordinates
@@ -959,7 +921,10 @@ def _process_gals(args):
         df_metadata.loc[gal, "kpc per arcsec"]**2)
     colnames.append("Bin size (square kpc)")
 
-    ##########################################################
+    # Add galaxy ID 
+    rows_list.append([gal] * len(x_c_list))
+    colnames.append("ID")
+
     # Transpose so that each row represents a single pixel & each column a measured quantity.
     rows_arr = np.array(rows_list).T
 
@@ -967,589 +932,6 @@ def _process_gals(args):
     bad_rows = np.all(np.isnan(rows_arr), axis=1)
     rows_good = rows_arr[~bad_rows]
 
-    # Append a column with the galaxy ID, so we know which galaxy these rows belong to
-    gal_metadata = np.tile(
-        df_metadata.loc[df_metadata.loc[:, "ID"] == gal]["ID"].values,
-        (ngood_bins, 1))
-    rows_good = np.hstack((gal_metadata, rows_good))
-
     logger.info(f"finished processing {gal} ({gal_idx})")
 
-    return rows_good, ["ID"] + colnames
-
-
-###############################################################################
-def make_sami_df(bin_type, 
-                 ncomponents,
-                 eline_SNR_min,
-                 eline_ANR_min,
-                 correct_extinction,
-                 sigma_gas_SNR_min=3,
-                 eline_list=settings["sami"]["eline_list"],
-                 line_flux_SNR_cut=True,
-                 missing_fluxes_cut=True,
-                 missing_kinematics_cut=True,
-                 line_amplitude_SNR_cut=True,
-                 flux_fraction_cut=False,
-                 sigma_gas_SNR_cut=True,
-                 vgrad_cut=False,
-                 stekin_cut=True,
-                 metallicity_diagnostics=[
-                     "N2Ha_PP04",
-                     "N2Ha_M13",
-                     "O3N2_PP04",
-                     "O3N2_M13",
-                     "N2S2Ha_D16",
-                     "N2O2_KD02",
-                     "Rcal_PG16",
-                     "Scal_PG16",
-                     "ON_P10",
-                     "ONS_P10",
-                     "N2Ha_K19",
-                     "O3N2_K19",
-                     "N2O2_K19",
-                     "R23_KK04",
-                 ],
-                 nthreads=None,
-                 debug=False,
-                 __use_lzifu_fits=False,
-                 __lzifu_ncomponents=None):
-    """
-    Make the SAMI DataFrame, where each row represents a single spaxel in a SAMI galaxy.
-
-    DESCRIPTION
-    ---------------------------------------------------------------------------
-    This function is used to create a Pandas DataFrame containing emission line 
-    fluxes & kinematics, stellar kinematics, extinction, star formation rates, 
-    and other quantities for individual spaxels in SAMI galaxies as taken from 
-    SAMI DR3.
-
-    The output is stored in HDF format as a Pandas DataFrame in which each row 
-    corresponds to a given spaxel (or Voronoi/sector bin) for every galaxy. 
-
-    USAGE
-    ---------------------------------------------------------------------------
-    
-        >>> from spaxelsleuth.loaddata.sami import make_sami_df()
-        >>> make_sami_df(ncomponents="1", bin_type="default", 
-                         eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
-
-    will create a DataFrame using the data products from 1-component Gaussian 
-    fits to the unbinned datacubes, and will adopt minimum S/N and A/N 
-    thresholds of 5 and 3 respectively to mask out unreliable emission line 
-    fluxes and associated quantities. sigma_inst_kms refers to the Gaussian 
-    sigma of the instrumental line function in km/s.    
-
-    Other input arguments may be configured to control other aspects of the data 
-    quality and S/N cuts made.
-
-    Running this function on the full sample takes some time (~10-20 minutes 
-    when threaded across 20 threads). Execution time can be sped up by tweaking 
-    the nthreads parameter. 
-
-    If you wish to run in debug mode, set the DEBUG flag to True: this will run 
-    the script on a subset (by default 10) galaxies to speed up execution. 
-
-    INPUTS
-    ---------------------------------------------------------------------------
-    ncomponents:                str
-        Controls which data products are used, depending on the number of 
-        Gaussian components fitted to the emission lines. 
-        Options are "recom" (the recommended multi-component fits) or "1" 
-        (1-component fits).
-        
-        NOTE: if __use_lzifu_fits is True, then ncomponents is ONLY used in  
-        loading data products that are NOT contained in the output LZIFU files -
-        i.e., SFRs/SFR surface densities and HALPHA extinction correction 
-        factors. Use parameter __lzifu_ncomponents to control which data 
-        derived from the LZIFU fits is loaded. 
-
-    bin_type:                   str
-        Spatial binning strategy. Options are "default" (unbinned), "adaptive"
-        (Voronoi binning) or "sectors" (sector binning)
-
-    eline_SNR_min:              int 
-        Minimum emission line flux S/N to adopt when making S/N and data 
-        quality cuts.
-
-    eline_ANR_min:          float
-        Minimum A/N to adopt for emission lines in each kinematic component,
-        defined as the Gaussian amplitude divided by the continuum standard
-        deviation in a nearby wavelength range.
-
-    correct_extinction:         bool
-        If True, correct emission line fluxes for extinction. 
-
-        Note that the Halpha equivalent widths are NOT corrected for extinction if 
-        correct_extinction is True. This is because stellar continuum extinction 
-        measurements are not available, and so applying the correction only to the 
-        Halpha fluxes may over-estimate the true EW.
-
-    sigma_gas_SNR_min:          float (optional)
-        Minimum velocity dipersion S/N to accept. Defaults to 3.
-
-    line_flux_SNR_cut:          bool (optional)
-        Whether to NaN emission line components AND total fluxes 
-        (corresponding to emission lines in eline_list) below a specified S/N 
-        threshold, given by eline_SNR_min. The S/N is simply the flux dividied 
-        by the formal 1sigma uncertainty on the flux. Default: True.
-
-    missing_fluxes_cut:         bool (optional)
-        Whether to NaN out "missing" fluxes - i.e., cells in which the flux
-        of an emission line (total or per component) is NaN, but the error 
-        is not for some reason. Default: True.
-
-    missing_kinematics_cut: bool
-        Whether to NaN out "missing" values for v_gas/sigma_gas/v_*/sigma_* - 
-        i.e., cells in which the measurement itself is NaN, but the error 
-        is not for some reason. Default: True.
-
-    line_amplitude_SNR_cut:     bool (optional)
-        If True, removes components with Gaussian amplitudes < 3 * RMS of the 
-        continuum in the vicinity of Halpha. By default this is set to True
-        because this does well at removing shallow components which are most 
-        likely due to errors in the stellar continuum fit. Default: True.
-
-    flux_fraction_cut:          bool (optional)
-        If True, and if ncomponents > 1, remove intermediate and broad 
-        components with line amplitudes < 0.05 that of the narrow componet.
-        Set to False by default b/c it's unclear whether this is needed to 
-        reject unreliable components. Default: False.
-
-    sigma_gas_SNR_cut:          bool (optional)
-        If True, mask component velocity dispersions where the S/N on the 
-        velocity dispersion measurement is below sigma_gas_SNR_min. 
-        By default this is set to True as it's a robust way to account for 
-        emission line widths < instrumental.  Default: True.
-
-    vgrad_cut:                  bool (optional)     
-        If True, mask component kinematics (velocity and velocity dispersion)
-        that are likely to be affected by beam smearing.
-        By default this is set to False because it tends to remove nuclear spaxels 
-        which may be of interest to your science case, & because it doesn't 
-        reliably remove spaxels with quite large beam smearing components.
-        Default: False.
-
-    stekin_cut:                 bool (optional)
-        If True, mask stellar kinematic quantities that do not meet the DQ and 
-        S/N requirements specified in Croom et al. (2021). Default: True.
-
-    metallicity_diagnostics:    list of str (optional)
-        List of strong-line metallicity diagnostics to compute. 
-        Options:
-            N2Ha_K19    N2Ha diagnostic from Kewley (2019).
-            S2Ha_K19    S2Ha diagnostic from Kewley (2019).
-            N2S2_K19    N2S2 diagnostic from Kewley (2019).
-            S23_K19     S23 diagnostic from Kewley (2019).
-            O3N2_K19    O3N2 diagnostic from Kewley (2019).
-            O2S2_K19    O2S2 diagnostic from Kewley (2019).
-            O2Hb_K19    O2Hb diagnostic from Kewley (2019).
-            N2O2_K19    N2O2 diagnostic from Kewley (2019).
-            R23_K19     R23 diagnostic from Kewley (2019).
-            N2Ha_PP04   N2Ha diagnostic from Pilyugin & Peimbert (2004).
-            N2Ha_M13    N2Ha diagnostic from Marino et al. (2013).
-            O3N2_PP04   O3N2 diagnostic from Pilyugin & Peimbert (2004).
-            O3N2_M13    O3N2 diagnostic from Marino et al. (2013).
-            R23_KK04    R23 diagnostic from Kobulnicky & Kewley (2004).
-            N2S2Ha_D16  N2S2Ha diagnostic from Dopita et al. (2016).
-            N2O2_KD02   N2O2 diagnostic from Kewley & Dopita (2002).
-            Rcal_PG16   Rcal diagnostic from Pilyugin & Grebel (2016).
-            Scal_PG16   Scal diagnostic from Pilyugin & Grebel (2016).
-            ONS_P10     ONS diagnostic from Pilyugin et al. (2010).
-            ON_P10      ON diagnostic from Pilyugin et al. (2010).
-
-    eline_list:                 list of str (optional)
-        List of emission lines to use. Defaults to the full list of lines fitted 
-        in SAMI DR3.
-
-    nthreads:                   int (optional)           
-        Maximum number of threads to use. Defaults to os.cpu_count().
-
-    __use_lzifu_fits:           bool (optional)
-        If True, load the DataFrame containing emission line quantities
-        (including fluxes, kinematics, etc.) derived directly from the LZIFU
-        output FITS files, rather than those included in DR3. Default: False.
-
-    __lzifu_ncomponents:        str  (optional)
-        Number of components corresponding to the LZIFU fit, if 
-        __use_lzifu_fits is specified. May be '1', '2', '3' or 'recom'. Note 
-        that this keyword ONLY affects emission line fluxes and gas kinematics;
-        other quantities including SFR/SFR surface densities and HALPHA 
-        extinction correction factors are loaded from DR3 data products as per
-        the ncomponents keyword. Default: False.
-
-    debug:                      bool (optional)
-        If True, run on a subset of the entire sample (10 galaxies) and save
-        the output with "_DEBUG" appended to the filename. This is useful for
-        tweaking S/N and DQ cuts since running the function on the entire 
-        sample is quite slow.  Default: False.
-
-    OUTPUTS
-    ---------------------------------------------------------------------------
-    The resulting DataFrame will be stored as 
-
-        settings["sami"]["output_path"]/sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5
-
-    if correct_extinction is True, or else
-
-        settings["sami"]["output_path"]/sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5
-
-    The DataFrame will be stored in CSV format in case saving in HDF format 
-    fails for any reason.
-
-    PREREQUISITES
-    ---------------------------------------------------------------------------
-    make_sami_metadata_df() must be run first.
-
-    SAMI data products must be downloaded from DataCentral
-
-        https://datacentral.org.au/services/download/
-
-    and stored as follows: 
-
-        settings["sami"]["input_path"]/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits
-
-    This is essentially the default file structure when data products are 
-    downloaded from DataCentral and unzipped:
-
-        sami/dr3/ifs/<gal>/<gal>_<quantity>_<bin type>_<number of components>-comp.fits
-
-    The following data products are required to run this script:
-
-        Halpha_{bin_type}_{ncomponents}-comp.fits,
-        Hbeta_{bin_type}_{ncomponents}-comp.fits,
-        NII6583_{bin_type}_{ncomponents}-comp.fits,
-        OI6300_{bin_type}_{ncomponents}-comp.fits,
-        OII3728_{bin_type}_{ncomponents}-comp.fits,
-        OIII5007_{bin_type}_{ncomponents}-comp.fits,
-        SII6716_{bin_type}_{ncomponents}-comp.fits,
-        SII6731_{bin_type}_{ncomponents}-comp.fits,
-        gas-vdisp_{bin_type}_{ncomponents}-comp.fits,
-        gas-velocity_{bin_type}_{ncomponents}-comp.fits,
-        stellar-velocity-dispersion_{bin_type}_two-moment.fits,
-        stellar-velocity_{bin_type}_two-moment.fits,
-        extinct-corr_{bin_type}_{ncomponents}-comp.fits,
-        sfr-dens_{bin_type}_{ncomponents}-comp.fits,
-        sfr_{bin_type}_{ncomponents}-comp.fits
-
-    SAMI data cubes must also be downloaded from DataCentral and stored as follows: 
-
-        settings["sami"]["data_cube_path"]/ifs/<gal>/<gal>_A_cube_<blue/red>.fits.gz
-
-    settings["sami"]["data_cube_path"] can be the same as settings["sami"]["output_path"].
-    """
-
-    #######################################################################
-    # Input checking
-    #######################################################################
-    assert (ncomponents == "recom") | (
-        ncomponents == "1"), "ncomponents must be 'recom' or '1'!!"
-    assert bin_type in [
-        "default", "adaptive", "sectors"
-    ], "bin_type must be 'default' or 'adaptive' or 'sectors'!!"
-    if __use_lzifu_fits:
-        assert __lzifu_ncomponents in [
-            "recom", "1", "2", "3"
-        ], "__lzifu_ncomponents must be 'recom', '1', '2' or '3'!!"
-        assert os.path.exists(
-            __lzifu_products_path
-        ), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
-        logger.warning(
-            "using LZIFU %s-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (__lzifu_ncomponents),
-            RuntimeWarning)
-
-    logger.info(f"input parameters: bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
-
-    # Determine number of threads
-    if nthreads is None:
-        nthreads = os.cpu_count()
-        logger.warning(f"nthreads not specified: running make_sami_df() on {nthreads} threads...")
-
-    ###############################################################################
-    # Filenames
-    #######################################################################
-    df_metadata_fname = "sami_dr3_metadata.hd5"
-
-    # Output file names
-    if correct_extinction:
-        df_fname = f"sami_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}_minANR={eline_ANR_min}"
-    else:
-        df_fname = f"sami_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}_minANR={eline_ANR_min}"
-    if __use_lzifu_fits:
-        df_fname += f"_lzifu_{__lzifu_ncomponents}-comp"
-    if debug:
-        df_fname += "_DEBUG"
-    df_fname += ".hd5"
-
-    logger.info(f"saving to file {df_fname}...")
-
-    ###############################################################################
-    # Read metadata
-    ###############################################################################
-    try:
-        df_metadata = pd.read_hdf(output_path / df_metadata_fname,
-                                  key="metadata")
-    except:
-        raise FileNotFoundError(
-            f"metadata DataFrame file not found ({output_path / df_metadata_fname}). Please run make_sami_metadata_df.py first!"
-        )
-
-    # Only include galaxies flagged as "good" & for which we have data
-    gal_ids_dq_cut = df_metadata[df_metadata["Good?"] == True].index.values
-    gal_ids_dq_cut = [
-        g for g in gal_ids_dq_cut
-        if os.path.exists(input_path / f"ifs/{g}/")
-    ]
-    if len(gal_ids_dq_cut) == 0:
-        raise FileNotFoundError(f"I could not find any galaxy data in {input_path / 'ifs'}!")
-
-    # If running in DEBUG mode, run on a subset to speed up execution time
-    if debug:
-        gal_ids_dq_cut_debug = gal_ids_dq_cut[:10]
-        for gal in [
-                572402, 209807
-        ]:  # Add these two galaxies because they are very distinctive, making debugging a bit easier (for me at least...)
-            if gal in gal_ids_dq_cut:
-                gal_ids_dq_cut_debug += [gal]
-        gal_ids_dq_cut = gal_ids_dq_cut_debug
-        # Also only run on a subset of metallicity diagnostics to speed up execution time
-        metallicity_diagnostics = ["N2Ha_PP04", "N2Ha_K19"]
-
-    # Cast to flaot to avoid issues around Object data types
-    df_metadata["Good?"] = df_metadata["Good?"].astype("float")
-
-    ###############################################################################
-    # Scrape measurements for each galaxy from FITS files
-    ###############################################################################
-    args_list = [[
-        gg, gal, ncomponents, bin_type, df_metadata,
-        __use_lzifu_fits, __lzifu_ncomponents
-    ] for gg, gal in enumerate(gal_ids_dq_cut)]
-
-    if len(gal_ids_dq_cut) == 1:
-        res_list = [_process_gals(args_list[0])]
-    else:
-        if nthreads > 1:
-            logger.info(f"beginning pool...")
-            pool = multiprocessing.Pool(
-                min([nthreads, len(gal_ids_dq_cut)]))
-            res_list = np.array((pool.map(_process_gals, args_list)), dtype=object)
-            pool.close()
-            pool.join()
-        else:
-            logger.info(f"running sequentially...")
-            res_list = []
-            for args in args_list:
-                res = _process_gals(args)
-                res_list.append(res)
-
-    ###############################################################################
-    # Convert to a Pandas DataFrame
-    ###############################################################################
-    rows_list_all = [r[0] for r in res_list]
-    colnames = res_list[0][1]
-    df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)),
-                              columns=colnames)
-
-    # Merge with metadata
-    df_spaxels = df_spaxels.merge(df_metadata, on="ID", how="left")
-
-    ###############################################################################
-    # Add extra columns
-    ###############################################################################
-    df_spaxels["r/R_e"] = df_spaxels[
-        "r (relative to galaxy centre, deprojected, arcsec)"] / df_spaxels[
-            "R_e (arcsec)"]
-
-    ###############################################################################
-    # Generic stuff: compute additional columns - extinction, metallicity, etc.
-    ###############################################################################
-    df_spaxels = add_columns(df_spaxels,
-                             eline_SNR_min=eline_SNR_min,
-                             eline_ANR_min=eline_ANR_min,
-                             sigma_gas_SNR_min=sigma_gas_SNR_min,
-                             eline_list=eline_list,
-                             line_flux_SNR_cut=line_flux_SNR_cut,
-                             missing_fluxes_cut=missing_fluxes_cut,
-                             missing_kinematics_cut=missing_kinematics_cut,
-                             line_amplitude_SNR_cut=line_amplitude_SNR_cut,
-                             flux_fraction_cut=flux_fraction_cut,
-                             sigma_gas_SNR_cut=sigma_gas_SNR_cut,
-                             vgrad_cut=vgrad_cut,
-                             stekin_cut=stekin_cut,
-                             correct_extinction=correct_extinction,
-                             metallicity_diagnostics=metallicity_diagnostics,
-                             compute_sfr=False,
-                             flux_units=settings["sami"]["flux_units"],
-                             sigma_inst_kms=settings["sami"]["sigma_inst_kms"],
-                             nthreads=nthreads,
-                             __use_lzifu_fits=__use_lzifu_fits,
-                             __lzifu_ncomponents=__lzifu_ncomponents)
-
-    ###############################################################################
-    # Save
-    ###############################################################################
-    logger.info(f"saving to file {output_path / df_fname}...")
-
-    # Remove object-type columns
-    bad_cols = [c for c in df_spaxels if df_spaxels[c].dtype == "object"]
-    if len(bad_cols) > 0:
-        logger.warning(f"The following object-type columns are present in the DataFrame: {','.join(bad_cols)}")
-
-    # Save
-    df_spaxels.to_hdf(output_path / df_fname, key=f"{bin_type}{ncomponents}comp")
-    
-    logger.info("finished!")
-    return
-
-
-###############################################################################
-def load_sami_df(ncomponents,
-                 bin_type,
-                 eline_SNR_min,
-                 eline_ANR_min,
-                 correct_extinction,
-                 __use_lzifu_fits=False,
-                 __lzifu_ncomponents='3',
-                 debug=False):
-    """
-    DESCRIPTION
-    ---------------------------------------------------------------------------
-    Load and return the Pandas DataFrame containing spaxel-by-spaxel 
-    information for all SAMI galaxies which was created using make_sami_df(),
-    making a series of optional S/N and data quality cuts.
-
-    INPUTS
-    ---------------------------------------------------------------------------
-    ncomponents:        str
-        Number of components; may either be "1" (corresponding to the 
-        1-component Gaussian fits) or "recom" (corresponding to the multi-
-        component Gaussian fits).
-
-    bin_type:           str
-        Binning scheme used. Must be one of 'default' or 'adaptive' or 
-
-    eline_SNR_min:      int 
-        Minimum flux S/N to accept. Fluxes below the threshold (plus associated
-        data products) are set to NaN.
-        'sectors'.
-
-    eline_ANR_min:          float
-        Minimum A/N to adopt for emission lines in each kinematic component,
-        defined as the Gaussian amplitude divided by the continuum standard
-        deviation in a nearby wavelength range.
-
-    correct_extinction: bool
-        If True, load the DataFrame in which the emission line fluxes (but not 
-        EWs) have been corrected for intrinsic extinction.
-
-    eline_list:                 list of str
-        List of emission lines to which the flagging operations are applied
-        for S/N cuts, etc. 
-
-    __use_lzifu_fits:           bool (optional)
-        If True, load the DataFrame containing emission line quantities
-        (including fluxes, kinematics, etc.) derived directly from the LZIFU
-        output FITS files, rather than those included in DR3. 
-
-    __lzifu_ncomponents:        str  (optional)
-        Number of components corresponding to the LZIFU fit, if 
-        __use_lzifu_fits is specified. May be '1', '2', '3' or 'recom'. Note 
-        that this keyword ONLY affects emission line fluxes and gas kinematics;
-        other quantities including SFR/SFR surface densities and HALPHA 
-        extinction correction factors are loaded from DR3 data products as per
-        the ncomponents keyword. 
-
-    debug:                      bool
-        If True, load the "debug" version of the DataFrame created when 
-        running make_sami_df() with debug=True.
-    
-    USAGE
-    ---------------------------------------------------------------------------
-    load_sami_df() is called as follows:
-
-        >>> from spaxelsleuth.loaddata.sami import load_sami_df
-        >>> df = load_sami_df(ncomponents, bin_type, correct_extinction, 
-                              eline_SNR_min, debug)
-
-    OUTPUTS
-    ---------------------------------------------------------------------------
-    The Dataframe.
-
-    """
-    #######################################################################
-    # INPUT CHECKING
-    #######################################################################
-    assert (ncomponents == "recom") | (
-        ncomponents == "1"), "ncomponents must be 'recom' or '1'!!"
-    assert bin_type in settings["sami"][
-        "bin_types"], f"bin_type must be one of {', '.join(settings['sami']['bin_types'])}"
-    if __use_lzifu_fits:
-        assert __lzifu_ncomponents in [
-            "recom", "1", "2", "3"
-        ], "__lzifu_ncomponents must be 'recom', '1', '2' or '3'!!"
-        assert os.path.exists(
-            __lzifu_products_path
-        ), f"lzifu_products_path directory {__lzifu_products_path} not found!!"
-        logger.warning(
-            "using LZIFU %s-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (__lzifu_ncomponents),
-            RuntimeWarning)
-
-    # Input file name
-    df_fname = f"sami_{bin_type}_{ncomponents}-comp"
-    if correct_extinction:
-        df_fname += "_extcorr"
-    df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}"
-    if __use_lzifu_fits:
-        df_fname += f"_lzifu_{__lzifu_ncomponents}-comp"
-    if debug:
-        df_fname += "_DEBUG"
-    df_fname += ".hd5"
-
-    assert os.path.exists(output_path / df_fname),\
-        f"File {output_path / df_fname} does does not exist!"
-
-    # Load the data frame
-    t = os.path.getmtime(output_path / df_fname)
-    logger.info(
-        f"Loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
-    )
-    df = pd.read_hdf(output_path / df_fname, key=f"{bin_type}{ncomponents}comp")
-
-    # Add "metadata" columns to the DataFrame
-    df["survey"] = "sami"
-    df["as_per_px"] = settings["sami"]["as_per_px"]
-    df["N_x"] = settings["sami"]["N_x"]
-    df["N_y"] = settings["sami"]["N_y"]
-    df["x_0 (pixels)"] = settings["sami"]["x_0 (pixels)"]
-    df["y_0 (pixels)"] = settings["sami"]["y_0 (pixels)"]
-    df["ncomponents"] = ncomponents
-    df["bin_type"] = bin_type
-    df["__use_lzifu_fits"] = __use_lzifu_fits
-    df["__lzifu_ncomponents"] = __lzifu_ncomponents
-    df["debug"] = debug
-    df["flux_units"] = f"E{str(settings['sami']['flux_units']).lstrip('1e')} erg/cm^2/s"  # Units of emission line flux
-    df["continuum_units"] = f"E{str(settings['sami']['flux_units']).lstrip('1e')} erg/cm^2/Å/s"  # Units of continuum flux density
-
-    # Add back in object-type columns
-    df["Morphology"] = morph_num_to_str(df["Morphology (numeric)"])
-    df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
-
-    # Return
-    logger.info("finished!")
-    return df.sort_index()
-
-
-###############################################################################
-def load_sami_metadata_df():
-    """Load the SAMI metadata DataFrame, containing "metadata" for each galaxy."""
-    if not os.path.exists(output_path / "sami_dr3_metadata.hd5"):
-        raise FileNotFoundError(
-            f"File {output_path / 'sami_dr3_metadata.hd5'} not found. Did you remember to run make_sami_metadata_df() first?"
-        )
-    df_metadata = pd.read_hdf(output_path / "sami_dr3_metadata.hd5")
-
-    # Add back in object-type columns
-    df_metadata["Morphology"] = morph_num_to_str(df_metadata["Morphology (numeric)"])
-
-    return df_metadata
+    return rows_good, colnames

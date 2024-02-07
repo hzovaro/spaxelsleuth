@@ -51,7 +51,7 @@ def make_sami_aperture_df(eline_SNR_min,
     USAGE
     ---------------------------------------------------------------------------
             
-            >>> from spaxelsleuth.loaddata.sami import make_sami_aperture_df
+            >>> from spaxelsleuth.io.sami import make_sami_aperture_df
             >>> make_sami_aperture_df(eline_SNR_min=5)
 
     INPUTS

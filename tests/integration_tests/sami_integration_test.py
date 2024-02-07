@@ -3,16 +3,15 @@ import numpy as np
 from spaxelsleuth import load_user_config, configure_logger
 load_user_config("test_config.json")
 configure_logger(level="INFO")
-from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_df, load_sami_df
+from spaxelsleuth.io.io import make_metadata_df, make_df, load_df
 
 import logging
 logger = logging.getLogger(__name__)
 
 
-def test_make_sami_metadata_df():
+def test_make_metadata_df():
     """Test creation of the metadata DataFrame."""
-    make_sami_metadata_df(recompute_continuum_SNRs=True, nthreads=10)
-
+    make_metadata_df(survey="sami", recompute_continuum_SNRs=True, nthreads=10)
     # TODO add some assertion checks here?
 
 
@@ -31,7 +30,7 @@ def run_sami_assertion_tests(ncomponents,
                    eline_ANR_min=3, 
                    nthreads=10,
                    debug=False):
-    """Run make_sami_df and load_sami_df for the given inputs and run assertion checks."""
+    """Run make_df and load_df survey="sami", for the given inputs and run assertion checks."""
     
     # Needed for metallicity checks
     from spaxelsleuth.utils.metallicity import line_list_dict
@@ -45,12 +44,12 @@ def run_sami_assertion_tests(ncomponents,
     }
 
     # Create the DataFrame
-    make_sami_df(**kwargs, correct_extinction=True, nthreads=nthreads)  
-    make_sami_df(**kwargs, correct_extinction=False, nthreads=nthreads)  
+    make_df(survey="sami", **kwargs, correct_extinction=True, nthreads=nthreads)  
+    make_df(survey="sami", **kwargs, correct_extinction=False, nthreads=nthreads)  
     
     # Load the DataFrame
-    df = load_sami_df(**kwargs, correct_extinction=True)
-    df_noextcorr = load_sami_df(**kwargs, correct_extinction=False)
+    df = load_df(survey="sami", **kwargs, correct_extinction=True)
+    df_noextcorr = load_df(survey="sami", **kwargs, correct_extinction=False)
 
     #//////////////////////////////////////////////////////////////////////////////
     # Run assertion tests

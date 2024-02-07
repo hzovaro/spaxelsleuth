@@ -3,7 +3,7 @@ nthreads = int(sys.argv[1])
 
 from spaxelsleuth import load_user_config
 load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
-from spaxelsleuth.loaddata.sami_apertures import make_sami_aperture_df
+from spaxelsleuth.io.sami_apertures import make_sami_aperture_df
 
 ###########################################################################
 # Create the aperture DataFrame

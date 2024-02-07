@@ -27,6 +27,7 @@
             "SII6716",
             "SII6731"
         ],
+        "ncomponents": ["rec"],
         "bin_types": [
             "default"
         ],
@@ -53,6 +54,7 @@
             "SII6716",
             "SII6731"
         ],
+        "ncomponents": ["recom", "1"],
         "bin_types": [
             "default",
             "adaptive",
@@ -66,8 +68,24 @@
     "s7": {
         "flux_units": 1e-16,
         "as_per_px": 1.0,
+        "ncomponents": [
+            "merge", 
+            "1"
+        ],
         "bin_types": [
             "default"
+        ],
+        "eline_list": [
+            "OII3726",
+            "OII3729",
+            "OIII4363",
+            "HBETA",
+            "OIII5007",
+            "OI6300",
+            "HALPHA",
+            "NII6583",
+            "SII6716",
+            "SII6731"
         ],
         "data_cube_path": "s7/input/",
         "input_path": "s7/input",
@@ -76,6 +94,23 @@
     },
     "lzifu": {
         "flux_units": 1e-16,
+        "ncomponents": [
+            "merge", 
+            1,
+            2,
+            3
+        ],
+        "eline_list": [
+            "OII3726",
+            "OII3729",
+            "HBETA",
+            "OIII5007",
+            "OI6300",
+            "HALPHA",
+            "NII6583",
+            "SII6716",
+            "SII6731"
+        ],
         "bin_types": [
             "default"
         ],
