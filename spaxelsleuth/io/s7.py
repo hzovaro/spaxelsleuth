@@ -2,32 +2,26 @@ import os
 from pathlib import Path
 import pkgutil
 
-import datetime
 from astropy.io import fits
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.cosmology import FlatLambdaCDM
-import multiprocessing
 import numpy as np
 import pandas as pd
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
 from spaxelsleuth.utils.dqcut import compute_measured_HALPHA_amplitude_to_noise
-from spaxelsleuth.utils.addcolumns import add_columns
-from spaxelsleuth.utils.linefns import bpt_num_to_str
 
 import logging
 logger = logging.getLogger(__name__)
 
-###############################################################################
 # Paths
 input_path = Path(settings["s7"]["input_path"])
 output_path = Path(settings["s7"]["output_path"])
 data_cube_path = Path(settings["s7"]["data_cube_path"])
 
 
-###############################################################################
 def make_metadata_df():
     """
     Create a DataFrame containing "metadata" for all S7 galaxies.
@@ -73,14 +67,12 @@ def make_metadata_df():
     
     """
     logger.info("creating metadata DataFrame...")
-    ###############################################################################
+
     # Filenames
     input_catalogue_fname = "S7_DR2_Table_2_Catalogue.csv"
     df_metadata_fname = "s7_metadata.hd5"
 
-    ###############################################################################
-    # READ IN THE METADATA
-    ###############################################################################
+    # Read in the metadata
     data_path = Path(pkgutil.get_loader(__name__).get_filename()).parent.parent / "data"
     assert os.path.exists(data_path / input_catalogue_fname),\
         f"File {data_path / input_catalogue_fname} not found!"
@@ -88,17 +80,13 @@ def make_metadata_df():
     gals_str = df_metadata["S7_Name"].values
     gals = list(range(len(gals_str)))
 
-    ###############################################################################
     # Convert object coordinates to degrees
-    ###############################################################################
     coords = SkyCoord(df_metadata["RA_hms"], df_metadata["Dec_sxgsml"],
                  unit=(u.hourangle, u.deg))
     df_metadata["RA (J2000)"] = coords.ra.deg
     df_metadata["Dec (J2000)"] = coords.dec.deg
 
-    ###############################################################################
     # Rename columns
-    ###############################################################################
     rename_dict = {
         "S7_Name": "ID (string)",
         "HL_inclination": "i (degrees)",
@@ -119,16 +107,12 @@ def make_metadata_df():
     }
     df_metadata = df_metadata.rename(columns=rename_dict)
     df_metadata["ID"] = list(range(df_metadata.shape[0]))
-    # df_metadata = df_metadata.set_index(df_metadata["ID"])
-    # df_metadata.index.name = "ID"
 
     # Get rid of unneeded columns
     good_cols = [rename_dict[k] for k in rename_dict.keys()] + ["RA (J2000)", "Dec (J2000)", "ID"]
     df_metadata = df_metadata[good_cols]
 
-    ###############################################################################
     # Add angular scale info
-    ###############################################################################
     logger.info(f"computing distances...")
     cosmo = FlatLambdaCDM(H0=settings["H_0"], Om0=settings["Omega_0"])
     for gal in gals:
@@ -138,23 +122,19 @@ def make_metadata_df():
         df_metadata.loc[gal, "D_L (Mpc)"] = D_L_Mpc
     df_metadata["kpc per arcsec"] = df_metadata["D_A (Mpc)"] * 1e3 * np.pi / 180.0 / 3600.0
 
-    ###############################################################################
     # Define a "Good?" column
-    ###############################################################################
     df_metadata["Sy1 subtraction?"] = [True if x == "Y" else False for x in df_metadata["Sy1 subtraction?"].values]
     df_metadata["Good?"] = ~df_metadata["Sy1 subtraction?"].values
     df_metadata = df_metadata.sort_index()
 
-    ###############################################################################
     # Save to file
-    ###############################################################################
     logger.info(f"saving metadata DataFrame to file {output_path / df_metadata_fname}...")
     df_metadata.to_hdf(output_path / df_metadata_fname, key="metadata")
 
     logger.info(f"finished!")
     return
 
-#/////////////////////////////////////////////////////////////////////////////////
+
 def _process_gals(args):
     """Helper function that is used in make_s7_df() to process S7 galaxies across multiple threads."""
     gal_idx, _, ncomponents, bin_type, df_metadata, kwargs = args
@@ -162,9 +142,7 @@ def _process_gals(args):
     # Get the gal name 
     gal = df_metadata.loc[gal_idx, "ID (string)"]
 
-    #######################################################################
     # Scrape outputs from LZIFU output
-    #######################################################################
     hdulist_best_components = fits.open(input_path / f"{gal}_best_components.fits")
     hdr = hdulist_best_components[0].header
 
@@ -176,13 +154,11 @@ def _process_gals(args):
     # Angular scale
     as_per_px = settings["s7"]["as_per_px"]
 
-    #######################################################################
     # LOAD THE DATACUBES
     # NOTE: the data cubes have units 
     #       erg / cm^2 / s / Angstroem / arcsec^2 
     # So we normalise them by a factor of 1e-16 to put them in the same 
     # units as the emission line fluxes.
-    #######################################################################
     datacube_R_fname = data_cube_path / f"{gal}_R.fits"
     datacube_B_fname = data_cube_path / f"{gal}_B.fits"
     
@@ -242,9 +218,7 @@ def _process_gals(args):
             row[jj] = colmap[y, x]
         return row
 
-    #######################################################################
     # SCRAPE LZIFU MEASUREMENTS
-    #######################################################################
     rows_list = []
     colnames = []
     lzifu_ncomponents = hdulist_best_components["V"].shape[0] - 1
@@ -306,9 +280,7 @@ def _process_gals(args):
                     rows_list.append(_2d_map_to_1d_list(err))
                     colnames.append(f"{quantity} error")
 
-    ##########################################################
     # COMPUTE QUANTITIES DIRECTLY FROM THE DATACUBES
-    ##########################################################
     v_star_map = hdulist_best_components["STAR_V"].data[0]
     # Compute the D4000Å break
     if lambda_vals_B_rest_A[0] <= 3850 and lambda_vals_B_rest_A[-1] >= 4100:
@@ -390,7 +362,6 @@ def _process_gals(args):
         rows_list.append(_2d_map_to_1d_list(np.full((ny, nx), np.nan)))
         colnames.append(f"HALPHA A/N (measured)")
 
-    ##########################################################
     # Add other stuff
     rows_list.append([as_per_px] * len(x_c_list))
     colnames.append("as_per_px")
@@ -445,7 +416,6 @@ def _process_gals(args):
             colnames[cc] = rename_dict[colnames[cc]]
 
 
-    ##########################################################
     # Add galaxy ID (numerical index)
     rows_list.append([gal_idx] * len(x_c_list))
     colnames.append("ID")
@@ -460,401 +430,3 @@ def _process_gals(args):
     logger.info(f"finished processing {gal} ({gal_idx})")
 
     return rows_good, colnames
-
-
-#/////////////////////////////////////////////////////////////////////////////////
-def make_s7_df(eline_SNR_min,
-               eline_ANR_min,
-               correct_extinction,
-               gals=None,
-               sigma_gas_SNR_min=3,
-               line_flux_SNR_cut=True,
-               missing_fluxes_cut=True,
-               missing_kinematics_cut=True,
-               line_amplitude_SNR_cut=True,
-               flux_fraction_cut=False,
-               sigma_gas_SNR_cut=True,
-               vgrad_cut=False,
-               metallicity_diagnostics=[
-                   "N2Ha_PP04",
-                   "N2Ha_M13",
-                   "O3N2_PP04",
-                   "O3N2_M13",
-                   "N2S2Ha_D16",
-                   "N2O2_KD02",
-                   "Rcal_PG16",
-                   "Scal_PG16",
-                   "ON_P10",
-                   "ONS_P10",
-                   "N2Ha_K19",
-                   "O3N2_K19",
-                   "N2O2_K19",
-                   "R23_KK04",
-               ],
-               nthreads=None):
-    """
-    Make the S7 DataFrame, where each row represents a single spaxel in an S7 galaxy.
-
-    DESCRIPTION
-    ---------------------------------------------------------------------------
-    This function is used to create a Pandas DataFrame containing emission line 
-    fluxes & kinematics, stellar kinematics, extinction, star formation rates, 
-    and other quantities for individual spaxels in S7 galaxies as taken from 
-    S7 DR2 (https://miocene.anu.edu.au/S7/).
-
-    The output is stored in HDF format as a Pandas DataFrame in which each row 
-    corresponds to a given spaxel for every galaxy. 
-
-    USAGE
-    ---------------------------------------------------------------------------
-    
-        >>> from spaxelsleuth.io.s7 import make_s7_df()
-        >>> make_s7_df(eline_SNR_min=5, eline_ANR_min=3, correct_extinction=True)
-
-    will create a DataFrame using the data products from 1-component Gaussian 
-    fits to the unbinned datacubes, and will adopt minimum S/N and A/N 
-    thresholds of 5 and 3 respectively to mask out unreliable emission line 
-    fluxes and associated quantities. 
-
-    Other input arguments may be configured to control other aspects of the data 
-    quality and S/N cuts made.
-
-    INPUTS
-    ---------------------------------------------------------------------------
-    gals:                       list of str
-        List of galaxies on which to run. If unspecified, will run on the full
-        S7 sample.
-
-    eline_SNR_min:              int 
-        Minimum emission line flux S/N to adopt when making S/N and data 
-        quality cuts. Defaults to 5.
-
-    eline_ANR_min:          float
-        Minimum A/N to adopt for emission lines in each kinematic component,
-        defined as the Gaussian amplitude divided by the continuum standard
-        deviation in a nearby wavelength range.
-
-    correct_extinction:         bool
-        If True, correct emission line fluxes for extinction. Defaults to True.
-
-        Note that the Halpha equivalent widths are NOT corrected for extinction if 
-        correct_extinction is True. This is because stellar continuum extinction 
-        measurements are not available, and so applying the correction only to the 
-        Halpha fluxes may over-estimate the true EW.
-
-    sigma_gas_SNR_min:          float (optional)
-        Minimum velocity dipersion S/N to accept. Defaults to 3.
-
-    line_flux_SNR_cut:          bool (optional)
-        Whether to NaN emission line components AND total fluxes 
-        (corresponding to emission lines in eline_list) below a specified S/N 
-        threshold, given by eline_SNR_min. The S/N is simply the flux dividied 
-        by the formal 1sigma uncertainty on the flux. Default: True.
-
-    missing_fluxes_cut:         bool (optional)
-        Whether to NaN out "missing" fluxes - i.e., cells in which the flux
-        of an emission line (total or per component) is NaN, but the error 
-        is not for some reason. Default: True.
-
-    missing_kinematics_cut: bool
-        Whether to NaN out "missing" values for v_gas/sigma_gas/v_*/sigma_* - 
-        i.e., cells in which the measurement itself is NaN, but the error 
-        is not for some reason. Default: True.
-
-    line_amplitude_SNR_cut:     bool (optional)
-        If True, removes components with Gaussian amplitudes < 3 * RMS of the 
-        continuum in the vicinity of Halpha. By default this is set to True
-        because this does well at removing shallow components which are most 
-        likely due to errors in the stellar continuum fit. Default: True.
-
-    flux_fraction_cut:          bool (optional)
-        If True, and if ncomponents > 1, remove intermediate and broad 
-        components with line amplitudes < 0.05 that of the narrow componet.
-        Set to False by default b/c it's unclear whether this is needed to 
-        reject unreliable components. Default: False.
-
-    sigma_gas_SNR_cut:          bool (optional)
-        If True, mask component velocity dispersions where the S/N on the 
-        velocity dispersion measurement is below sigma_gas_SNR_min. 
-        By default this is set to True as it's a robust way to account for 
-        emission line widths < instrumental.  Default: True.
-
-    vgrad_cut:                  bool (optional)     
-        If True, mask component kinematics (velocity and velocity dispersion)
-        that are likely to be affected by beam smearing.
-        By default this is set to False because it tends to remove nuclear spaxels 
-        which may be of interest to your science case, & because it doesn't 
-        reliably remove spaxels with quite large beam smearing components.
-        Default: False.
-
-    metallicity_diagnostics:    list of str (optional)
-        List of strong-line metallicity diagnostics to compute. 
-        Options:
-            N2Ha_K19    N2Ha diagnostic from Kewley (2019).
-            S2Ha_K19    S2Ha diagnostic from Kewley (2019).
-            N2S2_K19    N2S2 diagnostic from Kewley (2019).
-            S23_K19     S23 diagnostic from Kewley (2019).
-            O3N2_K19    O3N2 diagnostic from Kewley (2019).
-            O2S2_K19    O2S2 diagnostic from Kewley (2019).
-            O2Hb_K19    O2Hb diagnostic from Kewley (2019).
-            N2O2_K19    N2O2 diagnostic from Kewley (2019).
-            R23_K19     R23 diagnostic from Kewley (2019).
-            N2Ha_PP04   N2Ha diagnostic from Pilyugin & Peimbert (2004).
-            N2Ha_M13    N2Ha diagnostic from Marino et al. (2013).
-            O3N2_PP04   O3N2 diagnostic from Pilyugin & Peimbert (2004).
-            O3N2_M13    O3N2 diagnostic from Marino et al. (2013).
-            R23_KK04    R23 diagnostic from Kobulnicky & Kewley (2004).
-            N2S2Ha_D16  N2S2Ha diagnostic from Dopita et al. (2016).
-            N2O2_KD02   N2O2 diagnostic from Kewley & Dopita (2002).
-            Rcal_PG16   Rcal diagnostic from Pilyugin & Grebel (2016).
-            Scal_PG16   Scal diagnostic from Pilyugin & Grebel (2016).
-            ONS_P10     ONS diagnostic from Pilyugin et al. (2010).
-            ON_P10      ON diagnostic from Pilyugin et al. (2010).
-
-    nthreads:                   int (optional)           
-        Maximum number of threads to use. Defaults to os.cpu_count().
-
-    OUTPUTS
-    ---------------------------------------------------------------------------
-    The resulting DataFrame will be stored as 
-
-        settings["s7"]["output_path"]/s7_{bin_type}_{ncomponents}-comp_extcorr_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5
-
-    if correct_extinction is True, or else
-
-        settings["s7"]["output_path"]/s7_{bin_type}_{ncomponents}-comp_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5
-
-    The DataFrame will be stored in CSV format in case saving in HDF format 
-    fails for any reason.
-
-    PREREQUISITES
-    ---------------------------------------------------------------------------
-    make_metadata_df() must be run first.
-
-    S7 data products are available at 
-
-        https://miocene.anu.edu.au/S7/Data_release_2/ 
-    
-    This script requires the blue and red datacubes as well as the "best-component" 
-    emission line fits. These can be downloaded at the following links:
-
-        https://miocene.anu.edu.au/S7/Data_release_2/S7_DR2_Data_cubes/ 
-        https://miocene.anu.edu.au/S7/Data_release_2/S7_DR2_LZIFU_best_component_fits/Post-processed_mergecomps/ 
-
-    They may also be downloaded from DataCentral (not yet as of 25/08/2023):
-
-        https://datacentral.org.au/services/download/
-
-    The data cubes must be and stored as follows: 
-
-        settings["s7"]["data_cube_path"]/<gal>_R.fits
-        settings["s7"]["data_cube_path"]/<gal>_B.fits
-
-    And the emission line data fits must be stored as 
-
-        settings["s7"]["input_path"]/<gal>_best_components.fits
-
-    """
-
-    ###############################################################################
-    # input checking
-    ###############################################################################
-    df_fname = f"s7_default_merge-comp"
-    if correct_extinction:
-        df_fname += "_extcorr"
-    df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5"
-
-    # Load metadata DataFrame
-    try:
-        df_metadata = pd.read_hdf(output_path / "s7_metadata.hd5", key="metadata")
-    except FileNotFoundError:
-        raise FileNotFoundError(f"Metadata DataFrame {output_path / 's7_metadata.hd5'} not found - have you run make_metadata_df() first?")
-
-    # Check validity of input galaxies
-    if gals is None:
-        gals_full_sample = df_metadata["ID"].unique()
-        gals_B_datacubes = [f.rstrip("_B.fits") for f in os.listdir(data_cube_path) if not f.startswith(".")]
-        gals_R_datacubes = [f.rstrip("_R.fits") for f in os.listdir(data_cube_path) if not f.startswith(".")]
-        gals_linefits = [f.rstrip("_best_components.fits") for f in os.listdir(input_path) if not f.startswith(".")]
-        gals = [g for g in gals_B_datacubes if g in gals_R_datacubes and g in gals_linefits and g in gals_full_sample]
-        if len(gals) < len(gals_full_sample):
-            logger.warn(f"I could only find {len(gals)}/{len(gals_full_sample)} galaxies, so I am only running on these!")
-    else:
-        for gal in gals:
-            if gal not in df_metadata["ID"].unique():
-                raise ValueError(f"Galaxy {gal} is not a valid S7 galaxy!")
-
-    # Determine number of threads
-    if nthreads is None:
-        nthreads = os.cpu_count()
-        logger.warning(f"nthreads not specified: running make_metadata_df() on {nthreads} threads...")
-
-    ###############################################################################
-    # Scrape measurements for each galaxy from FITS files
-    ###############################################################################
-    args_list = [[g, df_metadata] for g in gals]
-    if len(gals) == 1:
-        res_list = [_process_gals(args_list[0])]
-    else:
-        if nthreads > 1:
-            logger.info(f"beginning pool...")
-            pool = multiprocessing.Pool(min([nthreads, len(gals)]))
-            res_list = pool.map(_process_gals, args_list)
-            pool.close()
-            pool.join()
-        else:
-            logger.info(f"running sequentially...")
-            res_list = []
-            for args in args_list:
-                res = _process_gals(args)
-                res_list.append(res)
-
-    ###############################################################################
-    # Convert to a Pandas DataFrame
-    # This can be a bit tricky because not all galaxies have the same number of 
-    # columns - e.g. some are missing entries for certain emission lines.
-    # So, we have to make separate DataFrames containing galaxies each with the 
-    # same number of columns.
-    ###############################################################################
-    column_numbers = [r[0].shape[1] for r in res_list]  # Get list of column numbers (most galaxies have 99)
-    unique_column_numbers = set(column_numbers)
-    df_list = []
-    eline_list_all = []
-    for column_number in unique_column_numbers:
-        idxs = [ii for ii in range(len(column_numbers)) if column_numbers[ii] == column_number]
-        rows_list_subset = [res_list[ii][0] for ii in idxs]
-        colnames_subset = res_list[idxs[0]][1]
-        eline_list_subset = res_list[idxs[0]][2]
-        eline_list_all += eline_list_subset
-        df_spaxels_subset = pd.DataFrame(np.vstack(tuple(rows_list_subset)), columns=colnames_subset)
-        df_list.append(df_spaxels_subset)
-    df_spaxels = pd.concat(df_list)
-
-    # Get the "master" eline list 
-    eline_list = list(set(eline_list_all))
-
-    # Cast to float data types
-    for col in [c for c in df_spaxels.columns if c != "ID"]:
-        # Check if column values can be cast to float
-        df_spaxels[col] = pd.to_numeric(df_spaxels[col], errors="coerce")
-
-    # Merge with metadata 
-    df_spaxels = df_spaxels.merge(df_metadata, on="ID", how="left")
-
-    ###############################################################################
-    # Generic stuff: compute additional columns - extinction, metallicity, etc.
-    ###############################################################################
-    df_spaxels = add_columns(
-        df_spaxels.copy(),  # Pass a copy of the DataFrame to avoid a pandas PerformanceWarning
-        eline_SNR_min=eline_SNR_min,
-        eline_ANR_min=eline_ANR_min,
-        sigma_gas_SNR_min=sigma_gas_SNR_min,
-        eline_list=eline_list,
-        line_flux_SNR_cut=line_flux_SNR_cut,
-        missing_fluxes_cut=missing_fluxes_cut,
-        missing_kinematics_cut=missing_kinematics_cut,
-        line_amplitude_SNR_cut=line_amplitude_SNR_cut,
-        flux_fraction_cut=flux_fraction_cut,
-        sigma_gas_SNR_cut=sigma_gas_SNR_cut,
-        vgrad_cut=vgrad_cut,
-        stekin_cut=False,
-        correct_extinction=correct_extinction,
-        metallicity_diagnostics=metallicity_diagnostics,
-        compute_sfr=True,
-        flux_units=settings["s7"]["flux_units"],
-        sigma_inst_kms=settings["s7"]["sigma_inst_kms"],
-        nthreads=nthreads,
-        base_missing_flux_components_on_HALPHA=
-        False,  # NOTE: this is important!!
-        )
-
-    ###############################################################################
-    # Save to file
-    ###############################################################################
-    logger.info(f"saving to file {df_fname}...")
-    df_spaxels.to_hdf(output_path / df_fname, key=f"s7")
-    logger.info(f"finished!")
-
-    return
-
-
-#/////////////////////////////////////////////////////////////////////////////////
-def load_s7_df(eline_SNR_min, 
-               eline_ANR_min,
-               correct_extinction):
-    """
-    DESCRIPTION
-    ---------------------------------------------------------------------------
-    Load and return the Pandas DataFrame containing spaxel-by-spaxel 
-    information for all S7 galaxies which was created using make_s7_df().
-
-    INPUTS
-    ---------------------------------------------------------------------------
-    eline_SNR_min:      int 
-        Minimum flux S/N to accept. Fluxes below the threshold (plus associated
-        data products) are set to NaN.
-
-    eline_ANR_min:      float
-        Minimum A/N to adopt for emission lines in each kinematic component,
-        defined as the Gaussian amplitude divided by the continuum standard
-        deviation in a nearby wavelength range.
-   
-    correct_extinction: bool
-        If True, load the DataFrame in which the emission line fluxes (but not 
-        EWs) have been corrected for intrinsic extinction.
-    
-    USAGE
-    ---------------------------------------------------------------------------
-    load_s7_df() is called as follows:
-
-        >>> from spaxelsleuth.io.s7 import load_s7_df
-        >>> df = load_s7_df(eline_SNR_min, eline_ANR_min, correct_extinction)
-
-    OUTPUTS
-    ---------------------------------------------------------------------------
-    The Dataframe.
-    """
-
-    #######################################################################
-    # INPUT CHECKING
-    #######################################################################
-    # Input file name
-    df_fname = f"s7_default_merge-comp"
-    if correct_extinction:
-        df_fname += "_extcorr"
-    df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}.hd5"
-
-    if not os.path.exists(output_path / df_fname):
-        raise FileNotFoundError(
-            f"File {output_path / df_fname} does does not exist!")
-
-    # Load the data frame
-    t = os.path.getmtime(output_path / df_fname)
-    logger.info(
-        f"loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
-    )
-    df = pd.read_hdf(output_path / df_fname)
-
-    # Add "metadata" columns to the DataFrame
-    df["survey"] = "s7"
-    df["ncomponents"] = "merge"
-    df["bin_type"] = "default"
-    df["flux_units"] = f"E{str(settings['s7']['flux_units']).lstrip('1e')} erg/cm^2/s"  # Units of emission line flux
-    df["continuum_units"] = f"E{str(settings['s7']['flux_units']).lstrip('1e')} erg/cm^2/Å/s"  # Units of continuum flux density
-
-    # Add back in object-type columns
-    df["BPT (total)"] = bpt_num_to_str(df["BPT (numeric) (total)"])
-
-    # Return
-    logger.info("finished!")
-    return df.sort_index()
-
-###############################################################################
-def load_metadata_df():
-    """Load the S7 metadata DataFrame, containing "metadata" for each galaxy."""
-    if not os.path.exists(Path(settings["s7"]["output_path"]) / "s7_metadata.hd5"):
-        raise FileNotFoundError(
-            f"File {Path(settings['s7']['output_path']) / 's7_metadata.hd5'} not found. Did you remember to run make_metadata_df() first?"
-        )
-    return pd.read_hdf(
-        Path(settings["s7"]["output_path"]) / "s7_metadata.hd5")
