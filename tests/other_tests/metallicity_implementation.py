@@ -5,7 +5,7 @@ from spaxelsleuth import load_user_config, configure_logger
 
 load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 configure_logger(level="ERROR")
-from spaxelsleuth.loaddata.sami import load_sami_df
+from spaxelsleuth.io.sami import load_sami_df
 from spaxelsleuth.utils import metallicity
 from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours
  
