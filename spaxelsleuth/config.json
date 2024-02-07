@@ -103,16 +103,11 @@
         "eline_list": [
             "OII3726",
             "OII3729",
-            "HDELTA",
-            "HGAMMA",
             "HBETA",
-            "OIII4959",
             "OIII5007",
             "OI6300",
-            "OI6364",
-            "NII6548",
-            "NII6583",
             "HALPHA",
+            "NII6583",
             "SII6716",
             "SII6731"
         ],
