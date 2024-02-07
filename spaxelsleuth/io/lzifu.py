@@ -4,10 +4,10 @@ import numpy as np
 import os
 from pathlib import Path
 
-
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
 from spaxelsleuth.utils.dqcut import compute_measured_HALPHA_amplitude_to_noise
+from spaxelsleuth.utils.misc import _2d_map_to_1d_list
 
 import logging
 logger = logging.getLogger(__name__)
@@ -154,21 +154,6 @@ def process_galaxies(args):
     ny, nx = im_empty.shape
     y_c_list, x_c_list = np.where(~im_empty)
 
-    def _2d_map_to_1d_list(colmap):
-        """Returns a 1D array of values extracted from from spaxels in x_c_list and y_c_list in 2D array colmap."""
-        if colmap.ndim != 2:
-            raise ValueError(
-                f"colmap must be a 2D array but has ndim = {colmap.ndim}!")
-        row = np.full_like(x_c_list, np.nan, dtype="float")
-        for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-            x_c, y_c = coords
-            y, x = (int(np.round(y_c)), int(np.round(x_c)))
-            if x > nx or y > ny:
-                x = min([x, nx])
-                y = min([y, ny])
-            row[jj] = colmap[y, x]
-        return row
-
     # SCRAPE LZIFU MEASUREMENTS
     # Get extension names
     extnames = [
@@ -198,24 +183,24 @@ def process_galaxies(args):
         if data.ndim == 3:
             # Total fluxes (only for emission lines)
             if quantity not in ["V", "VDISP"]:
-                rows_list.append(_2d_map_to_1d_list(data[0]))
+                rows_list.append(_2d_map_to_1d_list(data[0], x_c_list, y_c_list, nx, ny))
                 colnames.append(f"{quantity} (total)")
                 if f"{quantity}_ERR" in hdulist_lzifu:
-                    rows_list.append(_2d_map_to_1d_list(err[0]))
+                    rows_list.append(_2d_map_to_1d_list(err[0], x_c_list, y_c_list, nx, ny))
                     colnames.append(f"{quantity} error (total)")
             # Fluxes/values for individual components
             for nn in range(lzifu_ncomponents):
-                rows_list.append(_2d_map_to_1d_list(data[nn + 1]))
+                rows_list.append(_2d_map_to_1d_list(data[nn + 1], x_c_list, y_c_list, nx, ny))
                 colnames.append(f"{quantity} (component {nn + 1})")
                 if f"{quantity}_ERR" in hdulist_lzifu:
-                    rows_list.append(_2d_map_to_1d_list(err[nn + 1]))
+                    rows_list.append(_2d_map_to_1d_list(err[nn + 1], x_c_list, y_c_list, nx, ny))
                     colnames.append(f"{quantity} error (component {nn + 1})")
         # Otherwise it's a 2D map
         elif data.ndim == 2:
-            rows_list.append(_2d_map_to_1d_list(data))
+            rows_list.append(_2d_map_to_1d_list(data, x_c_list, y_c_list, nx, ny))
             colnames.append(f"{quantity}")
             if f"{quantity}_ERR" in hdulist_lzifu:
-                rows_list.append(_2d_map_to_1d_list(err))
+                rows_list.append(_2d_map_to_1d_list(err, x_c_list, y_c_list, nx, ny))
                 colnames.append(f"{quantity} error")
 
     # COMPUTE QUANTITIES DIRECTLY FROM THE DATACUBES
@@ -227,9 +212,9 @@ def process_galaxies(args):
         var_cube=var_cube_B,
         lambda_vals_rest_A=lambda_vals_B_rest_A,
         v_star_map=v_star_map)
-    rows_list.append(_2d_map_to_1d_list(d4000_map))
+    rows_list.append(_2d_map_to_1d_list(d4000_map, x_c_list, y_c_list, nx, ny))
     colnames.append(f"D4000")
-    rows_list.append(_2d_map_to_1d_list(d4000_map_err))
+    rows_list.append(_2d_map_to_1d_list(d4000_map_err, x_c_list, y_c_list, nx, ny))
     colnames.append(f"D4000 error")
 
     # Compute the continuum intensity so that we can compute the Halpha equivalent width.
@@ -241,11 +226,11 @@ def process_galaxies(args):
         start_A=6500,
         stop_A=6540,
         v_map=v_star_map)
-    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map))
+    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map, x_c_list, y_c_list, nx, ny))
     colnames.append(f"HALPHA continuum")
-    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_std))
+    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_std, x_c_list, y_c_list, nx, ny))
     colnames.append(f"HALPHA continuum std. dev.")
-    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_err))
+    rows_list.append(_2d_map_to_1d_list(cont_HALPHA_map_err, x_c_list, y_c_list, nx, ny))
     colnames.append(f"HALPHA continuum error")
 
     # Compute the approximate B-band continuum
@@ -256,11 +241,11 @@ def process_galaxies(args):
         start_A=4000,
         stop_A=5000,
         v_map=v_star_map)
-    rows_list.append(_2d_map_to_1d_list(cont_B_map))
+    rows_list.append(_2d_map_to_1d_list(cont_B_map, x_c_list, y_c_list, nx, ny))
     colnames.append(f"B-band continuum")
-    rows_list.append(_2d_map_to_1d_list(cont_B_map_std))
+    rows_list.append(_2d_map_to_1d_list(cont_B_map_std, x_c_list, y_c_list, nx, ny))
     colnames.append(f"B-band continuum std. dev.")
-    rows_list.append(_2d_map_to_1d_list(cont_B_map_err))
+    rows_list.append(_2d_map_to_1d_list(cont_B_map_err, x_c_list, y_c_list, nx, ny))
     colnames.append(f"B-band continuum error")
 
     # Compute the HALPHA amplitude-to-noise
@@ -272,7 +257,7 @@ def process_galaxies(args):
         v_star_map=v_star_map,
         v_map=v_map[0],
         dv=300)
-    rows_list.append(_2d_map_to_1d_list(AN_HALPHA_map))
+    rows_list.append(_2d_map_to_1d_list(AN_HALPHA_map, x_c_list, y_c_list, nx, ny))
     colnames.append(f"HALPHA A/N (measured)")
 
     # Add other stuff

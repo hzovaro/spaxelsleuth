@@ -1,4 +1,3 @@
-# Imports
 from astropy.io import fits
 from astropy.cosmology import FlatLambdaCDM
 from glob import glob
@@ -11,6 +10,7 @@ from tqdm import tqdm
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
 from spaxelsleuth.utils.dqcut import compute_measured_HALPHA_amplitude_to_noise
+from spaxelsleuth.utils.misc import _2d_map_to_1d_list
 from spaxelsleuth.utils.velocity import compute_v_grad
 
 import logging
@@ -23,22 +23,6 @@ data_cube_path = Path(settings["hector"]["data_cube_path"])
 eline_fit_path = input_path / "emission_cubes"
 stekin_path = input_path / "initial_stel_kin"
 continuum_fit_path = input_path / "cont_subtracted"
-
-
-def _2d_map_to_1d_list(colmap, x_c_list, y_c_list, nx, ny):
-    """Returns a 1D array of values extracted from from spaxels in x_c_list and y_c_list in 2D array colmap."""
-    if colmap.ndim != 2:
-        raise ValueError(
-            f"colmap must be a 2D array but has ndim = {colmap.ndim}!")
-    row = np.full_like(x_c_list, np.nan, dtype="float")
-    for jj, coords in enumerate(zip(x_c_list, y_c_list)):
-        x_c, y_c = coords
-        y, x = (int(np.round(y_c)), int(np.round(x_c)))
-        if x > nx or y > ny:
-            x = min([x, nx])
-            y = min([y, ny])
-        row[jj] = colmap[y, x]
-    return row
 
 
 def get_filenames():
