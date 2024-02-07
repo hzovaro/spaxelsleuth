@@ -601,7 +601,3 @@ def load_df(survey,
     # Return
     logger.info("finished!")
     return df.sort_index()
-
-    return
-
-
