@@ -205,7 +205,7 @@ def make_metadata_df():
 
     Details:
         - Distances are computed from the redshifts assuming a flat ΛCDM cosmology 
-    with H0 = 70 km/s/Mpc, ΩM = 0.3 and ΩΛ = 0.7. 
+    with cosmological parameters (H0 and ΩM) specified in the config file.
 
     USAGE
     ---------------------------------------------------------------------------
