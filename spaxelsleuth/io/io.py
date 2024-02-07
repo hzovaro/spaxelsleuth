@@ -56,6 +56,7 @@ def make_df(survey,
             eline_SNR_min,
             eline_ANR_min,
             correct_extinction,
+            gals=None,
             sigma_gas_SNR_min=3,
             line_flux_SNR_cut=True,
             missing_fluxes_cut=True,
@@ -281,10 +282,14 @@ def make_df(survey,
     """
     
     # Input checking
-    assert ncomponents in settings[survey]["ncomponents"],\
-        f"bin_type must be {' or '.join(settings[survey]['ncomponents'])}!!"
-    assert bin_type in settings[survey]["bin_types"],\
-        f"bin_type must be {' or '.join(settings[survey]['bin_types'])}!!"
+    try:
+        survey_module = import_module(f"spaxelsleuth.io.{survey}")
+    except AttributeError:
+        raise ValueError(f"I could not find a survey module for {survey}!")
+    if ncomponents not in settings[survey]["ncomponents"]:
+        raise ValueError(f"bin_type must be {' or '.join(settings[survey]['ncomponents'])}!!")
+    if bin_type not in settings[survey]["bin_types"]:
+        raise ValueError(f"bin_type must be {' or '.join(settings[survey]['bin_types'])}!!")
 
     if survey == "sami":
         if "__use_lzifu_fits" not in kwargs:
@@ -292,12 +297,10 @@ def make_df(survey,
             kwargs["__lzifu_ncomponents"] = 'recom'  # TODO check that this doesn't get used 
         else:
             if kwargs["__use_lzifu_fits"]:
-                assert kwargs["__lzifu_ncomponents"] in [
-                    "recom", "1", "2", "3"
-                ], "__lzifu_ncomponents must be 'recom', '1', '2' or '3'!!"
-                assert os.path.exists(
-                    settings["sami"]["__lzifu_products_path"],
-                ), f"lzifu_products_path directory {settings['sami']['__lzifu_products_path']} not found!!"
+                if kwargs["__lzifu_ncomponents"] not in ["recom", "1", "2", "3"]:
+                    raise ValueError("__lzifu_ncomponents must be 'recom', '1', '2' or '3'!!")
+                if not os.path.exists(settings["sami"]["__lzifu_products_path"]):
+                    raise ValueError(f"lzifu_products_path directory {settings['sami']['__lzifu_products_path']} not found!!")
                 logger.warning(
                     "using LZIFU %s-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (settings['sami']['__lzifu_ncomponents']),
                     RuntimeWarning)
@@ -326,36 +329,43 @@ def make_df(survey,
     df_metadata = load_metadata_df(survey)
 
     # List of galaxies 
-    if survey == "sami":
-        # Only include galaxies flagged as "good" & for which we have data
-        gals = df_metadata[df_metadata["Good?"] == True].index.values
-        input_path = Path(settings["sami"]["input_path"]) # TODO this is so clunky!!
-        gals = [
-            g for g in gals
-            if os.path.exists(input_path / f"ifs/{g}/")
-        ]
-        if len(gals) == 0:
-            raise FileNotFoundError(f"I could not find any galaxy data in {input_path / 'ifs'}!")
-    else:
-        gals = df_metadata.index.values
+    if gals is None:
 
-    # If running in DEBUG mode, run on a subset to speed up execution time
-    if debug:
+        # Get list of galaxies from the metadata DataFrame
         if survey == "sami":
-            gals = gals[:10] + [572402, 209807]
+            # Only include galaxies flagged as "good" & for which we have data
+            gals = df_metadata[df_metadata["Good?"] == True].index.values
+            input_path = Path(settings["sami"]["input_path"]) # TODO this is so clunky!!
+            gals = [
+                g for g in gals
+                if os.path.exists(input_path / f"ifs/{g}/")
+            ]
+            if len(gals) == 0:
+                raise FileNotFoundError(f"I could not find any galaxy data in {input_path / 'ifs'}!")
         else:
-            gals = gals[:10]
-        # Also only run on a subset of metallicity diagnostics to speed up execution time
+            if df_metadata is not None:
+                gals = df_metadata.index.values
+            else:
+                raise ValueError(f"because there is no metadata DataFrame for {survey}, you must specify a list of galaxies!")
+        
+        # If running in DEBUG mode, run on a subset to speed up execution time
+        if debug:
+            if survey == "sami":
+                gals = gals[:10] + [572402, 209807]
+            else:
+                gals = gals[:10]
+        
+    # Also only run on a subset of metallicity diagnostics to speed up execution time
+    if debug:
         metallicity_diagnostics = ["N2Ha_PP04", "N2Ha_K19"]
 
     # Scrape measurements for each galaxy from FITS files
     args_list = [[
         gg, gal, ncomponents, bin_type, df_metadata,
-        kwargs  # TODO deal with kwargs in here
+        kwargs
     ] for gg, gal in enumerate(gals)]
 
     # Multithread galaxy processing
-    survey_module = import_module(f"spaxelsleuth.io.{survey}")
     if len(gals) == 1:
         res_list = [survey_module._process_gals(args_list[0])]
     else:
@@ -419,7 +429,11 @@ def make_df(survey,
 
 
 def load_metadata_df(survey):
-    return import_module(f"spaxelsleuth.io.{survey}").load_metadata_df()
+    try:
+        return import_module(f"spaxelsleuth.io.{survey}").load_metadata_df()
+    except AttributeError:
+        logger.warning(f"I could not find a load_metadata_df() function in spaxelsleuth.io.{survey}!")
+        return None
 
 
 def load_df(survey,
@@ -505,10 +519,10 @@ def load_df(survey,
     #######################################################################
     # INPUT CHECKING
     #######################################################################
-    assert ncomponents in settings[survey]["ncomponents"],\
-        f"bin_type must be {' or '.join(settings[survey]['ncomponents'])}!!"
-    assert bin_type in settings[survey]["bin_types"],\
-        f"bin_type must be {' or '.join(settings[survey]['bin_types'])}!!"
+    if ncomponents not in settings[survey]["ncomponents"]:
+        raise ValueError(f"bin_type must be {' or '.join(settings[survey]['ncomponents'])}!!")
+    if bin_type not in settings[survey]["bin_types"]:
+        raise ValueError(f"bin_type must be {' or '.join(settings[survey]['bin_types'])}!!")
 
     if survey == "sami":
         if "__use_lzifu_fits" not in kwargs:
@@ -516,12 +530,10 @@ def load_df(survey,
             kwargs["__lzifu_ncomponents"] = 'recom'  # TODO check that this doesn't get used 
         else:
             if kwargs["__use_lzifu_fits"]:
-                assert kwargs["__lzifu_ncomponents"] in [
-                    "recom", "1", "2", "3"
-                ], "__lzifu_ncomponents must be 'recom', '1', '2' or '3'!!"
-                assert os.path.exists(
-                    settings["sami"]["__lzifu_products_path"],
-                ), f"lzifu_products_path directory {settings['sami']['__lzifu_products_path']} not found!!"
+                if kwargs["__lzifu_ncomponents"] not in ["recom", "1", "2", "3"]:
+                    raise ValueError("__lzifu_ncomponents must be 'recom', '1', '2' or '3'!!")
+                if not os.path.exists(settings["sami"]["__lzifu_products_path"]):
+                    raise ValueError(f"lzifu_products_path directory {settings['sami']['__lzifu_products_path']} not found!!")
                 logger.warning(
                     "using LZIFU %s-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (settings['sami']['__lzifu_ncomponents']),
                     RuntimeWarning)
@@ -539,8 +551,8 @@ def load_df(survey,
                             debug,
                             df_fname_tag,
                             **kwargs)
-    assert os.path.exists(output_path / df_fname),\
-        f"File {output_path / df_fname} does does not exist!"
+    if not os.path.exists(output_path / df_fname):
+        raise FileNotFoundError(f"DataFrame file {output_path / df_fname} does not exist!")
 
     # Load the data frame
     t = os.path.getmtime(output_path / df_fname)
