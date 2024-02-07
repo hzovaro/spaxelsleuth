@@ -512,7 +512,7 @@ def load_metadata_df():
     return df_metadata
 
 
-def _process_gals(args):
+def process_galaxies(args):
     """
     DESCRIPTION
     ---------------------------------------------------------------------------

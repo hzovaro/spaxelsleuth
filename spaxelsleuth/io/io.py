@@ -367,20 +367,20 @@ def make_df(survey,
 
     # Multithread galaxy processing
     if len(gals) == 1:
-        res_list = [survey_module._process_gals(args_list[0])]
+        res_list = [survey_module.process_galaxies(args_list[0])]
     else:
         if nthreads > 1:
             logger.info(f"beginning pool...")
             pool = multiprocessing.Pool(
                 min([nthreads, len(gals)]))
-            res_list = np.array((pool.map(survey_module._process_gals, args_list)), dtype=object)
+            res_list = np.array((pool.map(survey_module.process_galaxies, args_list)), dtype=object)
             pool.close()
             pool.join()
         else:
             logger.info(f"running sequentially...")
             res_list = []
             for args in args_list:
-                res = survey_module._process_gals(args)
+                res = survey_module.process_galaxies(args)
                 res_list.append(res)
 
     # Convert to a Pandas DataFrame
@@ -390,8 +390,9 @@ def make_df(survey,
                               columns=colnames)
 
     # Merge with metadata (numeric-type columns only)
-    cols_to_merge = [c for c in df_metadata if df_metadata[c].dtypes != "object"]
-    df_spaxels = df_spaxels.merge(df_metadata[cols_to_merge], on="ID", how="left")
+    if df_metadata is not None:
+        cols_to_merge = [c for c in df_metadata if df_metadata[c].dtypes != "object"]
+        df_spaxels = df_spaxels.merge(df_metadata[cols_to_merge], on="ID", how="left")
 
     # Generic stuff: compute additional columns - extinction, metallicity, etc.
     df_spaxels = add_columns(survey,

@@ -347,7 +347,7 @@ def load_metadata_df():
     return df_metadata
 
 
-def _process_gals(args):
+def process_galaxies(args):
     # Extract input arguments
     gg, gal, ncomponents, bin_type, df_metadata, kwargs = args 
     ncomponents = "rec"

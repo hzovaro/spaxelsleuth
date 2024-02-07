@@ -145,7 +145,7 @@ def load_metadata_df():
         Path(settings["s7"]["output_path"]) / "s7_metadata.hd5")
 
 
-def _process_gals(args):
+def process_galaxies(args):
     """Helper function that is used in make_s7_df() to process S7 galaxies across multiple threads."""
     gal_idx, _, ncomponents, bin_type, df_metadata, kwargs = args
 

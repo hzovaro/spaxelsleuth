@@ -26,7 +26,7 @@ def add_metadata(df, df_metadata):
     return df
 
 
-def _process_gals(args):
+def process_galaxies(args):
 
     # Parse arguments
     gg, gal, ncomponents, bin_type, df_metadata, kwargs = args 
