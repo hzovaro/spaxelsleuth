@@ -135,6 +135,16 @@ def make_metadata_df():
     return
 
 
+def load_metadata_df():
+    """Load the S7 metadata DataFrame, containing "metadata" for each galaxy."""
+    if not os.path.exists(Path(settings["s7"]["output_path"]) / "s7_metadata.hd5"):
+        raise FileNotFoundError(
+            f"File {Path(settings['s7']['output_path']) / 's7_metadata.hd5'} not found. Did you remember to run make_metadata_df() first?"
+        )
+    return pd.read_hdf(
+        Path(settings["s7"]["output_path"]) / "s7_metadata.hd5")
+
+
 def _process_gals(args):
     """Helper function that is used in make_s7_df() to process S7 galaxies across multiple threads."""
     gal_idx, _, ncomponents, bin_type, df_metadata, kwargs = args
