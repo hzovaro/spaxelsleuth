@@ -126,7 +126,7 @@ def make_metadata_df(survey="sami",recompute_continuum_SNRs=False, nthreads=None
 
     Details:
         - Distances are computed from the redshifts assuming a flat ΛCDM cosmology 
-    with H0 = 70 km/s/Mpc, ΩM = 0.3 and ΩΛ = 0.7. Flow-corrected redshifts are 
+    with cosmological parameters (H0 and ΩM) specified in the config file.Flow-corrected redshifts are 
     used to compute distances when available. 
         - Morphologies are taken from the `VisualMorphologyDR3` catalogue. For 
     simplicity, the `?`, `No agreement` and `Unknown` categories are all merged 
@@ -962,6 +962,10 @@ def _process_gals(args):
         df_metadata.loc[gal, "kpc per arcsec"]**2)
     colnames.append("Bin size (square kpc)")
 
+    # Add galaxy ID 
+    rows_list.append([gal] * len(x_c_list))
+    colnames.append("ID")
+    
     ##########################################################
     # Transpose so that each row represents a single pixel & each column a measured quantity.
     rows_arr = np.array(rows_list).T
@@ -970,15 +974,9 @@ def _process_gals(args):
     bad_rows = np.all(np.isnan(rows_arr), axis=1)
     rows_good = rows_arr[~bad_rows]
 
-    # Append a column with the galaxy ID, so we know which galaxy these rows belong to
-    gal_metadata = np.tile(
-        df_metadata.loc[df_metadata.loc[:, "ID"] == gal]["ID"].values,
-        (ngood_bins, 1))
-    rows_good = np.hstack((gal_metadata, rows_good))
-
     logger.info(f"finished processing {gal} ({gal_idx})")
 
-    return rows_good, ["ID"] + colnames
+    return rows_good, colnames
 
 
 ###############################################################################
