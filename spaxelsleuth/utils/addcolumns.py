@@ -60,7 +60,7 @@ def add_columns(survey, df, **kwargs):
                          eline_ANR_min=kwargs["eline_ANR_min"],
                          eline_list=eline_list,
                          ncomponents_max=ncomponents_max,
-                         sigma_inst_kms=settings[survey]["sigma_inst_kms"],
+                         sigma_inst_kms=sigma_inst_kms,
                          sigma_gas_SNR_min=kwargs["sigma_gas_SNR_min"]
                          )
     df = dqcut.apply_flags(df=df, 
