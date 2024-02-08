@@ -411,6 +411,30 @@ def compute_electron_density(df, diagnostic, ratio, s=None):
     return df
 
 
+def get_T_e_ref(R, other_params):
+    """TODO: write docstring"""
+
+    T_e = some_function(R)
+
+    return T_e
+
+
+def compute_electron_temperature(df, diagnostic, ratio, s=None):
+    """TODO: write docstring"""
+    
+    # Trim suffix
+    df, suffix_cols, suffix_removed_cols, old_cols = remove_col_suffix(df, s)
+    old_cols = df.columns
+
+    # Calculate the electron temperature 
+    R = df[f"<some ratio>"].values
+    df[f"T_e ({diagnostic})"] = get_T_e_ref(R)
+
+    # Rename columns
+    df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)
+
+    return df
+
 def bpt_fn(df, s=None):
     """
     Make new columns in the given DataFrame corresponding to their BPT 
@@ -878,6 +902,9 @@ def ratio_fn(df, s=None):
         if in_df(["SII6716", "SII6731"]):
             df["[SII] ratio"] = df["SII6716"] / df["SII6731"] 
 
+        if in_df(["OII3729", "OII3726"]):
+            df["[OII] ratio"] = df["OII3729"] / df["OII3726"] 
+
         # ERRORS for standard BPT axes
         if in_df(["NII6583 error", "HALPHA error"]):
             df["N2 error"] = df["N2"] * np.sqrt((df["NII6583 error"] / df["NII6583"])**2 + (df["HALPHA error"] / df["HALPHA"])**2)
@@ -901,6 +928,9 @@ def ratio_fn(df, s=None):
         
         if in_df(["SII6716 error", "SII6731 error"]):
             df["[SII] ratio error"] = df["[SII] ratio"] * np.sqrt((df["SII6716 error"] / df["SII6716"])**2 + (df["SII6731 error"] / df["SII6731"])**2)
+
+        if in_df(["OII3729 error", "OII3726 error"]):
+            df["[OII] ratio error"] = df["[OII] ratio"] * np.sqrt((df["OII3729 error"] / df["OII3729"])**2 + (df["OII3726 error"] / df["OII3726"])**2)
 
     # Rename columns
     df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)
