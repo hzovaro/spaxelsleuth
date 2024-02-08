@@ -47,7 +47,7 @@ def compute_FWHM(df, ncomponents_max):
 
     return df
 
-###############################################################################
+
 # Reference lines from literature
 def Kewley2001(ratio_x, ratio_x_vals, log=True):
     """
@@ -231,20 +231,27 @@ def Law2021_3sigma(ratio_x, ratio_y_vals, log=True):
         ratio_y_vals[ratio_y_vals > 0.65] = np.nan
         return 18.664 * ratio_y_vals**4 - 36.343 * ratio_y_vals**3 + 22.238 * ratio_y_vals**2 - 6.134 * ratio_y_vals - 0.283
 
-###############################################################################
-def Proxauf2014(R):
+
+def get_n_e_Proxauf2014(R):
     """
     Electron density computation from eqn. 3 of Proxauf (2014), which assumes 
     an electron temperature of 10^4 K.
 
     INPUT
     --------------------------------------------------------------------------
-    R       float or Numpy array
+    R:          float
         Flux ratio F([SII]6716) / F([SII]6731).
+
 
     OUTPUT
     --------------------------------------------------------------------------
-    n_e (in cm^-3) computed using eqn. 3 of Proxauf (2014).
+    tuple of 
+        (n_e, lolim_mask, uplim_mask)
+    where n_e is the electron density (in cm^-3) computed using eqn. 3 of 
+    Proxauf (2014), and lolim_mask and uplim_mask areboolean arrays the 
+    same dimensions as n_e corresponding to indices where the line ratio 
+    corresponds to electron density lower and upper limits of 40 cm^-3 and 
+    10^4 cm^-3 respectively.
 
     """
     log_n_e = 0.0543 * np.tan(-3.0553 * R + 2.8506)\
@@ -253,20 +260,103 @@ def Proxauf2014(R):
     n_e = 10**log_n_e
 
     # High & low density limits
-    if type(R) == "float":
-        if n_e < 40:
-            return 40
-        elif n_e > 1e4:
-            return 1e4
+    lolim_mask = n_e < 40
+    uplim_mask = n_e > 1e4
+    n_e[lolim_mask] = 40
+    n_e[uplim_mask] = 1e4
+
+    return n_e, lolim_mask, uplim_mask
+
+
+def get_n_e_Sanders2016(ratio, R):
+    """
+    Electron density computation from eqn. 7 of Sanders et al. (2016), which 
+    assumes an electron temperature of 10^4 K.
+
+    INPUT
+    --------------------------------------------------------------------------
+    ratio:      str
+        Which emission line to use in the diagnostic. Options are "[SII]" and 
+        "[OII]".
+    
+    R:          float
+        Flux ratio. Must correspond to 'ratio':
+            [SII]: F([SII]6716) / F([SII]6731) 
+            [OII]: F([OII]3729) / F([OII]3726) 
+
+    OUTPUT
+    --------------------------------------------------------------------------
+    tuple of 
+        (n_e, lolim_mask, uplim_mask)
+    where n_e is the electron density (in cm^-3) computed using eqn. 7 of 
+    Sanders et al. (2016), and lolim_mask and uplim_mask areboolean arrays the 
+    same dimensions as n_e corresponding to indices where the line ratio 
+    corresponds to electron density lower and upper limits of 1 cm^-3 and 
+    10^5 cm^-3 respectively.
+
+    """
+    # Repalce infs with NaNs
+    R = R.copy()
+    R[np.isinf(R)] = np.nan
+
+    # Coefficients 
+    if ratio == "[SII]":
+        a = 0.4315
+        b = 2107
+        c = 627.1
+        R_min = 0.4375
+        R_max = 1.4484
+    elif ratio == "[OII]":
+        a = 0.3771
+        b = 2468
+        c = 638.4
+        R_min = 0.3839
+        R_max = 1.4558
+
+    # Calculate the electron density 
+    n_e = (c * R - a * b) / (a - R)
+    
+    # Apply upper/lower limits
+    n_e_min = 1
+    n_e_max = 1e5
+    lolim_mask = R > R_max
+    uplim_mask = R < R_min
+    n_e[lolim_mask] = n_e_min
+    n_e[uplim_mask] = n_e_max
+    
+    return n_e, lolim_mask, uplim_mask
+
+
+def compute_electron_density(df, diagnostic, ratio, s=None):
+    """TODO write docstring"""
+    # Trim suffix
+    df, suffix_cols, suffix_removed_cols, old_cols = remove_col_suffix(df, s)
+    old_cols = df.columns
+
+    # Compute diagnostics 
+    if diagnostic == "Proxauf2014":
+        if ratio != "[SII]":
+            raise ValueError(f"Invalid ratio {ratio} for diagnostic {diagnostic}!")
+        R = df["[SII] ratio"].values
+        n_e, cond_lower_lim, cond_upper_lim = get_n_e_Proxauf2014(R)
+    elif diagnostic == "Sanders2016":
+        if ratio not in["[SII]", "[OII]"]:
+            raise ValueError(f"Invalid ratio {ratio} for diagnostic {diagnostic}!")
+        R = df[f"{ratio} ratio"].values
+        n_e, cond_lower_lim, cond_upper_lim = get_n_e_Sanders2016(ratio, R)
     else:
-        lolim_mask = n_e < 40
-        uplim_mask = n_e > 1e4
-        n_e[lolim_mask] = 40
-        n_e[uplim_mask] = 1e4
+        raise ValueError(f"{diagnostic} is an invalid diagnostic!")
 
-    return n_e
+    df[f"n_e ({diagnostic} ({ratio}))"] = n_e
+    df[f"n_e saturation flag ({diagnostic} ({ratio}))"] = False
+    df.loc[cond_lower_lim | cond_upper_lim, f"n_e saturation flag ({diagnostic} ({ratio}))"] = True
 
-###############################################################################
+    # Rename columns
+    df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)
+
+    return df
+
+
 def bpt_fn(df, s=None):
     """
     Make new columns in the given DataFrame corresponding to their BPT 
@@ -416,162 +506,8 @@ def bpt_fn(df, s=None):
 
     return df
 
-###############################################################################
-def whav_fn(df, ncomponents):
-    """
-    Make new columns in the given DataFrame corresponding to the WHAV* 
-    classification of each spaxel.
-    """
-    logger.debug(f"computing WHAV* categories...")
-    df["WHAV*"] = "Unknown"  # Initialise everything to "unknown"
-    df["WHAN"] = "Unknown"  # Initialise everything to "unknown"
-
-    #///////////////////////////////////////////////////////////////////////////////
-    # Step 1: filter out evolved stars
-    cond = df["HALPHA EW (total)"] <= 3
-    df.loc[cond, "WHAV*"] = "HOLMES"
-    df.loc[cond, "WHAN"] = "HOLMES"
-    cond_remainder = df["WHAV*"] == "Unknown"
-
-    #///////////////////////////////////////////////////////////////////////////////
-    # Step 2: use the N2 ratio to divide into SF, mixed and AGN/evolved stars/shocks
-    # Because we used the TOTAL N2 ratio in each spaxel to determine these boundaries, these categories are representative of the DOMINANT ionisation mechanism in each spaxel.
-    cond_SF = cond_remainder & (df["log N2 (total)"] < -0.35)
-    cond_Mixing = cond_remainder & (df["log N2 (total)"] >= -0.35) & (df["log N2 (total)"] < -0.20)
-    cond_AGN = cond_remainder & (df["log N2 (total)"] >= -0.20)
-    cond_no_N2 = cond_remainder & (np.isnan(df["log N2 (total)"]))
-
-    df.loc[cond_SF, "WHAN"] = "SF" 
-    df.loc[cond_Mixing, "WHAN"] = "Mixing"
-    df.loc[cond_AGN, "WHAN"] = "AGN/HOLMES/shocks"
-    df.loc[cond_no_N2, "WHAN"] = "No N2"
-
-    #///////////////////////////////////////////////////////////////////////////////
-    # For convenience: mark components as possible HOLMES 
-    # Question: how confident can we be that these are ALWAYS HOLMES? how common are components from e.g. LLAGN?
-    for nn in range(ncomponents):
-        cond_possible_HOLMES = cond_AGN & (df[f"HALPHA EW (component {nn + 1})"] < 3) & (df[f"sigma_gas - sigma_* (component {nn + 1})"] < 0)
-        df.loc[cond_possible_HOLMES, f"Possible HOLMES (component {nn + 1})"] = True
-        df.loc[~cond_possible_HOLMES, f"Possible HOLMES (component {nn + 1})"] = False
-        
-    #///////////////////////////////////////////////////////////////////////////////
-    # For convenience: mark components as being kinematically disturbed (by 3sigma)
-    for nn in range(ncomponents):
-        cond_kinematically_disturbed = df[f"sigma_gas - sigma_* (component {nn + 1})"] - 3 * df[f"sigma_gas - sigma_* error (component {nn + 1})"] > 0
-        df.loc[cond_kinematically_disturbed, f"Kinematically disturbed (component {nn + 1})"] = True
-        df.loc[~cond_kinematically_disturbed, f"Kinematically disturbed (component {nn + 1})"] = False
-    if ncomponents == 3:
-        df["Number of kinematically disturbed components"] = df["Kinematically disturbed (component 1)"].astype(int) + df["Kinematically disturbed (component 2)"].astype(int) + df["Kinematically disturbed (component 3)"].astype(int)
-    else:
-        df["Number of kinematically disturbed components"] = df["Kinematically disturbed (component 1)"].astype(int)
-
-    # Test 
-    for nn in range(ncomponents):
-        assert not df.loc[np.isnan(df[f"sigma_gas - sigma_* (component {nn + 1})"]), f"Kinematically disturbed (component {nn + 1})"].any(),\
-            f"There are rows where sigma_gas - sigma_* (component {nn + 1}) == NaN but 'Kinematically disturbed (component {nn + 1})' == True!"
-
-    for nn in range(ncomponents):
-        assert not df.loc[np.isnan(df[f"log HALPHA EW (component {nn + 1})"]), f"Possible HOLMES (component {nn + 1})"].any(),\
-            f"There are rows where log HALPHA EW (component {nn + 1}) == NaN but 'Possible HOLMES (component {nn + 1})' == True!"
-        assert not df.loc[np.isnan(df[f"sigma_gas - sigma_* (component {nn + 1})"]), f"Possible HOLMES (component {nn + 1})"].any(),\
-            f"There are rows where sigma_gas - sigma_* (component {nn + 1}) == NaN but 'Possible HOLMES (component {nn + 1})' == True!"
-        assert not df.loc[df[f"log HALPHA EW (component {nn + 1})"] > 3, f"Possible HOLMES (component {nn + 1})"].any(),\
-            f"There are rows where log HALPHA EW (component {nn + 1}) > 3 but 'Possible HOLMES (component {nn + 1})' == True!"
-        
-        assert df[df[f"Possible HOLMES (component {nn + 1})"] & df[f"Kinematically disturbed (component {nn + 1})"]].shape[0] == 0,\
-            f"There are rows where both 'Possible HOLMES (component {nn + 1})' and 'Kinematically disturbed (component {nn + 1})' are true!"
-
-    if ncomponents == 3:
-        # ///////////////////////////////////////////////////////////////////////////////
-        # SF-like spaxels
-        #///////////////////////////////////////////////////////////////////////////////
-        # Wind: number of components > 1, AND EITHER delta sigma of 1 or 2 is > 0
-        # Note: may want to also add if ncomponents == 1 but delta_sigma >> 0. 
-        # How many SF (either classified via BPT or N2) spaxels are there like this, though? Just checked - only ~0.1% have dsigma > 0 by 3sigma, so probably don't worry 
-        cond_SF_no_wind = cond_SF & ~(df["Kinematically disturbed (component 1)"] | df["Kinematically disturbed (component 2)"] | df["Kinematically disturbed (component 3)"])
-        df.loc[cond_SF_no_wind, "WHAV*"] = "SF + no wind"
-
-        cond_SF_wind = cond_SF & (df["Kinematically disturbed (component 1)"] | df["Kinematically disturbed (component 2)"] | df["Kinematically disturbed (component 3)"])
-        df.loc[cond_SF_wind, "WHAV*"] = "SF + wind"
-
-        # SF + HOLMES 
-        cond_SF_no_wind_HOLMES = cond_SF_no_wind & (df["Number of components"] >= 2) & (df["Possible HOLMES (component 1)"] | df["Possible HOLMES (component 2)"] | df["Possible HOLMES (component 3)"])
-        df.loc[cond_SF_no_wind_HOLMES, "WHAV*"] = "SF + HOLMES + no wind"
-
-        cond_SF_wind_HOLMES = cond_SF_wind & (df["Number of components"] >= 2) & (df["Possible HOLMES (component 1)"] | df["Possible HOLMES (component 2)"] | df["Possible HOLMES (component 3)"])
-        df.loc[cond_SF_wind_HOLMES, "WHAV*"] = "SF + HOLMES + wind"
 
 
-        # Note: what to do about low-metallicity AGN? e.g., ones that are classified as ambiguous that have log N2 < -0.35 so get lumped in with SF?
-
-        #///////////////////////////////////////////////////////////////////////////////
-        # Mixing-like spaxels
-        #///////////////////////////////////////////////////////////////////////////////
-        # wind/no wind
-        # Note: <1% of composite/mixing-like spaxels have ncomponents == 1 but delta_sigma >> 0 by 3sigma
-        cond_Mixing_no_wind = cond_Mixing & ~(df["Kinematically disturbed (component 1)"] | df["Kinematically disturbed (component 2)"] | df["Kinematically disturbed (component 3)"])
-        df.loc[cond_Mixing_no_wind, "WHAV*"] = "Mixing + no wind"
-
-        cond_Mixing_wind = cond_Mixing & (df["Kinematically disturbed (component 1)"] | df["Kinematically disturbed (component 2)"] | df["Kinematically disturbed (component 3)"])
-        df.loc[cond_Mixing_wind, "WHAV*"] = "Mixing + wind"
-
-        # Mixing + HOLMES 
-        cond_Mixing_no_wind_HOLMES = cond_Mixing_no_wind & (df["Number of components"] >= 2) & (df["Possible HOLMES (component 1)"] | df["Possible HOLMES (component 2)"] | df["Possible HOLMES (component 3)"])
-        df.loc[cond_Mixing_no_wind_HOLMES, "WHAV*"] = "Mixing + HOLMES + no wind"
-
-        # Mixing + HOLMES + wind
-        cond_Mixing_wind_HOLMES = cond_Mixing_wind & (df["Number of components"] >= 2) & (df["Possible HOLMES (component 1)"] | df["Possible HOLMES (component 2)"] | df["Possible HOLMES (component 3)"])
-        df.loc[cond_Mixing_wind_HOLMES, "WHAV*"] = "Mixing + HOLMES + wind"
-
-        #///////////////////////////////////////////////////////////////////////////////
-        # AGN-like spaxels
-        #///////////////////////////////////////////////////////////////////////////////
-        # If there is 1 component and its EW is > 0, then it's an AGN. Note that Seyfert-like components have a range of EWs, so we can't really split between LLAGN and Seyferts here - really need [OIII] for that.
-        cond_AGN_no_wind = cond_AGN & (df["Number of components"] == 1) & (df["HALPHA EW (component 1)"] > 3) & ~df["Kinematically disturbed (component 1)"]
-        df.loc[cond_AGN_no_wind, "WHAV*"] = "AGN only"
-
-        # AGN + wind
-        cond_AGN_nowind = cond_AGN & ~(df["Kinematically disturbed (component 1)"] | df["Kinematically disturbed (component 2)"] | (df["Kinematically disturbed (component 3)"] ))
-        df.loc[cond_AGN_nowind, "WHAV*"] = "AGN + no wind"
-
-        cond_AGN_wind = cond_AGN & (df["Kinematically disturbed (component 1)"] | df["Kinematically disturbed (component 2)"] | (df["Kinematically disturbed (component 3)"] ))
-        df.loc[cond_AGN_wind, "WHAV*"] = "AGN + wind"
-
-        # If there are multiple components and at least one of them is in the HOLMES regime, then classify it as HOLMES + AGN. 
-        cond_AGN_nowind_HOLMES = cond_AGN_nowind & (df["Number of components"] >= 2) & (df["Possible HOLMES (component 1)"] | df["Possible HOLMES (component 2)"] | df["Possible HOLMES (component 3)"])
-        df.loc[cond_AGN_nowind_HOLMES, "WHAV*"] = "AGN + HOLMES + no wind"
-
-        cond_AGN_wind_HOLMES = cond_AGN_wind & (df["Number of components"] >= 2) & (df["Possible HOLMES (component 1)"] | df["Possible HOLMES (component 2)"] | df["Possible HOLMES (component 3)"])
-        df.loc[cond_AGN_wind_HOLMES, "WHAV*"] = "AGN + HOLMES + wind"
-
-        #///////////////////////////////////////////////////////////////////////////////
-        # Numerical labels
-        #///////////////////////////////////////////////////////////////////////////////
-        num_dict = {
-            "Unknown": -1,
-            "HOLMES": 0,
-            "Mixing + HOLMES + no wind": 1,
-            "Mixing + HOLMES + wind": 2,
-            "Mixing + no wind": 3,
-            "Mixing + wind": 4,    
-            "AGN + HOLMES + no wind": 5,
-            "AGN + HOLMES + wind": 6,
-            "AGN + no wind": 7,
-            "AGN + wind": 8,
-            "SF + HOLMES + no wind": 9,
-            "SF + HOLMES + wind": 10,
-            "SF + no wind": 11,
-            "SF + wind": 12
-        }
-        cats = list(num_dict.keys())
-        for cat in cats:
-            df.loc[df["WHAV*"] == cat, "WHAV* (numeric)"] = num_dict[cat]
-    else:
-        logger.warn("not computing WHAV* categories because ncomponents is not 3")
-
-    return df
-
-###############################################################################
 def law2021_fn(df, s=None):
     """
     Make new columns in the given DataFrame corresponding to their kinematic 
@@ -689,7 +625,7 @@ def law2021_fn(df, s=None):
 
     return df
 
-###############################################################################
+
 def ratio_fn(df, s=None):
     """
     Given an input DataFrame containing emission line fluxes, computes emission 
@@ -917,7 +853,7 @@ def ratio_fn(df, s=None):
 
     return df
 
-###############################################################################
+
 def sfr_fn(df, s=f" (total)"):
     """Compute the SFR from the Halpha luminosity using the relation of Calzetti 2013.
     NOTE: the SFR is only computed in rows where the BPT classification is 'SF' in the component denoted by 's'."""
@@ -942,7 +878,7 @@ def sfr_fn(df, s=f" (total)"):
 
     return df
 
-###############################################################################
+
 def compute_SFR(df, ncomponents_max):
     """Comptue the SFR from the Halpha luminosity in each kinematic component."""
     df = sfr_fn(df, s=f" (total)")
