@@ -46,6 +46,9 @@ def remove_col_suffix(df, s):
         suffix_cols = [c for c in df.columns if c.endswith(s)]
         suffix_removed_cols = [c.split(s)[0] for c in suffix_cols]
         df = df_old.rename(columns=dict(zip(suffix_cols, suffix_removed_cols)))
+    else:
+        suffix_cols = []
+        suffix_removed_cols = []
     old_cols = df.columns
     return df, suffix_cols, suffix_removed_cols, old_cols
 
