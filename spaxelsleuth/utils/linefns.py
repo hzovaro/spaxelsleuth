@@ -234,8 +234,8 @@ def Law2021_3sigma(ratio_x, ratio_y_vals, log=True):
 
 def get_n_e_Proxauf2014(R):
     """
-    Electron density computation from eqn. 3 of Proxauf (2014), which assumes 
-    an electron temperature of 10^4 K.
+    Electron density computation from eqn. 3 of Proxauf et al. (2014), which 
+    assumes an electron temperature of 10^4 K.
 
     INPUT
     --------------------------------------------------------------------------
@@ -252,6 +252,10 @@ def get_n_e_Proxauf2014(R):
     same dimensions as n_e corresponding to indices where the line ratio 
     corresponds to electron density lower and upper limits of 40 cm^-3 and 
     10^4 cm^-3 respectively.
+
+    REFERENCES
+    --------------------------------------------------------------------------  
+    https://ui.adsabs.harvard.edu/abs/2014A%26A...561A..10P/abstract
 
     """
     log_n_e = 0.0543 * np.tan(-3.0553 * R + 2.8506)\
@@ -294,6 +298,10 @@ def get_n_e_Sanders2016(ratio, R):
     corresponds to electron density lower and upper limits of 1 cm^-3 and 
     10^5 cm^-3 respectively.
 
+    REFERENCES
+    --------------------------------------------------------------------------  
+    https://ui.adsabs.harvard.edu/abs/2016ApJ...816...23S/abstract 
+
     """
     # Repalce infs with NaNs
     R = R.copy()
@@ -328,7 +336,53 @@ def get_n_e_Sanders2016(ratio, R):
 
 
 def compute_electron_density(df, diagnostic, ratio, s=None):
-    """TODO write docstring"""
+    """Calculate electron densities using emission line ratios of [SII] or [OII].
+    
+    INPUT
+    --------------------------------------------------------------------------
+    
+
+    INPUTS
+    --------------------------------------------------------------------------
+    df:         pandas DataFrame
+        DataFrame in which to compute 
+
+    diagnostic: str
+        Which diagnostic to use. Options are "Proxauf2014" and "Sanders2016".
+
+    ratio:      str
+        Which emission line to use in the diagnostic. Options are "[SII]" 
+        (valid for both "Proxauf2014" and "Sanders2016") and "[OII]" 
+        ("Sanders2016" only).
+
+    s:      str 
+        Column suffix to trim before carrying out computation - e.g. if 
+        you want to compute metallicities for "total" fluxes, and the 
+        columns of the DataFrame look like 
+
+            "HALPHA (total)", "HALPHA error (total)", etc.,
+
+        then setting s=" (total)" will mean that this function "sees"
+
+            "HALPHA", "HALPHA error".
+
+        Useful for running this function on different emission line 
+        components. The suffix is added back to the columns (and appended
+        to any new columns that are added) before being returned. For 
+        example, using the above example, the new added columns will be 
+
+            "log N2 (total)", "log N2 error (lower) (total)", 
+            "log N2 error (upper) (total)"
+
+    OUTPUTS
+    -----------------------------------------------------------------------
+    The original DataFrame with new columns added.
+
+    REFERENCES
+    --------------------------------------------------------------------------  
+    https://ui.adsabs.harvard.edu/abs/2014A%26A...561A..10P/abstract
+    https://ui.adsabs.harvard.edu/abs/2016ApJ...816...23S/abstract 
+    """
     # Trim suffix
     df, suffix_cols, suffix_removed_cols, old_cols = remove_col_suffix(df, s)
     old_cols = df.columns
