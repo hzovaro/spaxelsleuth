@@ -242,7 +242,6 @@ def get_n_e_Proxauf2014(R):
     R:          float
         Flux ratio F([SII]6716) / F([SII]6731).
 
-
     OUTPUT
     --------------------------------------------------------------------------
     tuple of 
@@ -336,11 +335,8 @@ def get_n_e_Sanders2016(ratio, R):
 
 
 def compute_electron_density(df, diagnostic, ratio, s=None):
-    """Calculate electron densities using emission line ratios of [SII] or [OII].
-    
-    INPUT
-    --------------------------------------------------------------------------
-    
+    """
+    Calculate electron densities using emission line ratios of [SII] or [OII].
 
     INPUTS
     --------------------------------------------------------------------------
@@ -355,7 +351,7 @@ def compute_electron_density(df, diagnostic, ratio, s=None):
         (valid for both "Proxauf2014" and "Sanders2016") and "[OII]" 
         ("Sanders2016" only).
 
-    s:      str 
+    s:          str 
         Column suffix to trim before carrying out computation - e.g. if 
         you want to compute metallicities for "total" fluxes, and the 
         columns of the DataFrame look like 
@@ -387,23 +383,31 @@ def compute_electron_density(df, diagnostic, ratio, s=None):
     df, suffix_cols, suffix_removed_cols, old_cols = remove_col_suffix(df, s)
     old_cols = df.columns
 
-    # Compute diagnostics 
-    if diagnostic == "Proxauf2014":
-        if ratio != "[SII]":
-            raise ValueError(f"Invalid ratio {ratio} for diagnostic {diagnostic}!")
-        R = df["[SII] ratio"].values
-        n_e, cond_lower_lim, cond_upper_lim = get_n_e_Proxauf2014(R)
-    elif diagnostic == "Sanders2016":
-        if ratio not in["[SII]", "[OII]"]:
-            raise ValueError(f"Invalid ratio {ratio} for diagnostic {diagnostic}!")
-        R = df[f"{ratio} ratio"].values
-        n_e, cond_lower_lim, cond_upper_lim = get_n_e_Sanders2016(ratio, R)
-    else:
-        raise ValueError(f"{diagnostic} is an invalid diagnostic!")
+    if (ratio == "[SII]" and "[SII] ratio" in df) or (ratio == "[OII]" and "[OII] ratio" in df):
 
-    df[f"n_e ({diagnostic} ({ratio}))"] = n_e
-    df[f"n_e saturation flag ({diagnostic} ({ratio}))"] = False
-    df.loc[cond_lower_lim | cond_upper_lim, f"n_e saturation flag ({diagnostic} ({ratio}))"] = True
+        # Compute diagnostics 
+        if diagnostic == "Proxauf2014":
+            if ratio != "[SII]":
+                raise ValueError(f"Invalid ratio {ratio} for diagnostic {diagnostic}!")
+            R = df["[SII] ratio"].values
+            n_e, cond_lower_lim, cond_upper_lim = get_n_e_Proxauf2014(R)
+        elif diagnostic == "Sanders2016":
+            if ratio not in["[SII]", "[OII]"]:
+                raise ValueError(f"Invalid ratio {ratio} for diagnostic {diagnostic}!")
+            R = df[f"{ratio} ratio"].values
+            n_e, cond_lower_lim, cond_upper_lim = get_n_e_Sanders2016(ratio, R)
+        else:
+            raise ValueError(f"{diagnostic} is an invalid diagnostic!")
+
+        df[f"n_e ({diagnostic} ({ratio}))"] = n_e
+        df[f"n_e saturation flag ({diagnostic} ({ratio}))"] = False
+        df.loc[cond_lower_lim | cond_upper_lim, f"n_e saturation flag ({diagnostic} ({ratio}))"] = True
+    
+    else:
+        if ratio == "[SII]":
+            logger.warning(f"not computing n_e because I could not find the column '[SII] ratio'")
+        elif ratio == "[OII]":
+            logger.warning(f"not computing n_e because I could not find the column '[OII] ratio'")
 
     # Rename columns
     df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)
@@ -411,24 +415,115 @@ def compute_electron_density(df, diagnostic, ratio, s=None):
     return df
 
 
-def get_T_e_ref(R, other_params):
-    """TODO: write docstring"""
+def get_T_e_Proxauf2014(R):
+    """"
+    Electron temperature computation from eqn. 1 of Proxauf et al. (2014).
 
-    T_e = some_function(R)
+    INPUT
+    --------------------------------------------------------------------------
+    R:          float
+        Flux ratio F([OIII]4959,5007) / F([OIII]4363).
 
-    return T_e
+    OUTPUT
+    --------------------------------------------------------------------------
+    tuple of 
+        (T_e, lolim_mask, uplim_mask)
+    where T_e is the electron temperature (in K) computed using eqn. 1 of 
+    Proxauf (2014), and lolim_mask and uplim_mask areboolean arrays the 
+    same dimensions as n_e corresponding to indices where the line ratio 
+    corresponds to electron temperature lower and upper limits of 5000 K and 
+    24000 K respectively.
+
+    REFERENCES
+    --------------------------------------------------------------------------  
+    https://ui.adsabs.harvard.edu/abs/2014A%26A...561A..10P/abstract
+    """
+    # Repalce infs with NaNs
+    R = R.copy()
+    R[np.isinf(R)] = np.nan
+
+    # Calculate the electron temperature
+    r = np.log10(R)
+    T_e = 5294 * (r - 0.848)**(-1) + 19047 - 7769 * r + 944 * r**2
+
+    # Apply upper/lower limits
+    r_min = 1.25
+    r_max = 3.75
+    T_e_min = 5e3
+    T_e_max = 24e3
+    lolim_mask = (r > r_max)
+    uplim_mask = (r < r_min)
+    T_e[lolim_mask] = T_e_min
+    T_e[uplim_mask] = T_e_max            
+
+    return T_e, lolim_mask, uplim_mask
 
 
-def compute_electron_temperature(df, diagnostic, ratio, s=None):
-    """TODO: write docstring"""
+def compute_electron_temperature(df, diagnostic, ratio="[OIII]", s=None):
+    """
+
+    Calculate electron temperature using emission line ratios of [OIII].
+
+    INPUTS
+    --------------------------------------------------------------------------
+    df:         pandas DataFrame
+        DataFrame in which to compute 
+
+    diagnostic: str
+        Which diagnostic to use. Options are "Proxauf2014" and "Sanders2016".
+
+    ratio:      str
+        Which emission line to use in the diagnostic. Currently the only 
+        valid option is "[OIII]" for the "Proxauf2014" diagnostic.
+
+    s:          str 
+        Column suffix to trim before carrying out computation - e.g. if 
+        you want to compute metallicities for "total" fluxes, and the 
+        columns of the DataFrame look like 
+
+            "HALPHA (total)", "HALPHA error (total)", etc.,
+
+        then setting s=" (total)" will mean that this function "sees"
+
+            "HALPHA", "HALPHA error".
+
+        Useful for running this function on different emission line 
+        components. The suffix is added back to the columns (and appended
+        to any new columns that are added) before being returned. For 
+        example, using the above example, the new added columns will be 
+
+            "log N2 (total)", "log N2 error (lower) (total)", 
+            "log N2 error (upper) (total)"
+
+    OUTPUTS
+    -----------------------------------------------------------------------
+    The original DataFrame with new columns added.
+
+    REFERENCES
+    --------------------------------------------------------------------------  
+    https://ui.adsabs.harvard.edu/abs/2014A%26A...561A..10P/abstract
+    https://ui.adsabs.harvard.edu/abs/2016ApJ...816...23S/abstract 
+    """
     
     # Trim suffix
     df, suffix_cols, suffix_removed_cols, old_cols = remove_col_suffix(df, s)
     old_cols = df.columns
 
     # Calculate the electron temperature 
-    R = df[f"<some ratio>"].values
-    df[f"T_e ({diagnostic})"] = get_T_e_ref(R)
+    if f"OIII4363" in df and "OIII4959+OIII5007" in df:
+        
+        if diagnostic == "Proxauf2014":
+            R = df["OIII4959+OIII5007"] / df[f"OIII4363"]
+            T_e, cond_lower_lim, cond_upper_lim = get_T_e_Proxauf2014(R)
+        else:
+            raise ValueError(f"{diagnostic} is an invalid diagnostic!")
+
+        df[f"T_e ({diagnostic} ({ratio}))"] = T_e
+        df[f"T_e saturation flag ({diagnostic} ({ratio}))"] = False
+        df.loc[cond_lower_lim | cond_upper_lim, f"T_e saturation flag ({diagnostic} ({ratio}))"] = True
+
+    else:
+        logger.warning(f"not computing T_e because I could not find the columns OIII4363 and/or OIII4959+OIII5007")
 
     # Rename columns
     df = add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols)
