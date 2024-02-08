@@ -4,7 +4,7 @@ import pandas as pd
 from spaxelsleuth.utils.linefns import compute_electron_density, get_n_e_Proxauf2014, get_n_e_Sanders2016
 
 
-def test_compute_electron_density():
+def test_compute_n_e():
 
     #//////////////////////////////////////////////////////
     # Test set 1: Proxauf+2014 [SII]-based measurements 
@@ -200,8 +200,20 @@ def test_compute_electron_density():
     assert df_updated.loc[7, f"n_e (Sanders2016 ([SII]))"] == 1
     assert df_updated.loc[8, f"n_e (Sanders2016 ([SII]))"] == n_e_truth
 
+    #//////////////////////////////////////////////////////
+    # Test set 4: testing that the right column names are added 
+    df = pd.DataFrame({
+        "[OII] ratio (total)": [0.5, 1.0, np.nan, 5.0, 999],
+    })
+    df_updated = compute_electron_density(df=df, ratio="[SII]", diagnostic="Sanders2016", s=f" (total)")
+    df_updated = compute_electron_density(df=df, ratio="[OII]", diagnostic="Sanders2016", s=f" (total)")
+    assert "n_e (Sanders2016 ([SII])) (total)" not in df_updated
+    assert "n_e (Sanders2016 ([OII])) (total)" in df_updated
+
 
 if __name__ == "__main__":
+
+    test_compute_n_e()
 
     import matplotlib.pyplot as plt 
     plt.ion()
