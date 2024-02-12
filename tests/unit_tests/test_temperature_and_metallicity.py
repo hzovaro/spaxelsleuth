@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from spaxelsleuth.utils.linefns import compute_electron_temperature, get_T_e_Proxauf2014, get_T_e_PM2014
+from spaxelsleuth.utils.temperature import compute_electron_temperature, get_T_e_Proxauf2014, get_T_e_PM2014
 
 
 def test_get_T_e_Proxauf2014():
