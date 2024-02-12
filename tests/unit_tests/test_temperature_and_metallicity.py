@@ -5,9 +5,7 @@ from spaxelsleuth.utils.temperature import compute_electron_temperature, get_T_e
 
 
 def test_get_T_e_Proxauf2014():
-
-    #//////////////////////////////////////////////////////
-    # Test set 1: Proxauf+2014 [OIII]-based measurements 
+    """Test Proxauf+2014 [OIII]-based T_e diagnostic."""
     # Test case 1: valid input 
     r = 2.5
     R = 10**r
@@ -43,9 +41,9 @@ def test_get_T_e_Proxauf2014():
 
 
 def test_get_T_e_PM2014():
+    """Test Perez-Montero 2014 T_e diagnostics."""
 
-    #//////////////////////////////////////////////////////
-    # Perez-Montero+2014 [NII]-based measurements 
+    # Perez-Montero+2014 [OIII]-based measurements 
     # Test case 1: valid input
     R = 50.0
     T_e_truth = 1.7460149999999999 * 1e4
@@ -78,7 +76,6 @@ def test_get_T_e_PM2014():
     assert not any(lolim_mask)
     assert not any(uplim_mask)
 
-    #//////////////////////////////////////////////////////
     # Perez-Montero+2014 [NII]-based measurements 
     # Test case 1: valid input 
     R = 200.
@@ -112,7 +109,6 @@ def test_get_T_e_PM2014():
     assert not any(lolim_mask)
     assert not any(uplim_mask)
 
-    #//////////////////////////////////////////////////////
     # Perez-Montero+2014 [SIII]-based measurements 
     # Test 1: ensure an exception is raised due to non-implementation
     try:
@@ -124,7 +120,7 @@ def test_get_T_e_PM2014():
 
 
 def test_compute_electron_temperature():
-
+    """Test compute_electron_temperature() function."""
     # Test case 4: test inside DataFrame 
     df = pd.DataFrame({
         "OIII4959+OIII5007 (total)": [10**2.5, 10**2.5, 10**2.5, 2.5, np.nan,],

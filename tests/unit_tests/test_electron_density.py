@@ -108,7 +108,8 @@ def test_get_n_e_Sanders2016():
     assert not any(uplim_mask)
 
 
-def test_compute_n_e():
+def test_compute_electron_density():
+    """Test compute_electron_density() function."""
     # Test case 1: [SII] from Proxauf2014 with suffix
     df = pd.DataFrame({
         "[SII] ratio (component 1)": [np.nan, np.nan, 0.1, -0.2, 0.3, 1.6, 2.0, 999, 1.0],
@@ -213,7 +214,7 @@ if __name__ == "__main__":
 
     test_get_n_e_Proxauf2014()
     test_get_n_e_Sanders2016()
-    test_compute_n_e()
+    test_compute_electron_density()
 
     import matplotlib.pyplot as plt 
     plt.ion()
