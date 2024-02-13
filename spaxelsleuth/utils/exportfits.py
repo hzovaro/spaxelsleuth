@@ -9,7 +9,7 @@ import warnings
 from spaxelsleuth import __version__
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.linefns import bpt_dict
-from spaxelsleuth.loaddata.hector import load_hector_metadata_df, load_hector_df
+from spaxelsleuth.io.io import load_metadata_df, load_df
 
 import logging
 logger = logging.getLogger(__name__)
@@ -106,14 +106,8 @@ def export_fits(
     """Export a multi-extension FITS file from columns in df."""
 
     # Load DataFrame
-    if survey == "hector":
-        df_metadata = load_hector_metadata_df()
-        df = load_hector_df(**kwargs)
-    elif survey == "sami":
-        df_metadata = load_sami_metadata_df()
-        df = load_sami_df(**kwargs)
-    else:
-        raise ValueError(f"Survey {survey} is not yet supported!")
+    df_metadata = load_metadata_df(survey=survey)
+    df = load_df(survey=survey, **kwargs)
 
     # Get number of components
     if df["ncomponents"].unique()[0] == "rec":
