@@ -66,22 +66,7 @@ def make_df(survey,
             sigma_gas_SNR_cut=True,
             vgrad_cut=False,
             stekin_cut=True,
-            metallicity_diagnostics=[
-                "N2Ha_PP04",
-                "N2Ha_M13",
-                "O3N2_PP04",
-                "O3N2_M13",
-                "N2S2Ha_D16",
-                "N2O2_KD02",
-                "Rcal_PG16",
-                "Scal_PG16",
-                "ON_P10",
-                "ONS_P10",
-                "N2Ha_K19",
-                "O3N2_K19",
-                "N2O2_K19",
-                "R23_KK04",
-            ],
+            metallicity_diagnostics=[],
             debug=False,
             nthreads=None,
             df_fname_tag=None,
@@ -281,7 +266,11 @@ def make_df(survey,
     config file.
     """
     # Save input params as a dict
-    ss_params = locals()
+    ss_params = locals().copy()
+    if "kwargs" in ss_params:
+        for key in ss_params["kwargs"]:
+            ss_params[key] = ss_params["kwargs"][key]
+    _ = ss_params.pop("kwargs")
 
     # Input checking
     try:
@@ -294,18 +283,21 @@ def make_df(survey,
         raise ValueError(f"bin_type must be {' or '.join(settings[survey]['bin_types'])}!!")
 
     if survey == "sami":
-        if "__use_lzifu_fits" not in kwargs:
-            kwargs["__use_lzifu_fits"] = False 
-            kwargs["__lzifu_ncomponents"] = 'recom'  # TODO check that this doesn't get used 
+        if "__use_lzifu_fits" not in ss_params:
+            ss_params["__use_lzifu_fits"] = False 
+            ss_params["__lzifu_ncomponents"] = 'recom'  # TODO check that this doesn't get used 
         else:
-            if kwargs["__use_lzifu_fits"]:
-                if kwargs["__lzifu_ncomponents"] not in ["recom", "1", "2", "3"]:
+            if ss_params["__use_lzifu_fits"]:
+                if ss_params["__lzifu_ncomponents"] not in ["recom", "1", "2", "3"]:
                     raise ValueError("__lzifu_ncomponents must be 'recom', '1', '2' or '3'!!")
                 if not os.path.exists(settings["sami"]["__lzifu_products_path"]):
                     raise ValueError(f"lzifu_products_path directory {settings['sami']['__lzifu_products_path']} not found!!")
                 logger.warning(
                     "using LZIFU %s-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (settings['sami']['__lzifu_ncomponents']),
                     RuntimeWarning)
+
+    # Create a Series containing the input parameters
+    ss_params_series = pd.Series(ss_params)
 
     logger.info(f"input parameters: survey={survey}, bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
 
@@ -358,8 +350,28 @@ def make_df(survey,
                 gals = gals[:10]
         
     # Also only run on a subset of metallicity diagnostics to speed up execution time
-    if debug:
-        metallicity_diagnostics = ["N2Ha_PP04", "N2Ha_K19"]
+    if metallicity_diagnostics is None:
+        if debug:
+            metallicity_diagnostics = ["N2Ha_PP04", "N2Ha_K19"]
+        else:
+            metallicity_diagnostics = [
+                    "N2Ha_PP04",
+                    "N2Ha_M13",
+                    "O3N2_PP04",
+                    "O3N2_M13",
+                    "N2S2Ha_D16",
+                    "N2O2_KD02",
+                    "Rcal_PG16",
+                    "Scal_PG16",
+                    "ON_P10",
+                    "ONS_P10",
+                    "N2Ha_K19",
+                    "O3N2_K19",
+                    "N2O2_K19",
+                    "R23_KK04",
+                ]
+    # Update the dictionary
+    ss_params["metallicity_diagnostics"] = metallicity_diagnostics
 
     # Scrape measurements for each galaxy from FITS files
     args_list = [[
@@ -391,32 +403,18 @@ def make_df(survey,
     df_spaxels = pd.DataFrame(np.vstack(tuple(rows_list_all)),
                               columns=colnames)
 
-    # Merge with metadata (numeric-type columns only)
-    # The question is... are there any metadata columns that are required for the below?
-    # ALSO: can just pass ss_params in here rather than spelling out every arg individually
-    # if df_metadata is not None:
-        # cols_to_merge = [c for c in df_metadata if df_metadata[c].dtypes != "object"]
-        # df_spaxels = df_spaxels.merge(df_metadata[cols_to_merge], on="ID", how="left")
+    # Merge with metadata (numeric-type columns only). 
+    # Note that we have to do this, because there are some metadata columns that are required in add_columns
+    # However, we remove the added columns before saving to disk in order to save disk space.
+    if df_metadata is not None:
+        added_metadata_cols = [c for c in df_metadata if df_metadata[c].dtypes != "object"]
+        df_spaxels = df_spaxels.merge(df_metadata[added_metadata_cols], on="ID", how="left")
 
     # Generic stuff: compute additional columns - extinction, metallicity, etc.
-    df_spaxels = add_columns(survey,
-                             df_spaxels,
-                             eline_SNR_min=eline_SNR_min,
-                             eline_ANR_min=eline_ANR_min,
-                             sigma_gas_SNR_min=sigma_gas_SNR_min,
-                             line_flux_SNR_cut=line_flux_SNR_cut,
-                             missing_fluxes_cut=missing_fluxes_cut,
-                             missing_kinematics_cut=missing_kinematics_cut,
-                             line_amplitude_SNR_cut=line_amplitude_SNR_cut,
-                             flux_fraction_cut=flux_fraction_cut,
-                             sigma_gas_SNR_cut=sigma_gas_SNR_cut,
-                             vgrad_cut=vgrad_cut,
-                             stekin_cut=stekin_cut,  # TODO make SAMI-specific
-                             correct_extinction=correct_extinction,
-                             metallicity_diagnostics=metallicity_diagnostics,
-                             nthreads=nthreads,
-                             **kwargs,
-                             )
+    df_spaxels = add_columns(df=df_spaxels, **ss_params)
+
+    # Remove the columns that were added before
+    df_spaxels = df_spaxels.drop(columns=[c for c in added_metadata_cols if c != "ID"])
 
     # Save
     logger.info(f"saving to file {output_path / df_fname}...")
@@ -430,7 +428,7 @@ def make_df(survey,
     with pd.HDFStore(output_path / df_fname) as store:
         store["DataFrame"] = df_spaxels
         store["Metadata"] = df_metadata
-        store["Spaxelsleuth parameters"] = ss_params
+        store["Spaxelsleuth parameters"] = ss_params_series
     
     logger.info("finished!")
     return
@@ -549,7 +547,10 @@ def load_df(survey,
     logger.info(f"input parameters: survey={survey}, bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
 
     # Filename & path
-    output_path = Path(settings[survey]["output_path"])
+    if "output_path" in kwargs:
+        output_path = Path(kwargs["output_path"])
+    else:
+        output_path = Path(settings[survey]["output_path"])
     df_fname = get_df_fname(survey,
                             bin_type,
                             ncomponents,
@@ -567,8 +568,6 @@ def load_df(survey,
     logger.info(
         f"Loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
     )
-
-    # df = pd.read_hdf(output_path / df_fname, key=f"{bin_type}{ncomponents}comp")
     with pd.HDFStore(output_path / df_fname) as store:
         df_spaxels = store["DataFrame"]
         df_metadata = store["Metadata"]
@@ -578,18 +577,11 @@ def load_df(survey,
     cols_to_merge = [c for c in df_metadata if df_metadata[c].dtypes != "object"]
     df = df_spaxels.merge(df_metadata[cols_to_merge], on="ID", how="left")
 
-    # Merge spaxelsleuth params 
-    for param in ss_params:
+    # Merge some spaxelsleuth params
+    for param in ["survey", "ncomponents", "bin_type"]:
         df[param] = ss_params[param]
 
-    # # Add "metadata" columns to the DataFrame
-    # df["survey"] = survey
-    # df["ncomponents"] = ncomponents
-    # df["bin_type"] = bin_type
-    # df["debug"] = debug
-
     # Take other keywords from the config file if they do not exist in the DataFrame 
-    # TODO look into using e.g. xarray instead for storing these as "tags"
     # Log this as info
     for kw in [
         "as_per_px",
@@ -600,15 +592,12 @@ def load_df(survey,
     ]:
         if kw not in df:
             if kw in settings[survey]:
-                df[kw] = settings["sami"][kw]
+                df[kw] = settings[survey][kw]
             else:
                 logger.warning(f"I could not find keyword '{kw}' in settings[{survey}] so I am not adding them to the DataFrame!")
     
-    # Add additional keys
-    # for kw in kwargs.keys():
-        # df[kw] = kwargs[kw]
-    
     # Units 
+    # TODO get rid of this? Or put it in ss_params?
     df["flux_units"] = f"E{str(settings[survey]['flux_units']).lstrip('1e')} erg/cm^2/s"  # Units of emission line flux
     df["continuum_units"] = f"E{str(settings[survey]['flux_units']).lstrip('1e')} erg/cm^2/Å/s"  # Units of continuum flux density
 
@@ -619,6 +608,9 @@ def load_df(survey,
     for bpt_col in bpt_cols:
         df[bpt_col.replace(" (numeric)", "")] = bpt_num_to_str(df[bpt_col])
 
+    # Sort/reset index since the merge step above will mess it up
+    df = df.sort_values(by=["ID", "x (projected, arcsec)", "y (projected, arcsec)"]).reset_index(drop=True)
+
     # Return
     logger.info("finished!")
-    return df.sort_index()
+    return df
