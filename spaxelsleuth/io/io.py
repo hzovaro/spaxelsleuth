@@ -542,7 +542,10 @@ def load_df(survey,
     logger.info(f"input parameters: survey={survey}, bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
 
     # Filename & path
-    output_path = Path(settings[survey]["output_path"])
+    if "output_path" in kwargs:
+        output_path = Path(kwargs["output_path"])
+    else:
+        output_path = Path(settings[survey]["output_path"])
     df_fname = get_df_fname(survey,
                             bin_type,
                             ncomponents,
