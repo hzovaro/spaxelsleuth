@@ -1,10 +1,12 @@
-import datetime
+from datetime import datetime 
 from importlib import import_module
 import multiprocessing
 import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+from time import time
+from tqdm import tqdm
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.addcolumns import add_columns
@@ -13,6 +15,45 @@ from spaxelsleuth.utils.linefns import bpt_num_to_str
 
 import logging
 logger = logging.getLogger(__name__)
+
+
+def find_matching_files(output_path, **params):
+    """Returns a list of HDF files in output_path containing 'params' entries matching those in the input ss_params.
+    
+    For keys that correspond lists, it will return all HDF files in which that key contains all of the items in the list.
+
+    For instance, if params contains a key as follows
+        params["gals"] = [gal1, gal2, gal3]
+    Then this function will return HDF files in which ss_params["gals"] is a superset of params["gals"], e.g.
+        ss_params["gals"] = [gal1, gal2, gal3, gal4, gal5,...]
+
+    This is useful if you want to find all DataFrames containing records of a specific galaxy, for example.
+    
+    """
+    hdf_fnames = [f for f in os.listdir(output_path) if f.endswith(".hd5")]
+    matching_hdf_fnames = []
+    for hdf_fname in hdf_fnames:
+        # Try to open it as a spaxelsleuth instance, see if an exception is thrown
+        with pd.HDFStore(output_path / hdf_fname) as store:
+            try:
+                ss_params_thisfile = store["ss_params"].to_dict()
+                params_match = {}
+                # check that params keys exist in ss_params_thisfile
+                for key in params.keys():
+                    if key not in ss_params_thisfile:
+                        raise KeyError(f"I could not find key {key} in ss_params for file {hdf_fname}!")
+                    # NOTE: if params in a list, match on subset.
+                    if type(params[key]) == list:
+                        params_match[key] = all(item in ss_params_thisfile[key] for item in params[key])
+                    else:
+                        params_match[key] = ss_params_thisfile[key] == params[key]
+                if all(params_match.values()):
+                    logger.info(f"Identified matching file {hdf_fname}")
+                    matching_hdf_fnames.append(hdf_fname)
+            except KeyError:
+                pass 
+    
+    return matching_hdf_fnames
 
 
 def make_metadata_df(survey, **kwargs):
@@ -32,6 +73,7 @@ def get_df_fname(survey,
                  eline_ANR_min,
                  debug,
                  df_fname_tag=None,
+                 timestamp=None,
                  **kwargs):
     """Returns the DataFrame filename corresponding to a set of input parameters."""
     df_fname = f"{survey}_{bin_type}_{ncomponents}-comp"
@@ -46,6 +88,8 @@ def get_df_fname(survey,
         df_fname += "_DEBUG"
     if df_fname_tag is not None:
         df_fname += f"_{df_fname_tag}"
+    if timestamp is not None:
+        df_fname += f"_{timestamp}"
     df_fname += ".hd5"
     return df_fname
 
@@ -66,7 +110,7 @@ def make_df(survey,
             sigma_gas_SNR_cut=True,
             vgrad_cut=False,
             stekin_cut=True,
-            metallicity_diagnostics=[],
+            metallicity_diagnostics=["N2Ha_PP04", "N2Ha_K19"],
             debug=False,
             nthreads=None,
             df_fname_tag=None,
@@ -265,13 +309,6 @@ def make_df(survey,
     All required data products must be stored in the folders specified in the
     config file.
     """
-    # Save input params as a dict
-    ss_params = locals().copy()
-    if "kwargs" in ss_params:
-        for key in ss_params["kwargs"]:
-            ss_params[key] = ss_params["kwargs"][key]
-    _ = ss_params.pop("kwargs")
-
     # Input checking
     try:
         survey_module = import_module(f"spaxelsleuth.io.{survey}")
@@ -283,22 +320,19 @@ def make_df(survey,
         raise ValueError(f"bin_type must be {' or '.join(settings[survey]['bin_types'])}!!")
 
     if survey == "sami":
-        if "__use_lzifu_fits" not in ss_params:
-            ss_params["__use_lzifu_fits"] = False 
-            ss_params["__lzifu_ncomponents"] = 'recom'  # TODO check that this doesn't get used 
+        if "__use_lzifu_fits" not in kwargs:
+            kwargs["__use_lzifu_fits"] = False 
+            kwargs["__lzifu_ncomponents"] = 'recom'  # TODO check that this doesn't get used 
         else:
-            if ss_params["__use_lzifu_fits"]:
-                if ss_params["__lzifu_ncomponents"] not in ["recom", "1", "2", "3"]:
+            if kwargs["__use_lzifu_fits"]:
+                if kwargs["__lzifu_ncomponents"] not in ["recom", "1", "2", "3"]:
                     raise ValueError("__lzifu_ncomponents must be 'recom', '1', '2' or '3'!!")
                 if not os.path.exists(settings["sami"]["__lzifu_products_path"]):
                     raise ValueError(f"lzifu_products_path directory {settings['sami']['__lzifu_products_path']} not found!!")
                 logger.warning(
                     "using LZIFU %s-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (settings['sami']['__lzifu_ncomponents']),
                     RuntimeWarning)
-
-    # Create a Series containing the input parameters
-    ss_params_series = pd.Series(ss_params)
-
+                
     logger.info(f"input parameters: survey={survey}, bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
 
     # Determine number of threads
@@ -306,18 +340,18 @@ def make_df(survey,
         nthreads = os.cpu_count()
         logger.warning(f"nthreads not specified: running make_df() on {nthreads} threads...")
    
+    # Save input params as a Series, flattening kwarfs
+    ss_params = locals().copy()
+    if "kwargs" in ss_params:
+        for key in ss_params["kwargs"]:
+            ss_params[key] = ss_params["kwargs"][key]
+    _ = ss_params.pop("kwargs")
+    _ = ss_params.pop("nthreads")
+    _ = ss_params.pop("survey_module")
+    ss_params_series = pd.Series(ss_params)
+
     # Paths and filenames
     output_path = Path(settings[survey]["output_path"])
-    df_fname = get_df_fname(survey,
-                            bin_type,
-                            ncomponents,
-                            correct_extinction,
-                            eline_SNR_min,
-                            eline_ANR_min,
-                            debug,
-                            df_fname_tag,
-                            **kwargs)
-    logger.info(f"saving to file {df_fname}...")
 
     # Load metadata
     df_metadata = load_metadata_df(survey)
@@ -348,30 +382,10 @@ def make_df(survey,
                 gals = gals[:10] + [572402, 209807]
             else:
                 gals = gals[:10]
-        
-    # Also only run on a subset of metallicity diagnostics to speed up execution time
-    if metallicity_diagnostics is None:
-        if debug:
-            metallicity_diagnostics = ["N2Ha_PP04", "N2Ha_K19"]
-        else:
-            metallicity_diagnostics = [
-                    "N2Ha_PP04",
-                    "N2Ha_M13",
-                    "O3N2_PP04",
-                    "O3N2_M13",
-                    "N2S2Ha_D16",
-                    "N2O2_KD02",
-                    "Rcal_PG16",
-                    "Scal_PG16",
-                    "ON_P10",
-                    "ONS_P10",
-                    "N2Ha_K19",
-                    "O3N2_K19",
-                    "N2O2_K19",
-                    "R23_KK04",
-                ]
-    # Update the dictionary
-    ss_params["metallicity_diagnostics"] = metallicity_diagnostics
+
+    # Add list of galaxies to ss_params
+    # TODO need to check that on load the comaprison works OK with the list and everything
+    ss_params_series["gals"] = gals
 
     # Scrape measurements for each galaxy from FITS files
     args_list = [[
@@ -411,12 +425,25 @@ def make_df(survey,
         df_spaxels = df_spaxels.merge(df_metadata[added_metadata_cols], on="ID", how="left")
 
     # Generic stuff: compute additional columns - extinction, metallicity, etc.
-    df_spaxels = add_columns(df=df_spaxels, **ss_params)
+    df_spaxels = add_columns(df=df_spaxels, nthreads=nthreads, **ss_params)
 
     # Remove the columns that were added before
     df_spaxels = df_spaxels.drop(columns=[c for c in added_metadata_cols if c != "ID"])
 
     # Save
+    t = datetime.now()
+    timestamp = t.strftime("%Y%m%d%H%M%S")
+    ss_params_series["timestamp"] = timestamp
+    df_fname = get_df_fname(survey,
+                            bin_type,
+                            ncomponents,
+                            correct_extinction,
+                            eline_SNR_min,
+                            eline_ANR_min,
+                            debug,
+                            df_fname_tag=df_fname_tag,
+                            timestamp=timestamp,
+                            **kwargs)
     logger.info(f"saving to file {output_path / df_fname}...")
 
     # Remove object-type columns
@@ -426,9 +453,9 @@ def make_df(survey,
 
     # Save
     with pd.HDFStore(output_path / df_fname) as store:
-        store["DataFrame"] = df_spaxels
-        store["Metadata"] = df_metadata
-        store["Spaxelsleuth parameters"] = ss_params_series
+        store["df_spaxels"] = df_spaxels
+        store["df_metadata"] = df_metadata
+        store["ss_params"] = ss_params_series
     
     logger.info("finished!")
     return
@@ -449,6 +476,17 @@ def load_df(survey,
             eline_ANR_min,
             correct_extinction,
             debug=False,
+            gals=None,
+            sigma_gas_SNR_min=3,
+            line_flux_SNR_cut=True,
+            missing_fluxes_cut=True,
+            missing_kinematics_cut=True,
+            line_amplitude_SNR_cut=True,
+            flux_fraction_cut=False,
+            sigma_gas_SNR_cut=True,
+            vgrad_cut=False,
+            stekin_cut=True,
+            metallicity_diagnostics=[],
             df_fname_tag=None,
             **kwargs):
     """Load a spaxelsleuth DataFrame created using make_df().
@@ -525,6 +563,14 @@ def load_df(survey,
     #######################################################################
     # INPUT CHECKING
     #######################################################################
+    
+    # Save input params as a dict
+    ss_params = locals().copy()
+    if "kwargs" in ss_params:
+        for key in ss_params["kwargs"]:
+            ss_params[key] = ss_params["kwargs"][key]
+    _ = ss_params.pop("kwargs")
+
     if ncomponents not in settings[survey]["ncomponents"]:
         raise ValueError(f"bin_type must be {' or '.join(settings[survey]['ncomponents'])}!!")
     if bin_type not in settings[survey]["bin_types"]:
@@ -545,23 +591,50 @@ def load_df(survey,
                     RuntimeWarning)
 
     logger.info(f"input parameters: survey={survey}, bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
-
+    
     # Filename & path
     if "output_path" in kwargs:
         output_path = Path(kwargs["output_path"])
     else:
         output_path = Path(settings[survey]["output_path"])
-    df_fname = get_df_fname(survey,
-                            bin_type,
-                            ncomponents,
-                            correct_extinction,
-                            eline_SNR_min,
-                            eline_ANR_min,
-                            debug,
-                            df_fname_tag,
-                            **kwargs)
-    if not os.path.exists(output_path / df_fname):
-        raise FileNotFoundError(f"DataFrame file {output_path / df_fname} does not exist!")
+
+    # Just as a test... how long does it take to read every .hd5 file in the output_path and check the params manually?
+    hdf_fnames = [f for f in os.listdir(output_path) if f.endswith(".hd5")]
+    for hdf_fname in tqdm(hdf_fnames):
+        file_found = False
+        # Try to open it as a spaxelsleuth instance, see if an exception is thrown
+        with pd.HDFStore(output_path / hdf_fname) as store:
+            try:
+                ss_params_thisfile = store["ss_params"].to_dict()
+                # Now, see if the params match 
+                params_match = [ss_params_thisfile[key] == ss_params[key] for key in ss_params.keys()]
+                if all(params_match):
+                    logger.info(f"{hdf_fname} is the file I'm looking for!")
+                    df_fname = hdf_fname
+                    file_found = True
+                # else:
+                    # logger.info(f"{hdf_fname} is not the file I'm looking for (wrong params)!")
+                if file_found:
+                    break
+            except KeyError:
+                # logger.info(f"{hdf_fname} is not the file I'm looking for (wrong keys)!")
+                pass 
+    if not file_found:
+        raise FileNotFoundError(f"I could not find a spaxelsleuth .hd5 file with the following settings: {ss_params}")
+
+    ###
+
+    # df_fname = get_df_fname(survey,
+    #                         bin_type,
+    #                         ncomponents,
+    #                         correct_extinction,
+    #                         eline_SNR_min,
+    #                         eline_ANR_min,
+    #                         debug,
+    #                         df_fname_tag,
+    #                         **kwargs)
+    # if not os.path.exists(output_path / df_fname):
+    #     raise FileNotFoundError(f"DataFrame file {output_path / df_fname} does not exist!")
 
     # Load the data frame
     t = os.path.getmtime(output_path / df_fname)
@@ -569,16 +642,17 @@ def load_df(survey,
         f"Loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
     )
     with pd.HDFStore(output_path / df_fname) as store:
-        df_spaxels = store["DataFrame"]
-        df_metadata = store["Metadata"]
-        ss_params = store["Spaxelsleuth parameters"]
+        df_spaxels = store["df_spaxels"]
+        df_metadata = store["df_metadata"]
+        ss_params = store["ss_params"]
 
     # Merge df_spaxels with df_metadata 
     cols_to_merge = [c for c in df_metadata if df_metadata[c].dtypes != "object"]
     df = df_spaxels.merge(df_metadata[cols_to_merge], on="ID", how="left")
 
     # Merge some spaxelsleuth params
-    for param in ["survey", "ncomponents", "bin_type"]:
+    # for param in ["survey", "ncomponents", "bin_type"]:
+    for param in [p for p in ss_params.index if p != "metallicity_diagnostics"]:
         df[param] = ss_params[param]
 
     # Take other keywords from the config file if they do not exist in the DataFrame 
