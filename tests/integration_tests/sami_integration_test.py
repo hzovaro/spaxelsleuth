@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def test_make_mtadata_df():
+def test_make_metadata_df():
     """Test creation of the metadata DataFrame."""
     make_metadata_df(survey="sami", recompute_continuum_SNRs=True, nthreads=10)
     # TODO add some assertion checks here?
@@ -28,7 +28,7 @@ def test_assertions_sami():
     """Run run_sami_assertion_tests() on a combination of inputs."""
     # Delete old files 
     delete_all_spaxelsleuth_output_files()
-    test_make_mtadata_df()
+    test_make_metadata_df()
     for ncomponents in ["recom", "1"]:
         for bin_type in ["default", "adaptive", "sectors"]:
             logger.info(f"running assertion tests for SAMI DataFrame with ncomponens={ncomponents}, bin_type={bin_type}...")
