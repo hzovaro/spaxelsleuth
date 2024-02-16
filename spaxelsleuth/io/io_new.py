@@ -5,6 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+import warnings
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.addcolumns import add_columns
@@ -467,11 +468,13 @@ def make_df(survey,
         logger.warning(f"The following object-type columns are present in the DataFrame: {','.join(bad_cols)}")
 
     # Save
-    with pd.HDFStore(output_path / df_fname) as store:
-        store["df_spaxels"] = df_spaxels
-        store["df_metadata"] = df_metadata
-        store["ss_params"] = ss_params_series
-    
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action="ignore", category=pd.errors.PerformanceWarning)
+        with pd.HDFStore(output_path / df_fname) as store:
+            store["df_spaxels"] = df_spaxels
+            store["df_metadata"] = df_metadata
+            store["ss_params"] = ss_params_series
+        
     logger.info("finished!")
     return
 
@@ -614,16 +617,24 @@ def load_df(survey,
     debug:                  bool (optional)
         If True, load the "debug" version of the DataFrame created when 
         running make_df() with debug=True.
+
+    output_path:            str (optional)
+        Load the DataFrame from a specified output directory. If unspecified,
+        the DataFrame will be loaded from settings[survey][output_path].
     
     USAGE
     ---------------------------------------------------------------------------
     load_df() is called as follows:
 
         >>> from spaxelsleuth.io.io import load_df
-        >>> df = load_df(survey="sami", ncomponents="recom", bin_type="default", 
-                         correct_extinction=True, eline_SNR_min=3, debug=True)
+        >>> df = load_df(survey="sami", 
+        >>>              ncomponents="recom",
+        >>>              bin_type="default", 
+        >>>              correct_extinction=True, 
+        >>>              eline_SNR_min=3, 
+        >>>              debug=True)
 
-    survey is the only mandatory argument; if unspecified, all other arguments
+    'survey' is the only mandatory argument; if unspecified, all other arguments
     are treated as "don't care".
     
     if multiple DataFrames are found that match the input arguments, the user 
@@ -693,7 +704,11 @@ def load_df(survey,
     logger.info(f"input parameters: {ss_params}")
 
     # Filename & path
-    output_path = Path(settings[survey]["output_path"])
+    if "output_path" not in kwargs:
+        output_path = Path(settings[survey]["output_path"])
+    else:
+        output_path = Path(kwargs["output_path"])
+        _ = ss_params.pop("output_path")
 
     # Identify files matching the input arguments 
     matching_files = find_matching_files(output_path, **ss_params)
@@ -731,9 +746,8 @@ def load_df(survey,
     for param in [p for p in ss_params.index if p != "metallicity_diagnostics" and p != "gals"]:
         df[param] = ss_params[param]
 
-    # TODO tidy this up?
     # Take other keywords from the config file if they do not exist in the DataFrame 
-    # Log this as info
+    # We add these to the DataFrame because they are used in plotting functions.
     for kw in [
         "as_per_px",
         "N_x",
@@ -747,8 +761,7 @@ def load_df(survey,
             else:
                 logger.warning(f"I could not find keyword '{kw}' in settings[{survey}] so I am not adding them to the DataFrame!")
     
-    # Units 
-    # TODO get rid of this? Or put it in ss_params?
+    # Units. Note that we don't store these in ss_params because they aren't input parameters to make_df.
     df["flux_units"] = f"E{str(settings[survey]['flux_units']).lstrip('1e')} erg/cm^2/s"  # Units of emission line flux
     df["continuum_units"] = f"E{str(settings[survey]['flux_units']).lstrip('1e')} erg/cm^2/Å/s"  # Units of continuum flux density
 
@@ -763,6 +776,5 @@ def load_df(survey,
     df = df.sort_values(by=["ID", "x (projected, arcsec)", "y (projected, arcsec)"]).reset_index(drop=True)
 
     # Return
-    # TODO do we want to return ss_params as well?
     logger.info("finished!")
     return df, ss_params
