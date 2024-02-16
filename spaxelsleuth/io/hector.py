@@ -5,7 +5,6 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
-from tqdm import tqdm
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
@@ -93,7 +92,7 @@ def get_filenames():
     # TODO check for duplicate galaxies - discard whichever comes second in the list
 
     # Now, hunt down the data cubes with the same gal AND tile number 
-    for id_str in tqdm(ids_all):
+    for id_str in ids_all:
 
         # Split into galaxy + tile
         gal, tile = id_str.split("_")
@@ -224,7 +223,7 @@ def make_metadata_df():
         df_metadata[col] = ""
 
     # Iterate through all galaxies and scrape data from FITS files 
-    for gal in tqdm(gals):
+    for gal in gals:
         # Get the blue & red data cube names
         datacube_B_fname = df_filenames.loc[gal, "Blue data cube FITS file"]
         datacube_R_fname = df_filenames.loc[gal, "Red data cube FITS file"]
