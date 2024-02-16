@@ -6,7 +6,7 @@ if __name__ == "__main__":
         load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
     from spaxelsleuth.io.io import make_metadata_df, make_df, load_metadata_df, load_df
 
-    nthreads = 10
+    nthreads = 1
     eline_SNR_min = 3
     eline_ANR_min = 3
 
