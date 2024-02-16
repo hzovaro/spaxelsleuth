@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 from spaxelsleuth.utils.misc import remove_col_suffix, add_col_suffix
 
@@ -31,10 +32,12 @@ def get_n_e_Proxauf2014(R):
     https://ui.adsabs.harvard.edu/abs/2014A%26A...561A..10P/abstract
 
     """
-    log_n_e = 0.0543 * np.tan(-3.0553 * R + 2.8506)\
-             + 6.98 - 10.6905 * R\
-             + 9.9186 * R**2 - 3.5442 * R**3
-    n_e = 10**log_n_e
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning)
+        log_n_e = 0.0543 * np.tan(-3.0553 * R + 2.8506)\
+                + 6.98 - 10.6905 * R\
+                + 9.9186 * R**2 - 3.5442 * R**3
+        n_e = 10**log_n_e
 
     # High & low density limits
     lolim_mask = n_e < 40
