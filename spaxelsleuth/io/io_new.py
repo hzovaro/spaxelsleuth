@@ -28,6 +28,8 @@ def find_matching_files(output_path, **params):
     This is useful if you want to find all DataFrames containing records of a specific galaxy, for example.
     
     """
+    if isinstance(output_path, str):
+        output_path = Path(output_path)
     hdf_fnames = [f for f in os.listdir(output_path) if f.endswith(".hd5")]
     matching_hdf_fnames = []
     for hdf_fname in hdf_fnames:
@@ -46,11 +48,11 @@ def find_matching_files(output_path, **params):
                     else:
                         params_match[key] = ss_params_thisfile[key] == params[key]
                 if all(params_match.values()):
-                    logger.info(f"Identified matching file {hdf_fname}")
                     matching_hdf_fnames.append(hdf_fname)
             except KeyError:
                 pass 
     
+    matching_hdf_fnames.sort()
     return matching_hdf_fnames
 
 
@@ -261,6 +263,19 @@ def make_df(survey,
     nthreads:                   int (optional)           
         Maximum number of threads to use. Defaults to os.cpu_count().
 
+    debug:                      bool (optional)
+        If True, run on a subset of the entire sample (10 galaxies) and save
+        the output with "_DEBUG" appended to the filename. This is useful for
+        tweaking S/N and DQ cuts since running the function on the entire 
+        sample is quite slow.  Default: False.
+
+    df_fname_tag:               str (optional)
+        If specified, append a tag to the end of the default filename. Can be 
+        useful in cases where you want to make multiple DataFrames with differing
+        options that are not reflected in the default filename, e.g. 
+        line_flux_SNR_cut, or if you want to make separate DataFrames for different 
+        sets of galaxies.
+
     __use_lzifu_fits (SAMI only):       bool (optional)
         If True, load the DataFrame containing emission line quantities
         (including fluxes, kinematics, etc.) derived directly from the LZIFU
@@ -274,18 +289,12 @@ def make_df(survey,
         extinction correction factors are loaded from DR3 data products as per
         the ncomponents keyword. Default: False.
 
-    debug:                      bool (optional)
-        If True, run on a subset of the entire sample (10 galaxies) and save
-        the output with "_DEBUG" appended to the filename. This is useful for
-        tweaking S/N and DQ cuts since running the function on the entire 
-        sample is quite slow.  Default: False.
-
-    df_fname_tag:               str (optional)
-        If specified, append a tag to the end of the default filename. Can be 
-        useful in cases where you want to make multiple DataFrames with differing
-        options that are not reflected in the default filename, e.g. 
-        line_flux_SNR_cut, or if you want to make separate DataFrames for different 
-        sets of galaxies.
+    **kwargs:                           any (optional)
+        You can add other keyword arguments which will be passed to 
+        process_galaxies() corresponding to the input survey. These will also 
+        be saved to the ss_params Series (see OUTPUTS for details) and can 
+        therefore also be passed to load_df() to load specific DataFrames 
+        with desired settings.
 
     OUTPUTS
     ---------------------------------------------------------------------------
@@ -699,7 +708,7 @@ def load_df(survey,
             for rr in range(len(ss_params_thisfile)):
                 logger.info(f"\t{ss_params_thisfile.index[rr]:25s}{ss_params_thisfile.iloc[rr]}")
             logger.info(f"")
-        idx = int(input(f"Please select a file by typing in a number from 0-{len(matching_files)}: "))
+        idx = int(input(f"Please select a file by typing in a number from 0-{len(matching_files) - 1}: "))
     else:   
         idx = 0
     df_fname = matching_files[idx]
