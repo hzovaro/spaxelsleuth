@@ -48,6 +48,7 @@ def add_columns(survey, df, **kwargs):
     if "sigma_inst_kms" not in kwargs.keys():
         try:
             sigma_inst_kms = settings[survey]["sigma_inst_kms"]
+            # TODO OR, just read it in from the DataFrame itself (useful for hector where the value will change between galaxies. Maybe store it in the hector metadata DF?)
         except KeyError:
             logger.warning(f"I could not find find sigma_inst_kms in settings[{survey}] or in kwargs, so I am assuming sigma_inst_kms = 0!")
             sigma_inst_kms = 0
@@ -120,10 +121,8 @@ def add_columns(survey, df, **kwargs):
                                             nthreads=kwargs["nthreads"],
                                             s=f" (component {nn + 1})")
 
-        df["correct_extinction"] = True
     else:
         logger.info(f"skipping extinction correction...")
-        df["correct_extinction"] = False
     df = df.sort_index()
 
     ######################################################################
@@ -160,15 +159,5 @@ def add_columns(survey, df, **kwargs):
             df = metallicity.calculate_metallicity(met_diagnostic=diagnostic, compute_logU=True, ion_diagnostic="O3O2_KK04", compute_errors=True, niters=1000, df=df, s=" (total)")
         else:
             df = metallicity.calculate_metallicity(met_diagnostic=diagnostic, compute_errors=True, niters=1000, df=df, s=" (total)")        
-
-    ###############################################################################
-    # Save input flags to the DataFrame
-    logger.info(f"adding flags to DataFrame...")
-    # TODO add all kwargs here instead? 
-    for flag in ["eline_SNR_min", "eline_ANR_min", "sigma_gas_SNR_min",
-                 "line_flux_SNR_cut", "missing_fluxes_cut", "missing_kinematics_cut", 
-                 "line_amplitude_SNR_cut", "flux_fraction_cut", "vgrad_cut", 
-                 "sigma_gas_SNR_cut", "stekin_cut"]:
-        df[flag] = kwargs[flag]
 
     return df

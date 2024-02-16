@@ -533,8 +533,14 @@ def process_galaxies(args):
     # Extract input arguments
     gal_idx, gal, ncomponents, bin_type, df_metadata, kwargs = args
 
-    use_lzifu_fits = kwargs["__use_lzifu_fits"]
-    lzifu_ncomponents = kwargs["__lzifu_ncomponents"]
+    if "__use_lzifu_fits" in kwargs:
+        use_lzifu_fits = kwargs["__use_lzifu_fits"]
+    else:
+        use_lzifu_fits = False
+    if use_lzifu_fits:
+        lzifu_ncomponents = kwargs["__lzifu_ncomponents"]
+    else:
+        lzifu_ncomponents = None
 
     # List of filenames for SAMI data products
     fname_list = [
