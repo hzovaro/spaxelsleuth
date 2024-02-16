@@ -5,8 +5,6 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
-from time import time
-from tqdm import tqdm
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.addcolumns import add_columns
@@ -283,7 +281,7 @@ def make_df(survey,
         sample is quite slow.  Default: False.
 
     df_fname_tag:               str (optional)
-        If specified, add a tag to the end of the default filename. Can be 
+        If specified, append a tag to the end of the default filename. Can be 
         useful in cases where you want to make multiple DataFrames with differing
         options that are not reflected in the default filename, e.g. 
         line_flux_SNR_cut, or if you want to make separate DataFrames for different 
@@ -291,23 +289,32 @@ def make_df(survey,
 
     OUTPUTS
     ---------------------------------------------------------------------------
-    The resulting DataFrame will be stored as 
+    The output is stored as a HDF file with the name
 
-        settings[<survey>]["output_path"]/<survey>_<bin_type>_<ncomponents>-comp_extcorr_minSNR=<eline_SNR_min>_<df_fname_tag>_minANR=<eline_ANR_min>_<df_fname_tag>.hd5
+        settings[<survey>]["output_path"]/<survey>_<bin_type>_<ncomponents>-comp_extcorr_minSNR=<eline_SNR_min>_<df_fname_tag>_minANR=<eline_ANR_min>_<df_fname_tag>_<timestamp>.hd5
 
     if correct_extinction is True, or else
 
-        settings[<survey>]["output_path"]/<survey>_<bin_type>_<ncomponents>-comp_minSNR=<eline_SNR_min>_<df_fname_tag>_minANR=<eline_ANR_min>_<df_fname_tag>.hd5
+        settings[<survey>]["output_path"]/<survey>_<bin_type>_<ncomponents>-comp_minSNR=<eline_SNR_min>_<df_fname_tag>_minANR=<eline_ANR_min>_<df_fname_tag>_<timestamp>.hd5
 
-    The DataFrame will be stored in CSV format in case saving in HDF format 
-    fails for any reason.
+    where timestamp is a string of the form YYYMMDDHHMMSS and is recorded shortly
+    before the DataFrame is saved to file. As a result, running make_df() 
+    successive times using identical input parameters will result in multiple
+    copies of the same file, rather than overwriting previous copies. 
+
+    The HDF file contains the following entries:
+
+        df_spaxels:     Pandas DataFrame in which each row corresponds to a spaxel or bin
+        df_metadata:    Pandas DataFrame created using make_metadata_df(), if one exists for the survey; if not, this will be null
+        ss_params:      Pandas Series recording the parameters passed to make_df(). 
 
     PREREQUISITES
     ---------------------------------------------------------------------------
-    make_metadata_df() for the corresponding survey must be run first.
+    make_metadata_df() for the corresponding survey must be run first, if one
+    exists.
 
-    All required data products must be stored in the folders specified in the
-    config file.
+    All data products required by process_galaxies() must be stored in the 
+    folders specified in the config file.
     """
     # Input checking
     try:
@@ -340,7 +347,7 @@ def make_df(survey,
         nthreads = os.cpu_count()
         logger.warning(f"nthreads not specified: running make_df() on {nthreads} threads...")
    
-    # Save input params as a Series, flattening kwarfs
+    # Save input params as a Series, flattening kwargs
     ss_params = locals().copy()
     if "kwargs" in ss_params:
         for key in ss_params["kwargs"]:
@@ -384,7 +391,6 @@ def make_df(survey,
                 gals = gals[:10]
 
     # Add list of galaxies to ss_params
-    # TODO need to check that on load the comaprison works OK with the list and everything
     ss_params_series["gals"] = gals
 
     # Scrape measurements for each galaxy from FITS files
@@ -470,24 +476,6 @@ def load_metadata_df(survey):
 
 
 def load_df(survey,
-            ncomponents,
-            bin_type,
-            eline_SNR_min,
-            eline_ANR_min,
-            correct_extinction,
-            debug=False,
-            gals=None,
-            sigma_gas_SNR_min=3,
-            line_flux_SNR_cut=True,
-            missing_fluxes_cut=True,
-            missing_kinematics_cut=True,
-            line_amplitude_SNR_cut=True,
-            flux_fraction_cut=False,
-            sigma_gas_SNR_cut=True,
-            vgrad_cut=False,
-            stekin_cut=True,
-            metallicity_diagnostics=[],
-            df_fname_tag=None,
             **kwargs):
     """Load a spaxelsleuth DataFrame created using make_df().
 
@@ -499,42 +487,114 @@ def load_df(survey,
 
     INPUTS
     ---------------------------------------------------------------------------
-    survey:             str
+    survey:                 str
         Survey name, e.g. "sami", "hector". Must be an entry in the 
         configuration file.
     
-    ncomponents:        str
-        Number of components; may either be "1" (corresponding to the 
-        1-component Gaussian fits) or "recom" (corresponding to the multi-
-        component Gaussian fits).
+    ncomponents:            str (optional)
+        Number of components. Must be an entry in settings[survey]["ncomponents"].
 
-    bin_type:           str
-        Binning scheme used. Must be one of 'default' or 'adaptive' or 
+    bin_type:               str (optional)
+        Binning scheme used. Must be an entry in settings[survey]["bin_types"].
 
-    eline_SNR_min:      int 
+    eline_SNR_min:          int (optional) 
         Minimum flux S/N to accept. Fluxes below the threshold (plus associated
         data products) are set to NaN.
         'sectors'.
 
-    eline_ANR_min:          float
+    eline_ANR_min:          float (optional) 
         Minimum A/N to adopt for emission lines in each kinematic component,
         defined as the Gaussian amplitude divided by the continuum standard
         deviation in a nearby wavelength range.
 
-    correct_extinction: bool
+    correct_extinction:     bool (optional) 
         If True, load the DataFrame in which the emission line fluxes (but not 
         EWs) have been corrected for intrinsic extinction.
 
-    eline_list:                 list of str
-        List of emission lines to which the flagging operations are applied
-        for S/N cuts, etc. 
+    sigma_gas_SNR_min:      float (optional)
+        Minimum velocity dipersion S/N to accept.
 
-    __use_lzifu_fits:           bool (optional)
+    line_flux_SNR_cut:      bool (optional)
+        Whether to NaN emission line components AND total fluxes 
+        (corresponding to emission lines in eline_list) below a specified S/N 
+        threshold, given by eline_SNR_min. The S/N is simply the flux dividied 
+        by the formal 1sigma uncertainty on the flux.
+
+    missing_fluxes_cut:     bool (optional)
+        Whether to NaN out "missing" fluxes - i.e., cells in which the flux
+        of an emission line (total or per component) is NaN, but the error 
+        is not for some reason.
+
+    missing_kinematics_cut: bool (optional)
+        Whether to NaN out "missing" values for v_gas/sigma_gas/v_*/sigma_* - 
+        i.e., cells in which the measurement itself is NaN, but the error 
+        is not for some reason.
+
+    line_amplitude_SNR_cut: bool (optional)
+        If True, removes components with Gaussian amplitudes < 3 * RMS of the 
+        continuum in the vicinity of Halpha. By default this is set to True
+        because this does well at removing shallow components which are most 
+        likely due to errors in the stellar continuum fit.
+
+    flux_fraction_cut:      bool (optional)
+        If True, and if ncomponents > 1, remove intermediate and broad 
+        components with line amplitudes < 0.05 that of the narrow componet.
+        Set to False by default b/c it's unclear whether this is needed to 
+        reject unreliable components.
+
+    sigma_gas_SNR_cut:      bool (optional)
+        If True, mask component velocity dispersions where the S/N on the 
+        velocity dispersion measurement is below sigma_gas_SNR_min. 
+        By default this is set to True as it's a robust way to account for 
+        emission line widths < instrumental. 
+
+    vgrad_cut:              bool (optional)     
+        If True, mask component kinematics (velocity and velocity dispersion)
+        that are likely to be affected by beam smearing.
+        By default this is set to False because it tends to remove nuclear spaxels 
+        which may be of interest to your science case, & because it doesn't 
+        reliably remove spaxels with quite large beam smearing components.
+
+    stekin_cut:             bool (optional)
+        If True, mask stellar kinematic quantities that do not meet the DQ and 
+        S/N requirements specified in Croom et al. (2021).
+
+    metallicity_diagnostics:    list of str (optional)
+        List of strong-line metallicity diagnostics to compute. 
+        Options:
+            N2Ha_K19    N2Ha diagnostic from Kewley (2019).
+            S2Ha_K19    S2Ha diagnostic from Kewley (2019).
+            N2S2_K19    N2S2 diagnostic from Kewley (2019).
+            S23_K19     S23 diagnostic from Kewley (2019).
+            O3N2_K19    O3N2 diagnostic from Kewley (2019).
+            O2S2_K19    O2S2 diagnostic from Kewley (2019).
+            O2Hb_K19    O2Hb diagnostic from Kewley (2019).
+            N2O2_K19    N2O2 diagnostic from Kewley (2019).
+            R23_K19     R23 diagnostic from Kewley (2019).
+            N2Ha_PP04   N2Ha diagnostic from Pilyugin & Peimbert (2004).
+            N2Ha_M13    N2Ha diagnostic from Marino et al. (2013).
+            O3N2_PP04   O3N2 diagnostic from Pilyugin & Peimbert (2004).
+            O3N2_M13    O3N2 diagnostic from Marino et al. (2013).
+            R23_KK04    R23 diagnostic from Kobulnicky & Kewley (2004).
+            N2S2Ha_D16  N2S2Ha diagnostic from Dopita et al. (2016).
+            N2O2_KD02   N2O2 diagnostic from Kewley & Dopita (2002).
+            Rcal_PG16   Rcal diagnostic from Pilyugin & Grebel (2016).
+            Scal_PG16   Scal diagnostic from Pilyugin & Grebel (2016).
+            ONS_P10     ONS diagnostic from Pilyugin et al. (2010).
+            ON_P10      ON diagnostic from Pilyugin et al. (2010).
+
+    df_fname_tag:           str (optional)
+        If specified, load the DataFrame with a specific tag in the filename.
+
+    timestamp:              str (optional)
+        If specified, load the DataFrame associated with a specific timestamp.
+
+    __use_lzifu_fits:       bool (optional, SAMI only)
         If True, load the DataFrame containing emission line quantities
         (including fluxes, kinematics, etc.) derived directly from the LZIFU
         output FITS files, rather than those included in DR3. 
 
-    __lzifu_ncomponents:        str  (optional)
+    __lzifu_ncomponents:    str  (optional, SAMI only)
         Number of components corresponding to the LZIFU fit, if 
         __use_lzifu_fits is specified. May be '1', '2', '3' or 'recom'. Note 
         that this keyword ONLY affects emission line fluxes and gas kinematics;
@@ -542,44 +602,69 @@ def load_df(survey,
         extinction correction factors are loaded from DR3 data products as per
         the ncomponents keyword. 
 
-    debug:                      bool
+    debug:                  bool (optional)
         If True, load the "debug" version of the DataFrame created when 
-        running make_df(survey="sami",) with debug=True.
+        running make_df() with debug=True.
     
     USAGE
     ---------------------------------------------------------------------------
-    load_sami_df() is called as follows:
+    load_df() is called as follows:
 
-        >>> from spaxelsleuth.io.sami import load_sami_df
-        >>> df = load_sami_df(ncomponents, bin_type, correct_extinction, 
-                              eline_SNR_min, debug)
+        >>> from spaxelsleuth.io.io import load_df
+        >>> df = load_df(survey="sami", ncomponents="recom", bin_type="default", 
+                         correct_extinction=True, eline_SNR_min=3, debug=True)
+
+    survey is the only mandatory argument; if unspecified, all other arguments
+    are treated as "don't care".
+    
+    if multiple DataFrames are found that match the input arguments, the user 
+    is prompted to select which DataFrame they would like to laod. This can be 
+    useful if, for example, you want to find all DataFrames containing a 
+    particular galaxy, e.g. if you want to find SAMI DataFrames containing the 
+    galaxy with ID galaxy1234, 
+
+        >>> load_df(survey="mysurvey", gals=["galaxy1234"])
+
+    the function will search in the directory settings["mysurvey"]["output_path"]
+    for all spaxelsleuth DataFrames containing galaxy1234 and prompt you to
+    select which one you want to load. The input parameters that were used to 
+    create each file are also logged. 
+
+    Note that it is possible to run make_df() multiple times with identical 
+    input parameters, in which case the only distinguishing feature between them
+    is the timestamp. This may be useful in case a change is made to the input
+    files used by the corresponding process_galaxies() function. 
+    
+    To load a DataFrame associated with a specific timestamp, use
+
+        >>> load_df(survey="mysurvey", timestamp="20240314153245")
+
+    where the timestamp is a string of the form YYYMMDDHHMMSS and is appended to
+    the filename. 
 
     OUTPUTS
     ---------------------------------------------------------------------------
-    The Dataframe.
+    A tuple containin the full spaxelsleuth Dataframe and a Series containing
+    the input arguments and other parameters associated with the call to 
+    make_df() that was used to create it. 
 
     """
 
     #######################################################################
     # INPUT CHECKING
     #######################################################################
-    
-    # Save input params as a dict
-    ss_params = locals().copy()
-    if "kwargs" in ss_params:
-        for key in ss_params["kwargs"]:
-            ss_params[key] = ss_params["kwargs"][key]
-    _ = ss_params.pop("kwargs")
+    if "ncomponents" in kwargs:
+        if kwargs["ncomponents"] not in settings[survey]["ncomponents"]:
+            raise ValueError(f"bin_type must be {' or '.join(settings[survey]['ncomponents'])}!!")
+    if "bin_type" in kwargs:
+        if kwargs["bin_type"] not in settings[survey]["bin_types"]:
+            raise ValueError(f"bin_type must be {' or '.join(settings[survey]['bin_types'])}!!")
 
-    if ncomponents not in settings[survey]["ncomponents"]:
-        raise ValueError(f"bin_type must be {' or '.join(settings[survey]['ncomponents'])}!!")
-    if bin_type not in settings[survey]["bin_types"]:
-        raise ValueError(f"bin_type must be {' or '.join(settings[survey]['bin_types'])}!!")
-
+    # Special args for SAMI
     if survey == "sami":
         if "__use_lzifu_fits" not in kwargs:
             kwargs["__use_lzifu_fits"] = False 
-            kwargs["__lzifu_ncomponents"] = 'recom'  # TODO check that this doesn't get used 
+            kwargs["__lzifu_ncomponents"] = 'recom'
         else:
             if kwargs["__use_lzifu_fits"]:
                 if kwargs["__lzifu_ncomponents"] not in ["recom", "1", "2", "3"]:
@@ -590,56 +675,39 @@ def load_df(survey,
                     "using LZIFU %s-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (settings['sami']['__lzifu_ncomponents']),
                     RuntimeWarning)
 
-    logger.info(f"input parameters: survey={survey}, bin_type={bin_type}, ncomponents={ncomponents}, debug={debug}, eline_SNR_min={eline_SNR_min}, eline_ANR_min={eline_ANR_min}, correct_extinction={correct_extinction}")
-    
+    # Save input params as a Series, flattening kwarfs
+    ss_params = locals().copy()
+    if "kwargs" in ss_params:
+        for key in ss_params["kwargs"]:
+            ss_params[key] = ss_params["kwargs"][key]
+    _ = ss_params.pop("kwargs")
+    logger.info(f"input parameters: {ss_params}")
+
     # Filename & path
-    if "output_path" in kwargs:
-        output_path = Path(kwargs["output_path"])
-    else:
-        output_path = Path(settings[survey]["output_path"])
+    output_path = Path(settings[survey]["output_path"])
 
-    # Just as a test... how long does it take to read every .hd5 file in the output_path and check the params manually?
-    hdf_fnames = [f for f in os.listdir(output_path) if f.endswith(".hd5")]
-    for hdf_fname in tqdm(hdf_fnames):
-        file_found = False
-        # Try to open it as a spaxelsleuth instance, see if an exception is thrown
-        with pd.HDFStore(output_path / hdf_fname) as store:
-            try:
-                ss_params_thisfile = store["ss_params"].to_dict()
-                # Now, see if the params match 
-                params_match = [ss_params_thisfile[key] == ss_params[key] for key in ss_params.keys()]
-                if all(params_match):
-                    logger.info(f"{hdf_fname} is the file I'm looking for!")
-                    df_fname = hdf_fname
-                    file_found = True
-                # else:
-                    # logger.info(f"{hdf_fname} is not the file I'm looking for (wrong params)!")
-                if file_found:
-                    break
-            except KeyError:
-                # logger.info(f"{hdf_fname} is not the file I'm looking for (wrong keys)!")
-                pass 
-    if not file_found:
-        raise FileNotFoundError(f"I could not find a spaxelsleuth .hd5 file with the following settings: {ss_params}")
-
-    ###
-
-    # df_fname = get_df_fname(survey,
-    #                         bin_type,
-    #                         ncomponents,
-    #                         correct_extinction,
-    #                         eline_SNR_min,
-    #                         eline_ANR_min,
-    #                         debug,
-    #                         df_fname_tag,
-    #                         **kwargs)
-    # if not os.path.exists(output_path / df_fname):
-    #     raise FileNotFoundError(f"DataFrame file {output_path / df_fname} does not exist!")
+    # Identify files matching the input arguments 
+    matching_files = find_matching_files(output_path, **ss_params)
+    if len(matching_files) == 0:
+        raise FileNotFoundError(f"I could not find a file matching the following parameters: {ss_params}")
+    if len(matching_files) > 1:
+        logger.warning(f"I found {len(matching_files)} matching the following parameters: {ss_params}")
+        for idx, df_fname in enumerate(matching_files):
+            logger.info(f"{idx}: {df_fname} with parameters")
+            with pd.HDFStore(output_path / df_fname) as store:
+                ss_params_thisfile = store["ss_params"]
+            for rr in range(len(ss_params_thisfile)):
+                logger.info(f"\t{ss_params_thisfile.index[rr]:25s}{ss_params_thisfile.iloc[rr]}")
+            logger.info(f"")
+        idx = int(input(f"Please select a file by typing in a number from 0-{len(matching_files)}: "))
+    else:   
+        idx = 0
+    df_fname = matching_files[idx]
 
     # Load the data frame
     t = os.path.getmtime(output_path / df_fname)
     logger.info(
-        f"Loading DataFrame from file {output_path / df_fname} [last modified {datetime.datetime.fromtimestamp(t)}]..."
+        f"Loading DataFrame from file {output_path / df_fname} [last modified {datetime.fromtimestamp(t)}]..."
     )
     with pd.HDFStore(output_path / df_fname) as store:
         df_spaxels = store["df_spaxels"]
@@ -651,10 +719,10 @@ def load_df(survey,
     df = df_spaxels.merge(df_metadata[cols_to_merge], on="ID", how="left")
 
     # Merge some spaxelsleuth params
-    # for param in ["survey", "ncomponents", "bin_type"]:
-    for param in [p for p in ss_params.index if p != "metallicity_diagnostics"]:
+    for param in [p for p in ss_params.index if p != "metallicity_diagnostics" and p != "gals"]:
         df[param] = ss_params[param]
 
+    # TODO tidy this up?
     # Take other keywords from the config file if they do not exist in the DataFrame 
     # Log this as info
     for kw in [
@@ -686,5 +754,6 @@ def load_df(survey,
     df = df.sort_values(by=["ID", "x (projected, arcsec)", "y (projected, arcsec)"]).reset_index(drop=True)
 
     # Return
+    # TODO do we want to return ss_params as well?
     logger.info("finished!")
-    return df
+    return df, ss_params
