@@ -123,7 +123,7 @@ def test_compute_electron_density():
     assert df_updated.loc[5, f"n_e (Proxauf2014 ([SII])) (component 1)"] == 40
     assert df_updated.loc[6, f"n_e (Proxauf2014 ([SII])) (component 1)"] == 40
     assert df_updated.loc[7, f"n_e (Proxauf2014 ([SII])) (component 1)"] == 40
-    assert df_updated.loc[8, f"n_e (Proxauf2014 ([SII])) (component 1)"] == 449.3936099807812
+    assert np.isclose(df_updated.loc[8, f"n_e (Proxauf2014 ([SII])) (component 1)"], 449.3936099807812)
 
     # Test case 2: [SII] from Proxauf2014 w/o suffix
     df = pd.DataFrame({
@@ -138,7 +138,7 @@ def test_compute_electron_density():
     assert df_updated.loc[5, f"n_e (Proxauf2014 ([SII]))"] == 40
     assert df_updated.loc[6, f"n_e (Proxauf2014 ([SII]))"] == 40
     assert df_updated.loc[7, f"n_e (Proxauf2014 ([SII]))"] == 40
-    assert df_updated.loc[8, f"n_e (Proxauf2014 ([SII]))"] == 449.3936099807812
+    assert np.isclose(df_updated.loc[8, f"n_e (Proxauf2014 ([SII]))"], 449.3936099807812)
 
     # Test case 3: [OII] from Sanders2016 with suffix
     df = pd.DataFrame({
@@ -153,7 +153,7 @@ def test_compute_electron_density():
     assert df_updated.loc[5, f"n_e (Sanders2016 ([OII])) (component 1)"] == 1
     assert df_updated.loc[6, f"n_e (Sanders2016 ([OII])) (component 1)"] == 1
     assert df_updated.loc[7, f"n_e (Sanders2016 ([OII])) (component 1)"] == 1
-    assert df_updated.loc[8, f"n_e (Sanders2016 ([OII])) (component 1)"] == 469.2290897415315
+    assert np.isclose(df_updated.loc[8, f"n_e (Sanders2016 ([OII])) (component 1)"], 469.2290897415315)
 
     # Test case 4: [OII] from Sanders2016 w/o suffix
     df = pd.DataFrame({
@@ -168,7 +168,7 @@ def test_compute_electron_density():
     assert df_updated.loc[5, f"n_e (Sanders2016 ([OII]))"] == 1
     assert df_updated.loc[6, f"n_e (Sanders2016 ([OII]))"] == 1
     assert df_updated.loc[7, f"n_e (Sanders2016 ([OII]))"] == 1
-    assert df_updated.loc[8, f"n_e (Sanders2016 ([OII]))"] == 469.2290897415315
+    assert np.isclose(df_updated.loc[8, f"n_e (Sanders2016 ([OII]))"], 469.2290897415315)
 
     # Test case 5: [SII] from Sanders2016 with suffix
     df = pd.DataFrame({
@@ -183,7 +183,7 @@ def test_compute_electron_density():
     assert df_updated.loc[5, f"n_e (Sanders2016 ([SII])) (component 1)"] == 1
     assert df_updated.loc[6, f"n_e (Sanders2016 ([SII])) (component 1)"] == 1
     assert df_updated.loc[7, f"n_e (Sanders2016 ([SII])) (component 1)"] == 1
-    assert df_updated.loc[8, f"n_e (Sanders2016 ([SII])) (component 1)"] == 496.1662269129286
+    assert np.isclose(df_updated.loc[8, f"n_e (Sanders2016 ([SII])) (component 1)"], 496.1662269129286)
 
     # Test case 4: [SII] from Sanders2016 w/o suffix
     df = pd.DataFrame({
@@ -198,7 +198,7 @@ def test_compute_electron_density():
     assert df_updated.loc[5, f"n_e (Sanders2016 ([SII]))"] == 1
     assert df_updated.loc[6, f"n_e (Sanders2016 ([SII]))"] == 1
     assert df_updated.loc[7, f"n_e (Sanders2016 ([SII]))"] == 1
-    assert df_updated.loc[8, f"n_e (Sanders2016 ([SII]))"] == 496.1662269129286
+    assert np.isclose(df_updated.loc[8, f"n_e (Sanders2016 ([SII]))"], 496.1662269129286)
 
     # Test set 5: testing that the right column names are added 
     df = pd.DataFrame({
