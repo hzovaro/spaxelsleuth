@@ -46,17 +46,18 @@ def compare_dataframes(df_new, df_old):
 
 
 if __name__ == "__main__":
-    # Using the same input params, make DataFrames using the methods in io.py and io_new.py
+    # Using the same input params, make DataFrames using the methods in io.py and io.py
     # Load them side-by-side to check what has changed.
 
     from spaxelsleuth import load_user_config
     load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
-    from spaxelsleuth.io import io, io_new
+    from spaxelsleuth.io import io, io
 
     nthreads = 10
     DEBUG = True
 
     # Create the DataFrames using the old & new methods
+
     # io.make_df(survey="sami",
     #         bin_type="default", 
     #         ncomponents="recom", 
@@ -66,15 +67,20 @@ if __name__ == "__main__":
     #         metallicity_diagnostics=["N2Ha_PP04", "N2Ha_K19"],
     #         nthreads=nthreads,
     #         debug=DEBUG)
-    # io_new.make_df(survey="sami",
-    #         bin_type="default", 
-    #         ncomponents="recom", 
-    #         eline_SNR_min=5, 
-    #         eline_ANR_min=3, 
-    #         correct_extinction=True,
-    #         metallicity_diagnostics=["N2Ha_PP04", "N2Ha_K19"],
-    #         nthreads=nthreads,
-    #         debug=DEBUG)
+    
+    io.make_df(survey="sami",
+            bin_type="default", 
+            ncomponents="recom", 
+            eline_SNR_min=5, 
+            eline_ANR_min=3, 
+            correct_extinction=True,
+            metallicity_diagnostics=["N2Ha_PP04", "N2Ha_K19"],
+            nthreads=nthreads,
+            line_flux_SNR_cut=False,
+            line_amplitude_SNR_cut=False,
+            sigma_gas_SNR_cut=False,
+            stekin_cut=False,
+            debug=DEBUG)
     
     # Load 
     df_old = io.load_df(survey="sami",
@@ -83,15 +89,23 @@ if __name__ == "__main__":
             eline_SNR_min=5, 
             eline_ANR_min=3, 
             correct_extinction=True,
+            line_flux_SNR_cut=False,
+            line_amplitude_SNR_cut=False,
+            sigma_gas_SNR_cut=False,
+            stekin_cut=False,
             debug=DEBUG)
     
-    df_new = io_new.load_df(survey="sami",
-            bin_type="default", 
-            ncomponents="recom", 
-            eline_SNR_min=5, 
-            eline_ANR_min=3, 
-            correct_extinction=True,
-            debug=DEBUG)
+    # df_new = io.load_df(survey="sami",
+    #         bin_type="default", 
+    #         ncomponents="recom", 
+    #         eline_SNR_min=5, 
+    #         eline_ANR_min=3, 
+    #         correct_extinction=True,
+    #         line_flux_SNR_cut=False,
+    #         line_amplitude_SNR_cut=False,
+    #         sigma_gas_SNR_cut=False,
+    #         stekin_cut=False,
+    #         debug=DEBUG)
     
     
     # Run a regression test here

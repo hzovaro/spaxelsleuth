@@ -8,7 +8,7 @@ from spaxelsleuth import load_user_config, configure_logger
 load_user_config("test_config.json")
 configure_logger(level="INFO")
 from spaxelsleuth.config import settings
-from spaxelsleuth.io.io_new import load_df, make_df, find_matching_files
+from spaxelsleuth.io.io import load_df, make_df, find_matching_files
 
 import logging
 logger = logging.getLogger(__name__)

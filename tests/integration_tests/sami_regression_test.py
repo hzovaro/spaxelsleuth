@@ -7,7 +7,7 @@ from spaxelsleuth import load_user_config, configure_logger
 load_user_config("test_config.json")
 configure_logger(level="INFO")
 from spaxelsleuth.config import settings
-from spaxelsleuth.io.io_new import make_df, load_df
+from spaxelsleuth.io.io import make_df, load_df
 from spaxelsleuth.config import settings
 
 import logging
