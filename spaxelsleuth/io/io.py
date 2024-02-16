@@ -444,7 +444,8 @@ def make_df(survey,
     df_spaxels = add_columns(df=df_spaxels, nthreads=nthreads, **ss_params)
 
     # Remove the columns that were added before
-    df_spaxels = df_spaxels.drop(columns=[c for c in added_metadata_cols if c != "ID"])
+    if df_metadata is not None:
+        df_spaxels = df_spaxels.drop(columns=[c for c in added_metadata_cols if c != "ID"])
 
     # Save
     t = datetime.now()
@@ -472,7 +473,8 @@ def make_df(survey,
         warnings.filterwarnings(action="ignore", category=pd.errors.PerformanceWarning)
         with pd.HDFStore(output_path / df_fname) as store:
             store["df_spaxels"] = df_spaxels
-            store["df_metadata"] = df_metadata
+            if df_metadata is not None:
+                store["df_metadata"] = df_metadata
             store["ss_params"] = ss_params_series
         
     logger.info("finished!")
@@ -735,12 +737,18 @@ def load_df(survey,
     )
     with pd.HDFStore(output_path / df_fname) as store:
         df_spaxels = store["df_spaxels"]
-        df_metadata = store["df_metadata"]
+        if "df_metadata" in store:
+            df_metadata = store["df_metadata"]
+        else:
+            df_metadata = None
         ss_params = store["ss_params"]
 
     # Merge df_spaxels with df_metadata 
-    cols_to_merge = [c for c in df_metadata if df_metadata[c].dtypes != "object"]
-    df = df_spaxels.merge(df_metadata[cols_to_merge], on="ID", how="left")
+    if df_metadata is not None:
+        cols_to_merge = [c for c in df_metadata if df_metadata[c].dtypes != "object"]
+        df = df_spaxels.merge(df_metadata[cols_to_merge], on="ID", how="left")
+    else:
+        df = df_spaxels
 
     # Merge some spaxelsleuth params
     for param in [p for p in ss_params.index if p != "metallicity_diagnostics" and p != "gals"]:
