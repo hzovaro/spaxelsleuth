@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 def test_compute_d4000():
     """Test continuum.compute_d4000()."""
 
+    # Test case 1: valid wavelength range
     # Dummy data for testing 
     lambda_vals_rest_A = np.arange(3500, 4500, 10)
     N_lambda = len(lambda_vals_rest_A)
@@ -20,6 +21,12 @@ def test_compute_d4000():
     data_cube_A = 10 * np.ones((N_lambda, N_y, N_x))
     var_cube_A2 = np.ones((N_lambda, N_y, N_x))
     v_map = np.zeros((N_x, N_y))
+
+    # Add some NaNs to v_map
+    v_map[:1] = np.nan
+    where_is_nan = np.isnan(v_map)
+    # Save a copy for checking 
+    v_map_original = v_map.copy()
 
     # Convert from F_lambda to F_nu
     # i.e. from erg/s/cm2/A --> erg/s/cm2/Hz, so need to multiply by A . s
@@ -45,6 +52,16 @@ def test_compute_d4000():
 
     assert np.all(np.isclose(expected_d4000_map, d4000_map))
     assert np.all(np.isclose(expected_d4000_map_err, d4000_map_err))
+    assert np.all(np.isnan(v_map[where_is_nan]))  # Check that NaNs in the v_map haven't been replaced with zeros
+
+    # Test case 2: invalid wavelength range - should return NaNs
+    lambda_vals_rest_A += 2000
+    d4000_map, d4000_map_err = continuum.compute_d4000(data_cube_A, var_cube_A2, lambda_vals_rest_A, v_map)
+
+    assert np.all(np.isnan(d4000_map))
+    assert np.all(np.isnan(d4000_map_err))
+    assert d4000_map.shape == expected_d4000_map.shape
+    assert d4000_map_err.shape == expected_d4000_map_err.shape
 
     logger.info("All test cases passed!")
 
@@ -52,6 +69,7 @@ def test_compute_d4000():
 def test_compute_continuum_intensity():
     """Test continuum.compute_continuum_luminosity()."""
 
+    # Test case 1: valid wavelength range
     # Dummy data for testing 
     N_lambda = 101
     N_x, N_y = (3, 3)
@@ -62,7 +80,6 @@ def test_compute_continuum_intensity():
     lambda_rest_stop_A = 4500
     N_in_range = 9
     v_map = np.zeros((N_x, N_y))
-
     # This is independently tested so we don't need to check the output here
     data_cube_masked, var_cube_masked = velocity.get_slices_in_velocity_range(data_cube, var_cube, lambda_vals_rest_A, lambda_rest_start_A, lambda_rest_stop_A, v_map)
 
@@ -75,6 +92,17 @@ def test_compute_continuum_intensity():
     assert np.all(np.isclose(expected_cont_map, cont_map))
     assert np.all(np.isclose(expected_cont_map_std, cont_map_std))
     assert np.all(np.isclose(expected_cont_map_err, cont_map_err))
+
+    # Test case 2: invalid wavelength range - should return NaNs
+    lambda_vals_rest_A += 2000
+    cont_map, cont_map_std, cont_map_err = continuum.compute_continuum_intensity(data_cube, var_cube, lambda_vals_rest_A, lambda_rest_start_A, lambda_rest_stop_A, v_map)
+
+    assert np.all(np.isnan(cont_map))
+    assert np.all(np.isnan(cont_map_std))
+    assert np.all(np.isnan(cont_map_err))
+    assert cont_map.shape == expected_cont_map.shape
+    assert cont_map_std.shape == expected_cont_map_std.shape
+    assert cont_map_err.shape == expected_cont_map_err.shape
 
     logger.info("All test cases passed!")
 
@@ -95,7 +123,7 @@ def test_compute_continuum_luminosity():
     Ha_cont_luminosity = 10.0 * 1e-16 * (4 * np.pi * D_cm**2) / 0.025
     Ha_cont_luminosity_err = Ha_cont_luminosity * 0.1 / 10.0
 
-    df = continuum.compute_continuum_luminosity(df_test)
+    df = continuum.compute_continuum_luminosity(df_test, flux_units=1e-16)
 
     assert np.isclose(Ha_cont_luminosity, df["HALPHA continuum luminosity"])
     assert np.isclose(Ha_cont_luminosity_err, df["HALPHA continuum luminosity error"])

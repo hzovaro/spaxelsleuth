@@ -7,7 +7,7 @@ if __name__ == "__main__":
         load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
     except FileNotFoundError:
         load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
-    from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_df, load_sami_metadata_df, load_sami_df
+    from spaxelsleuth.io.io import make_metadata_df, make_df, load_metadata_df, load_df
     from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
     from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours, plot2dscatter
 
@@ -15,24 +15,28 @@ if __name__ == "__main__":
     DEBUG = True
 
     # Create the DataFrames
-    make_sami_metadata_df(recompute_continuum_SNRs=False, nthreads=nthreads)
-    make_sami_df(bin_type="default", 
-                ncomponents="recom", 
-                eline_SNR_min=5, 
-                eline_ANR_min=3, 
-                correct_extinction=True,
-                metallicity_diagnostics=["R23_KK04"],
-                nthreads=nthreads,
-                debug=DEBUG)
+    make_metadata_df(survey="sami",
+                     recompute_continuum_SNRs=False, 
+                     nthreads=nthreads)
+    make_df(survey="sami",
+            bin_type="default", 
+            ncomponents="recom", 
+            eline_SNR_min=5, 
+            eline_ANR_min=3, 
+            correct_extinction=False,
+            metallicity_diagnostics=["R23_KK04"],
+            nthreads=nthreads,
+            debug=DEBUG)
 
     # Load the DataFrames
-    df_metadata = load_sami_metadata_df()
-    df = load_sami_df(ncomponents="recom",
-                    bin_type="default",
-                    eline_SNR_min=5,
-                    eline_ANR_min=3,
-                    correct_extinction=True,
-                    debug=DEBUG)
+    df_metadata = load_metadata_df(survey="sami")
+    df, ss_params = load_df(survey="sami",
+                 ncomponents="recom",
+                 bin_type="default",
+                 eline_SNR_min=5,
+                 eline_ANR_min=3,
+                 correct_extinction=False,
+                 debug=DEBUG)
     
     # Histograms showing the distribution in velocity dispersion
     fig, ax = plt.subplots(nrows=1, ncols=1)

@@ -4,23 +4,30 @@ if __name__ == "__main__":
         load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
     except FileNotFoundError:
         load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
-    from spaxelsleuth.loaddata.s7 import make_s7_metadata_df, make_s7_df, load_s7_metadata_df, load_s7_df
+    from spaxelsleuth.io.io import make_metadata_df, make_df, load_metadata_df, load_df
 
-    nthreads = 10
+    nthreads = 1
     eline_SNR_min = 3
     eline_ANR_min = 3
 
     # Create the DataFrames
-    make_s7_metadata_df()
-    make_s7_df(
-                eline_SNR_min=eline_SNR_min,
-                eline_ANR_min=eline_ANR_min,
-                correct_extinction=True,
-                metallicity_diagnostics=["N2Ha_PP04",],
-                nthreads=nthreads)
+    make_metadata_df(survey="s7")
+    make_df(survey="s7",
+            bin_type="default",
+            ncomponents="merge",
+            gals=["NGC1068", "NGC6300",],
+            eline_SNR_min=eline_SNR_min,
+            eline_ANR_min=eline_ANR_min,
+            correct_extinction=False,
+            metallicity_diagnostics=["N2Ha_PP04",],
+            nthreads=nthreads)
 
     # Load the DataFrames
-    df_metadata = load_s7_metadata_df()
-    df = load_s7_df(eline_SNR_min=eline_SNR_min,
-                    eline_ANR_min=eline_ANR_min,
-                    correct_extinction=True)
+    df_metadata = load_metadata_df(survey="s7")
+    df, ss_params = load_df(survey="s7",
+                 bin_type="default",
+                 ncomponents="merge",
+                 gals=["NGC1068", "NGC6300",],
+                 eline_SNR_min=eline_SNR_min,
+                 eline_ANR_min=eline_ANR_min,
+                 correct_extinction=False)

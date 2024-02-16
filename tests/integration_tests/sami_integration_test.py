@@ -1,28 +1,39 @@
+import os
 import numpy as np
 
 from spaxelsleuth import load_user_config, configure_logger
 load_user_config("test_config.json")
 configure_logger(level="INFO")
-from spaxelsleuth.loaddata.sami import make_sami_metadata_df, make_sami_df, load_sami_df
+from spaxelsleuth.config import settings
+from spaxelsleuth.io.io import make_metadata_df, make_df, load_df
 
 import logging
 logger = logging.getLogger(__name__)
 
 
-def test_make_sami_metadata_df():
+def test_make_metadata_df():
     """Test creation of the metadata DataFrame."""
-    make_sami_metadata_df(recompute_continuum_SNRs=True, nthreads=10)
-
+    make_metadata_df(survey="sami", recompute_continuum_SNRs=True, nthreads=10)
     # TODO add some assertion checks here?
+
+
+def delete_all_spaxelsleuth_output_files():
+    """Delete all spaxelsleuth output files, including the metdata DataFrame, in the output directory"""
+    output_fnames = [f for f in os.listdir(settings["sami"]["output_path"]) if f.endswith(".hd5")]
+    for fname in output_fnames:
+        os.system(f"rm {settings['sami']['output_path']}/{fname}")
 
 
 def test_assertions_sami():
     """Run run_sami_assertion_tests() on a combination of inputs."""
+    # Delete old files 
+    delete_all_spaxelsleuth_output_files()
+    test_make_metadata_df()
     for ncomponents in ["recom", "1"]:
         for bin_type in ["default", "adaptive", "sectors"]:
             logger.info(f"running assertion tests for SAMI DataFrame with ncomponens={ncomponents}, bin_type={bin_type}...")
             run_sami_assertion_tests(ncomponents=ncomponents, bin_type=bin_type)
-            logger.info(f"assertion tests pased for SAMI DataFrame with  ncomponens={ncomponents}, bin_type={bin_type}!")
+            logger.info(f"assertion tests pased for SAMI DataFrame with ncomponens={ncomponents}, bin_type={bin_type}!")
 
 
 def run_sami_assertion_tests(ncomponents,
@@ -31,7 +42,7 @@ def run_sami_assertion_tests(ncomponents,
                    eline_ANR_min=3, 
                    nthreads=10,
                    debug=False):
-    """Run make_sami_df and load_sami_df for the given inputs and run assertion checks."""
+    """Run make_df and load_df survey="sami", for the given inputs and run assertion checks."""
     
     # Needed for metallicity checks
     from spaxelsleuth.utils.metallicity import line_list_dict
@@ -42,15 +53,16 @@ def run_sami_assertion_tests(ncomponents,
         "eline_SNR_min": eline_SNR_min,
         "eline_ANR_min": eline_ANR_min,
         "debug": debug,
+        "metallicity_diagnostics": ["N2Ha_PP04", "N2Ha_K19"],
     }
 
     # Create the DataFrame
-    make_sami_df(**kwargs, correct_extinction=True, nthreads=nthreads)  
-    make_sami_df(**kwargs, correct_extinction=False, nthreads=nthreads)  
+    make_df(survey="sami", **kwargs, correct_extinction=True, nthreads=nthreads)  
+    make_df(survey="sami", **kwargs, correct_extinction=False, nthreads=nthreads)  
     
     # Load the DataFrame
-    df = load_sami_df(**kwargs, correct_extinction=True)
-    df_noextcorr = load_sami_df(**kwargs, correct_extinction=False)
+    df, _ = load_df(survey="sami", **kwargs, correct_extinction=True)
+    df_noextcorr, _ = load_df(survey="sami", **kwargs, correct_extinction=False)
 
     #//////////////////////////////////////////////////////////////////////////////
     # Run assertion tests
@@ -83,7 +95,7 @@ def run_sami_assertion_tests(ncomponents,
     # DATA QUALITY AND S/N CUT TESTS
     # CHECK: stellar kinematics have been masked out
     cond_bad_stekin = df["Bad stellar kinematics"]
-    for col in [c for c in df.columns if "v_*" in c or "sigma_*" in c]:
+    for col in [c for c in df.columns if ("v_*" in c or "sigma_*" in c) and "flag" not in c]:
         assert all(df.loc[cond_bad_stekin, col].isna())
 
     # CHECK: sigma_gas S/N cut
@@ -142,6 +154,13 @@ def run_sami_assertion_tests(ncomponents,
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (upper) (component {nn + 1})"]))
         assert np.all(np.isnan(df.loc[df["Number of components (original)"] == 0, f"{col} error (lower) (component {nn + 1})"]))
 
+    # CHECK: no "missing" kinematics 
+    for col in ["sigma_gas", "v_gas"]:
+        for nn in range(3 if ncomponents == "rec" else 1):
+            assert not any(df[f"{col} (component {nn + 1})"].isna() & ~df[f"{col} error (component {nn + 1})"].isna())
+    for col in ["sigma_*", "v_*"]:
+        assert not any(df[col].isna() & ~df[f"{col} error"].isna())
+        
     # CHECK: all kinematic quantities in spaxels with 0 original components are NaN
     for col in ["sigma_gas", "v_gas"]:
         for nn in range(3 if ncomponents == "recom" else 1):

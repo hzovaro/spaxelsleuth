@@ -133,7 +133,7 @@ def compute_A_V(df,
         # Calculate ( A(Ha) - A(Hb) ) / E(B-V) from extinction curve
         wave_1_A = np.array([eline_lambdas_A["HALPHA"]])
         wave_2_A = np.array([eline_lambdas_A["HBETA"]])
-        E_ba_over_E_BV = float(ext_fn(wave_2_A, a_v=1.0) - ext_fn(wave_1_A, a_v=1.0) ) /  1.0 * R_V
+        E_ba_over_E_BV = (ext_fn(wave_2_A, a_v=1.0)[0] - ext_fn(wave_1_A, a_v=1.0)[0]) /  1.0 * R_V
 
         # Calculate E(B-V)
         E_BV = 1 / E_ba_over_E_BV * E_ba

@@ -219,9 +219,9 @@ def plot2dmap(df,
         ny = int(np.nanmax(df_gal["y (pixels)"].values) + 1)
 
     # Get centre coordinates of image 
-    if "x0_px" in df_gal and "y0_px" in df_gal:
-        x0_px = int(df_gal["x0_px"].unique()[0])
-        y0_px = int(df_gal["y0_px"].unique()[0])
+    if "x_0 (pixels)" in df_gal and "y_0 (pixels)" in df_gal:
+        x0_px = int(df_gal["x_0 (pixels)"].unique()[0])
+        y0_px = int(df_gal["y_0 (pixels)"].unique()[0])
     else:
         logger.warn("x0_px and y0_px were not found in the DataFrame so I am assuming their values from the shape of the data")
         x0_px = nx / 2.
@@ -238,10 +238,11 @@ def plot2dmap(df,
             if "x (pixels)" in df_gal and "y (pixels)" in df_gal:
                 xx = int(df_gal.iloc[rr]["x (pixels)"])
                 yy = int(df_gal.iloc[rr]["y (pixels)"])
-            elif "x, y (pixels)" in df:
-                xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
+            elif "x (projected, arcsec)" in df_gal and "y (projected, arcsec)" in df_gal:
+                xx = int(df_gal.iloc[rr]["x (projected, arcsec)"] / as_per_px)
+                yy = int(df_gal.iloc[rr]["y (projected, arcsec)"] / as_per_px)
             else:
-                raise ValueError
+                raise ValueError("Columns 'x (pixels)' and 'y (pixels)' are required to reconstruct the 2D image!")
             col_z_map[yy, xx] = df_gal.iloc[rr][col_z]
     else:
         if survey == "sami":
@@ -360,8 +361,11 @@ def plot2dmap(df,
                 if "x (pixels)" in df_gal and "y (pixels)" in df_gal:
                     xx = int(df_gal.iloc[rr]["x (pixels)"])
                     yy = int(df_gal.iloc[rr]["y (pixels)"])
-                elif "x, y (pixels)" in df_gal:
-                    xx, yy = [int(cc) for cc in df_gal.iloc[rr]["x, y (pixels)"]]
+                elif "x (projected, arcsec)" in df_gal and "y (projected, arcsec)" in df_gal:
+                    xx = int(df_gal.iloc[rr]["x (projected, arcsec)"] / as_per_px)
+                    yy = int(df_gal.iloc[rr]["y (projected, arcsec)"] / as_per_px)
+                else:
+                    raise ValueError("Columns 'x (pixels)' and 'y (pixels)' are required to reconstruct the 2D image!")
                 col_z_contour_map[yy, xx] = df_gal.iloc[rr][col_z_contours]
 
         # Draw contours

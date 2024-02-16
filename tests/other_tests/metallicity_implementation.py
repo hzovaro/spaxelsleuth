@@ -5,7 +5,7 @@ from spaxelsleuth import load_user_config, configure_logger
 
 load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
 configure_logger(level="ERROR")
-from spaxelsleuth.loaddata.sami import load_sami_df
+from spaxelsleuth.io.sami import load_sami_df
 from spaxelsleuth.utils import metallicity
 from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours
  
@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     # Subset of star-forming galaxies to speed up execution
     gb = df.loc[df["BPT (total)"] == "SF"].groupby("ID")
-    counts = gb["x, y (pixels)"].count().sort_values(ascending=False)
+    counts = gb["x (pixels)"].count().sort_values(ascending=False)
     gals_SF = counts.index.values[:10]
     df_SF = df.loc[df["ID"].isin(gals_SF)]
     df_SF_updated = df_SF.copy()

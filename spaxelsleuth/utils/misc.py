@@ -20,7 +20,25 @@ morph_dict = {
 def morph_num_to_str(s):
     return [morph_dict[str(a)] for a in s]
 
-###############################################################################
+
+def _2d_map_to_1d_list(colmap, x_c_list, y_c_list, nx, ny):
+    """Returns a 1D array of values extracted from from spaxels in x_c_list and y_c_list in 2D array colmap."""
+    if colmap.ndim != 2:
+        raise ValueError(
+            f"colmap must be a 2D array but has ndim = {colmap.ndim}!")
+    row = np.full_like(x_c_list, np.nan, dtype="float")
+    for jj, coords in enumerate(zip(x_c_list, y_c_list)):
+        x_c, y_c = coords
+        y, x = (int(np.round(y_c)), int(np.round(x_c)))
+        # In the case of binned data, sometimes the bin centres actually lie outside 
+        # the cube boundaries. In that case, clip the coordinates to the cube sizes.
+        if x > nx - 1 or y > ny - 1:
+            x = min([x, nx - 1])
+            y = min([y, ny - 1])
+        row[jj] = colmap[y, x]
+    return row
+
+
 def remove_col_suffix(df, s):
     """Modifies df to remove suffix s from DataFrame columns."""
     if s is not None:
@@ -28,6 +46,9 @@ def remove_col_suffix(df, s):
         suffix_cols = [c for c in df.columns if c.endswith(s)]
         suffix_removed_cols = [c.split(s)[0] for c in suffix_cols]
         df = df_old.rename(columns=dict(zip(suffix_cols, suffix_removed_cols)))
+    else:
+        suffix_cols = []
+        suffix_removed_cols = []
     old_cols = df.columns
     return df, suffix_cols, suffix_removed_cols, old_cols
 
@@ -45,7 +66,6 @@ def add_col_suffix(df, s, suffix_cols, suffix_removed_cols, old_cols):
         df = df.rename(columns=dict(zip(suffix_removed_cols, suffix_cols)))
     return df
 
-###############################################################################
 def in_dataframe(df, cols) -> bool:
     """Returns True if all colums in cols are present in DataFrame df."""
     if type(cols) == list:
@@ -55,7 +75,6 @@ def in_dataframe(df, cols) -> bool:
     else:
         raise ValueError("cols must be str or list of str!")
 
-###############################################################################
 # Compute offsets between gas & stellar kinematics
 def compute_gas_stellar_offsets(df, ncomponents_max):    
     logger.debug("computing kinematic gas/stellar offsets...")
@@ -87,7 +106,6 @@ def compute_gas_stellar_offsets(df, ncomponents_max):
         
     return df
 
-###############################################################################
 # Compute differences in Halpha EW, sigma_gas between different components
 def compute_component_offsets(df, ncomponents_max):
     logger.debug("computing kinematic component offsets...")
@@ -142,7 +160,6 @@ def compute_component_offsets(df, ncomponents_max):
 
     return df
 
-###############################################################################
 # Compute log quantities + errors for Halpha EW, sigma_gas and SFRs
 def compute_log_columns(df, ncomponents_max):
     logger.debug("computing logs...")
@@ -151,7 +168,7 @@ def compute_log_columns(df, ncomponents_max):
     # Halpha flux and EW for individual components
     with warnings.catch_warnings():
         warnings.filterwarnings(action="ignore", category=RuntimeWarning, message="invalid value encountered in log10")
-        for col in ["HALPHA luminosity", "HALPHA continuum", "HALPHA EW", "sigma_gas", "S2 ratio"]:
+        for col in ["HALPHA luminosity", "HALPHA continuum", "HALPHA EW", "sigma_gas", "[SII] ratio"]:
             for s in ["(total)"] + [f"(component {nn})" for nn in range(1, ncomponents_max + 1)]:
                 # Compute log quantities for total 
                 if f"{col} {s}" in df:

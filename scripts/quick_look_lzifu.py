@@ -6,8 +6,8 @@ import pandas as pd
 from astropy.visualization import hist
 from tqdm import tqdm
 
-from spaxelsleuth.loaddata.lzifu import load_lzifu_df
-from spaxelsleuth.loaddata.sami import load_sami_df
+from spaxelsleuth.io.lzifu import load_lzifu_df
+from spaxelsleuth.io.sami import load_sami_df
 from spaxelsleuth.plotting.plot2dmap import plot2dmap
 from spaxelsleuth.plotting.sdssimg import plot_sdss_image
 from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
