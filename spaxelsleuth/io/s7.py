@@ -147,10 +147,10 @@ def load_metadata_df():
 
 def process_galaxies(args):
     """Helper function that is used in make_s7_df() to process S7 galaxies across multiple threads."""
-    gal_idx, _, ncomponents, bin_type, df_metadata, kwargs = args
+    _, gal, _, _, df_metadata, _ = args
 
-    # Get the gal name 
-    gal = df_metadata.loc[gal_idx, "ID (string)"]
+    # Get the galaxy index 
+    gal_idx = df_metadata.loc[df_metadata["ID (string)"] == gal, "ID"].unique()[0]
 
     # Scrape outputs from LZIFU output
     hdulist_best_components = fits.open(input_path / f"{gal}_best_components.fits")
