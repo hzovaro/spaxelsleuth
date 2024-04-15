@@ -5,7 +5,7 @@ name: Python build
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "dev", "56-get-working-with-python-311" ]
   pull_request:
     branches: [ "main", "dev" ]
 
