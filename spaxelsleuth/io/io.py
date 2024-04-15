@@ -697,7 +697,7 @@ def load_df(survey,
                     "using LZIFU %s-component fits to obtain emission line fluxes & kinematics, NOT DR3 data products!!" % (settings['sami']['__lzifu_ncomponents']),
                     RuntimeWarning)
 
-    # Save input params as a Series, flattening kwarfs
+    # Save input params as a Series, flattening kwargs
     ss_params = locals().copy()
     if "kwargs" in ss_params:
         for key in ss_params["kwargs"]:
@@ -717,7 +717,7 @@ def load_df(survey,
     if len(matching_files) == 0:
         raise FileNotFoundError(f"I could not find a file matching the following parameters: {ss_params}")
     if len(matching_files) > 1:
-        logger.warning(f"I found {len(matching_files)} matching the following parameters: {ss_params}")
+        logger.warning(f"I found {len(matching_files)} files matching the following parameters: {ss_params}")
         for idx, df_fname in enumerate(matching_files):
             logger.info(f"{idx}: {df_fname} with parameters")
             with pd.HDFStore(output_path / df_fname) as store:
