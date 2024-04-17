@@ -1,6 +1,6 @@
 {   
     "comments": "NOTE: for large surveys with a fixed, well-defined data format such as SAMI, we define variables such as the cube size (N_x, N_y), centre coordinates (x_0 (pixels), y_0 (pixels)) and plate scale (as_per_px) here because we can safely assume that they will be the same for all objects. For others such as S7 and lzifu, it makes more sense to measure these from the data directly as they can change from object to object. That is why these variables are not defined here. But we have to make sure they are measured and recorded in the DataFrame in a consistent format!!",
-    "sdss_im_path": "sami/sdss/",
+    "cutout_path": "cutouts/",
     "H_0": 70,
     "Omega_0": 0.3,
     "hector": {

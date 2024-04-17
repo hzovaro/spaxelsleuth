@@ -1,5 +1,5 @@
 {
-    "sdss_im_path": "../data/sdss/",
+    "cutout_path": "../output/cutouts/",
     "sami": {
         "output_path": "../output/sami/",
         "reference_output_path": "../reference/sami/",

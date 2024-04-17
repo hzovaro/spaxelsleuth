@@ -11,4 +11,5 @@ build/
 *__pycache__/
 *profile.html
 tests/output/sami/*.hd5
+tests/output/cutouts/*.jpg
 tests/unit_tests/.test_config.json
