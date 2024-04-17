@@ -10,5 +10,6 @@ build/
 *.egg-info/
 *__pycache__/
 *profile.html
-tests/output/sami/*.hd5
+tests/output/**.hd5
+tests/output/**.jpg
 tests/unit_tests/.test_config.json
