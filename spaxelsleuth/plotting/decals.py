@@ -58,7 +58,7 @@ def get_decals_image(gal, ra_deg, dec_deg,
     try:
         urlretrieve(url, imname)
     except Exception as e:
-        logger.warning(f"{gal} not in decals footprint!")
+        logger.warning(f"{gal} not in DECaLS footprint!")
         return False
 
     return True
