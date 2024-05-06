@@ -8,65 +8,75 @@ try:
     load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
 except FileNotFoundError:
     load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
+from spaxelsleuth.io.io import make_metadata_df, make_df, load_metadata_df, load_df
 from spaxelsleuth.config import settings
-
-from spaxelsleuth.io.hector import make_hector_df, make_hector_metadata_df, load_hector_metadata_df, load_hector_df
-from spaxelsleuth.plotting.plot2dmap import plot2dmap
 from spaxelsleuth.utils.exportfits import export_fits
 
-# Make the DataFrames 
-# make_hector_metadata_df()
+nthreads = 20
+remake_dataframes = False
 
-df_metadata = load_hector_metadata_df()
-gals = df_metadata.index.values
-
-make_hector_df(ncomponents="rec", 
-               eline_SNR_min=5, 
-               eline_ANR_min=3, 
-               line_flux_SNR_cut=False,
-               missing_fluxes_cut=False,
-               missing_kinematics_cut=False,
-               line_amplitude_SNR_cut=False,
-               flux_fraction_cut=False,
-               sigma_gas_SNR_cut=False,
-               vgrad_cut=False,
-            #    gals=gals,
-               metallicity_diagnostics=["N2Ha_K19"],
-               correct_extinction=True,
-               nthreads=40,
-               df_fname_tag="nocuts")
-
-make_hector_df(ncomponents="rec", 
-               eline_SNR_min=5, 
-               eline_ANR_min=3, 
-               line_flux_SNR_cut=True,
-               missing_fluxes_cut=True,
-               missing_kinematics_cut=True,
-               line_amplitude_SNR_cut=True,
-               flux_fraction_cut=True,
-               sigma_gas_SNR_cut=True,
-               vgrad_cut=False,
-            #    gals=gals,
-               metallicity_diagnostics=["N2Ha_K19"],
-               correct_extinction=True,
-               nthreads=40,
-               df_fname_tag="cuts")
-
-# Load the DataFrames
-df_nocuts = load_hector_df(ncomponents="rec", 
-                    eline_SNR_min=5, 
-                    eline_ANR_min=3, 
-                    correct_extinction=True,
-                    df_fname_tag="nocuts")
+# Create the DataFrames
+if remake_dataframes:
+    make_metadata_df(survey="hector")
+    make_df(
+        survey="hector",
+        ncomponents="rec",
+        bin_type="default",
+        eline_SNR_min=5,
+        eline_ANR_min=3,
+        line_flux_SNR_cut=False,
+        missing_fluxes_cut=False,
+        missing_kinematics_cut=False,
+        line_amplitude_SNR_cut=False,
+        flux_fraction_cut=False,
+        sigma_gas_SNR_cut=False,
+        vgrad_cut=False,
+        metallicity_diagnostics=["N2Ha_K19"],
+        correct_extinction=True,
+        nthreads=nthreads,
+        df_fname_tag="nocuts",
+    )
+    make_df(
+        survey="hector",
+        ncomponents="rec",
+        bin_type="default",
+        eline_SNR_min=5,
+        eline_ANR_min=3,
+        line_flux_SNR_cut=True,
+        missing_fluxes_cut=True,
+        missing_kinematics_cut=True,
+        line_amplitude_SNR_cut=True,
+        flux_fraction_cut=True,
+        sigma_gas_SNR_cut=True,
+        vgrad_cut=False,
+        metallicity_diagnostics=["N2Ha_K19"],
+        correct_extinction=True,
+        nthreads=nthreads,
+        df_fname_tag="cuts",
+    )
 
 # Load the DataFrames
-df_cuts = load_hector_df(ncomponents="rec", 
-                    eline_SNR_min=5, 
-                    eline_ANR_min=3, 
-                    correct_extinction=True,
-                    df_fname_tag="cuts")
+df_metadata = load_metadata_df(survey="hector")
+df_nocuts, _ = load_df(
+    survey="hector",
+    bin_type="default",
+    ncomponents="rec",
+    eline_SNR_min=5,
+    eline_ANR_min=3,
+    correct_extinction=True,
+    df_fname_tag="nocuts",
+)
+df_cuts, _ = load_df(
+    survey="hector",
+    bin_type="default",
+    ncomponents="rec",
+    eline_SNR_min=5,
+    eline_ANR_min=3,
+    correct_extinction=True,
+    df_fname_tag="cuts",
+)
 
-# List of columns to export 
+# List of columns to export
 cols_to_store_no_suffixes = []
 
 # Emission line kinematics
@@ -85,7 +95,7 @@ cols_to_store_no_suffixes += [
     "Beam smearing flag",
 ]
 
-# Emission line data products 
+# Emission line data products
 eline_list = settings["hector"]["eline_list"]
 cols_to_store_no_suffixes += eline_list
 cols_to_store_no_suffixes += [f"{eline} error" for eline in eline_list]
@@ -131,7 +141,7 @@ cols_to_store_no_suffixes += [
     "log(U) (N2Ha_K19/O3O2_K19) error (upper)",
 ]
 
-# Stellar kinematics 
+# Stellar kinematics
 cols_to_store_no_suffixes += [
     "v_*",
     "v_* error",
@@ -144,7 +154,7 @@ cols_to_store_no_suffixes += [
     "Missing sigma_* flag",
 ]
 
-# Continuum data products 
+# Continuum data products
 cols_to_store_no_suffixes += [
     "D4000",
     "D4000 error",

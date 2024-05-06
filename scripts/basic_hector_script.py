@@ -8,7 +8,6 @@ if __name__ == "__main__":
     except FileNotFoundError:
         load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
     from spaxelsleuth.io.io import make_metadata_df, make_df, load_metadata_df, load_df
-    from spaxelsleuth.plotting.plot2dmap import plot2dmap
 
     nthreads = 4
 
