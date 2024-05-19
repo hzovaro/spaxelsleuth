@@ -4,7 +4,9 @@ import numpy as np
 from pathlib import Path
 from urllib.request import urlretrieve
 
+from astropy.visualization.wcsaxes import SphericalCircle
 from astropy.wcs import WCS
+from astropy import units
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.plotting.plottools import plot_scale_bar
@@ -18,92 +20,123 @@ logger = logging.getLogger(__name__)
 
 ###############################################################################
 # Paths
-sdss_im_path = Path(settings["sdss_im_path"])
+cutout_path = Path(settings["cutout_path"])
+
 
 ###############################################################################
-def get_sdss_image(gal, ra_deg, dec_deg,
-                   as_per_px=0.1, width_px=500, height_px=500):
+def download_image(source, gal, ra_deg, dec_deg, as_per_px=0.1, sz_px=500):
     """
-    Download an SDSS cutout image.
+    Download a DECaLS or SDSS cutout image. 
+    Images are saved to 
+        settings["cutout_path"] / cutout_path / f"<source>_<gal>_<sz_px>px_<as_per_px>asperpx.jpg"
     
     INPUTS
     --------------------------------------------------------------------------
-    gal:            str
-        Name of galaxy. Note that this is not used in actually retrieving 
-        the image, and is only used in the filename of the image - hence the 
-        name can be arbitrary.
+    source:         str
+        Source of cutout. Must be "decals" or "sdss".
+        
+        gal:            str
+            Name of galaxy. Note that this is not used in actually retrieving 
+            the image, and is only used in the filename of the image - hence the 
+            name can be arbitrary.
 
-    ra_deg:         float 
-        Right ascension of the galaxy in degrees.
+        ra_deg:         float 
+            Right ascension of the galaxy in degrees.
 
-    dec_deg:        float 
-        Declination of the galaxy in degrees.
+        dec_deg:        float 
+            Declination of the galaxy in degrees.
 
     as_per_px:      float 
-        Plate scale of the SDSS image in arcseconds per pixel.
+        Plate scale of the decals image in arcseconds per pixel.
 
-    width_px:       int
-        Width of image to download.
-
-    height_px:      int
-        height of image to download.
+    sz_px:       int
+        Size in pixels of image to download.
 
     OUTPUTS
     --------------------------------------------------------------------------
     Returns True if the image was successfully received; False otherwise.
     """
+    # Input checking
+    if source not in ["sdss", "decals"]:
+        raise ValueError(f"'{source} is not a valid source for cutouts! source must be 'sdss' or 'decals'!")
+    if not cutout_path.exists():
+        raise FileNotFoundError(f"cutout image output path `{str(cutout_path)}` does not exist!")
+
     # Determine the URL
-    url = f"https://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/getjpeg?TaskName=Skyserver.Explore.Image&ra={ra_deg}&dec={dec_deg}&scale={as_per_px:.1f}&width={width_px}&height={height_px}&opt=G"
-    
+    if source == "sdss":
+        url = f"https://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/getjpeg?TaskName=Skyserver.Explore.Image&ra={ra_deg}&dec={dec_deg}&scale={as_per_px}&width={sz_px}&height={sz_px}&opt=G"
+    elif source == "decals":
+        url = f"https://www.legacysurvey.org/viewer/jpeg-cutout?ra={ra_deg}&dec={dec_deg}&size={sz_px}&layer=ls-dr10&pixscale={as_per_px}"
+
     # Download the image
-    imname = sdss_im_path / f"{gal}_{width_px}x{height_px}.jpg"
-    
+    imname = cutout_path / f"{source}_{gal}_{sz_px}px_{as_per_px}asperpx.jpg"
     try:
         urlretrieve(url, imname)
     except Exception as e:
-        logger.warning(f"{gal} not in SDSS footprint!")
+        logger.warning(f"{gal} not in {source} footprint!")
         return False
 
     return True
 
 
 ###############################################################################
-def plot_sdss_image(df, gal, 
-                    ra_deg=None, dec_deg=None, kpc_per_as=None,
-                    axis_labels=True,
-                    as_per_px=0.1, width_px=500, height_px=500,
-                    reload_image=False,
-                    show_scale_bar=True,
-                    ax=None, figsize=(5, 5)):    
+def plot_cutout_image(
+    source,
+    gal,
+    df=None,
+    ra_deg=None,
+    dec_deg=None,
+    kpc_per_as=None,
+    axis_labels=True,
+    as_per_px=0.1,
+    sz_px=500,
+    reload_image=False,
+    show_scale_bar=True,
+    ax=None,
+    figsize=(5, 5),
+):
 
-    """
-    Download and plot the SDSS image of a galaxy with RA and Dec in the supplied 
-    pandas DataFrame. The images are stored in settings["sdss_im_path"]. Note 
-    that if the galaxy is outside the SDSS footprint, no image is plotted.
+    """Download and plot the DECaLS or SDSS cutout image of a galaxy.
+    Cutout images are automatically downloaded using download_image() unless 
+    they already exist in settings["cutout_path"].  
+    If the galaxy lies outside the footprint of the specified survey, then
+    no image is plotted.
     
     INPUTS
     --------------------------------------------------------------------------
-    df:         pandas DataFrame
+    source:             str
+        Source of cutout. Must be "decals" or "sdss".
+        
+    gal:                int or str
+        Name of galaxy. Note that this is not used in actually retrieving 
+        the image, and is only used in the filename of the image - hence the 
+        name can be arbitrary. However, if ra_deg and dec_degare unspecified 
+        then gal must be present in the index of df.
+
+    df:             pandas DataFrame (optional)
         DataFrame containing spaxel-by-spaxel data.
-        Must have columns:
+        Must have index 
             ID - the catalogue ID of the galaxy
+        and columns 
             RA (J2000) - the RA of the galaxy in degrees
             Dec (J2000) - the declination of the galaxy in degrees
+        If df is unspecified, then ra_deg and dec_deg must be used to provide 
+        the coordinates of the object. 
 
-    gal:        int 
-        Galaxy to plot. Must be present in the "ID" column of df.
+    ra_deg:         float (optional)
+        Right ascension of the galaxy in degrees. Only used if df is unspecified.
+
+    dec_deg:        float (optional)
+        Declination of the galaxy in degrees. Only used if df is unspecified.
 
     axis_labels:    bool
         If True, plot RA and Dec axis labels.
 
     as_per_px:      float 
-        Plate scale of the SDSS image in arcseconds per pixel.
+        Plate scale of the decals image in arcseconds per pixel.
 
-    width_px:       int
-        Width of image to download.
-
-    height_px:      int
-        height of image to download.
+    sz_px:          int
+        Size in pixels of image to download.
 
     reload_image:   bool
         If True, force re-download of the image.
@@ -125,6 +158,8 @@ def plot_sdss_image(df, gal,
 
     """
     # Input checking
+    if source not in ["sdss", "decals"]:
+        raise ValueError(f"'{source} is not a valid source for cutouts! source must be 'sdss' or 'decals'!")
     if df is not None:
         df_gal = df[df["ID"] == gal]
         # Get the central coordinates from the DF
@@ -147,17 +182,17 @@ def plot_sdss_image(df, gal,
         if dec_deg is None:
             raise ValueError("dec_deg must be specified!")
         if show_scale_bar and kpc_per_as is None:
-                raise ValueError("kpc_per_as must be specified!")
+            raise ValueError("kpc_per_as must be specified!")
 
     # Load image
-    if reload_image or (not os.path.exists(sdss_im_path / f"{gal}_{width_px}x{height_px}.jpg")):
+    if reload_image or (not os.path.exists(cutout_path / f"{source}_{gal}_{sz_px}px_{as_per_px}asperpx.jpg")):
         # Download the image
-        logger.warn(f"file {sdss_im_path / f'{gal}_{width_px}x{height_px}.jpg'} not found. Retrieving image from SDSS...")
-        if not get_sdss_image(gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
-                       as_per_px=as_per_px, width_px=width_px, height_px=height_px):
+        logger.warn(f"file {cutout_path / f'{source}_{gal}_{sz_px}px_{as_per_px}asperpx.jpg'} not found. Retrieving image from decals...")
+        if not download_image(source=source, gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
+                       as_per_px=as_per_px, sz_px=sz_px):
             return None
-            
-    im = mpimg.imread(sdss_im_path / f"{gal}_{width_px}x{height_px}.jpg")
+
+    im = mpimg.imread(cutout_path / f"{source}_{gal}_{sz_px}px_{as_per_px}asperpx.jpg")
 
     # Make a WCS for the image
     wcs = WCS(naxis=2)
@@ -185,9 +220,6 @@ def plot_sdss_image(df, gal,
         ax.imshow(np.random.normal(loc=0, scale=10, size=(500, 500)))
     appears to be a latex error. Doesn't occur if the axis is not a WCS
     """
-    # Overlay a circle w/ diameter 15 arcsec
-    c = Circle((ra_deg, dec_deg), radius=7.5 / 3600, transform=ax.get_transform("world"), facecolor='none', edgecolor="w", lw=1, ls="-", zorder=999999)
-    ax.add_patch(c)
 
     # Include scale bar
     if show_scale_bar:
@@ -197,5 +229,5 @@ def plot_sdss_image(df, gal,
     if axis_labels:
         ax.set_ylabel("Dec (J2000)")
         ax.set_xlabel("RA (J2000)")
-    
+
     return ax

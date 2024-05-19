@@ -15,7 +15,6 @@ setup(
         "matplotlib",
         "scipy",
         "extinction",
-        "matplotlib",
         "numpy",
         "pandas",
         "tables",

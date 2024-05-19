@@ -177,6 +177,9 @@ def export_fits(
         lastkey = "SURVEY"
         for col in [c for c in df_metadata.columns if c not in bad_keys]:
             value = df_metadata.loc[gal, col]
+            if isinstance(value, float):
+                if np.isnan(value):
+                    value = "NaN"
             if col in header_strs:
                 key = header_strs[col]
             else:
