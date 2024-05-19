@@ -5,6 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+import pkgutil
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
@@ -22,6 +23,9 @@ data_cube_path = Path(settings["hector"]["data_cube_path"])
 eline_fit_path = input_path / "emission_cubes"
 stekin_path = input_path / "initial_stel_kin"
 continuum_fit_path = input_path / "cont_subtracted"
+input_catalogue_path = Path(pkgutil.get_loader(__name__).get_filename()).parent.parent / "data"
+
+# Filenames
 input_catalogue_fname = "0_2cubed_galaxies_v0_01.txt"
 
 
@@ -314,8 +318,8 @@ def make_metadata_df():
             df_metadata.loc[gal, f"{ncomponents}-component fit emission line FITS file"] = str(eline_fit_fname)
 
     # Merge with catalogue containing magnitudes & stellar masses
-    columns = pd.read_csv(input_path / input_catalogue_fname, nrows=1, delim_whitespace=True, header=None).drop(0, axis=1).values.tolist()[0]
-    df_other = pd.read_csv(input_path / input_catalogue_fname, delim_whitespace=True, comment="#", header=None, names=columns)
+    columns = pd.read_csv(input_catalogue_path / input_catalogue_fname, nrows=1, delim_whitespace=True, header=None).drop(0, axis=1).values.tolist()[0]
+    df_other = pd.read_csv(input_catalogue_path / input_catalogue_fname, delim_whitespace=True, comment="#", header=None, names=columns)
     df_other = df_other.set_index("ID")
     df_metadata_merged = df_metadata.merge(df_other, left_index=True, right_index=True, how="left")
     # Double-check that the redshifts match between tables - if not then the catalogue IDs have changed!! 
