@@ -5,7 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
-from tqdm import tqdm
+import pkgutil
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
@@ -23,6 +23,10 @@ data_cube_path = Path(settings["hector"]["data_cube_path"])
 eline_fit_path = input_path / "emission_cubes"
 stekin_path = input_path / "initial_stel_kin"
 continuum_fit_path = input_path / "cont_subtracted"
+input_catalogue_path = Path(pkgutil.get_loader(__name__).get_filename()).parent.parent / "data"
+
+# Filenames
+input_catalogue_fname = "0_2cubed_galaxies_v0_01.txt"
 
 
 def get_filenames():
@@ -93,7 +97,7 @@ def get_filenames():
     # TODO check for duplicate galaxies - discard whichever comes second in the list
 
     # Now, hunt down the data cubes with the same gal AND tile number 
-    for id_str in tqdm(ids_all):
+    for id_str in ids_all:
 
         # Split into galaxy + tile
         gal, tile = id_str.split("_")
@@ -224,7 +228,7 @@ def make_metadata_df():
         df_metadata[col] = ""
 
     # Iterate through all galaxies and scrape data from FITS files 
-    for gal in tqdm(gals):
+    for gal in gals:
         # Get the blue & red data cube names
         datacube_B_fname = df_filenames.loc[gal, "Blue data cube FITS file"]
         datacube_R_fname = df_filenames.loc[gal, "Red data cube FITS file"]
@@ -313,10 +317,30 @@ def make_metadata_df():
         for ncomponents, eline_fit_fname in zip([1, 2, 3, "rec"], eline_fit_fnames): 
             df_metadata.loc[gal, f"{ncomponents}-component fit emission line FITS file"] = str(eline_fit_fname)
 
+    # Merge with catalogue containing magnitudes & stellar masses
+    columns = pd.read_csv(input_catalogue_path / input_catalogue_fname, nrows=1, delim_whitespace=True, header=None).drop(0, axis=1).values.tolist()[0]
+    df_other = pd.read_csv(input_catalogue_path / input_catalogue_fname, delim_whitespace=True, comment="#", header=None, names=columns)
+    df_other = df_other.set_index("ID")
+    df_metadata_merged = df_metadata.merge(df_other, left_index=True, right_index=True, how="left")
+    # Double-check that the redshifts match between tables - if not then the catalogue IDs have changed!! 
+    both_have_z = (~df_metadata_merged["z_x"].isna()) & (~df_metadata_merged["z_y"].isna())
+    if not all(np.isclose(df_metadata_merged.loc[both_have_z, "z_x"].values, df_metadata_merged.loc[both_have_z, "z_y"].values, atol=0.0005)):
+        raise ValueError("Redshifts in the input catalogues do not match!")
+    df_metadata_merged = df_metadata_merged.rename(columns={
+        "z_x": "z",
+        "Re": "R_e (arcsec)",  # NOTE: uncertain units
+        "g_mag": "g (mag)",  # NOTE: uncertain where these measurements come from
+        "r_mag": "r (mag)",  # NOTE: uncertain where these measurements come from
+        "i_mag": "i (mag)",  # NOTE: uncertain where these measurements come from
+        "Mstar": "log M_*",  # NOTE: uncertain where these measurements come from
+        "GAL_MU_E_R": "mu_r at 1R_e"  # NOTE: uncertain what this means
+     })
+    df_metadata_merged = df_metadata_merged.drop(columns=["z_y", "RA", "DEC",])
+    
     # Save to file
     logger.info(f"saving metadata DataFrame to file {output_path / df_fname}...")
-    df_metadata = df_metadata.sort_index()
-    df_metadata.to_hdf(output_path / df_fname, key="metadata")
+    df_metadata_merged = df_metadata_merged.sort_index()
+    df_metadata_merged.to_hdf(output_path / df_fname, key="metadata")
     logger.info(f"finished!")
     return
 

@@ -23,19 +23,19 @@ if __name__ == "__main__":
             ncomponents="recom", 
             eline_SNR_min=5, 
             eline_ANR_min=3, 
-            correct_extinction=True,
+            correct_extinction=False,
             metallicity_diagnostics=["R23_KK04"],
             nthreads=nthreads,
             debug=DEBUG)
 
     # Load the DataFrames
     df_metadata = load_metadata_df(survey="sami")
-    df = load_df(survey="sami",
+    df, ss_params = load_df(survey="sami",
                  ncomponents="recom",
                  bin_type="default",
                  eline_SNR_min=5,
                  eline_ANR_min=3,
-                 correct_extinction=True,
+                 correct_extinction=False,
                  debug=DEBUG)
     
     # Histograms showing the distribution in velocity dispersion

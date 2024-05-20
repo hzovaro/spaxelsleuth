@@ -8,14 +8,13 @@ import os
 setup(
     name="spaxelsleuth",
     packages=find_packages(),
-    version="1.0.0",
+    version="1.1.0",
     # Add anything directly imported here
     install_requires=[
         "astropy",
         "matplotlib",
         "scipy",
         "extinction",
-        "matplotlib",
         "numpy",
         "pandas",
         "tables",

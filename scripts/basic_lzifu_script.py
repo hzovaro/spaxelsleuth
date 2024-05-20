@@ -13,7 +13,7 @@ if __name__ == "__main__":
     ncomponents = 1
     eline_SNR_min = 1
     eline_ANR_min = 1
-    correct_extinction = True
+    correct_extinction = False
     
     # List of galaxies with LZIFU data
     gals = [int(f.split("_")[0]) for f in os.listdir(settings["lzifu"]["input_path"]) if f.endswith("1_comp.fits") and not f.startswith(".")]
@@ -33,7 +33,7 @@ if __name__ == "__main__":
             nthreads=nthreads)
 
     # Load the DataFrames
-    df = load_df(
+    df, ss_params = load_df(
          survey="lzifu",
          bin_type="default",
         ncomponents=ncomponents,

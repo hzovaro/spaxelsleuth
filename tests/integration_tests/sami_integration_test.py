@@ -1,8 +1,10 @@
+import os
 import numpy as np
 
 from spaxelsleuth import load_user_config, configure_logger
 load_user_config("test_config.json")
 configure_logger(level="INFO")
+from spaxelsleuth.config import settings
 from spaxelsleuth.io.io import make_metadata_df, make_df, load_df
 
 import logging
@@ -15,13 +17,23 @@ def test_make_metadata_df():
     # TODO add some assertion checks here?
 
 
+def delete_all_spaxelsleuth_output_files():
+    """Delete all spaxelsleuth output files, including the metdata DataFrame, in the output directory"""
+    output_fnames = [f for f in os.listdir(settings["sami"]["output_path"]) if f.endswith(".hd5")]
+    for fname in output_fnames:
+        os.system(f"rm {settings['sami']['output_path']}/{fname}")
+
+
 def test_assertions_sami():
     """Run run_sami_assertion_tests() on a combination of inputs."""
+    # Delete old files 
+    delete_all_spaxelsleuth_output_files()
+    test_make_metadata_df()
     for ncomponents in ["recom", "1"]:
         for bin_type in ["default", "adaptive", "sectors"]:
             logger.info(f"running assertion tests for SAMI DataFrame with ncomponens={ncomponents}, bin_type={bin_type}...")
             run_sami_assertion_tests(ncomponents=ncomponents, bin_type=bin_type)
-            logger.info(f"assertion tests pased for SAMI DataFrame with  ncomponens={ncomponents}, bin_type={bin_type}!")
+            logger.info(f"assertion tests pased for SAMI DataFrame with ncomponens={ncomponents}, bin_type={bin_type}!")
 
 
 def run_sami_assertion_tests(ncomponents,
@@ -41,6 +53,7 @@ def run_sami_assertion_tests(ncomponents,
         "eline_SNR_min": eline_SNR_min,
         "eline_ANR_min": eline_ANR_min,
         "debug": debug,
+        "metallicity_diagnostics": ["N2Ha_PP04", "N2Ha_K19"],
     }
 
     # Create the DataFrame
@@ -48,8 +61,8 @@ def run_sami_assertion_tests(ncomponents,
     make_df(survey="sami", **kwargs, correct_extinction=False, nthreads=nthreads)  
     
     # Load the DataFrame
-    df = load_df(survey="sami", **kwargs, correct_extinction=True)
-    df_noextcorr = load_df(survey="sami", **kwargs, correct_extinction=False)
+    df, _ = load_df(survey="sami", **kwargs, correct_extinction=True)
+    df_noextcorr, _ = load_df(survey="sami", **kwargs, correct_extinction=False)
 
     #//////////////////////////////////////////////////////////////////////////////
     # Run assertion tests
