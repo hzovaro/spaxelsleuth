@@ -22,10 +22,11 @@ def test_make_metadata_df():
     # TODO add some assertion checks here?
 
 
-def delete_test_dataframes(df_fname_tag):
+def delete_test_dataframes(**kwargs):
     """Delete the dataframes created in run_hector_assertion_tests."""
-    output_fnames = find_matching_files(output_path=settings["hector"]["output_path"], df_fname_tag=df_fname_tag)
+    output_fnames = find_matching_files(output_path=settings["hector"]["output_path"], **kwargs)
     for fname in output_fnames:
+        logger.warning(f"deleting file {settings['hector']['output_path']}{fname}...")
         os.system(f"rm {settings['hector']['output_path']}/{fname}")
 
 
@@ -36,7 +37,7 @@ def test_assertions_hector():
     for ncomponents in ["rec"]:
         logger.info(f"running assertion tests for Hector DataFrame with ncomponents={ncomponents}...")
         run_hector_assertion_tests(ncomponents=ncomponents, gals=gals)
-        logger.info(f"assertion tests pased for Hector DataFrame with  ncomponents={ncomponents}!")
+        logger.info(f"assertion tests pased for Hector DataFrame with ncomponents={ncomponents}!")
 
 
 def run_hector_assertion_tests(ncomponents,
@@ -55,11 +56,10 @@ def run_hector_assertion_tests(ncomponents,
         "eline_SNR_min": eline_SNR_min,
         "eline_ANR_min": eline_ANR_min,
         "metallicity_diagnostics": ["N2Ha_PP04", "N2Ha_K19"],
-        "df_fname_tag": "integration_test"
     }
 
     # First, delete any existing files 
-    delete_test_dataframes("integration_test")
+    delete_test_dataframes(**kwargs)
 
     # Create the DataFrame
     make_df(survey="hector", **kwargs, gals=gals, correct_extinction=True, nthreads=nthreads)  

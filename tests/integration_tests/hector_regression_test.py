@@ -14,12 +14,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def delete_test_dataframes(df_fname_tag):
+def delete_test_dataframes(**kwargs):
     """Delete the dataframes created in run_hector_assertion_tests."""
-    output_fnames = find_matching_files(output_path=settings["hector"]["output_path"], df_fname_tag=df_fname_tag)
+    output_fnames = find_matching_files(output_path=settings["hector"]["output_path"], **kwargs)
     for fname in output_fnames:
+        logger.warning(f"deleting file {settings['hector']['output_path']}{fname}...")
         os.system(f"rm {settings['hector']['output_path']}/{fname}")
-
 
 
 def test_regression_hector():
@@ -56,14 +56,14 @@ def run_hector_regression_tests(
     }
 
     # First, delete any existing files 
-    delete_test_dataframes("regression_test")
+    delete_test_dataframes(**kwargs)
 
     # Create the DataFrame
-    make_df(**kwargs, nthreads=nthreads, df_fname_tag="regression_test")
+    make_df(**kwargs, nthreads=nthreads)
 
     # Load the newly-create and reference DataFrames
     df_reference, _ = load_df(**kwargs, output_path="../reference/hector/")
-    df_new, _ = load_df(**kwargs, df_fname_tag="regression_test")    
+    df_new, _ = load_df(**kwargs)    
 
     # Compare
     compare_dataframes(df_new, df_reference)
