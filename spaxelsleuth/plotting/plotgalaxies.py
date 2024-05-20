@@ -853,7 +853,7 @@ def plot2dscatter(df,
         raise ValueError(
             "cax_orientation must be either 'horizontal' or 'vertical'!")
     if col_z is None and plot_colorbar == True:
-        logger.warn("not plotting colourbar because col_z is not specified!")
+        logger.warning("not plotting colourbar because col_z is not specified!")
 
     # If a galaxy is specified (or galaxies), then plot only the galaxy
     if gal is not None:

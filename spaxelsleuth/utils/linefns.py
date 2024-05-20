@@ -751,7 +751,7 @@ def sfr_fn(df, s=f" (total)"):
     # Check whether SFR measurements already exist in the DataFrame
     sfr_cols = [col for col in df if "SFR" in col]
     if len(sfr_cols) > 0:
-        logger.warn(f"the following columns already exist in the DataFrame: {', '.join(sfr_cols)}")
+        logger.warning(f"the following columns already exist in the DataFrame: {', '.join(sfr_cols)}")
 
     # Use the Calzetti relation to calculate the SFR only when the BPT classification in this component is star-forming
     if "HALPHA luminosity" in df and "BPT (numeric)" in df:
