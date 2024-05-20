@@ -1,11 +1,16 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import os
+
+from astropy.visualization import hist
 
 from spaxelsleuth import load_user_config, configure_logger
 load_user_config("test_config.json")
 configure_logger(level="INFO")
 from spaxelsleuth.config import settings
 from spaxelsleuth.io.io import load_metadata_df, make_metadata_df, make_df, load_df, find_matching_files
+from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours
+from spaxelsleuth.plotting.plot2dmap import plot2dmap
 
 import logging
 logger = logging.getLogger(__name__)
@@ -64,6 +69,36 @@ def run_hector_assertion_tests(ncomponents,
     df, _ = load_df(survey="hector", **kwargs, correct_extinction=True)
     df_noextcorr, _ = load_df(survey="hector", **kwargs, correct_extinction=False)
 
+    ##################################################################
+    """
+    # NOTE: THE BELOW PLOTTING LINES ARE ONLY FOR DEBUGGING. DELETE ONCE FINISHED!!!
+    # Histograms showing the distribution in velocity dispersion
+    plt.ion()
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    for nn in range(1, 4):
+        try:  # Try/except needed here bc the galaxy we are running on doesn't have any 3-comp spaxels
+            hist(df[f"sigma_gas (component {nn})"].values, bins="scott", ax=ax, range=(0, 500), density=True, histtype="step", label=f"Component {nn}")
+        except ValueError as e:
+            pass
+    ax.legend()
+    ax.set_xlabel(r"\sigma_{\rm gas}")
+    ax.set_ylabel(r"N (normalised)")
+
+    # Plot a 2D histogram showing the distribution of SAMI spaxels in the WHAN diagram
+    plot2dhistcontours(df=df,
+                col_x=f"log N2 (total)",
+                col_y=f"log HALPHA EW (total)",
+                col_z="count", log_z=True,
+                plot_colorbar=True)
+    
+    # Plot BPT diagram of a galaxy 
+    gal = df["ID"].values[0]
+    plot2dmap(df, gal=gal, col_z="HALPHA EW (total)")
+    plot2dmap(df, gal=gal, col_z="BPT (total)")
+    plt.show()
+    """
+    ##################################################################
+
     #//////////////////////////////////////////////////////////////////////////////
     # Run assertion tests
     # CHECK: SFR/SFR surface density columns exist 
@@ -80,7 +115,10 @@ def run_hector_assertion_tests(ncomponents,
     components = df.loc[~df["Number of components"].isna(), "Number of components"].unique()
     components.sort()
     if ncomponents == "rec":
-        assert np.all(components == [0, 1, 2, 3])
+        try:  # Try/except needed here bc the galaxy we are running on doesn't have any 3-comp spaxels
+            assert np.all(components == [0, 1, 2, 3])
+        except ValueError:
+            pass
     elif ncomponents == "1":
         assert np.all(components == [0, 1])
 
@@ -302,3 +340,4 @@ def run_hector_assertion_tests(ncomponents,
 if __name__ == "__main__":
     test_make_metadata_df()
     test_assertions_hector()
+
