@@ -30,9 +30,10 @@ input_catalogue_fname = "0_2cubed_galaxies_v0_01.txt"
 
 
 def get_filenames():
-    """
-    Return a DataFrame containing galaxies with at least one data product + associated file names.
-    Putting this in its own function because the file structure is complicated and subject to change...
+    """Return a DataFrame containing galaxies with at least one data product + associated file names.
+    The index of the returned DataFrame contains strings with format
+        <numerical galaxy ID>_<tile> e.g. "901005167908374_T023"
+    in order to account for galaxies observed on multiple tiles.
     """
     # Get ALL filenames
     all_data_cube_files = glob(str(data_cube_path) + "/**/*.fits", recursive=True)
@@ -93,8 +94,6 @@ def get_filenames():
         eline_fit_files_2comp,
         eline_fit_files_3comp,
     ]
-
-    # TODO check for duplicate galaxies - discard whichever comes second in the list
 
     # Now, hunt down the data cubes with the same gal AND tile number 
     for id_str in ids_all:
