@@ -1,28 +1,32 @@
 import numpy as np
+import os
 
 from spaxelsleuth import load_user_config, configure_logger
-try:
-    load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
-except FileNotFoundError:
-    load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
+load_user_config("test_config.json")
 configure_logger(level="INFO")
-from spaxelsleuth.io.hector import load_hector_metadata_df, make_hector_metadata_df, make_hector_df, load_hector_df
-
-from IPython.core.debugger import set_trace
+from spaxelsleuth.config import settings
+from spaxelsleuth.io.io import load_metadata_df, make_metadata_df, make_df, load_df, find_matching_files
 
 import logging
 logger = logging.getLogger(__name__)
 
 
-def test_make_hector_metadata_df():
+def test_make_metadata_df():
     """Test creation of the metadata DataFrame."""
-    make_hector_metadata_df()
+    make_metadata_df(survey="hector")
     # TODO add some assertion checks here?
+
+
+def delete_test_dataframes(df_fname_tag):
+    """Delete the dataframes created in run_hector_assertion_tests."""
+    output_fnames = find_matching_files(output_path=settings["hector"]["output_path"], df_fname_tag=df_fname_tag)
+    for fname in output_fnames:
+        os.system(f"rm {settings['hector']['output_path']}/{fname}")
 
 
 def test_assertions_hector():
     """Run run_hector_assertion_tests() on a combination of inputs."""
-    df_metadata = load_hector_metadata_df()
+    df_metadata = load_metadata_df(survey="hector")
     gals = df_metadata.index.values[:10]
     for ncomponents in ["rec"]:
         logger.info(f"running assertion tests for Hector DataFrame with ncomponents={ncomponents}...")
@@ -35,24 +39,30 @@ def run_hector_assertion_tests(ncomponents,
                    eline_SNR_min=5, 
                    eline_ANR_min=3, 
                    nthreads=10):
-    """Run make_hector_df and load_hector_df for the given inputs and run assertion checks."""
+    """Run make_df and load_hector_df for the given inputs and run assertion checks."""
     
     # Needed for metallicity checks
     from spaxelsleuth.utils.metallicity import line_list_dict
     
     kwargs = {
         "ncomponents": ncomponents,
+        "bin_type": "default",
         "eline_SNR_min": eline_SNR_min,
         "eline_ANR_min": eline_ANR_min,
+        "metallicity_diagnostics": ["N2Ha_PP04", "N2Ha_K19"],
+        "df_fname_tag": "integration_test"
     }
 
+    # First, delete any existing files 
+    delete_test_dataframes("integration_test")
+
     # Create the DataFrame
-    make_hector_df(**kwargs, gals=gals, correct_extinction=True, nthreads=nthreads)  
-    make_hector_df(**kwargs, gals=gals, correct_extinction=False, nthreads=nthreads)  
+    make_df(survey="hector", **kwargs, gals=gals, correct_extinction=True, nthreads=nthreads)  
+    make_df(survey="hector", **kwargs, gals=gals, correct_extinction=False, nthreads=nthreads)  
     
     # Load the DataFrame
-    df = load_hector_df(**kwargs, correct_extinction=True)
-    df_noextcorr = load_hector_df(**kwargs, correct_extinction=False)
+    df, _ = load_df(survey="hector", **kwargs, correct_extinction=True)
+    df_noextcorr, _ = load_df(survey="hector", **kwargs, correct_extinction=False)
 
     #//////////////////////////////////////////////////////////////////////////////
     # Run assertion tests
@@ -290,4 +300,5 @@ def run_hector_assertion_tests(ncomponents,
     return
 
 if __name__ == "__main__":
+    test_make_metadata_df()
     test_assertions_hector()
