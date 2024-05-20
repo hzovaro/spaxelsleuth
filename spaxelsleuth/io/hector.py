@@ -30,7 +30,7 @@ input_catalogue_fname = "0_2cubed_galaxies_v0_01.txt"
 
 
 def get_filenames():
-    """Return a DataFrame containing galaxies with at least one data product + associated file names.
+    """Returns a DataFrame containing galaxies with at least one data product + associated file names.
     The index of the returned DataFrame contains strings with format
         <numerical galaxy ID>_<tile> e.g. "901005167908374_T023"
     in order to account for galaxies observed on multiple tiles.
@@ -54,15 +54,12 @@ def get_filenames():
 
     # Now, check that each of these has each of Gabby's data products 
     ids_with_initial_stel_kin = [f.stem.split("_initial_kinematics")[0] for f in stekin_files]
-    # ids_with_initial_stel_kin = [g for g in set([f.split("_initial_kinematics")[0] for f in os.listdir(stekin_path) if f.endswith(".fits")])    ]
     logger.info(f"len(ids_with_initial_stel_kin) = {len(ids_with_initial_stel_kin)}")
 
     ids_with_cont_subtracted = [f.stem.split("_blue_stel_subtract_final")[0] for f in continuum_fit_files_B]
-    # ids_with_cont_subtracted = [g for g in set([f.split("_blue_stel_subtract_final")[0] for f in os.listdir(continuum_fit_path) if f.endswith(".fits") and "blue" in f])    ]
     logger.info(f"len(ids_with_cont_subtracted) = {len(ids_with_cont_subtracted)}")
 
     ids_with_emission_cubes = [f.stem.split("_reccomp")[0] for f in eline_fit_files_reccomp]
-    # ids_with_emission_cubes = [g for g in set([f.split("_reccomp")[0] for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "rec" in f])]
     logger.info(f"len(ids_with_emission_cubes) = {len(ids_with_emission_cubes)}")
 
     ids_with_all_data_products = list(set(ids_with_initial_stel_kin) & set(ids_with_cont_subtracted) & set(ids_with_emission_cubes))
