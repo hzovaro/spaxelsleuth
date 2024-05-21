@@ -2,9 +2,15 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+import sys
+
+if (len(sys.argv) > 1) and ("pytest" not in sys.modules):  # Needed to prevent errors when running pytest
+    config_fname = sys.argv[1]
+else:
+    config_fname = "test_config.json"
 
 from spaxelsleuth import load_user_config, configure_logger
-load_user_config("test_config.json")
+load_user_config(config_fname)
 configure_logger(level="INFO")
 from spaxelsleuth.config import settings
 from spaxelsleuth.io.io import make_df, load_df, find_matching_files
@@ -62,7 +68,7 @@ def run_hector_regression_tests(
     make_df(**kwargs, nthreads=nthreads)
 
     # Load the newly-create and reference DataFrames
-    df_reference, _ = load_df(**kwargs, output_path="../reference/hector/")
+    df_reference, _ = load_df(**kwargs, output_path=settings["hector"]["reference_output_path"])
     df_new, _ = load_df(**kwargs)    
 
     # Compare

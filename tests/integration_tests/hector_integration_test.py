@@ -1,11 +1,17 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import sys
 
 from astropy.visualization import hist
 
+if (len(sys.argv) > 1) and ("pytest" not in sys.modules):  # Needed to prevent errors when running pytest
+    config_fname = sys.argv[1]
+else:
+    config_fname = "test_config.json"
+
 from spaxelsleuth import load_user_config, configure_logger
-load_user_config("test_config.json")
+load_user_config(config_fname)
 configure_logger(level="INFO")
 from spaxelsleuth.config import settings
 from spaxelsleuth.io.io import load_metadata_df, make_metadata_df, make_df, load_df, find_matching_files
