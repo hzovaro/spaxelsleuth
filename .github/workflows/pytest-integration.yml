@@ -2,9 +2,9 @@ name: Integration tests
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "dev", "hector" ]
   pull_request:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "dev", "hector" ]
 
 jobs:
   build:
@@ -31,3 +31,4 @@ jobs:
         pip install pytest
         cd tests/integration_tests
         pytest sami*
+        pytest hector*
