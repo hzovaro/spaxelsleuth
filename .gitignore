@@ -14,3 +14,5 @@ tests/output/sami/*.hd5
 tests/output/hector/*.hd5
 tests/output/cutouts/*.jpg
 tests/unit_tests/.test_config.json
+tests/local_test_data/
+tests/integraton_tests/local_test_config.json
