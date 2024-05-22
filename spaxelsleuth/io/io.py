@@ -116,7 +116,7 @@ def make_df(survey,
             nthreads=None,
             df_fname_tag=None,
             **kwargs):
-    """Make a spaxelsleuth DataFrame, where each row represents a single spaxel in a SAMI galaxy.
+    """Make a spaxelsleuth DataFrame, where each row represents a single spaxel in a galaxy.
 
     DESCRIPTION
     ---------------------------------------------------------------------------
