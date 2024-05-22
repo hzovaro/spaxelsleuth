@@ -72,7 +72,7 @@ header_strs = {
     "rec-component fit emission line FITS file": "RECCOMP",
 }
 
-bad_keys = [
+input_filenames = [
     "Blue data cube FITS file",
     "Red data cube FITS file",
     "Stellar kinematics FITS file",
@@ -244,8 +244,7 @@ def export_fits(
         phdu = fits.PrimaryHDU()
         phdu.header["SURVEY"] = survey
         lastkey = "SURVEY"
-        # TODO can we check for object data type and get rid of bad_keys?
-        for col in [c for c in df_metadata.columns if c not in bad_keys]:
+        for col in [c for c in df_metadata.columns if c not in input_filenames]:
             value = df_metadata.loc[gal, col]
             if isinstance(value, float):
                 if np.isnan(value):
@@ -281,7 +280,7 @@ def export_fits(
 
         # Add filenames to Primary HDU
         lastkey = "NOTES"
-        for col in bad_keys:
+        for col in input_filenames:
             if col in df_metadata:
                 value = df_metadata.loc[gal, col]
                 if col in header_strs:
