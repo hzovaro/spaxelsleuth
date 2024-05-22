@@ -2,7 +2,7 @@ import sys
 nthreads = int(sys.argv[1])
 
 from spaxelsleuth import load_user_config
-load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
+load_user_config(sys.argv[1])
 from spaxelsleuth.io.io import make_metadata_df, make_df
 
 ###########################################################################

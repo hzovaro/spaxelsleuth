@@ -6,7 +6,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from spaxelsleuth import load_user_config
-load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
+load_user_config(sys.argv[1])
 from spaxelsleuth.config import settings
 
 input_path = Path(settings["hector"]["input_path"])
