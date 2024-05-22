@@ -1,4 +1,5 @@
 if __name__ == "__main__":
+    import sys
     from spaxelsleuth import load_user_config
     load_user_config(sys.argv[1])
     from spaxelsleuth.io.io import make_metadata_df, make_df, load_metadata_df, load_df

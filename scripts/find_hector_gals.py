@@ -4,6 +4,7 @@ import os
 import pandas as pd    
 from pathlib import Path
 from tqdm import tqdm
+import sys
 
 from spaxelsleuth import load_user_config
 load_user_config(sys.argv[1])

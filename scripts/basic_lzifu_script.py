@@ -1,5 +1,6 @@
 if __name__ == "__main__":
     import os
+    import sys
 
     from spaxelsleuth import load_user_config
     load_user_config(sys.argv[1])

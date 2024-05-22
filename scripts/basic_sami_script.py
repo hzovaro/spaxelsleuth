@@ -1,6 +1,7 @@
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from astropy.visualization import hist
+    import sys
 
     from spaxelsleuth import load_user_config
     load_user_config(sys.argv[1])
