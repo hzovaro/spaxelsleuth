@@ -9,7 +9,7 @@ import warnings
 from spaxelsleuth import __version__
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.linefns import bpt_dict
-from spaxelsleuth.io.io import load_metadata_df, load_df
+from spaxelsleuth.io.io import load_metadata_df, load_df, get_df_fname
 
 import logging
 logger = logging.getLogger(__name__)
@@ -96,6 +96,7 @@ def replace_unicode_chars(s):
 def export_fits(
     survey,
     cols_to_store_no_suffixes=None, 
+    gals_to_export=None,
     fname_suffix="",
     **kwargs,
 ):
@@ -132,7 +133,13 @@ def export_fits(
         Currently only "hector" is supported.    
 
     cols_to_store_no_suffixes:  list of str (optional)
-        Columns for which to generate 
+        Columns to include in the FITS files. These must have any component-wise
+        suffixes trimmed - e.g. "HALPHA" and not "HALPHA (component 1)".
+
+    gals_to_export:             list (optional)
+        List of galaxies for which to export FITS files. Not to be confused with
+        "gals", which is an input to load_df() and determines which DataFrame is 
+        loaded.
 
     fname_suffix:               str 
         Suffix to add to the output FITS filenames.    
@@ -158,12 +165,12 @@ def export_fits(
         settings[survey]["fits_output_path"] 
     
     """
-    if survey is not "hector":
+    if survey != "hector":
         raise ValueError("exporting FITS files is only supported for hector :(")
 
     # Load DataFrame
     df_metadata = load_metadata_df(survey=survey)
-    df = load_df(survey=survey, **kwargs)
+    df, ss_params = load_df(survey=survey, **kwargs)
 
     # Get number of components
     if df["ncomponents"].unique()[0] == "rec":
@@ -212,10 +219,14 @@ def export_fits(
             cols_2d_no_suffixes.append(col)
 
     # Determine list of galaxies for which to create FITS files
-    if gals is None:
-        gals = df["ID"].unique()
+    if gals_to_export is None:
+        gals_to_export = df["ID"].unique()
+    else:
+        for gal in gals_to_export:
+            if gal not in df["ID"].values:
+                raise ValueError(f"Galaxy {gal} was not found in the DataFrame!")
 
-    for gal in gals:
+    for gal in gals_to_export:
         # Get subset of rows belonging to this galaxy
         df_gal = df.loc[df["ID"] == gal]
 
@@ -233,6 +244,7 @@ def export_fits(
         phdu = fits.PrimaryHDU()
         phdu.header["SURVEY"] = survey
         lastkey = "SURVEY"
+        # TODO can we check for object data type and get rid of bad_keys?
         for col in [c for c in df_metadata.columns if c not in bad_keys]:
             value = df_metadata.loc[gal, col]
             if isinstance(value, float):
@@ -291,8 +303,8 @@ def export_fits(
             f"{datetime.datetime.fromtimestamp(time())}",
             "Date/time modified",
         )
-        phdu.header["FNAME"] = (str(df["fname"].unique()[0]), "Input Spaxelsleuth DataFrame filename")
-        phdu.header["TSTAMP"] = (str(df["timestamp"].unique()[0]), "Input Spaxelsleuth DataFrame timestamp")
+        phdu.header["FNAME"] = (get_df_fname(**dict(ss_params)), "Input Spaxelsleuth DataFrame filename")
+        phdu.header["TSTAMP"] = (ss_params["timestamp"], "Input Spaxelsleuth DataFrame timestamp")
         phdu.header["VERSION"] = (__version__, "Spaxelsleuth version")
         phdu.header["AUTHOR"] = "Henry Zovaro"
         # Append section header
