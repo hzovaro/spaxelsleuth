@@ -721,14 +721,14 @@ def load_df(survey,
     if len(matching_files) == 0:
         raise FileNotFoundError(f"I could not find a file matching the following parameters: {ss_params}")
     if len(matching_files) > 1:
-        logger.warning(f"I found {len(matching_files)} files matching the following parameters: {ss_params}")
+        print(f"I found {len(matching_files)} files matching the following parameters: {ss_params}")
         for idx, df_fname in enumerate(matching_files):
-            logger.info(f"{idx}: {df_fname} with parameters")
+            print(f"{idx}: {df_fname} with parameters")
             with pd.HDFStore(output_path / df_fname) as store:
                 ss_params_thisfile = store["ss_params"]
             for rr in range(len(ss_params_thisfile)):
-                logger.info(f"\t{ss_params_thisfile.index[rr]:25s}{ss_params_thisfile.iloc[rr]}")
-            logger.info(f"")
+                print(f"\t{ss_params_thisfile.index[rr]:25s}{ss_params_thisfile.iloc[rr]}")
+            print(f"")
         idx = int(input(f"Please select a file by typing in a number from 0-{len(matching_files) - 1}: "))
     else:   
         idx = 0
