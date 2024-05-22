@@ -2,11 +2,12 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import rcParams
 import numpy as np
+import sys
 
 from spaxelsleuth import load_user_config, configure_logger
-load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
+load_user_config(sys.argv[1])
 configure_logger(level="INFO")
-from spaxelsleuth.io.sami import load_sami_df
+from spaxelsleuth.io.io import load_df
 from spaxelsleuth.utils import metallicity
 
 
@@ -17,18 +18,19 @@ if __name__ == "__main__":
     rcParams["font.size"] = 8
 
     # Load the DataFrame.
-    df = load_sami_df(
+    df, _ = load_df(
+        survey="sami",
         ncomponents="recom",
         bin_type="default",
         eline_SNR_min=5,
         eline_ANR_min=3,
         correct_extinction=True,
-        debug=False,
+        debug=True,
     )
 
     # Subset of star-forming galaxies to speed up execution
     gb = df.loc[df["BPT (total)"] == "SF"].groupby("ID")
-    counts = gb["x (pixels)"].count().sort_values(ascending=False)
+    counts = gb["x (projected, arcsec)"].count().sort_values(ascending=False)
     gals_SF = counts.index.values[:10]
     df_SF = df.loc[df["ID"].isin(gals_SF)]
 

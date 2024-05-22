@@ -4,77 +4,34 @@ Export FITS files for the Hector busy week.
 import sys
 
 from spaxelsleuth import load_user_config
-try:
-    load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
-except FileNotFoundError:
-    load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
-from spaxelsleuth.io.io import make_metadata_df, make_df, load_metadata_df, load_df
+load_user_config(sys.argv[1])
+from spaxelsleuth.io.io import make_metadata_df, make_df, load_metadata_df
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.exportfits import export_fits
 
 nthreads = 20
 remake_dataframes = False
 
+kwargs = dict(
+        ncomponents="rec",
+        bin_type="default",
+        eline_SNR_min=5,
+        eline_ANR_min=3,
+        metallicity_diagnostics=["N2Ha_K19"],
+        correct_extinction=True,
+)
+df_metdata = load_metadata_df(survey="hector")
+gals_to_export = df_metdata.index.values[:10]
+
 # Create the DataFrames
 if remake_dataframes:
     make_metadata_df(survey="hector")
     make_df(
         survey="hector",
-        ncomponents="rec",
-        bin_type="default",
-        eline_SNR_min=5,
-        eline_ANR_min=3,
-        line_flux_SNR_cut=False,
-        missing_fluxes_cut=False,
-        missing_kinematics_cut=False,
-        line_amplitude_SNR_cut=False,
-        flux_fraction_cut=False,
-        sigma_gas_SNR_cut=False,
-        vgrad_cut=False,
-        metallicity_diagnostics=["N2Ha_K19"],
-        correct_extinction=True,
         nthreads=nthreads,
-        df_fname_tag="nocuts",
-    )
-    make_df(
-        survey="hector",
-        ncomponents="rec",
-        bin_type="default",
-        eline_SNR_min=5,
-        eline_ANR_min=3,
-        line_flux_SNR_cut=True,
-        missing_fluxes_cut=True,
-        missing_kinematics_cut=True,
-        line_amplitude_SNR_cut=True,
-        flux_fraction_cut=True,
-        sigma_gas_SNR_cut=True,
-        vgrad_cut=False,
-        metallicity_diagnostics=["N2Ha_K19"],
-        correct_extinction=True,
-        nthreads=nthreads,
-        df_fname_tag="cuts",
+        **kwargs,
     )
 
-# Load the DataFrames
-df_metadata = load_metadata_df(survey="hector")
-df_nocuts, _ = load_df(
-    survey="hector",
-    bin_type="default",
-    ncomponents="rec",
-    eline_SNR_min=5,
-    eline_ANR_min=3,
-    correct_extinction=True,
-    df_fname_tag="nocuts",
-)
-df_cuts, _ = load_df(
-    survey="hector",
-    bin_type="default",
-    ncomponents="rec",
-    eline_SNR_min=5,
-    eline_ANR_min=3,
-    correct_extinction=True,
-    df_fname_tag="cuts",
-)
 
 # List of columns to export
 cols_to_store_no_suffixes = []
@@ -168,5 +125,8 @@ cols_to_store_no_suffixes += [
     "Median spectral value (red)",
 ]
 
-export_fits(df_cuts, df_metadata, cols_to_store_no_suffixes=cols_to_store_no_suffixes)
-export_fits(df_nocuts, df_metadata, cols_to_store_no_suffixes=cols_to_store_no_suffixes, fname_suffix="nocuts")
+export_fits(survey="hector", 
+            cols_to_store_no_suffixes=cols_to_store_no_suffixes, 
+            timestamp="20240522120740", 
+            gals_to_export=gals_to_export,
+            **kwargs)

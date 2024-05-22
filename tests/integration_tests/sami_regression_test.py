@@ -2,9 +2,15 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+import sys
+
+if (len(sys.argv) > 1) and ("pytest" not in sys.modules):  # Needed to prevent errors when running pytest
+    config_fname = sys.argv[1]
+else:
+    config_fname = "test_config.json"
 
 from spaxelsleuth import load_user_config, configure_logger
-load_user_config("test_config.json")
+load_user_config(config_fname)
 configure_logger(level="INFO")
 from spaxelsleuth.config import settings
 from spaxelsleuth.io.io import make_df, load_df
@@ -106,52 +112,3 @@ def compare_dataframes(df_new, df_old):
             assert df_old[c].equals(df_new[c]), f"In column {c}: there are entries that do not agree!"
 
     return
-
-
-if __name__ == "__main__":
-
-    import sys
-
-    # run_sami_regression_tests(ncomponents="recom", bin_type="default", eline_SNR_min=5, eline_ANR_min=3, nthreads=10, correct_extinction=True, debug=False)
-    test_regression_sami()
-
-    sys.exit()
-
-    # Test the full DataFrame on misfit 
-    load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
-
-    # Load old & new DataFrames
-    ncomponents = "recom"
-    bin_type = "default"
-    eline_SNR_min = 5
-    eline_ANR_min = 3
-    correct_extinction = True
-    debug = False
-
-    # Get the filename
-    df_fname = f"sami_{bin_type}_{ncomponents}-comp"
-    if correct_extinction:
-        df_fname += "_extcorr"
-    df_fname += f"_minSNR={eline_SNR_min}_minANR={eline_ANR_min}"
-    if debug:
-        df_fname += "_DEBUG"
-    df_fname += ".hd5"
-
-    # Load the DataFrame. Note that we do not use load_df() here because we don't need to check the extra columns added at runtime. 
-    logger.info("Loading most recent DataFrame...")
-    df_new = pd.read_hdf(
-        Path(settings["sami"]["output_path"]) / df_fname,
-        key=f"{bin_type}{ncomponents}comp",
-    )
-
-    # Load the reference DataFrame
-    logger.info("Loading reference DataFrame...")
-    df_reference = pd.read_hdf(
-        Path(settings["sami"]["output_path"]) / "safekeeping" / "20231221" / df_fname,
-        key=f"{bin_type}{ncomponents}comp",
-    )
-
-    # Compare
-    # NOTE: this will fail on the metallicity columns, so if these are excluded from line 91 then it passes.
-    compare_dataframes(df_new, df_reference)
-

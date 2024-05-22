@@ -5,6 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+import pkgutil
 
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.continuum import compute_d4000, compute_continuum_intensity
@@ -22,42 +23,45 @@ data_cube_path = Path(settings["hector"]["data_cube_path"])
 eline_fit_path = input_path / "emission_cubes"
 stekin_path = input_path / "initial_stel_kin"
 continuum_fit_path = input_path / "cont_subtracted"
+input_catalogue_path = Path(pkgutil.get_loader(__name__).get_filename()).parent.parent / "data"
+
+# Filenames
 input_catalogue_fname = "0_2cubed_galaxies_v0_01.txt"
 
 
 def get_filenames():
-    """
-    Return a DataFrame containing galaxies with at least one data product + associated file names.
-    Putting this in its own function because the file structure is complicated and subject to change...
+    """Returns a DataFrame containing galaxies with at least one data product + associated file names.
+    The index of the returned DataFrame contains strings with format
+        <numerical galaxy ID>_<tile> e.g. "901005167908374_T023"
+    in order to account for galaxies observed on multiple tiles.
     """
     # Get ALL filenames
-    all_data_cube_files = glob(str(data_cube_path) + "/**/*.fits", recursive=True)
+    all_data_cube_files = glob(str(data_cube_path) + "/**/*.fits*", recursive=True)
     data_cube_files_B = [Path(f) for f in all_data_cube_files if "blue" in f]
     data_cube_files_R = [Path(f) for f in all_data_cube_files if "red" in f]
     
-    all_continuum_fit_files = glob(str(continuum_fit_path) + "/**/*.fits", recursive=True)
+    all_continuum_fit_files = glob(str(continuum_fit_path) + "/**/*.fits*", recursive=True)
     continuum_fit_files_B = [Path(f) for f in all_continuum_fit_files if "blue" in f]
     continuum_fit_files_R = [Path(f) for f in all_continuum_fit_files if "red" in f]
     
-    stekin_files = [Path(f) for f in glob(str(stekin_path) + "/**/*.fits", recursive=True)]
+    stekin_files = [Path(f) for f in glob(str(stekin_path) + "/**/*.fits*", recursive=True)]
 
-    all_eline_fit_files = glob(str(eline_fit_path) + "/**/*.fits", recursive=True)
-    eline_fit_files_reccomp = [Path(f) for f in all_eline_fit_files if f.endswith(".fits") and "reccomp" in f]
-    eline_fit_files_1comp = [Path(f) for f in all_eline_fit_files if f.endswith(".fits") and "1comp" in f]
-    eline_fit_files_2comp = [Path(f) for f in all_eline_fit_files if f.endswith(".fits") and "2comp" in f]
-    eline_fit_files_3comp = [Path(f) for f in all_eline_fit_files if f.endswith(".fits") and "3comp" in f]
+    all_eline_fit_files = glob(str(eline_fit_path) + "/**/*.fits*", recursive=True)
+    eline_fit_files_reccomp = [Path(f) for f in all_eline_fit_files if (f.endswith(".fits") or f.endswith(".fits.gz")) and "reccomp" in f]
+    # TODO: uncomment when implementing 1/2/3-component fits 
+    # eline_fit_files_1comp = [Path(f) for f in all_eline_fit_files if (f.endswith(".fits") or f.endswith(".fits.gz")) and "1comp" in f]
+    # eline_fit_files_2comp = [Path(f) for f in all_eline_fit_files if (f.endswith(".fits") or f.endswith(".fits.gz")) and "2comp" in f]
+    # eline_fit_files_3comp = [Path(f) for f in all_eline_fit_files if (f.endswith(".fits") or f.endswith(".fits.gz")) and "3comp" in f]
+    # END TODO: uncomment when implementing 1/2/3-component fits 
 
     # Now, check that each of these has each of Gabby's data products 
     ids_with_initial_stel_kin = [f.stem.split("_initial_kinematics")[0] for f in stekin_files]
-    # ids_with_initial_stel_kin = [g for g in set([f.split("_initial_kinematics")[0] for f in os.listdir(stekin_path) if f.endswith(".fits")])    ]
     logger.info(f"len(ids_with_initial_stel_kin) = {len(ids_with_initial_stel_kin)}")
 
     ids_with_cont_subtracted = [f.stem.split("_blue_stel_subtract_final")[0] for f in continuum_fit_files_B]
-    # ids_with_cont_subtracted = [g for g in set([f.split("_blue_stel_subtract_final")[0] for f in os.listdir(continuum_fit_path) if f.endswith(".fits") and "blue" in f])    ]
     logger.info(f"len(ids_with_cont_subtracted) = {len(ids_with_cont_subtracted)}")
 
     ids_with_emission_cubes = [f.stem.split("_reccomp")[0] for f in eline_fit_files_reccomp]
-    # ids_with_emission_cubes = [g for g in set([f.split("_reccomp")[0] for f in os.listdir(eline_fit_path) if f.endswith(".fits") and "rec" in f])]
     logger.info(f"len(ids_with_emission_cubes) = {len(ids_with_emission_cubes)}")
 
     ids_with_all_data_products = list(set(ids_with_initial_stel_kin) & set(ids_with_cont_subtracted) & set(ids_with_emission_cubes))
@@ -74,9 +78,11 @@ def get_filenames():
         "Red continuum fit FITS file",
         "Stellar kinematics FITS file",
         f"rec-component fit emission line FITS file",
-        f"1-component fit emission line FITS file",
-        f"2-component fit emission line FITS file",
-        f"3-component fit emission line FITS file",
+        # TODO: uncomment when implementing 1/2/3-component fits 
+        # f"1-component fit emission line FITS file",
+        # f"2-component fit emission line FITS file",
+        # f"3-component fit emission line FITS file",
+        # END TODO: uncomment when implementing 1/2/3-component fits 
     ]
     file_lists = [
         data_cube_files_B,
@@ -85,12 +91,12 @@ def get_filenames():
         continuum_fit_files_R,
         stekin_files,
         eline_fit_files_reccomp,
-        eline_fit_files_1comp,
-        eline_fit_files_2comp,
-        eline_fit_files_3comp,
+        # TODO: uncomment when implementing 1/2/3-component fits 
+        # eline_fit_files_1comp,
+        # eline_fit_files_2comp,
+        # eline_fit_files_3comp,
+        # END TODO: uncomment when implementing 1/2/3-component fits 
     ]
-
-    # TODO check for duplicate galaxies - discard whichever comes second in the list
 
     # Now, hunt down the data cubes with the same gal AND tile number 
     for id_str in ids_all:
@@ -216,10 +222,12 @@ def make_metadata_df():
         "Stellar kinematics FITS file",
         "Blue continuum fit FITS file",
         "Red continuum fit FITS file",
-        f"1-component fit emission line FITS file",
-        f"2-component fit emission line FITS file",
-        f"3-component fit emission line FITS file",
         f"rec-component fit emission line FITS file",
+        # TODO: uncomment when implementing 1/2/3-component fits 
+        # f"1-component fit emission line FITS file",
+        # f"2-component fit emission line FITS file",
+        # f"3-component fit emission line FITS file",
+        # END TODO: uncomment when implementing 1/2/3-component fits 
     ]:
         df_metadata[col] = ""
 
@@ -273,11 +281,18 @@ def make_metadata_df():
         assert os.path.exists(cont_fit_R_fname)
 
         # Get FITS filenames for emission line fit data products
-        eline_fit_fnames = []
-        for ncomponents in [1, 2, 3, "rec"]:
-            eline_fit_fname = df_filenames.loc[gal, f"{ncomponents}-component fit emission line FITS file"]
-            eline_fit_fnames.append(eline_fit_fname)
-            assert os.path.exists(eline_fit_fname)
+        # TODO: uncomment when implementing 1/2/3-component fits 
+        # eline_fit_fnames = []
+        # for ncomponents in [1, 2, 3, "rec"]:
+        #     eline_fit_fname = df_filenames.loc[gal, f"{ncomponents}-component fit emission line FITS file"]
+        #     eline_fit_fnames.append(eline_fit_fname)
+        #     assert os.path.exists(eline_fit_fname)
+        # END TODO: uncomment when implementing 1/2/3-component fits 
+        # TODO: remove when implementing 1/2/3-component fits 
+        eline_fit_fname = df_filenames.loc[gal, f"rec-component fit emission line FITS file"]
+        eline_fit_fnames = [eline_fit_fname]
+        assert os.path.exists(eline_fit_fname)
+        # END TODO: remove when implementing 1/2/3-component fits 
 
         # Get redshift & calculate distances 
         with fits.open(stekin_fname) as hdulist_stekin:
@@ -310,12 +325,18 @@ def make_metadata_df():
         df_metadata.loc[gal, "Stellar kinematics FITS file"] = str(stekin_fname)
         df_metadata.loc[gal, "Blue continuum fit FITS file"] = str(cont_fit_B_fname)
         df_metadata.loc[gal, "Red continuum fit FITS file"] = str(cont_fit_R_fname)
-        for ncomponents, eline_fit_fname in zip([1, 2, 3, "rec"], eline_fit_fnames): 
-            df_metadata.loc[gal, f"{ncomponents}-component fit emission line FITS file"] = str(eline_fit_fname)
+        # TODO: uncomment when implementing 1/2/3-component fits 
+        # for ncomponents, eline_fit_fname in zip([1, 2, 3, "rec"], eline_fit_fnames): 
+        #     df_metadata.loc[gal, f"{ncomponents}-component fit emission line FITS file"] = str(eline_fit_fname)
+        # END TODO: uncomment when implementing 1/2/3-component fits 
+        # TODO: remove when implementing 1/2/3-component fits 
+        df_metadata.loc[gal, f"rec-component fit emission line FITS file"] = str(eline_fit_fnames[0])
+        # END TODO: remove when implementing 1/2/3-component fits 
+
 
     # Merge with catalogue containing magnitudes & stellar masses
-    columns = pd.read_csv(input_path / input_catalogue_fname, nrows=1, delim_whitespace=True, header=None).drop(0, axis=1).values.tolist()[0]
-    df_other = pd.read_csv(input_path / input_catalogue_fname, delim_whitespace=True, comment="#", header=None, names=columns)
+    columns = pd.read_csv(input_catalogue_path / input_catalogue_fname, nrows=1, delim_whitespace=True, header=None).drop(0, axis=1).values.tolist()[0]
+    df_other = pd.read_csv(input_catalogue_path / input_catalogue_fname, delim_whitespace=True, comment="#", header=None, names=columns)
     df_other = df_other.set_index("ID")
     df_metadata_merged = df_metadata.merge(df_other, left_index=True, right_index=True, how="left")
     # Double-check that the redshifts match between tables - if not then the catalogue IDs have changed!! 

@@ -1,12 +1,10 @@
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from astropy.visualization import hist
+    import sys
 
     from spaxelsleuth import load_user_config
-    try:
-        load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
-    except FileNotFoundError:
-        load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
+    load_user_config(sys.argv[1])
     from spaxelsleuth.io.io import make_metadata_df, make_df, load_metadata_df, load_df
     from spaxelsleuth.plotting.plottools import plot_empty_BPT_diagram, plot_BPT_lines
     from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours, plot2dscatter

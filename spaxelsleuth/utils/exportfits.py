@@ -9,6 +9,7 @@ import warnings
 from spaxelsleuth import __version__
 from spaxelsleuth.config import settings
 from spaxelsleuth.utils.linefns import bpt_dict
+from spaxelsleuth.io.io import load_metadata_df, load_df, get_df_fname
 
 import logging
 logger = logging.getLogger(__name__)
@@ -71,9 +72,7 @@ header_strs = {
     "rec-component fit emission line FITS file": "RECCOMP",
 }
 
-
-# TODO these need to be added back in, in a new section
-bad_keys = [
+input_filenames = [
     "Blue data cube FITS file",
     "Red data cube FITS file",
     "Stellar kinematics FITS file",
@@ -95,17 +94,83 @@ def replace_unicode_chars(s):
 
 
 def export_fits(
-    df, 
-    df_metadata, 
-    gals=None, 
+    survey,
     cols_to_store_no_suffixes=None, 
-    include_data_cubes=False,
+    gals_to_export=None,
     fname_suffix="",
+    **kwargs,
 ):
-    """Export a multi-extension FITS file from columns in df."""
+    """Export a multi-extension FITS file for each galaxy containing 2D maps for specified columns in a spaxelsleuth DataFrame.
 
-    # Get survey name
-    survey = df["survey"].unique()[0]
+    This function exports multi-extension FITS files for galaxies in a spaxelsleuth 
+    DataFrame created using io.make_df(). 
+    
+    Each column in the DataFrame is stored as a 2D or 3D map depending on the 
+    dimensionality of the column. For example, quantities with multiple associated 
+    components - e.g., HALPHA fluxes (with columns "HALPHA (component 1)", "HALPHA 
+    (component 2)", etc.) are stored as 3D arrays with dimensions M x N_y x N_x
+    where (N_x, N_y) is the size in pixels of the 2D maps and the number of slices 
+    M is equal to ncomponents + 1, with slices as follows:
+
+        slice 0: "total" measurement, e.g. "HALPHA (total)". 
+            NOTE: for kinematic quantities for which the "total" measurement is undefined, e.g. "v_gas", slice 0 is all NaN.
+        slice 1: "component 1" measurement, e.g. "HALPHA (component 1)" 
+        slice 2: "component 1" measurement, e.g. "HALPHA (component 2)"
+
+    and so on. All other quantities are simply stored as 2D maps with dimensions 
+    (N_x, N_y). 
+
+    Metadata for each galaxy is taken from the corresponding "metadata" DataFrame 
+    (loaded by io.load_metadata_df()) and is stored as keywords in the header 
+    of the Primary HDU in the output FITS files. This header also records the 
+    parameters used to generate the input DataFrame, the spaxelsleuth version
+    and the time and date of creation.
+
+    INPUTS
+    ---------------------------------------------------------------------------
+    survey:                     str
+        Survey name, e.g. "sami", "hector". Must be an entry in settings. 
+        Currently only "hector" is supported.    
+
+    cols_to_store_no_suffixes:  list of str (optional)
+        Columns to include in the FITS files. These must have any component-wise
+        suffixes trimmed - e.g. "HALPHA" and not "HALPHA (component 1)".
+
+    gals_to_export:             list (optional)
+        List of galaxies for which to export FITS files. Not to be confused with
+        "gals", which is an input to load_df() and determines which DataFrame is 
+        loaded.
+
+    fname_suffix:               str 
+        Suffix to add to the output FITS filenames.    
+
+    kwargs:                     optional input arguments
+        Keyword arguments that are passed to io.load_df(). See the docstring
+        for more details.
+        
+    RETURNS
+    ---------------------------------------------------------------------------
+    None.
+
+    OUTPUTS
+    ---------------------------------------------------------------------------
+    Multi-extension FITS files for each galaxy. 
+
+    The output FITS files have the naming convention 
+
+        f"{gal}_data_products_{fname_suffix}.fits"
+
+    and are saved to the directory specified in the config file as 
+
+        settings[survey]["fits_output_path"] 
+    
+    """
+    if survey != "hector":
+        raise ValueError("exporting FITS files is only supported for hector :(")
+
+    # Load DataFrame
+    df_metadata = load_metadata_df(survey=survey)
+    df, ss_params = load_df(survey=survey, **kwargs)
 
     # Get number of components
     if df["ncomponents"].unique()[0] == "rec":
@@ -128,10 +193,10 @@ def export_fits(
         )
     assert not any(
         ["(component" in c for c in cols_to_store_no_suffixes]
-    ), "columns must not contain any suffixes, e.g. '(component N)' or '(total)'!"
+    ), "columns must not contain any suffixes, e.g. '(component 1)' or '(total)'!"
     assert not any(
         ["(total" in c for c in cols_to_store_no_suffixes]
-    ), "columns must not contain any suffixes, e.g. '(component N)' or '(total)'!"
+    ), "columns must not contain any suffixes, e.g. '(component 1)' or '(total)'!"
 
     # Figure out which columns have associated components
     cols_2d_no_suffixes = []
@@ -154,10 +219,14 @@ def export_fits(
             cols_2d_no_suffixes.append(col)
 
     # Determine list of galaxies for which to create FITS files
-    if gals is None:
-        gals = df["ID"].unique()
+    if gals_to_export is None:
+        gals_to_export = df["ID"].unique()
+    else:
+        for gal in gals_to_export:
+            if gal not in df["ID"].values:
+                raise ValueError(f"Galaxy {gal} was not found in the DataFrame!")
 
-    for gal in gals:
+    for gal in gals_to_export:
         # Get subset of rows belonging to this galaxy
         df_gal = df.loc[df["ID"] == gal]
 
@@ -175,7 +244,7 @@ def export_fits(
         phdu = fits.PrimaryHDU()
         phdu.header["SURVEY"] = survey
         lastkey = "SURVEY"
-        for col in [c for c in df_metadata.columns if c not in bad_keys]:
+        for col in [c for c in df_metadata.columns if c not in input_filenames]:
             value = df_metadata.loc[gal, col]
             if isinstance(value, float):
                 if np.isnan(value):
@@ -189,7 +258,6 @@ def export_fits(
                 col,
             )
         # Append section header
-        # I can't believe that this is the only way to get the comment to go where I want it to go... fml
         phdu.header.insert(lastkey, ("", ""), after=True)
         phdu.header.insert(lastkey, ("", "Galaxy metadata"), after=True)
         phdu.header.insert(lastkey, ("", ""), after=True)
@@ -212,18 +280,18 @@ def export_fits(
 
         # Add filenames to Primary HDU
         lastkey = "NOTES"
-        for col in bad_keys:
-            value = df_metadata.loc[gal, col]
-            if col in header_strs:
-                key = header_strs[col]
-            else:
-                key = col
-            phdu.header[key] = (
-                replace_unicode_chars(value) if type(value) == str else value,
-                col,
-            )
+        for col in input_filenames:
+            if col in df_metadata:
+                value = df_metadata.loc[gal, col]
+                if col in header_strs:
+                    key = header_strs[col]
+                else:
+                    key = col
+                phdu.header[key] = (
+                    replace_unicode_chars(value) if type(value) == str else value,
+                    col,
+                )
         # Append section header
-        # I can't believe that this is the only way to get the comment to go where I want it to go... fml
         phdu.header.insert(lastkey, ("", ""), after=True)
         phdu.header.insert(lastkey, ("", "Input FITS files"), after=True)
         phdu.header.insert(lastkey, ("", ""), after=True)
@@ -234,6 +302,8 @@ def export_fits(
             f"{datetime.datetime.fromtimestamp(time())}",
             "Date/time modified",
         )
+        phdu.header["FNAME"] = (get_df_fname(**dict(ss_params)), "Input Spaxelsleuth DataFrame filename")
+        phdu.header["TSTAMP"] = (ss_params["timestamp"], "Input Spaxelsleuth DataFrame timestamp")
         phdu.header["VERSION"] = (__version__, "Spaxelsleuth version")
         phdu.header["AUTHOR"] = "Henry Zovaro"
         # Append section header
@@ -241,34 +311,6 @@ def export_fits(
         phdu.header.insert(lastkey, ("", "Other info"), after=True)
         phdu.header.insert(lastkey, ("", ""), after=True)
         hdulist.append(phdu)
-
-        # Add the data and variance cubes
-        if include_data_cubes:
-            for side in ["blue", "red"]:
-                # Open the DataCube
-                datacube_fname = df_metadata.loc[gal, "Blue data cube FITS file"]
-                with fits.open(datacube_fname) as hdulist_cube:
-                    header = hdulist_cube[0].header
-                    data_cube = hdulist_cube[0].data
-                    var_cube = hdulist_cube[1].data
-
-                    # Create the HDU
-                    hdu = fits.ImageHDU(data=data_cube)
-                    for axis, key in product(
-                        ["1", "2", "3"], ["CRVAL", "CRPIX", "CDELT", "CUNIT"]
-                    ):
-                        hdu.header[key + axis] = header[key + axis]
-                    hdu.header["BUNIT"] = header["BUNIT"]
-                    hdu.header["EXTNAME"] = f"Data cube - {side}"
-                    hdulist.append(hdu)
-                    hdu = fits.ImageHDU(data=var_cube)
-                    for axis, key in product(
-                        ["1", "2", "3"], ["CRVAL", "CRPIX", "CDELT", "CUNIT"]
-                    ):
-                        hdu.header[key + axis] = header[key + axis]
-                    hdu.header["BUNIT"] = header["BUNIT"]
-                    hdu.header["EXTNAME"] = f"Variance cube - {side}"
-                    hdulist.append(hdu)
 
         # Extract 2D maps corresponding to each column in df_gal
         _2d_maps = {}

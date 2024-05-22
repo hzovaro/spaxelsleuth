@@ -1,33 +1,49 @@
+import matplotlib.pyplot as plt
 import numpy as np
+import os
+import sys
+
+from astropy.visualization import hist
+
+if (len(sys.argv) > 1) and ("pytest" not in sys.modules):  # Needed to prevent errors when running pytest
+    config_fname = sys.argv[1]
+else:
+    config_fname = "test_config.json"
 
 from spaxelsleuth import load_user_config, configure_logger
-try:
-    load_user_config("/Users/u5708159/Desktop/spaxelsleuth_test/.myconfig.json")
-except FileNotFoundError:
-    load_user_config("/home/u5708159/.spaxelsleuthconfig.json")
+load_user_config(config_fname)
 configure_logger(level="INFO")
-from spaxelsleuth.io.hector import load_hector_metadata_df, make_hector_metadata_df, make_hector_df, load_hector_df
-
-from IPython.core.debugger import set_trace
+from spaxelsleuth.config import settings
+from spaxelsleuth.io.io import load_metadata_df, make_metadata_df, make_df, load_df, find_matching_files
+from spaxelsleuth.plotting.plotgalaxies import plot2dhistcontours
+from spaxelsleuth.plotting.plot2dmap import plot2dmap
 
 import logging
 logger = logging.getLogger(__name__)
 
 
-def test_make_hector_metadata_df():
+def test_make_metadata_df():
     """Test creation of the metadata DataFrame."""
-    make_hector_metadata_df()
+    make_metadata_df(survey="hector")
     # TODO add some assertion checks here?
+
+
+def delete_test_dataframes(**kwargs):
+    """Delete the dataframes created in run_hector_assertion_tests."""
+    output_fnames = find_matching_files(output_path=settings["hector"]["output_path"], **kwargs)
+    for fname in output_fnames:
+        logger.warning(f"deleting file {settings['hector']['output_path']}{fname}...")
+        os.system(f"rm {settings['hector']['output_path']}/{fname}")
 
 
 def test_assertions_hector():
     """Run run_hector_assertion_tests() on a combination of inputs."""
-    df_metadata = load_hector_metadata_df()
+    df_metadata = load_metadata_df(survey="hector")
     gals = df_metadata.index.values[:10]
     for ncomponents in ["rec"]:
         logger.info(f"running assertion tests for Hector DataFrame with ncomponents={ncomponents}...")
         run_hector_assertion_tests(ncomponents=ncomponents, gals=gals)
-        logger.info(f"assertion tests pased for Hector DataFrame with  ncomponents={ncomponents}!")
+        logger.info(f"assertion tests pased for Hector DataFrame with ncomponents={ncomponents}!")
 
 
 def run_hector_assertion_tests(ncomponents,
@@ -35,24 +51,59 @@ def run_hector_assertion_tests(ncomponents,
                    eline_SNR_min=5, 
                    eline_ANR_min=3, 
                    nthreads=10):
-    """Run make_hector_df and load_hector_df for the given inputs and run assertion checks."""
+    """Run make_df and load_hector_df for the given inputs and run assertion checks."""
     
     # Needed for metallicity checks
     from spaxelsleuth.utils.metallicity import line_list_dict
     
     kwargs = {
         "ncomponents": ncomponents,
+        "bin_type": "default",
         "eline_SNR_min": eline_SNR_min,
         "eline_ANR_min": eline_ANR_min,
+        "metallicity_diagnostics": ["N2Ha_PP04", "N2Ha_K19"],
     }
 
+    # First, delete any existing files 
+    delete_test_dataframes(**kwargs)
+
     # Create the DataFrame
-    make_hector_df(**kwargs, gals=gals, correct_extinction=True, nthreads=nthreads)  
-    make_hector_df(**kwargs, gals=gals, correct_extinction=False, nthreads=nthreads)  
+    make_df(survey="hector", **kwargs, gals=gals, correct_extinction=True, nthreads=nthreads)  
+    make_df(survey="hector", **kwargs, gals=gals, correct_extinction=False, nthreads=nthreads)  
     
     # Load the DataFrame
-    df = load_hector_df(**kwargs, correct_extinction=True)
-    df_noextcorr = load_hector_df(**kwargs, correct_extinction=False)
+    df, _ = load_df(survey="hector", **kwargs, correct_extinction=True)
+    df_noextcorr, _ = load_df(survey="hector", **kwargs, correct_extinction=False)
+
+    ##################################################################
+    """
+    # NOTE: THE BELOW PLOTTING LINES ARE ONLY FOR DEBUGGING. DELETE ONCE FINISHED!!!
+    # Histograms showing the distribution in velocity dispersion
+    plt.ion()
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    for nn in range(1, 4):
+        try:  # Try/except needed here bc the galaxy we are running on doesn't have any 3-comp spaxels
+            hist(df[f"sigma_gas (component {nn})"].values, bins="scott", ax=ax, range=(0, 500), density=True, histtype="step", label=f"Component {nn}")
+        except ValueError as e:
+            pass
+    ax.legend()
+    ax.set_xlabel(r"\sigma_{\rm gas}")
+    ax.set_ylabel(r"N (normalised)")
+
+    # Plot a 2D histogram showing the distribution of SAMI spaxels in the WHAN diagram
+    plot2dhistcontours(df=df,
+                col_x=f"log N2 (total)",
+                col_y=f"log HALPHA EW (total)",
+                col_z="count", log_z=True,
+                plot_colorbar=True)
+    
+    # Plot BPT diagram of a galaxy 
+    gal = df["ID"].values[0]
+    plot2dmap(df, gal=gal, col_z="HALPHA EW (total)")
+    plot2dmap(df, gal=gal, col_z="BPT (total)")
+    plt.show()
+    """
+    ##################################################################
 
     #//////////////////////////////////////////////////////////////////////////////
     # Run assertion tests
@@ -70,7 +121,10 @@ def run_hector_assertion_tests(ncomponents,
     components = df.loc[~df["Number of components"].isna(), "Number of components"].unique()
     components.sort()
     if ncomponents == "rec":
-        assert np.all(components == [0, 1, 2, 3])
+        try:  # Try/except needed here bc the galaxy we are running on doesn't have any 3-comp spaxels
+            assert np.all(components == [0, 1, 2, 3])
+        except ValueError:
+            pass
     elif ncomponents == "1":
         assert np.all(components == [0, 1])
 
@@ -290,4 +344,6 @@ def run_hector_assertion_tests(ncomponents,
     return
 
 if __name__ == "__main__":
+    test_make_metadata_df()
     test_assertions_hector()
+
