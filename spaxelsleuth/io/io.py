@@ -188,6 +188,10 @@ def make_df(survey,
         measurements are not available, and so applying the correction only to the 
         Halpha fluxes may over-estimate the true EW.
 
+    gals:                       list 
+        List of galaxies for which to create the DataFrame. If unspecified, make_df()
+        will be run on ALL galaxies for which the input files are present. 
+
     sigma_gas_SNR_min:          float (optional)
         Minimum velocity dipersion S/N to accept. Defaults to 3.
 
