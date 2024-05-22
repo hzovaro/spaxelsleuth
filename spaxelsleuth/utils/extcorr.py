@@ -105,13 +105,13 @@ def compute_A_V(df,
 
     # Check that HALPHA and HBETA are in the DataFrame 
     if ("HALPHA" not in df) or ("HBETA" not in df):
-        logger.warn(f"HALPHA and/or HBETA are not in the DataFrame, so extinction cannot be calculated.")
+        logger.warning(f"HALPHA and/or HBETA are not in the DataFrame, so extinction cannot be calculated.")
     else:
         # Determine which reddening curve to use
         if reddening_curve.lower() == "fm07":
             ext_fn = extinction.fm07
             if R_V != 3.1:
-                logger.warn(f"R_V is fixed at 3.1 in the FM07 reddening curve. Ignoring supplied R_V value of {R_V:.2f}...")
+                logger.warning(f"R_V is fixed at 3.1 in the FM07 reddening curve. Ignoring supplied R_V value of {R_V:.2f}...")
         elif reddening_curve.lower() == "ccm89":
             ext_fn = extinction.ccm89
         elif reddening_curve.lower() == "fitzpatrick99":
@@ -119,7 +119,7 @@ def compute_A_V(df,
         elif reddening_curve.lower() == "calzetti00":
             ext_fn = extinction.calzetti00
             if R_V != 4.05:
-                logger.warn(f"R_V should be set to 4.05 for the calzetti00 reddening curve. Using supplied R_V value of {R_V:.2f}...")
+                logger.warning(f"R_V should be set to 4.05 for the calzetti00 reddening curve. Using supplied R_V value of {R_V:.2f}...")
         else:  
             raise ValueError("For now, 'reddening_curve' must be one of 'fm07', 'fitzpatrick99', 'ccm89' or 'calzetti00'!")
 

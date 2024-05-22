@@ -187,7 +187,7 @@ def plot_cutout_image(
     # Load image
     if reload_image or (not os.path.exists(cutout_path / f"{source}_{gal}_{sz_px}px_{as_per_px}asperpx.jpg")):
         # Download the image
-        logger.warn(f"file {cutout_path / f'{source}_{gal}_{sz_px}px_{as_per_px}asperpx.jpg'} not found. Retrieving image from decals...")
+        logger.warning(f"file {cutout_path / f'{source}_{gal}_{sz_px}px_{as_per_px}asperpx.jpg'} not found. Retrieving image from decals...")
         if not download_image(source=source, gal=gal, ra_deg=ra_deg, dec_deg=dec_deg,
                        as_per_px=as_per_px, sz_px=sz_px):
             return None

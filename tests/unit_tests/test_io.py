@@ -18,9 +18,6 @@ output_path = Path(settings["sami"]["output_path"])
 
 def test_find_matching_files():
     """Unit test for io.find_matching_files()."""
-
-    # TODO we can push outputs to GitHub bc the files are small... but don't want to generate them on-the-fly because we need to know the timestamps and stuff. Could re-make them but with only 1-2 galaxies to save space... 
-
     make_dataframes_again = False
     output_fnames = [f for f in os.listdir("../output/io/") if "metadata" not in f and "snrs" not in f]
     if make_dataframes_again:

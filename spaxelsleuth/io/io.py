@@ -116,7 +116,7 @@ def make_df(survey,
             nthreads=None,
             df_fname_tag=None,
             **kwargs):
-    """Make a spaxelsleuth DataFrame, where each row represents a single spaxel in a SAMI galaxy.
+    """Make a spaxelsleuth DataFrame, where each row represents a single spaxel in a galaxy.
 
     DESCRIPTION
     ---------------------------------------------------------------------------
@@ -187,6 +187,10 @@ def make_df(survey,
         correct_extinction is True. This is because stellar continuum extinction 
         measurements are not available, and so applying the correction only to the 
         Halpha fluxes may over-estimate the true EW.
+
+    gals:                       list 
+        List of galaxies for which to create the DataFrame. If unspecified, make_df()
+        will be run on ALL galaxies for which the input files are present. 
 
     sigma_gas_SNR_min:          float (optional)
         Minimum velocity dipersion S/N to accept. Defaults to 3.

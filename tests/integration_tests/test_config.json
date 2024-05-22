@@ -5,5 +5,11 @@
         "reference_output_path": "../reference/sami/",
         "input_path": "../data/sami/",
         "data_cube_path": "../data/sami/"
+    },
+    "hector": {
+        "output_path": "../output/hector/",
+        "reference_output_path": "../reference/hector/",
+        "input_path": "../data/hector/",
+        "data_cube_path": "../data/hector/cubes"
     }
 }

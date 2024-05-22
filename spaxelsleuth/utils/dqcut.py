@@ -729,7 +729,7 @@ def apply_flags(df,
         
         else:
             # Base decision only on sigma_gas.
-            logger.warn("using only sigma_gas to define 'missing components'...")
+            logger.warning("using only sigma_gas to define 'missing components'...")
             if all([col in df for col in [f"sigma_gas (component 1)", f"sigma_gas (component 2)", f"sigma_gas (component 3)"]]):
                 cond_has_3 = ~np.isnan(df["sigma_gas (component 1)"]) &\
                             ~np.isnan(df["sigma_gas (component 2)"]) &\
